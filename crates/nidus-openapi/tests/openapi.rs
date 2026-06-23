@@ -91,6 +91,23 @@ fn openapi_document_can_be_generated_from_route_metadata() {
     );
 }
 
+#[test]
+fn openapi_document_can_be_generated_from_controller_route_metadata() {
+    let routes = [RouteMetadata::with_summary(
+        "GET",
+        "/:id",
+        "Find user by ID",
+    )];
+
+    let document = OpenApiDocument::from_controller_routes("Nidus API", "0.1.0", "/users", &routes);
+
+    let json = document.to_json_value();
+    assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["summary"],
+        "Find user by ID"
+    );
+}
+
 #[tokio::test]
 async fn openapi_document_serves_json_and_docs_routes() {
     let router = OpenApiDocument::new("Nidus API", "0.1.0")

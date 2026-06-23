@@ -18,4 +18,16 @@ let document = OpenApiDocument::new("Nidus API", "0.1.0")
     );
 ```
 
-Future route macros should feed this metadata automatically while keeping generated code inspectable.
+Generated route metadata can also seed a document directly:
+
+```rust
+let document = OpenApiDocument::from_controller_routes(
+    "Nidus API",
+    "0.1.0",
+    UsersController::controller_prefix(),
+    &UsersController::routes(),
+);
+```
+
+This keeps controller prefixes and route paths explicit while reusing the same
+normalization rules as the HTTP router.

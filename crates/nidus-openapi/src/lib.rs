@@ -62,6 +62,23 @@ impl OpenApiDocument {
         document
     }
 
+    /// Creates an OpenAPI document from a controller prefix and generated route metadata.
+    pub fn from_controller_routes(
+        title: impl Into<String>,
+        version: impl Into<String>,
+        controller_prefix: &str,
+        routes: &[RouteMetadata],
+    ) -> Self {
+        let mut document = Self::new(title, version);
+        for route in routes {
+            document = document.route(OpenApiRoute::from_route_metadata_at_path(
+                route,
+                route.full_path(controller_prefix),
+            ));
+        }
+        document
+    }
+
     /// Renders the document as JSON.
     pub fn to_json_value(&self) -> Value {
         let mut paths = serde_json::Map::new();
@@ -174,9 +191,13 @@ impl OpenApiRoute {
     }
 
     fn from_route_metadata(metadata: &RouteMetadata) -> Self {
+        Self::from_route_metadata_at_path(metadata, metadata.path())
+    }
+
+    fn from_route_metadata_at_path(metadata: &RouteMetadata, path: impl AsRef<str>) -> Self {
         let mut route = Self::new(
             metadata.method().to_ascii_lowercase(),
-            openapi_path(metadata.path()),
+            openapi_path(path.as_ref()),
         );
         if let Some(summary) = metadata.summary() {
             route = route.summary(summary);
