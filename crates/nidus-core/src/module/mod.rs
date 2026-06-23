@@ -132,6 +132,7 @@ impl ModuleGraph {
         }
         graph.validate_imports_exist()?;
         graph.validate_acyclic()?;
+        graph.validate_local_providers_unique()?;
         graph.validate_exports_are_local()?;
         graph.validate_visible_providers_unambiguous()?;
         tracing::debug!(module_count = graph.modules.len(), "module graph validated");
@@ -164,6 +165,21 @@ impl ModuleGraph {
 
         for name in self.modules.keys() {
             self.visit(name, &mut visiting, &mut visited, &mut stack)?;
+        }
+        Ok(())
+    }
+
+    fn validate_local_providers_unique(&self) -> Result<()> {
+        for module in self.modules.values() {
+            let mut seen = HashSet::new();
+            for provider in &module.providers {
+                if !seen.insert(provider) {
+                    return Err(NidusError::DuplicateModuleProvider {
+                        module: module.name.clone(),
+                        provider: provider.clone(),
+                    });
+                }
+            }
         }
         Ok(())
     }
