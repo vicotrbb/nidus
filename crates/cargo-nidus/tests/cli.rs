@@ -69,21 +69,29 @@ fn cargo_nidus_new_refuses_to_overwrite_existing_project() {
 #[test]
 fn cargo_nidus_generate_writes_rust_artifact_scaffolds() {
     let root = temp_project_root("generate_writes_rust_artifact_scaffolds");
-    for (kind, expected_path, expected_content) in [
-        ("module", "src/modules/users.rs", "pub struct UsersModule;"),
+    for (kind, expected_path, expected_mod_rs, expected_content) in [
+        (
+            "module",
+            "src/modules/users.rs",
+            "src/modules/mod.rs",
+            "pub struct UsersModule;",
+        ),
         (
             "controller",
             "src/controllers/users.rs",
+            "src/controllers/mod.rs",
             "#[controller(\"/users\")]",
         ),
         (
             "service",
             "src/services/users.rs",
+            "src/services/mod.rs",
             "pub struct UsersService;",
         ),
         (
             "repository",
             "src/repositories/users.rs",
+            "src/repositories/mod.rs",
             "pub struct UsersRepository;",
         ),
     ] {
@@ -96,7 +104,34 @@ fn cargo_nidus_generate_writes_rust_artifact_scaffolds() {
 
         let contents = fs::read_to_string(root.join(expected_path)).unwrap();
         assert!(contents.contains(expected_content));
+        let module_index = fs::read_to_string(root.join(expected_mod_rs)).unwrap();
+        assert!(module_index.contains("pub mod users;"));
     }
+}
+
+#[test]
+fn cargo_nidus_generate_maintains_directory_module_indexes() {
+    let root = temp_project_root("generate_maintains_directory_module_indexes");
+    for name in ["users", "accounts"] {
+        let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+            .args(["nidus", "generate", "service", name, "--path"])
+            .arg(&root)
+            .status()
+            .unwrap();
+        assert!(status.success());
+    }
+
+    let duplicate = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "generate", "service", "users", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+    assert!(!duplicate.status.success());
+
+    let mod_rs = fs::read_to_string(root.join("src/services/mod.rs")).unwrap();
+    assert!(mod_rs.contains("pub mod accounts;"));
+    assert!(mod_rs.contains("pub mod users;"));
+    assert_eq!(mod_rs.matches("pub mod users;").count(), 1);
 }
 
 #[test]

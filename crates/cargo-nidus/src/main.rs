@@ -174,7 +174,8 @@ fn generate_artifact(kind: &str, name: &str, root: &Path) -> Result<()> {
     if path.exists() {
         bail!("artifact already exists: {}", path.display());
     }
-    write(&path, &artifact(kind, name))
+    write(&path, &artifact(kind, name))?;
+    update_module_index(&directory, name)
 }
 
 fn ensure_supported_artifact(kind: &str) -> Result<()> {
@@ -444,6 +445,34 @@ fn generate_openapi(root: &Path) -> Result<()> {
 
 fn write(path: &Path, contents: &str) -> Result<()> {
     fs::write(path, contents).with_context(|| format!("writing {}", path.display()))
+}
+
+fn update_module_index(directory: &Path, name: &str) -> Result<()> {
+    let path = directory.join("mod.rs");
+    let entry = format!("pub mod {name};");
+    let mut entries = if path.exists() {
+        fs::read_to_string(&path)
+            .with_context(|| format!("reading {}", path.display()))?
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .map(str::to_owned)
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
+
+    if !entries.iter().any(|existing| existing == &entry) {
+        entries.push(entry);
+        entries.sort();
+    }
+
+    let contents = if entries.is_empty() {
+        String::new()
+    } else {
+        format!("{}\n", entries.join("\n"))
+    };
+    write(&path, &contents)
 }
 
 fn pluralize(kind: &str) -> String {

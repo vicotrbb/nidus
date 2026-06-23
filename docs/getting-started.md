@@ -15,6 +15,7 @@ cargo run
 ```
 
 `cargo nidus new` refuses to overwrite an existing destination directory.
+Generated artifacts are written under their feature directory and the matching `mod.rs` index is updated.
 
 The generated project starts as a small Axum server and can add Nidus modules, providers, controllers, and route metadata as the application grows.
 
