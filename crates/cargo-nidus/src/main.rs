@@ -256,7 +256,7 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<Discov
         }
         if let Some(args) = extract_openapi_args_from_line(line) {
             validate_openapi_args(&args)?;
-            let Some(summary) = extract_openapi_summary(&args) else {
+            let Some(summary) = extract_openapi_summary(&args)? else {
                 bail!("#[openapi] requires summary = \"...\" metadata");
             };
             pending_summary = Some(summary);
@@ -782,12 +782,24 @@ fn extract_openapi_args_from_line(line: &str) -> Option<String> {
     Some(rest[..end].to_owned())
 }
 
-fn extract_openapi_summary(args: &str) -> Option<String> {
-    let needle = "summary = \"";
-    let start = args.find(needle)? + needle.len();
-    let rest = &args[start..];
-    let end = rest.find('"')?;
-    Some(rest[..end].to_owned())
+fn extract_openapi_summary(args: &str) -> Result<Option<String>> {
+    for arg in split_openapi_args(args) {
+        let Some((key, value)) = arg.split_once('=') else {
+            continue;
+        };
+        if key.trim() != "summary" {
+            continue;
+        }
+        let value = value.trim();
+        let Some(value) = value
+            .strip_prefix('"')
+            .and_then(|value| value.strip_suffix('"'))
+        else {
+            bail!("#[openapi] summary must be a string literal");
+        };
+        return Ok(Some(value.to_owned()));
+    }
+    Ok(None)
 }
 
 fn validate_openapi_args(args: &str) -> Result<()> {

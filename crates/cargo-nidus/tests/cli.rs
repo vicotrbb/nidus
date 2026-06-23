@@ -348,7 +348,7 @@ fn cargo_nidus_routes_and_graph_inspect_generated_sources() {
     let controller_path = root.join("src/controllers/users.rs");
     let controller = fs::read_to_string(&controller_path).unwrap().replace(
         "#[get(\"/\")]",
-        "#[get(\"/:id\")]\n    #[openapi(summary = \"Find user\", tags = [\"users\", \"read\"])]",
+        "#[get(\"/:id\")]\n    #[openapi(summary=\"Find user\",tags=[\"users\", \"read\"])]",
     );
     fs::write(controller_path, controller).unwrap();
 
@@ -672,6 +672,33 @@ fn cargo_nidus_openapi_rejects_non_string_tags() {
     assert!(!openapi.status.success());
     let stderr = String::from_utf8(openapi.stderr).unwrap();
     assert!(stderr.contains("#[openapi] tags must be string literals"));
+}
+
+#[test]
+fn cargo_nidus_openapi_rejects_non_string_summary() {
+    let root = temp_project_root("openapi_rejects_non_string_summary");
+    let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "generate", "controller", "users", "--path"])
+        .arg(&root)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    let controller_path = root.join("src/controllers/users.rs");
+    let controller = fs::read_to_string(&controller_path).unwrap().replace(
+        "#[get(\"/\")]",
+        "#[get(\"/:id\")]\n    #[openapi(summary = 42)]",
+    );
+    fs::write(controller_path, controller).unwrap();
+
+    let openapi = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "openapi", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+
+    assert!(!openapi.status.success());
+    let stderr = String::from_utf8(openapi.stderr).unwrap();
+    assert!(stderr.contains("#[openapi] summary must be a string literal"));
 }
 
 #[test]
