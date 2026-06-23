@@ -9,6 +9,19 @@ struct AppConfig {
     debug: bool,
 }
 
+#[derive(Debug, Deserialize, PartialEq, Eq)]
+struct EnvConfig {
+    name: String,
+    port: u16,
+    debug: bool,
+    database: DatabaseConfig,
+}
+
+#[derive(Debug, Deserialize, PartialEq, Eq)]
+struct DatabaseConfig {
+    url: String,
+}
+
 #[test]
 fn config_deserializes_typed_settings_from_pairs() {
     let config = Config::from_pairs([("name", "nidus"), ("port", "3000"), ("debug", "true")]);
@@ -31,4 +44,32 @@ fn config_reports_missing_typed_fields() {
     let error = config.deserialize::<AppConfig>().unwrap_err();
 
     assert!(error.to_string().contains("port"));
+}
+
+#[test]
+fn config_loads_prefixed_environment_style_variables() {
+    let config = Config::from_prefixed_vars(
+        "APP",
+        [
+            ("APP_NAME", "nidus"),
+            ("APP_PORT", "3000"),
+            ("APP_DEBUG", "true"),
+            ("APP_DATABASE__URL", "postgres://localhost/nidus"),
+            ("OTHER_NAME", "ignored"),
+        ],
+    );
+
+    let settings = config.deserialize::<EnvConfig>().unwrap();
+
+    assert_eq!(
+        settings,
+        EnvConfig {
+            name: "nidus".to_owned(),
+            port: 3000,
+            debug: true,
+            database: DatabaseConfig {
+                url: "postgres://localhost/nidus".to_owned(),
+            },
+        }
+    );
 }
