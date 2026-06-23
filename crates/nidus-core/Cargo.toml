@@ -14,5 +14,5 @@ tokio.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
+tracing-subscriber.workspace = true
 trybuild.workspace = true
-

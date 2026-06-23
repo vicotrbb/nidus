@@ -111,10 +111,25 @@ impl ModuleGraph {
             .map(|module| (module.name.clone(), module))
             .collect::<HashMap<_, _>>();
         let graph = Self { modules };
+        tracing::debug!(
+            module_count = graph.modules.len(),
+            "validating module graph"
+        );
+        for module in graph.modules.values() {
+            tracing::debug!(
+                module = %module.name,
+                imports = ?module.imports,
+                providers = ?module.providers,
+                controllers = ?module.controllers,
+                exports = ?module.exports,
+                "module graph node"
+            );
+        }
         graph.validate_imports_exist()?;
         graph.validate_acyclic()?;
         graph.validate_exports_are_local()?;
         graph.validate_visible_providers_unambiguous()?;
+        tracing::debug!(module_count = graph.modules.len(), "module graph validated");
         Ok(graph)
     }
 
