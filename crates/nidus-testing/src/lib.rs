@@ -6,7 +6,7 @@ use axum::{
 };
 use http::{Method, Request, StatusCode};
 use nidus_config::Config;
-use nidus_core::{Container, Result};
+use nidus_core::{Container, LifecycleHook, LifecycleRunner, Result};
 use serde::Serialize;
 use serde_json::Value;
 use std::sync::Arc;
@@ -18,6 +18,7 @@ pub struct TestApp {
     router: Router,
     container: Arc<Container>,
     config: Config,
+    lifecycle: Arc<LifecycleRunner>,
 }
 
 impl TestApp {
@@ -27,6 +28,7 @@ impl TestApp {
             router,
             container: Arc::new(Container::new()),
             config: Config::new(),
+            lifecycle: Arc::new(LifecycleRunner::new()),
         }
     }
 
@@ -36,6 +38,7 @@ impl TestApp {
             router,
             container: Container::new(),
             config: Config::new(),
+            lifecycle: LifecycleRunner::new(),
         }
     }
 
@@ -61,6 +64,11 @@ impl TestApp {
     pub fn config(&self) -> &Config {
         &self.config
     }
+
+    /// Runs registered test shutdown lifecycle hooks.
+    pub async fn shutdown(&self) -> Result<()> {
+        self.lifecycle.shutdown().await
+    }
 }
 
 /// Builder for in-memory test applications.
@@ -68,6 +76,7 @@ pub struct TestAppBuilder {
     router: Router,
     container: Container,
     config: Config,
+    lifecycle: LifecycleRunner,
 }
 
 impl TestAppBuilder {
@@ -95,13 +104,29 @@ impl TestAppBuilder {
         self
     }
 
+    /// Registers a lifecycle hook for the test application.
+    pub fn lifecycle_hook<H>(mut self, hook: H) -> Self
+    where
+        H: LifecycleHook,
+    {
+        self.lifecycle = self.lifecycle.hook(hook);
+        self
+    }
+
     /// Builds the test application.
     pub fn build(self) -> TestApp {
         TestApp {
             router: self.router,
             container: Arc::new(self.container),
             config: self.config,
+            lifecycle: Arc::new(self.lifecycle),
         }
+    }
+
+    /// Runs startup hooks and builds the test application.
+    pub async fn build_started(self) -> Result<TestApp> {
+        self.lifecycle.startup().await?;
+        Ok(self.build())
     }
 }
 
