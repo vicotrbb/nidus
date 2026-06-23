@@ -31,3 +31,12 @@ let users = ModuleBuilder::new("UsersModule")
 ```
 
 The module graph validates duplicate module names, duplicate local imports, providers, controllers, and exports, missing imports, circular imports, invalid exports, and ambiguous imported providers before an application is considered bootstrapped.
+
+Applications with imports bootstrap by passing the root module type plus the
+explicit imported module definitions:
+
+```rust
+let app = Nidus::bootstrap_with_modules::<AppModule, _>([
+    UsersModule::definition(),
+])?;
+```

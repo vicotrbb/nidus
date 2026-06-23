@@ -19,6 +19,15 @@ let app = TestApp::bootstrap::<AppModule>()?
     .build();
 ```
 
+For modular apps with imports, pass the imported module definitions explicitly:
+
+```rust
+let app = TestApp::bootstrap_with_modules::<AppModule, _>([
+    UsersModule::definition(),
+])?
+.build();
+```
+
 Provider and config overrides are configured through the builder:
 
 ```rust

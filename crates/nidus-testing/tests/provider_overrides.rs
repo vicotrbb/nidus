@@ -27,6 +27,26 @@ impl Module for BrokenModule {
     }
 }
 
+struct ModularAppModule;
+struct UsersModule;
+
+impl Module for ModularAppModule {
+    fn definition() -> ModuleDefinition {
+        ModuleBuilder::new("ModularAppModule")
+            .import("UsersModule")
+            .build()
+    }
+}
+
+impl Module for UsersModule {
+    fn definition() -> ModuleDefinition {
+        ModuleBuilder::new("UsersModule")
+            .provider("UsersRepository")
+            .export("UsersRepository")
+            .build()
+    }
+}
+
 #[test]
 fn test_app_builder_overrides_registered_provider() {
     let app = TestApp::builder(Router::new())
@@ -70,6 +90,19 @@ fn test_app_bootstrap_reports_invalid_module_graphs() {
             import
         } if module == "BrokenModule" && import == "MissingModule"
     ));
+}
+
+#[test]
+fn test_app_bootstrap_with_modules_validates_explicit_module_graph() {
+    let app = TestApp::bootstrap_with_modules::<ModularAppModule, _>([UsersModule::definition()])
+        .unwrap()
+        .provider(UsersRepository("real"))
+        .unwrap()
+        .build();
+
+    let repository = app.resolve::<UsersRepository>().unwrap();
+
+    assert_eq!(repository.0, "real");
 }
 
 #[test]

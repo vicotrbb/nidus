@@ -7,8 +7,8 @@ use axum::{
 use http::{Method, Request, StatusCode};
 use nidus_config::Config;
 use nidus_core::{
-    Container, LifecycleHook, LifecycleRunner, Module, Nidus, ProviderLifetime, RequestScope,
-    Result,
+    Container, LifecycleHook, LifecycleRunner, Module, ModuleDefinition, Nidus, ProviderLifetime,
+    RequestScope, Result,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
@@ -31,6 +31,16 @@ impl TestApp {
         M: Module,
     {
         Nidus::bootstrap::<M>()?;
+        Ok(Self::builder(Router::new()))
+    }
+
+    /// Creates a test application builder after validating an explicit module graph.
+    pub fn bootstrap_with_modules<M, I>(modules: I) -> Result<TestAppBuilder>
+    where
+        M: Module,
+        I: IntoIterator<Item = ModuleDefinition>,
+    {
+        Nidus::bootstrap_with_modules::<M, I>(modules)?;
         Ok(Self::builder(Router::new()))
     }
 

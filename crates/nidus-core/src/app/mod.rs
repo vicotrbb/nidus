@@ -1,6 +1,6 @@
 //! Application bootstrap primitives.
 
-use crate::{Container, LifecycleRunner, Module, ModuleGraph, Result};
+use crate::{Container, LifecycleRunner, Module, ModuleDefinition, ModuleGraph, Result};
 
 /// Bootstrapped Nidus application.
 pub struct Application {
@@ -55,6 +55,17 @@ impl Nidus {
     /// Bootstraps a Nidus application from a root module definition.
     pub fn bootstrap<M: Module>() -> Result<Application> {
         let graph = ModuleGraph::from_modules([M::definition()])?;
+        Ok(Application::new(Container::new(), graph))
+    }
+
+    /// Bootstraps a Nidus application from a root module and explicit graph definitions.
+    pub fn bootstrap_with_modules<M, I>(modules: I) -> Result<Application>
+    where
+        M: Module,
+        I: IntoIterator<Item = ModuleDefinition>,
+    {
+        let definitions = std::iter::once(M::definition()).chain(modules);
+        let graph = ModuleGraph::from_modules(definitions)?;
         Ok(Application::new(Container::new(), graph))
     }
 
