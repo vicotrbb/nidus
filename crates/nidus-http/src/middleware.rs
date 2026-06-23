@@ -11,6 +11,7 @@ use http::{HeaderValue, Method, Request, Response, header::HeaderName};
 use tower::{Layer, Service, timeout::TimeoutLayer};
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::trace::{HttpMakeClassifier, TraceLayer};
 
 /// Creates a Tower timeout layer.
 pub fn timeout_layer(timeout: Duration) -> TimeoutLayer {
@@ -40,6 +41,11 @@ pub fn cors_layer() -> CorsLayer {
 /// Creates a gzip response compression layer.
 pub fn compression_layer() -> CompressionLayer {
     CompressionLayer::new()
+}
+
+/// Creates an HTTP tracing layer for requests and responses.
+pub fn trace_layer() -> TraceLayer<HttpMakeClassifier> {
+    TraceLayer::new_for_http()
 }
 
 /// Tower layer that adds an `x-request-id` response header when absent.

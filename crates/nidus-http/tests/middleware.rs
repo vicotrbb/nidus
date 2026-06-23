@@ -8,7 +8,9 @@ use http::{
         CONTENT_ENCODING, HeaderName, ORIGIN,
     },
 };
-use nidus_http::middleware::{compression_layer, cors_layer, request_id_layer, timeout_layer};
+use nidus_http::middleware::{
+    compression_layer, cors_layer, request_id_layer, timeout_layer, trace_layer,
+};
 use tokio::time::sleep;
 use tower::{ServiceBuilder, ServiceExt, service_fn};
 
@@ -92,4 +94,24 @@ async fn compression_layer_encodes_large_accepted_responses() {
 
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "gzip");
+}
+
+#[tokio::test]
+async fn trace_layer_preserves_http_responses() {
+    let app = Router::new()
+        .route("/", get(|| async { "ok" }))
+        .layer(trace_layer());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
 }
