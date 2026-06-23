@@ -2,6 +2,13 @@ use nidus_http::router::RouteMetadata;
 use nidus_openapi::{OpenApiDocument, OpenApiRoute};
 use nidus_testing::TestApp;
 
+#[derive(utoipa::ToSchema)]
+#[allow(dead_code)]
+struct UserDto {
+    id: i32,
+    email: String,
+}
+
 #[test]
 fn openapi_document_records_routes_and_serves_json() {
     let document = OpenApiDocument::new("Nidus API", "0.1.0")
@@ -13,6 +20,18 @@ fn openapi_document_records_routes_and_serves_json() {
     assert_eq!(
         json["paths"]["/users/{id}"]["get"]["summary"],
         "Find user by ID"
+    );
+}
+
+#[test]
+fn openapi_document_registers_utoipa_schemas() {
+    let document = OpenApiDocument::new("Nidus API", "0.1.0").schema::<UserDto>();
+
+    let json = document.to_json_value();
+    assert!(json["components"]["schemas"]["UserDto"].is_object());
+    assert_eq!(
+        json["components"]["schemas"]["UserDto"]["properties"]["email"]["type"],
+        "string"
     );
 }
 
