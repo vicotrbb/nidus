@@ -6,7 +6,7 @@ requiring external services by default.
 | Example | Purpose |
 | --- | --- |
 | `hello-world` | Minimal Tokio binary used as the smallest runnable project shape. |
-| `rest-api` | Axum-backed JSON route served on `127.0.0.1:3000`. |
+| `rest-api` | Nidus controller route composition with an Axum JSON handler served on `127.0.0.1:3000`. |
 | `auth-api` | Guard trait implementation and guarded route setup. |
 | `sqlx-postgres` | Typed provider registration around SQLx Postgres pool options without opening a database connection. |
 | `openapi` | Controller metadata converted into an OpenAPI JSON document. |

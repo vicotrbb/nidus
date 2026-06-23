@@ -10,3 +10,6 @@ nidus = { path = "../../crates/nidus" }
 serde.workspace = true
 tokio.workspace = true
 
+[dev-dependencies]
+nidus-testing = { path = "../../crates/nidus-testing" }
+serde_json.workspace = true
