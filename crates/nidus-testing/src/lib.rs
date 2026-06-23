@@ -52,6 +52,21 @@ impl TestApp {
         TestRequest::new(self.router.clone(), Method::POST, path.into())
     }
 
+    /// Starts a PUT request.
+    pub fn put(&self, path: impl Into<String>) -> TestRequest {
+        TestRequest::new(self.router.clone(), Method::PUT, path.into())
+    }
+
+    /// Starts a PATCH request.
+    pub fn patch(&self, path: impl Into<String>) -> TestRequest {
+        TestRequest::new(self.router.clone(), Method::PATCH, path.into())
+    }
+
+    /// Starts a DELETE request.
+    pub fn delete(&self, path: impl Into<String>) -> TestRequest {
+        TestRequest::new(self.router.clone(), Method::DELETE, path.into())
+    }
+
     /// Resolves a provider from the test container.
     pub fn resolve<T>(&self) -> Result<Arc<T>>
     where

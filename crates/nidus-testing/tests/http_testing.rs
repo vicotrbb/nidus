@@ -1,4 +1,7 @@
-use axum::{Json, Router, routing::get};
+use axum::{
+    Json, Router,
+    routing::{delete, get, patch, put},
+};
 use nidus_http::{controller::Controller, router::RouteDefinition};
 use nidus_testing::TestApp;
 use serde_json::json;
@@ -25,4 +28,25 @@ async fn test_app_can_wrap_plain_axum_router() {
 
     response.assert_status(http::StatusCode::OK);
     response.assert_text("ok").await;
+}
+
+#[tokio::test]
+async fn test_app_request_helpers_cover_common_mutation_verbs() {
+    let router = Router::new()
+        .route("/users/42", put(|| async { "put" }))
+        .route("/users/42", patch(|| async { "patch" }))
+        .route("/users/42", delete(|| async { "delete" }));
+    let app = TestApp::from_router(router);
+
+    app.put("/users/42").send().await.assert_text("put").await;
+    app.patch("/users/42")
+        .send()
+        .await
+        .assert_text("patch")
+        .await;
+    app.delete("/users/42")
+        .send()
+        .await
+        .assert_text("delete")
+        .await;
 }

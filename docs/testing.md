@@ -8,6 +8,8 @@ response.assert_status(http::StatusCode::OK);
 response.assert_text("ok").await;
 ```
 
+Request helpers are available for `GET`, `POST`, `PUT`, `PATCH`, and `DELETE`.
+
 Provider and config overrides are configured through the builder:
 
 ```rust
