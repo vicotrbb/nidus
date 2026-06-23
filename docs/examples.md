@@ -1,14 +1,35 @@
 # Examples
 
-Planned examples:
+The workspace includes small examples that exercise the public crates without
+requiring external services by default.
 
-- `hello-world`
-- `rest-api`
-- `auth-api`
-- `sqlx-postgres`
-- `openapi`
-- `background-jobs`
-- `modular-monolith`
+| Example | Purpose |
+| --- | --- |
+| `hello-world` | Minimal Tokio binary used as the smallest runnable project shape. |
+| `rest-api` | Axum-backed JSON route served on `127.0.0.1:3000`. |
+| `auth-api` | Guard trait implementation and guarded route setup. |
+| `sqlx-postgres` | Typed provider registration around SQLx Postgres pool options without opening a database connection. |
+| `openapi` | Controller metadata converted into an OpenAPI JSON document. |
+| `background-jobs` | In-memory job queue execution and reporting. |
+| `modular-monolith` | Explicit module graph imports, providers, controllers, and exports. |
 
-Examples should compile in CI and exercise the same public APIs documented in the guide.
+Run an example with Cargo's package selector:
 
+```bash
+cargo run -p nidus-example-openapi
+```
+
+Server examples bind to `127.0.0.1:3000` and keep running until interrupted:
+
+```bash
+cargo run -p nidus-example-rest-api
+curl http://127.0.0.1:3000/users/1
+```
+
+All examples are workspace members, so they are checked by the normal workspace
+validation commands:
+
+```bash
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-features
+```
