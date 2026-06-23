@@ -76,6 +76,21 @@ async fn test_request_sends_custom_headers() {
     response.assert_text("secret").await;
 }
 
+#[test]
+fn test_request_try_header_reports_invalid_headers() {
+    let router = Router::new();
+
+    let invalid_name = TestApp::from_router(router.clone())
+        .get("/health")
+        .try_header("bad header", "secret");
+    assert!(invalid_name.is_err());
+
+    let invalid_value = TestApp::from_router(router)
+        .get("/health")
+        .try_header("x-api-key", "bad\nvalue");
+    assert!(invalid_value.is_err());
+}
+
 #[tokio::test]
 async fn test_request_sends_text_body_with_content_type() {
     let router = Router::new().route(

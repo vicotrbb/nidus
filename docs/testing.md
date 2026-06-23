@@ -21,6 +21,16 @@ let response = app
     .await;
 ```
 
+Use `try_header()` when tests should assert invalid header names or values
+without panicking:
+
+```rust
+let error = app
+    .get("/health")
+    .try_header("bad header", "secret")
+    .unwrap_err();
+```
+
 Responses expose `status()`, `headers()`, `header(name)`, `body()`, typed
 `json()`, and assertion helpers for status, headers, text, and JSON.
 

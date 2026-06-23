@@ -209,18 +209,28 @@ impl TestRequest {
     pub fn header<N, V>(mut self, name: N, value: V) -> Self
     where
         N: TryInto<HeaderName>,
-        N::Error: std::fmt::Debug,
+        N::Error: Into<http::Error>,
         V: TryInto<HeaderValue>,
-        V::Error: std::fmt::Debug,
+        V::Error: Into<http::Error>,
     {
-        let name = name
-            .try_into()
-            .expect("test request header name was invalid");
-        let value = value
-            .try_into()
-            .expect("test request header value was invalid");
-        self.headers.insert(name, value);
+        self = self
+            .try_header(name, value)
+            .expect("test request header was invalid");
         self
+    }
+
+    /// Tries to set a request header.
+    pub fn try_header<N, V>(mut self, name: N, value: V) -> std::result::Result<Self, http::Error>
+    where
+        N: TryInto<HeaderName>,
+        N::Error: Into<http::Error>,
+        V: TryInto<HeaderValue>,
+        V::Error: Into<http::Error>,
+    {
+        let name = name.try_into().map_err(Into::into)?;
+        let value = value.try_into().map_err(Into::into)?;
+        self.headers.insert(name, value);
+        Ok(self)
     }
 
     /// Sets a UTF-8 text request body.
