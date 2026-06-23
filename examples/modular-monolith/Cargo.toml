@@ -5,5 +5,4 @@ edition = "2024"
 publish = false
 
 [dependencies]
-nidus-core = { path = "../../crates/nidus-core" }
-
+nidus = { path = "../../crates/nidus", default-features = false }

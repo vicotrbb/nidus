@@ -1,5 +1,5 @@
-use axum::{Json, Router, extract::Path};
-use nidus::prelude::{Controller, RouteDefinition};
+use axum::Router;
+use nidus::prelude::{Controller, Json, Path, RouteDefinition};
 use serde::Serialize;
 
 #[derive(Serialize)]

@@ -1,16 +1,36 @@
-use nidus_core::{ModuleBuilder, ModuleGraph};
+use nidus::prelude::*;
+
+#[allow(dead_code)]
+struct DatabasePool;
+#[allow(dead_code)]
+struct UsersRepository;
+#[allow(dead_code)]
+struct UsersService;
+#[allow(dead_code)]
+struct UsersController;
+
+#[module]
+struct DatabaseModule {
+    providers: (DatabasePool,),
+    exports: (DatabasePool,),
+}
+
+#[module]
+struct UsersModule {
+    imports: (DatabaseModule,),
+    providers: (UsersRepository, UsersService),
+    controllers: (UsersController,),
+    exports: (UsersService,),
+}
 
 fn main() {
-    let database = ModuleBuilder::new("DatabaseModule")
-        .provider("DatabasePool")
-        .export("DatabasePool")
-        .build();
-    let users = ModuleBuilder::new("UsersModule")
-        .import("DatabaseModule")
-        .provider("UsersService")
-        .controller("UsersController")
-        .build();
+    let graph =
+        ModuleGraph::from_modules([DatabaseModule::definition(), UsersModule::definition()])
+            .unwrap();
 
-    let graph = ModuleGraph::from_modules([database, users]).unwrap();
     assert!(graph.get("UsersModule").is_some());
+    assert_eq!(
+        graph.get("UsersModule").unwrap().providers(),
+        ["UsersRepository", "UsersService"]
+    );
 }

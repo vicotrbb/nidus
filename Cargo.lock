@@ -1238,7 +1238,7 @@ dependencies = [
 name = "nidus-example-modular-monolith"
 version = "0.1.0"
 dependencies = [
- "nidus-core",
+ "nidus",
 ]
 
 [[package]]
