@@ -399,24 +399,39 @@ fn discover_modules_in_source(contents: &str) -> Vec<DiscoveredModule> {
 
 fn discover_module_macro_metadata(contents: &str) -> Vec<DiscoveredModule> {
     let mut modules = Vec::new();
-    let mut pending_module_attr = false;
+    let mut module_attr = None::<String>;
+    let mut pending_module_attr = None::<DiscoveredModule>;
     let mut current = None::<DiscoveredModule>;
 
     for line in contents.lines() {
         let trimmed = line.trim();
-        if trimmed.starts_with("#[module") {
-            pending_module_attr = true;
+        if let Some(attr) = module_attr.as_mut() {
+            attr.push(' ');
+            attr.push_str(trimmed);
+            if trimmed.ends_with(']') {
+                pending_module_attr = Some(discover_module_attr_metadata(attr));
+                module_attr = None;
+            }
             continue;
         }
 
-        if pending_module_attr && let Some(name) = extract_module_struct_name(trimmed) {
+        if trimmed.starts_with("#[module") {
+            if trimmed.ends_with(']') {
+                pending_module_attr = Some(discover_module_attr_metadata(trimmed));
+            } else {
+                module_attr = Some(trimmed.to_owned());
+            }
+            continue;
+        }
+
+        if pending_module_attr.is_some()
+            && let Some(name) = extract_module_struct_name(trimmed)
+        {
             let has_body = trimmed.contains('{');
             let is_unit = trimmed.contains(';');
-            current = Some(DiscoveredModule {
-                name,
-                ..DiscoveredModule::default()
-            });
-            pending_module_attr = false;
+            let mut module = pending_module_attr.take().unwrap_or_default();
+            module.name = name;
+            current = Some(module);
 
             if is_unit {
                 if let Some(module) = current.take() {
@@ -451,6 +466,20 @@ fn discover_module_macro_metadata(contents: &str) -> Vec<DiscoveredModule> {
     }
 
     modules
+}
+
+fn discover_module_attr_metadata(line: &str) -> DiscoveredModule {
+    let Some(args) = extract_module_attr_args(line) else {
+        return DiscoveredModule::default();
+    };
+
+    DiscoveredModule {
+        imports: extract_module_attr_values(args, "imports").unwrap_or_default(),
+        providers: extract_module_attr_values(args, "providers").unwrap_or_default(),
+        controllers: extract_module_attr_values(args, "controllers").unwrap_or_default(),
+        exports: extract_module_attr_values(args, "exports").unwrap_or_default(),
+        ..DiscoveredModule::default()
+    }
 }
 
 fn check_project(root: &Path) -> Result<()> {
@@ -999,9 +1028,23 @@ fn extract_module_struct_name(line: &str) -> Option<String> {
     Some(name.to_owned())
 }
 
+fn extract_module_attr_args(line: &str) -> Option<&str> {
+    line.strip_prefix("#[module(")?.strip_suffix(")]")
+}
+
+fn extract_module_attr_values(args: &str, field: &str) -> Option<Vec<String>> {
+    let start = args.find(field)? + field.len();
+    extract_group_values(&args[start..])
+}
+
 fn extract_module_field_values(line: &str, field: &str) -> Option<Vec<String>> {
     let start = line.find(field)? + field.len();
     let rest = line[start..].trim_start().strip_prefix(':')?.trim_start();
+    extract_group_values(rest)
+}
+
+fn extract_group_values(rest: &str) -> Option<Vec<String>> {
+    let rest = rest.trim_start();
     let (open, close) = match rest.chars().next()? {
         '(' => ('(', ')'),
         '[' => ('[', ']'),
