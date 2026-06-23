@@ -188,7 +188,11 @@ fn inspect_routes(root: &Path) -> Result<()> {
     for route in discover_routes(root)? {
         let method = route.method.to_uppercase();
         let path = route.path;
-        println!("{method} {path}");
+        if let Some(summary) = route.summary {
+            println!("{method} {path} - {summary}");
+        } else {
+            println!("{method} {path}");
+        }
     }
     Ok(())
 }
