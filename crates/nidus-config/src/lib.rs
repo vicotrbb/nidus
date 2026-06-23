@@ -75,6 +75,21 @@ impl Config {
         self.values.insert(key.into(), value);
     }
 
+    /// Merges another configuration source into this one.
+    ///
+    /// Values from `other` take precedence. Nested objects are merged
+    /// recursively so later sources can override one field without replacing an
+    /// entire nested configuration section.
+    pub fn merge(mut self, other: Self) -> Self {
+        self.merge_from(other);
+        self
+    }
+
+    /// Merges another configuration source into this configuration in place.
+    pub fn merge_from(&mut self, other: Self) {
+        merge_maps(&mut self.values, other.values);
+    }
+
     /// Deserializes the configuration into a strongly typed settings struct.
     pub fn deserialize<T>(&self) -> Result<T>
     where
@@ -128,6 +143,19 @@ fn insert_path(values: &mut Map<String, Value>, path: &[String], value: Value) {
             }
             if let Value::Object(child_values) = child {
                 insert_path(child_values, tail, value);
+            }
+        }
+    }
+}
+
+fn merge_maps(target: &mut Map<String, Value>, source: Map<String, Value>) {
+    for (key, source_value) in source {
+        match (target.get_mut(&key), source_value) {
+            (Some(Value::Object(target_child)), Value::Object(source_child)) => {
+                merge_maps(target_child, source_child);
+            }
+            (_, source_value) => {
+                target.insert(key, source_value);
             }
         }
     }

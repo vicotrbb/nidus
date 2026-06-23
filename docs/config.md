@@ -34,4 +34,12 @@ let config = Config::from_env_prefix("APP");
 let typed = config.deserialize::<AppConfig>()?;
 ```
 
+Multiple sources can be layered with later values taking precedence:
+
+```rust
+let defaults = Config::from_pairs([("port", "3000")]);
+let env = Config::from_env_prefix("APP");
+let config = defaults.merge(env);
+```
+
 Applications should keep configuration explicit and validate it during startup.
