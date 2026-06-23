@@ -1,11 +1,12 @@
 use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
 use syn::{
-    Ident, ItemStruct, Path, Token, parenthesized, parse::Parse, parse::ParseStream, parse2,
+    Attribute, Generics, Ident, Path, Token, Visibility, braced, bracketed, parenthesized,
+    parse::Parse, parse::ParseStream, parse2,
 };
 
 pub(crate) fn expand(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let metadata = match parse2::<ModuleMetadata>(attr) {
+    let mut metadata = match parse2::<ModuleMetadata>(attr) {
         Ok(metadata) => metadata,
         Err(error) => {
             return crate::diagnostics::compile_error_with_item(
@@ -17,19 +18,25 @@ pub(crate) fn expand(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
-    match parse2::<ItemStruct>(item.clone()) {
+    match parse2::<ModuleItem>(item.clone()) {
         Ok(item) => {
+            metadata.extend(item.metadata);
             let name = &item.ident;
             let module_name = name.to_string();
             let imports = metadata.imports.iter().map(path_to_string);
             let providers = metadata.providers.iter().map(path_to_string);
             let controllers = metadata.controllers.iter().map(path_to_string);
             let exports = metadata.exports.iter().map(path_to_string);
+            let attrs = &item.attrs;
+            let visibility = &item.visibility;
+            let generics = &item.generics;
+            let (impl_generics, type_generics, where_clause) = item.generics.split_for_impl();
 
             quote! {
-                #item
+                #(#attrs)*
+                #visibility struct #name #generics;
 
-                impl ::nidus::prelude::Module for #name {
+                impl #impl_generics ::nidus::prelude::Module for #name #type_generics #where_clause {
                     fn definition() -> ::nidus::prelude::ModuleDefinition {
                         ::nidus::prelude::ModuleBuilder::new(#module_name)
                             #(.import(#imports))*
@@ -42,9 +49,84 @@ pub(crate) fn expand(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
         Err(error) => crate::diagnostics::compile_error_with_item(
-            format!("#[module] can only be used on structs: {error}"),
+            format!("#[module] can only be used on module marker structs: {error}"),
             item,
         ),
+    }
+}
+
+struct ModuleItem {
+    attrs: Vec<Attribute>,
+    visibility: Visibility,
+    ident: Ident,
+    generics: Generics,
+    metadata: ModuleMetadata,
+}
+
+impl Parse for ModuleItem {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let attrs = input.call(Attribute::parse_outer)?;
+        let visibility = input.parse()?;
+        input.parse::<Token![struct]>()?;
+        let ident = input.parse()?;
+        let mut generics: Generics = input.parse()?;
+        generics.where_clause = input.parse()?;
+
+        let mut metadata = ModuleMetadata::default();
+        if input.peek(Token![;]) {
+            input.parse::<Token![;]>()?;
+        } else {
+            let content;
+            braced!(content in input);
+            while !content.is_empty() {
+                let field: ModuleField = content.parse()?;
+                metadata.extend_section(field.section, field.values)?;
+                if content.is_empty() {
+                    break;
+                }
+                content.parse::<Token![,]>()?;
+            }
+        }
+
+        Ok(Self {
+            attrs,
+            visibility,
+            ident,
+            generics,
+            metadata,
+        })
+    }
+}
+
+struct ModuleField {
+    section: Ident,
+    values: Vec<Path>,
+}
+
+impl Parse for ModuleField {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let section = input.parse()?;
+        input.parse::<Token![:]>()?;
+        let values = if input.peek(syn::token::Bracket) {
+            let content;
+            bracketed!(content in input);
+            content
+                .parse_terminated(Path::parse_mod_style, Token![,])?
+                .into_iter()
+                .collect::<Vec<_>>()
+        } else if input.peek(syn::token::Paren) {
+            let content;
+            parenthesized!(content in input);
+            content
+                .parse_terminated(Path::parse_mod_style, Token![,])?
+                .into_iter()
+                .collect::<Vec<_>>()
+        } else {
+            return Err(input.error(
+                "module metadata fields must use [SinglePath] or tuple syntax like (First, Second)",
+            ));
+        };
+        Ok(Self { section, values })
     }
 }
 
@@ -54,6 +136,31 @@ struct ModuleMetadata {
     providers: Vec<Path>,
     controllers: Vec<Path>,
     exports: Vec<Path>,
+}
+
+impl ModuleMetadata {
+    fn extend(&mut self, other: ModuleMetadata) {
+        self.imports.extend(other.imports);
+        self.providers.extend(other.providers);
+        self.controllers.extend(other.controllers);
+        self.exports.extend(other.exports);
+    }
+
+    fn extend_section(&mut self, section: Ident, values: Vec<Path>) -> syn::Result<()> {
+        match section.to_string().as_str() {
+            "imports" => self.imports.extend(values),
+            "providers" => self.providers.extend(values),
+            "controllers" => self.controllers.extend(values),
+            "exports" => self.exports.extend(values),
+            other => {
+                return Err(syn::Error::new(
+                    section.span(),
+                    format!("unknown module metadata section `{other}`"),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 impl Parse for ModuleMetadata {
@@ -69,18 +176,7 @@ impl Parse for ModuleMetadata {
                 .into_iter()
                 .collect::<Vec<_>>();
 
-            match section.to_string().as_str() {
-                "imports" => metadata.imports.extend(values),
-                "providers" => metadata.providers.extend(values),
-                "controllers" => metadata.controllers.extend(values),
-                "exports" => metadata.exports.extend(values),
-                other => {
-                    return Err(syn::Error::new(
-                        section.span(),
-                        format!("unknown module metadata section `{other}`"),
-                    ));
-                }
-            }
+            metadata.extend_section(section, values)?;
 
             if input.is_empty() {
                 break;

@@ -2,6 +2,22 @@
 
 Modules group imports, providers, controllers, and exports.
 
+Use `#[module]` when the module is only metadata:
+
+```rust
+use nidus::prelude::*;
+
+#[module]
+pub struct UsersModule {
+    imports: (DatabaseModule,),
+    providers: (UsersRepository, UsersService),
+    controllers: (UsersController,),
+    exports: (UsersService,),
+}
+```
+
+The tuple syntax is intentional: module fields are compile-time metadata that the macro lowers to an explicit `ModuleBuilder` definition.
+
 ```rust
 use nidus_core::ModuleBuilder;
 
@@ -15,4 +31,3 @@ let users = ModuleBuilder::new("UsersModule")
 ```
 
 The module graph validates missing imports and circular imports before an application is considered bootstrapped.
-
