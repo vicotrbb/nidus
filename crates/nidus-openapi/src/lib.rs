@@ -147,6 +147,7 @@ pub struct OpenApiRoute {
     method: String,
     path: String,
     summary: Option<String>,
+    tags: Vec<String>,
     response_schema: Option<String>,
 }
 
@@ -182,6 +183,12 @@ impl OpenApiRoute {
         self
     }
 
+    /// Adds an OpenAPI tag to this operation.
+    pub fn tag(mut self, tag: impl Into<String>) -> Self {
+        self.tags.push(tag.into());
+        self
+    }
+
     /// Sets the successful JSON response schema reference.
     pub fn response_schema<T>(mut self) -> Self
     where
@@ -196,6 +203,7 @@ impl OpenApiRoute {
             method: method.into(),
             path: path.into(),
             summary: None,
+            tags: Vec::new(),
             response_schema: None,
         }
     }
@@ -229,12 +237,18 @@ impl OpenApiRoute {
             });
         }
 
-        json!({
+        let mut operation = json!({
             "summary": self.summary,
             "responses": {
                 "200": success_response
             }
-        })
+        });
+
+        if !self.tags.is_empty() {
+            operation["tags"] = json!(self.tags);
+        }
+
+        operation
     }
 }
 

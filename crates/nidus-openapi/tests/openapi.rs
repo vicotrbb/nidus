@@ -72,6 +72,22 @@ fn openapi_route_can_reference_registered_response_schema() {
 }
 
 #[test]
+fn openapi_route_records_operation_tags() {
+    let document = OpenApiDocument::new("Nidus API", "0.1.0").route(
+        OpenApiRoute::get("/users/{id}")
+            .summary("Find user by ID")
+            .tag("users")
+            .tag("public"),
+    );
+
+    let json = document.to_json_value();
+    assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["tags"],
+        serde_json::json!(["users", "public"])
+    );
+}
+
+#[test]
 fn openapi_document_can_be_generated_from_route_metadata() {
     let routes = [RouteMetadata::with_annotations(
         "GET",

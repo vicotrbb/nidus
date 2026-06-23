@@ -14,9 +14,13 @@ let document = OpenApiDocument::new("Nidus API", "0.1.0")
     .route(
         OpenApiRoute::get("/users/{id}")
             .summary("Find user by ID")
+            .tag("users")
             .response_schema::<UserDto>(),
     );
 ```
+
+Use `.tag("...")` to group operations in generated OpenAPI tooling. Multiple
+tags can be attached to the same route.
 
 Generated route metadata can also seed a document directly:
 
