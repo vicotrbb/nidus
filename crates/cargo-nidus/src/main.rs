@@ -256,7 +256,10 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<Discov
         }
         if let Some(args) = extract_openapi_args_from_line(line) {
             validate_openapi_args(&args)?;
-            pending_summary = extract_openapi_summary(&args);
+            let Some(summary) = extract_openapi_summary(&args) else {
+                bail!("#[openapi] requires summary = \"...\" metadata");
+            };
+            pending_summary = Some(summary);
             pending_tags = extract_openapi_tags(&args)?;
         }
 
