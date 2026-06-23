@@ -198,45 +198,48 @@ fn parse_openapi_metadata(attr: &syn::Attribute) -> syn::Result<OpenApiMetadata>
     let mut tags = Vec::new();
 
     for arg in args {
-        if !arg.path.is_ident("summary") {
-            if arg.path.is_ident("tags") {
-                let Expr::Array(array) = arg.value else {
+        if arg.path.is_ident("summary") {
+            let Expr::Lit(expr_lit) = arg.value else {
+                return Err(syn::Error::new_spanned(
+                    arg,
+                    "#[openapi] summary must be a string literal",
+                ));
+            };
+            let Lit::Str(value) = expr_lit.lit else {
+                return Err(syn::Error::new_spanned(
+                    expr_lit,
+                    "#[openapi] summary must be a string literal",
+                ));
+            };
+            summary = Some(value);
+        } else if arg.path.is_ident("tags") {
+            let Expr::Array(array) = arg.value else {
+                return Err(syn::Error::new_spanned(
+                    arg,
+                    "#[openapi] tags must be an array of string literals",
+                ));
+            };
+            for element in array.elems {
+                let Expr::Lit(expr_lit) = element else {
                     return Err(syn::Error::new_spanned(
-                        arg,
-                        "#[openapi] tags must be an array of string literals",
+                        element,
+                        "#[openapi] tags must be string literals",
                     ));
                 };
-                for element in array.elems {
-                    let Expr::Lit(expr_lit) = element else {
-                        return Err(syn::Error::new_spanned(
-                            element,
-                            "#[openapi] tags must be string literals",
-                        ));
-                    };
-                    let Lit::Str(tag) = expr_lit.lit else {
-                        return Err(syn::Error::new_spanned(
-                            expr_lit,
-                            "#[openapi] tags must be string literals",
-                        ));
-                    };
-                    tags.push(tag);
-                }
+                let Lit::Str(tag) = expr_lit.lit else {
+                    return Err(syn::Error::new_spanned(
+                        expr_lit,
+                        "#[openapi] tags must be string literals",
+                    ));
+                };
+                tags.push(tag);
             }
-            continue;
+        } else {
+            return Err(syn::Error::new_spanned(
+                arg.path,
+                "#[openapi] supports only summary = \"...\" and tags = [\"...\"] metadata",
+            ));
         }
-        let Expr::Lit(expr_lit) = arg.value else {
-            return Err(syn::Error::new_spanned(
-                arg,
-                "#[openapi] summary must be a string literal",
-            ));
-        };
-        let Lit::Str(value) = expr_lit.lit else {
-            return Err(syn::Error::new_spanned(
-                expr_lit,
-                "#[openapi] summary must be a string literal",
-            ));
-        };
-        summary = Some(value);
     }
 
     let Some(summary) = summary else {

@@ -6,7 +6,7 @@ struct UsersController;
 #[routes]
 impl UsersController {
     #[get("/:id")]
-    #[openapi(tags = ["users"])]
+    #[openapi(description = "Find user by ID")]
     async fn find_one(&self) {}
 }
 

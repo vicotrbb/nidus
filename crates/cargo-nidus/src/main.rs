@@ -255,6 +255,7 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<Discov
             pending_route = Some((method, path));
         }
         if let Some(args) = extract_openapi_args_from_line(line) {
+            validate_openapi_args(&args)?;
             pending_summary = extract_openapi_summary(&args);
             pending_tags = extract_openapi_tags(&args)?;
         }
@@ -784,6 +785,51 @@ fn extract_openapi_summary(args: &str) -> Option<String> {
     let rest = &args[start..];
     let end = rest.find('"')?;
     Some(rest[..end].to_owned())
+}
+
+fn validate_openapi_args(args: &str) -> Result<()> {
+    for arg in split_openapi_args(args) {
+        let Some((key, _value)) = arg.split_once('=') else {
+            continue;
+        };
+        let key = key.trim();
+        if !matches!(key, "summary" | "tags") {
+            bail!("#[openapi] supports only summary = \"...\" and tags = [\"...\"] metadata");
+        }
+    }
+    Ok(())
+}
+
+fn split_openapi_args(args: &str) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut start = 0;
+    let mut bracket_depth = 0usize;
+    let mut in_string = false;
+    let mut previous_was_escape = false;
+
+    for (index, character) in args.char_indices() {
+        if in_string {
+            if character == '"' && !previous_was_escape {
+                in_string = false;
+            }
+            previous_was_escape = character == '\\' && !previous_was_escape;
+            continue;
+        }
+
+        previous_was_escape = false;
+        match character {
+            '"' => in_string = true,
+            '[' => bracket_depth += 1,
+            ']' => bracket_depth = bracket_depth.saturating_sub(1),
+            ',' if bracket_depth == 0 => {
+                parts.push(args[start..index].trim());
+                start = index + character.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    parts.push(args[start..].trim());
+    parts
 }
 
 fn extract_openapi_tags(args: &str) -> Result<Vec<String>> {

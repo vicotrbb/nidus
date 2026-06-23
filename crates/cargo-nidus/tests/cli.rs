@@ -675,6 +675,35 @@ fn cargo_nidus_openapi_rejects_non_string_tags() {
 }
 
 #[test]
+fn cargo_nidus_openapi_rejects_unsupported_metadata_keys() {
+    let root = temp_project_root("openapi_rejects_unsupported_metadata_keys");
+    let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "generate", "controller", "users", "--path"])
+        .arg(&root)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    let controller_path = root.join("src/controllers/users.rs");
+    let controller = fs::read_to_string(&controller_path).unwrap().replace(
+        "#[get(\"/\")]",
+        "#[get(\"/:id\")]\n    #[openapi(summary = \"Find user\", description = \"By ID\")]",
+    );
+    fs::write(controller_path, controller).unwrap();
+
+    let openapi = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "openapi", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+
+    assert!(!openapi.status.success());
+    let stderr = String::from_utf8(openapi.stderr).unwrap();
+    assert!(
+        stderr.contains("#[openapi] supports only summary = \"...\" and tags = [\"...\"] metadata")
+    );
+}
+
+#[test]
 fn cargo_nidus_expand_prints_cargo_expand_command_in_dry_run_mode() {
     let root = temp_project_root("expand_prints_cargo_expand_command");
     let project = root.join("hello-nidus");
