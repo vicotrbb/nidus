@@ -368,6 +368,63 @@ fn discover_modules_in_source(contents: &str) -> Vec<DiscoveredModule> {
     if let Some(module) = current {
         modules.push(module);
     }
+    modules.extend(discover_module_macro_metadata(contents));
+    modules
+}
+
+fn discover_module_macro_metadata(contents: &str) -> Vec<DiscoveredModule> {
+    let mut modules = Vec::new();
+    let mut pending_module_attr = false;
+    let mut current = None::<DiscoveredModule>;
+
+    for line in contents.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("#[module") {
+            pending_module_attr = true;
+            continue;
+        }
+
+        if pending_module_attr && let Some(name) = extract_module_struct_name(trimmed) {
+            let has_body = trimmed.contains('{');
+            let is_unit = trimmed.contains(';');
+            current = Some(DiscoveredModule {
+                name,
+                ..DiscoveredModule::default()
+            });
+            pending_module_attr = false;
+
+            if is_unit {
+                if let Some(module) = current.take() {
+                    modules.push(module);
+                }
+            } else if !has_body {
+                current = None;
+            }
+            continue;
+        }
+
+        if let Some(module) = current.as_mut() {
+            if let Some(values) = extract_module_field_values(trimmed, "imports") {
+                module.imports.extend(values);
+            }
+            if let Some(values) = extract_module_field_values(trimmed, "providers") {
+                module.providers.extend(values);
+            }
+            if let Some(values) = extract_module_field_values(trimmed, "controllers") {
+                module.controllers.extend(values);
+            }
+            if let Some(values) = extract_module_field_values(trimmed, "exports") {
+                module.exports.extend(values);
+            }
+        }
+
+        if trimmed.starts_with('}')
+            && let Some(module) = current.take()
+        {
+            modules.push(module);
+        }
+    }
+
     modules
 }
 
@@ -718,6 +775,46 @@ fn extract_struct_names(contents: &str) -> Vec<String> {
         .filter(|name| !name.is_empty())
         .map(str::to_owned)
         .collect()
+}
+
+fn extract_module_struct_name(line: &str) -> Option<String> {
+    let start = line.find("struct ")? + "struct ".len();
+    let rest = line[start..].trim_start();
+    let name = rest
+        .split([' ', '{', ';', '(', '<'])
+        .next()
+        .map(str::trim)
+        .filter(|name| !name.is_empty())?;
+    Some(name.to_owned())
+}
+
+fn extract_module_field_values(line: &str, field: &str) -> Option<Vec<String>> {
+    let start = line.find(field)? + field.len();
+    let rest = line[start..].trim_start().strip_prefix(':')?.trim_start();
+    let (open, close) = match rest.chars().next()? {
+        '(' => ('(', ')'),
+        '[' => ('[', ']'),
+        _ => return None,
+    };
+    let values = rest.strip_prefix(open)?;
+    let end = values.find(close)?;
+    let values = &values[..end];
+    Some(
+        values
+            .split(',')
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(path_last_segment)
+            .collect(),
+    )
+}
+
+fn path_last_segment(path: &str) -> String {
+    path.split("::")
+        .last()
+        .map(str::trim)
+        .unwrap_or(path)
+        .to_owned()
 }
 
 fn join_route(prefix: &str, route: &str) -> String {
