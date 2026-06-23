@@ -24,6 +24,10 @@ impl SharedLogWriter {
     fn contents(&self) -> String {
         String::from_utf8(self.output.lock().unwrap().clone()).unwrap()
     }
+
+    fn clear(&self) {
+        self.output.lock().unwrap().clear();
+    }
 }
 
 impl<'writer> MakeWriter<'writer> for SharedLogWriter {
@@ -253,8 +257,20 @@ fn module_graph_emits_debug_logs() {
         .build();
 
     tracing::subscriber::with_default(subscriber, || {
-        tracing_core::callsite::rebuild_interest_cache();
-        ModuleGraph::from_modules([database, users]).unwrap();
+        for _ in 0..16 {
+            writer.clear();
+            tracing_core::callsite::rebuild_interest_cache();
+            ModuleGraph::from_modules([database.clone(), users.clone()]).unwrap();
+            let logs = writer.contents();
+            if logs.contains("validating module graph")
+                && logs.contains("module graph node")
+                && logs.contains("UsersModule")
+                && logs.contains("module graph validated")
+            {
+                return;
+            }
+            std::thread::yield_now();
+        }
     });
 
     let logs = writer.contents();
