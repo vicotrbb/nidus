@@ -150,6 +150,36 @@ fn openapi_document_builder_adds_controller_route_metadata() {
     );
 }
 
+#[test]
+fn openapi_document_try_controller_routes_rejects_invalid_prefix() {
+    let routes = [RouteMetadata::new("GET", "/")];
+
+    let error =
+        match OpenApiDocument::new("Nidus API", "0.1.0").try_controller_routes("/:", &routes) {
+            Ok(_) => panic!("empty route parameter should fail"),
+            Err(error) => error,
+        };
+
+    assert_eq!(error.path(), "/:");
+}
+
+#[test]
+fn openapi_document_try_from_controller_routes_rejects_invalid_route_path() {
+    let routes = [RouteMetadata::new("GET", "/:")];
+
+    let error = match OpenApiDocument::try_from_controller_routes(
+        "Nidus API",
+        "0.1.0",
+        "/users",
+        &routes,
+    ) {
+        Ok(_) => panic!("empty route parameter should fail"),
+        Err(error) => error,
+    };
+
+    assert_eq!(error.path(), "/:");
+}
+
 #[tokio::test]
 async fn openapi_document_serves_json_and_docs_routes() {
     let router = OpenApiDocument::new("Nidus API", "0.1.0")

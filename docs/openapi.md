@@ -51,6 +51,9 @@ let document = OpenApiDocument::new("Nidus API", "0.1.0")
 
 This keeps controller prefixes and route paths explicit while reusing the same
 normalization rules as the HTTP router.
+Use `try_from_controller_routes` or `try_controller_routes` when composing
+metadata from generated or external sources where invalid paths should return a
+`RoutePathError` instead of panicking.
 
 Serve the generated OpenAPI document and interactive documentation from an
 Axum router:
