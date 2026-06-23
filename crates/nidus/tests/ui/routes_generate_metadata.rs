@@ -14,6 +14,7 @@ impl UsersController {
     async fn find_one(&self) {}
 
     #[post("/")]
+    #[validate]
     async fn create(&self) {}
 }
 
@@ -25,9 +26,11 @@ fn main() {
     assert_eq!(routes[0].summary(), Some("Find user by ID"));
     assert_eq!(routes[0].guards(), ["AuthGuard"]);
     assert_eq!(routes[0].pipes(), ["ValidationPipe"]);
+    assert!(!routes[0].validates());
     assert_eq!(routes[1].method(), "POST");
     assert_eq!(routes[1].path(), "/");
     assert_eq!(routes[1].summary(), None);
     assert!(routes[1].guards().is_empty());
     assert!(routes[1].pipes().is_empty());
+    assert!(routes[1].validates());
 }

@@ -11,6 +11,7 @@ pub struct RouteMetadata {
     summary: Option<&'static str>,
     guards: &'static [&'static str],
     pipes: &'static [&'static str],
+    validates: bool,
 }
 
 impl RouteMetadata {
@@ -22,6 +23,7 @@ impl RouteMetadata {
             summary: None,
             guards: &[],
             pipes: &[],
+            validates: false,
         }
     }
 
@@ -37,6 +39,7 @@ impl RouteMetadata {
             summary: Some(summary),
             guards: &[],
             pipes: &[],
+            validates: false,
         }
     }
 
@@ -47,6 +50,7 @@ impl RouteMetadata {
         summary: Option<&'static str>,
         guards: &'static [&'static str],
         pipes: &'static [&'static str],
+        validates: bool,
     ) -> Self {
         Self {
             method,
@@ -54,6 +58,7 @@ impl RouteMetadata {
             summary,
             guards,
             pipes,
+            validates,
         }
     }
 
@@ -80,6 +85,11 @@ impl RouteMetadata {
     /// Returns pipe type names declared on the route.
     pub const fn pipes(&self) -> &'static [&'static str] {
         self.pipes
+    }
+
+    /// Returns whether validation is enabled for the route.
+    pub const fn validates(&self) -> bool {
+        self.validates
     }
 }
 

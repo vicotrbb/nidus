@@ -82,3 +82,9 @@ pub fn guard(attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn pipe(attr: TokenStream, item: TokenStream) -> TokenStream {
     pipe::expand(attr.into(), item.into()).into()
 }
+
+/// Enables validation metadata for a route.
+#[proc_macro_attribute]
+pub fn validate(attr: TokenStream, item: TokenStream) -> TokenStream {
+    pipe::expand_validate(attr.into(), item.into()).into()
+}

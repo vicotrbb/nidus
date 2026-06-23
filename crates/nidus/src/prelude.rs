@@ -7,6 +7,7 @@ pub use nidus_core::{
 };
 pub use nidus_macros::{
     controller, delete, get, guard, injectable, module, openapi, patch, pipe, post, put, routes,
+    validate,
 };
 
 #[cfg(feature = "http")]

@@ -37,6 +37,7 @@ fn expand_routes_impl(item: ItemImpl) -> TokenStream {
         };
         let guards = &route.guards;
         let pipes = &route.pipes;
+        let validates = route.validates;
 
         quote! {
             ::nidus::prelude::RouteMetadata::with_annotations(
@@ -45,6 +46,7 @@ fn expand_routes_impl(item: ItemImpl) -> TokenStream {
                 #summary,
                 &[#(::std::stringify!(#guards),)*],
                 &[#(::std::stringify!(#pipes),)*],
+                #validates,
             )
         }
     });
@@ -68,6 +70,7 @@ struct RouteMacroMetadata {
     summary: Option<LitStr>,
     guards: Vec<Path>,
     pipes: Vec<Path>,
+    validates: bool,
 }
 
 fn route_metadata(item: &ImplItem) -> Option<RouteMacroMetadata> {
@@ -78,6 +81,10 @@ fn route_metadata(item: &ImplItem) -> Option<RouteMacroMetadata> {
     let summary = openapi_summary(function);
     let guards = type_attributes(function, "guard");
     let pipes = type_attributes(function, "pipe");
+    let validates = function
+        .attrs
+        .iter()
+        .any(|attr| attr.path().is_ident("validate"));
     for attr in &function.attrs {
         for (name, method) in [
             ("get", "GET"),
@@ -96,6 +103,7 @@ fn route_metadata(item: &ImplItem) -> Option<RouteMacroMetadata> {
                         summary: summary.clone(),
                         guards: guards.clone(),
                         pipes: pipes.clone(),
+                        validates,
                     });
             }
         }
