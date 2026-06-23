@@ -143,6 +143,21 @@ impl OpenApiRoute {
         Self::new("post", path)
     }
 
+    /// Creates PUT route metadata.
+    pub fn put(path: impl Into<String>) -> Self {
+        Self::new("put", path)
+    }
+
+    /// Creates PATCH route metadata.
+    pub fn patch(path: impl Into<String>) -> Self {
+        Self::new("patch", path)
+    }
+
+    /// Creates DELETE route metadata.
+    pub fn delete(path: impl Into<String>) -> Self {
+        Self::new("delete", path)
+    }
+
     /// Sets the route summary.
     pub fn summary(mut self, summary: impl Into<String>) -> Self {
         self.summary = Some(summary.into());

@@ -36,6 +36,28 @@ fn openapi_document_registers_utoipa_schemas() {
 }
 
 #[test]
+fn openapi_route_builders_cover_mutation_methods() {
+    let document = OpenApiDocument::new("Nidus API", "0.1.0")
+        .route(OpenApiRoute::put("/users/{id}").summary("Replace user"))
+        .route(OpenApiRoute::patch("/users/{id}").summary("Update user"))
+        .route(OpenApiRoute::delete("/users/{id}").summary("Delete user"));
+
+    let json = document.to_json_value();
+    assert_eq!(
+        json["paths"]["/users/{id}"]["put"]["summary"],
+        "Replace user"
+    );
+    assert_eq!(
+        json["paths"]["/users/{id}"]["patch"]["summary"],
+        "Update user"
+    );
+    assert_eq!(
+        json["paths"]["/users/{id}"]["delete"]["summary"],
+        "Delete user"
+    );
+}
+
+#[test]
 fn openapi_document_can_be_generated_from_route_metadata() {
     let routes = [RouteMetadata::with_annotations(
         "GET",
