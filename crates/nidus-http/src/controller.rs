@@ -2,6 +2,7 @@
 
 use axum::Router;
 
+use crate::error::RoutePathError;
 use crate::router::{RouteDefinition, join_paths};
 
 /// Controller route group with a shared path prefix.
@@ -27,11 +28,17 @@ impl Controller {
 
     /// Builds an Axum router from the controller routes.
     pub fn into_router(self) -> Router {
-        self.routes
-            .into_iter()
-            .fold(Router::new(), |router, route| {
-                let full_path = join_paths(&self.prefix, route.path());
-                router.merge(route.into_router(full_path))
-            })
+        self.try_into_router()
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    /// Tries to build an Axum router from the controller routes.
+    pub fn try_into_router(self) -> Result<Router, RoutePathError> {
+        let mut router = Router::new();
+        for route in self.routes {
+            let full_path = join_paths(&self.prefix, route.path())?;
+            router = router.merge(route.into_router(full_path));
+        }
+        Ok(router)
     }
 }

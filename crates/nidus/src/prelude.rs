@@ -13,7 +13,7 @@ pub use nidus_macros::{
 #[cfg(feature = "http")]
 pub use nidus_http::{
     controller::Controller,
-    error::HttpError,
+    error::{HttpError, RoutePathError},
     router::{RouteDefinition, RouteMetadata},
     server::{ApplicationHttpExt, HttpApplication},
 };

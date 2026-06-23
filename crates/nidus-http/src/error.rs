@@ -96,3 +96,21 @@ struct ErrorDetails {
     code: &'static str,
     message: String,
 }
+
+/// Invalid route path declared through the manual HTTP routing API.
+#[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
+#[error("route path `{path}` contains a parameter segment without a name after ':'")]
+pub struct RoutePathError {
+    path: String,
+}
+
+impl RoutePathError {
+    pub(crate) fn empty_parameter(path: impl Into<String>) -> Self {
+        Self { path: path.into() }
+    }
+
+    /// Returns the invalid route path.
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+}
