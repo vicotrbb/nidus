@@ -9,11 +9,11 @@ use http::{
     },
 };
 use nidus_http::middleware::{
-    RouteMakeSpan, compression_layer, cors_layer, request_id_layer, route_trace_layer,
-    timeout_layer, trace_layer,
+    RouteMakeSpan, compression_layer, cors_layer, rate_limit_layer, request_id_layer,
+    route_trace_layer, timeout_layer, trace_layer,
 };
 use tokio::time::sleep;
-use tower::{ServiceBuilder, ServiceExt, service_fn};
+use tower::{Service, ServiceBuilder, ServiceExt, service_fn};
 use tower_http::trace::MakeSpan;
 
 #[tokio::test]
@@ -45,6 +45,37 @@ async fn timeout_layer_errors_when_service_exceeds_deadline() {
     let error = service.oneshot(Request::new(())).await.unwrap_err();
 
     assert!(error.is::<tower::timeout::error::Elapsed>());
+}
+
+#[tokio::test]
+async fn rate_limit_layer_backpressures_until_period_resets() {
+    let mut service = ServiceBuilder::new()
+        .layer(rate_limit_layer(1, Duration::from_millis(50)))
+        .service(service_fn(|_request: Request<()>| async {
+            Ok::<_, Infallible>(Response::new(()))
+        }));
+
+    service
+        .ready()
+        .await
+        .unwrap()
+        .call(Request::new(()))
+        .await
+        .unwrap();
+
+    let limited = tokio::time::timeout(Duration::from_millis(5), service.ready()).await;
+    assert!(limited.is_err());
+
+    sleep(Duration::from_millis(60)).await;
+    let response = service
+        .ready()
+        .await
+        .unwrap()
+        .call(Request::new(()))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
 }
 
 #[tokio::test]

@@ -9,7 +9,7 @@ use std::{
 };
 
 use http::{HeaderValue, Method, Request, Response, header::HeaderName};
-use tower::{Layer, Service, timeout::TimeoutLayer};
+use tower::{Layer, Service, limit::RateLimitLayer, timeout::TimeoutLayer};
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::{HttpMakeClassifier, MakeSpan, TraceLayer};
@@ -18,6 +18,11 @@ use tracing::{Level, Span};
 /// Creates a Tower timeout layer.
 pub fn timeout_layer(timeout: Duration) -> TimeoutLayer {
     TimeoutLayer::new(timeout)
+}
+
+/// Creates a Tower rate limit layer.
+pub fn rate_limit_layer(num: u64, per: Duration) -> RateLimitLayer {
+    RateLimitLayer::new(num, per)
 }
 
 /// Creates a response request-id layer.
