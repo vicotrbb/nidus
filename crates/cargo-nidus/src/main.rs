@@ -384,7 +384,34 @@ fn check_project(root: &Path) -> Result<()> {
         );
     }
 
+    validate_module_indexes(root)?;
+
     println!("Nidus project check passed for {}", root.display());
+    Ok(())
+}
+
+fn validate_module_indexes(root: &Path) -> Result<()> {
+    for directory in ["modules", "controllers", "services", "repositories"] {
+        let mod_rs = root.join("src").join(directory).join("mod.rs");
+        if !mod_rs.exists() {
+            continue;
+        }
+        let contents =
+            fs::read_to_string(&mod_rs).with_context(|| format!("reading {}", mod_rs.display()))?;
+        for module in contents.lines().filter_map(extract_module_index_entry) {
+            let expected = mod_rs
+                .parent()
+                .expect("mod.rs has a parent directory")
+                .join(format!("{module}.rs"));
+            if !expected.exists() {
+                bail!(
+                    "stale module index entry in {}: missing {}",
+                    mod_rs.display(),
+                    expected.display()
+                );
+            }
+        }
+    }
     Ok(())
 }
 
@@ -575,6 +602,18 @@ fn extract_openapi_summary(args: &str) -> Option<String> {
     let rest = &args[start..];
     let end = rest.find('"')?;
     Some(rest[..end].to_owned())
+}
+
+fn extract_module_index_entry(line: &str) -> Option<String> {
+    let line = line.trim();
+    let module = line.strip_prefix("pub mod ")?;
+    let module = module.strip_suffix(';')?;
+    let module = module.trim();
+    if module.is_empty() {
+        None
+    } else {
+        Some(module.to_owned())
+    }
 }
 
 fn extract_call_arg(line: &str, call: &str) -> Option<String> {

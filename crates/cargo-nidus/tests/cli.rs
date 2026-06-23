@@ -376,6 +376,63 @@ fn cargo_nidus_check_validates_project_structure() {
 }
 
 #[test]
+fn cargo_nidus_check_rejects_stale_module_index_entries() {
+    let root = temp_project_root("check_rejects_stale_module_index_entries");
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+    )
+    .unwrap();
+    fs::create_dir_all(root.join("src/services")).unwrap();
+    fs::write(root.join("src/main.rs"), "fn main() {}\n").unwrap();
+    fs::write(root.join("src/services/mod.rs"), "pub mod missing;\n").unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "check", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("stale module index entry"));
+    assert!(stderr.contains("src/services/mod.rs"));
+    assert!(stderr.contains("missing.rs"));
+}
+
+#[test]
+fn cargo_nidus_check_accepts_generated_module_indexes() {
+    let root = temp_project_root("check_accepts_generated_module_indexes");
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+    )
+    .unwrap();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(root.join("src/main.rs"), "fn main() {}\n").unwrap();
+
+    let generate = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "generate", "service", "users", "--path"])
+        .arg(&root)
+        .status()
+        .unwrap();
+    assert!(generate.success());
+
+    let check = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "check", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+
+    assert!(check.status.success());
+    assert!(
+        String::from_utf8(check.stdout)
+            .unwrap()
+            .contains("Nidus project check passed")
+    );
+}
+
+#[test]
 fn cargo_nidus_openapi_generates_document_from_controllers() {
     let root = temp_project_root("openapi_generates_document_from_controllers");
     let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
