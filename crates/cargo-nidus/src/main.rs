@@ -125,12 +125,24 @@ tokio = {{ version = "1", features = ["macros", "net", "rt-multi-thread"] }}
     write(
         &src.join("main.rs"),
         r#"use axum::{Router, routing::get};
+use nidus::prelude::*;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let app = Router::new().route("/", get(|| async { "hello from nidus" }));
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    Nidus::bootstrap::<AppModule>()?
+        .with_router(app)
+        .listen("127.0.0.1:3000")
+        .await?;
+    Ok(())
+}
+
+struct AppModule;
+
+impl Module for AppModule {
+    fn definition() -> ModuleDefinition {
+        ModuleBuilder::new("AppModule").build()
+    }
 }
 "#,
     )?;
