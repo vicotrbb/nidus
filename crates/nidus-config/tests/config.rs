@@ -41,6 +41,54 @@ fn config_deserializes_typed_settings_from_pairs() {
 }
 
 #[test]
+fn config_deserializes_typed_settings_from_json_object() {
+    let config = Config::from_json_str(
+        r#"{
+            "name": "nidus",
+            "port": 3000,
+            "debug": true,
+            "database": {
+                "url": "postgres://localhost/nidus",
+                "pool_size": 8
+            }
+        }"#,
+    )
+    .unwrap();
+
+    let settings = config.deserialize::<EnvConfig>().unwrap();
+
+    assert_eq!(
+        settings,
+        EnvConfig {
+            name: "nidus".to_owned(),
+            port: 3000,
+            debug: true,
+            database: DatabaseConfig {
+                url: "postgres://localhost/nidus".to_owned(),
+                pool_size: 8,
+            },
+        }
+    );
+}
+
+#[test]
+fn config_rejects_invalid_json_sources() {
+    let error = Config::from_json_str("{not-json").unwrap_err();
+
+    assert!(error.to_string().contains("configuration JSON parse error"));
+}
+
+#[test]
+fn config_rejects_non_object_json_roots() {
+    let error = Config::from_json_str("[\"nidus\"]").unwrap_err();
+
+    assert_eq!(
+        error.to_string(),
+        "configuration root must be a JSON object"
+    );
+}
+
+#[test]
 fn config_exposes_top_level_raw_values() {
     let config = Config::from_pairs([("name", "nidus"), ("port", "3000"), ("debug", "true")]);
 

@@ -13,6 +13,17 @@ let config = Config::from_pairs([("name", "nidus"), ("port", "3000")]);
 let typed = config.deserialize::<AppConfig>()?;
 ```
 
+JSON object sources can be loaded explicitly:
+
+```rust
+let config = Config::from_json_str(
+    r#"{
+        "name": "nidus",
+        "port": 3000
+    }"#,
+)?;
+```
+
 Environment variables can be loaded through an explicit prefix. Double
 underscores create nested objects:
 

@@ -28,6 +28,20 @@ impl Config {
         Self { values }
     }
 
+    /// Creates configuration from a JSON object value.
+    pub fn from_value(value: Value) -> Result<Self> {
+        match value {
+            Value::Object(values) => Ok(Self { values }),
+            _ => Err(ConfigError::RootNotObject),
+        }
+    }
+
+    /// Creates configuration from a JSON object string.
+    pub fn from_json_str(source: &str) -> Result<Self> {
+        let value = serde_json::from_str(source).map_err(ConfigError::Parse)?;
+        Self::from_value(value)
+    }
+
     /// Creates configuration from process environment variables with a prefix.
     ///
     /// For prefix `APP`, `APP_PORT=3000` maps to `port`, and
@@ -156,6 +170,14 @@ pub type Result<T> = std::result::Result<T, ConfigError>;
 /// Errors emitted by typed configuration loading.
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
+    /// Parsing a JSON configuration source failed.
+    #[error("configuration JSON parse error: {0}")]
+    Parse(#[source] serde_json::Error),
+
+    /// The configuration root was not a JSON object.
+    #[error("configuration root must be a JSON object")]
+    RootNotObject,
+
     /// Deserialization into the requested type failed.
     #[error("configuration deserialize error: {0}")]
     Deserialize(#[from] serde_json::Error),
