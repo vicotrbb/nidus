@@ -965,33 +965,37 @@ fn split_openapi_args(args: &str) -> Vec<&str> {
 }
 
 fn extract_openapi_tags(args: &str) -> Result<Vec<String>> {
-    let Some(tags_start) = args.find("tags") else {
-        return Ok(Vec::new());
-    };
-    let rest = &args[tags_start..];
-    let Some(open) = rest.find('[') else {
-        bail!("#[openapi] tags must be an array of string literals");
-    };
-    let rest = &rest[open + 1..];
-    let Some(close) = rest.find(']') else {
-        bail!("#[openapi] tags must be an array of string literals");
-    };
-    let tags = &rest[..close];
-    let mut values = Vec::new();
-    for raw in tags.split(',') {
-        let raw = raw.trim();
-        if raw.is_empty() {
+    for arg in split_openapi_args(args) {
+        let Some((key, value)) = arg.split_once('=') else {
+            continue;
+        };
+        if key.trim() != "tags" {
             continue;
         }
-        let Some(value) = raw
-            .strip_prefix('"')
-            .and_then(|value| value.strip_suffix('"'))
+        let value = value.trim();
+        let Some(tags) = value
+            .strip_prefix('[')
+            .and_then(|value| value.strip_suffix(']'))
         else {
-            bail!("#[openapi] tags must be string literals");
+            bail!("#[openapi] tags must be an array of string literals");
         };
-        values.push(value.to_owned());
+        let mut values = Vec::new();
+        for raw in tags.split(',') {
+            let raw = raw.trim();
+            if raw.is_empty() {
+                continue;
+            }
+            let Some(value) = raw
+                .strip_prefix('"')
+                .and_then(|value| value.strip_suffix('"'))
+            else {
+                bail!("#[openapi] tags must be string literals");
+            };
+            values.push(value.to_owned());
+        }
+        return Ok(values);
     }
-    Ok(values)
+    Ok(Vec::new())
 }
 
 fn extract_openapi_schema(args: &str, key: &str) -> Result<Option<String>> {

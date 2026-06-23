@@ -734,6 +734,38 @@ fn cargo_nidus_openapi_rejects_non_string_tags() {
 }
 
 #[test]
+fn cargo_nidus_openapi_ignores_tags_word_in_summary() {
+    let root = temp_project_root("openapi_ignores_tags_word_in_summary");
+    let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "generate", "controller", "users", "--path"])
+        .arg(&root)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    let controller_path = root.join("src/controllers/users.rs");
+    let controller = fs::read_to_string(&controller_path).unwrap().replace(
+        "#[get(\"/\")]",
+        "#[get(\"/:id\")]\n    #[openapi(summary = \"Find user tags\")]",
+    );
+    fs::write(controller_path, controller).unwrap();
+
+    let openapi = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "openapi", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+
+    assert!(openapi.status.success());
+    let stdout = String::from_utf8(openapi.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["summary"],
+        "Find user tags"
+    );
+    assert!(json["paths"]["/users/{id}"]["get"].get("tags").is_none());
+}
+
+#[test]
 fn cargo_nidus_openapi_rejects_non_string_summary() {
     let root = temp_project_root("openapi_rejects_non_string_summary");
     let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
