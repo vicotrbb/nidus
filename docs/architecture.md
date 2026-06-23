@@ -10,7 +10,7 @@ The workspace is split into focused crates:
 - `nidus-openapi`: OpenAPI metadata.
 - `nidus-validation`: validation pipes.
 - `nidus-auth`: guards.
-- `nidus-events`: typed event bus.
+- `nidus-events`: typed event bus with weak subscriber cleanup.
 - `nidus-jobs`: background jobs.
 - `nidus-testing`: app test helpers.
 - `cargo-nidus`: CLI tooling.

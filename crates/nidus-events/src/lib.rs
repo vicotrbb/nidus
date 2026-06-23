@@ -1,9 +1,10 @@
 //! Event bus abstractions.
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 
 type SubscriberQueue<T> = Arc<Mutex<Vec<T>>>;
-type SubscriberList<T> = Arc<Mutex<Vec<SubscriberQueue<T>>>>;
+type SubscriberHandle<T> = Weak<Mutex<Vec<T>>>;
+type SubscriberList<T> = Arc<Mutex<Vec<SubscriberHandle<T>>>>;
 
 /// In-process typed event bus.
 #[derive(Clone, Debug)]
@@ -25,15 +26,37 @@ where
     /// Subscribes to future events.
     pub fn subscribe(&self) -> EventSubscriber<T> {
         let queue = Arc::new(Mutex::new(Vec::new()));
-        self.subscribers.lock().unwrap().push(Arc::clone(&queue));
+        self.subscribers
+            .lock()
+            .unwrap()
+            .push(Arc::downgrade(&queue));
         EventSubscriber { queue }
     }
 
     /// Publishes an event to current subscribers.
     pub fn publish(&self, event: T) {
-        for subscriber in self.subscribers.lock().unwrap().iter() {
+        for subscriber in self.live_subscribers() {
             subscriber.lock().unwrap().push(event.clone());
         }
+    }
+
+    /// Returns the number of active subscribers.
+    pub fn subscriber_count(&self) -> usize {
+        self.live_subscribers().len()
+    }
+
+    fn live_subscribers(&self) -> Vec<SubscriberQueue<T>> {
+        let mut subscribers = self.subscribers.lock().unwrap();
+        let mut live = Vec::new();
+        subscribers.retain(|subscriber| {
+            if let Some(queue) = subscriber.upgrade() {
+                live.push(queue);
+                true
+            } else {
+                false
+            }
+        });
+        live
     }
 }
 
