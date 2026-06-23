@@ -3,7 +3,9 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-use nidus_core::{Container, Inject, ModuleBuilder, ModuleGraph, NidusError, ProviderLifetime};
+use nidus_core::{
+    Container, Factory, Inject, Lazy, ModuleBuilder, ModuleGraph, NidusError, ProviderLifetime,
+};
 use tracing::Level;
 use tracing_subscriber::{Layer, fmt::MakeWriter, layer::SubscriberExt};
 
@@ -79,6 +81,58 @@ fn container_can_build_injected_provider_from_typed_dependency() {
     let repository = container.resolve::<UsersRepository>().unwrap();
 
     assert_eq!(repository.database.0, "primary");
+}
+
+#[test]
+fn lazy_dependency_resolves_only_when_requested() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let lazy = Lazy::new({
+        let calls = Arc::clone(&calls);
+        move || {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Ok(Inject::new(Arc::new(Database("lazy"))))
+        }
+    });
+
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+
+    let database = lazy.get().unwrap();
+
+    assert_eq!(database.0, "lazy");
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn lazy_dependency_preserves_resolution_errors() {
+    let lazy = Lazy::<Database>::new(|| {
+        Err(NidusError::MissingProvider {
+            type_name: "Database",
+        })
+    });
+
+    let error = lazy.get().unwrap_err();
+
+    assert!(matches!(error, NidusError::MissingProvider { .. }));
+    assert!(error.to_string().contains("Database"));
+}
+
+#[test]
+fn factory_dependency_creates_fresh_values() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let factory = Factory::new({
+        let calls = Arc::clone(&calls);
+        move || {
+            let call = calls.fetch_add(1, Ordering::SeqCst);
+            Ok(Database(if call == 0 { "first" } else { "second" }))
+        }
+    });
+
+    let first = factory.create().unwrap();
+    let second = factory.create().unwrap();
+
+    assert_eq!(first.0, "first");
+    assert_eq!(second.0, "second");
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
 }
 
 #[test]
