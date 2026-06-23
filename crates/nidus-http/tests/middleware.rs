@@ -51,6 +51,13 @@ impl HttpMetricsHook for RecordingMetrics {
             route.unwrap_or("<unknown>")
         ));
     }
+
+    fn on_error(&self, method: &Method, route: Option<&str>, _latency: Duration) {
+        self.events
+            .lock()
+            .unwrap()
+            .push(format!("error {method} {}", route.unwrap_or("<unknown>")));
+    }
 }
 
 #[tokio::test]
@@ -147,6 +154,33 @@ async fn route_metrics_layer_records_request_and_response() {
             "request POST /users/{id}",
             "response POST /users/{id} 201 Created"
         ]
+    );
+}
+
+#[tokio::test]
+async fn route_metrics_layer_records_inner_service_errors() {
+    let metrics = RecordingMetrics::default();
+    let service = ServiceBuilder::new()
+        .layer(route_metrics_layer("/users/{id}", metrics.clone()))
+        .service(service_fn(|_request: Request<()>| async {
+            Err::<Response<()>, _>("database unavailable")
+        }));
+
+    let error = service
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/users/42")
+                .body(())
+                .unwrap(),
+        )
+        .await
+        .unwrap_err();
+
+    assert_eq!(error, "database unavailable");
+    assert_eq!(
+        metrics.events(),
+        ["request GET /users/{id}", "error GET /users/{id}"]
     );
 }
 

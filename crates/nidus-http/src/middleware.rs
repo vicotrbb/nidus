@@ -118,6 +118,9 @@ pub trait HttpMetricsHook: Clone + Send + Sync + 'static {
         status: StatusCode,
         latency: Duration,
     );
+
+    /// Records that the inner service returned an error before producing a response.
+    fn on_error(&self, _method: &Method, _route: Option<&str>, _latency: Duration) {}
 }
 
 /// Tower layer that invokes [`HttpMetricsHook`] for request lifecycle metrics.
@@ -192,14 +195,21 @@ where
         let future = self.inner.call(request);
 
         Box::pin(async move {
-            let response = future.await?;
-            hook.on_response(
-                &method,
-                route.as_deref(),
-                response.status(),
-                started_at.elapsed(),
-            );
-            Ok(response)
+            match future.await {
+                Ok(response) => {
+                    hook.on_response(
+                        &method,
+                        route.as_deref(),
+                        response.status(),
+                        started_at.elapsed(),
+                    );
+                    Ok(response)
+                }
+                Err(error) => {
+                    hook.on_error(&method, route.as_deref(), started_at.elapsed());
+                    Err(error)
+                }
+            }
         })
     }
 }

@@ -24,6 +24,8 @@ let app = router.layer(rate_limit_layer(100, Duration::from_secs(60)));
 
 Metrics hooks are backend-neutral. Implement `HttpMetricsHook` and attach it
 with `route_metrics_layer("/users/{id}", metrics)` to record request and
-response events without coupling the framework to a metrics backend.
+response events without coupling the framework to a metrics backend. The same
+hook can implement `on_error` to observe inner service failures that occur
+before a response is produced.
 
 Avoid a parallel middleware ecosystem unless Tower cannot express the behavior.
