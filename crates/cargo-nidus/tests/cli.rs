@@ -625,11 +625,26 @@ fn cargo_nidus_openapi_generates_document_from_controllers() {
         .unwrap();
     assert!(openapi.status.success());
     let stdout = String::from_utf8(openapi.stdout).unwrap();
-    assert!(stdout.contains(r#""openapi":"3.1.0""#));
-    assert!(stdout.contains(r#""/users/{id}""#));
-    assert!(stdout.contains(r#""get""#));
-    assert!(stdout.contains(r#""summary":"Find user""#));
-    assert!(stdout.contains(r#""tags":["users","read"]"#));
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["openapi"], "3.1.0");
+    assert_eq!(json["paths"]["/users/{id}"]["get"]["summary"], "Find user");
+    assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["tags"],
+        serde_json::json!(["users", "read"])
+    );
+    assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["parameters"],
+        serde_json::json!([
+            {
+                "name": "id",
+                "in": "path",
+                "required": true,
+                "schema": {
+                    "type": "string"
+                }
+            }
+        ])
+    );
 }
 
 #[test]

@@ -568,6 +568,7 @@ fn expand_project(root: &Path, dry_run: bool) -> Result<()> {
 fn generate_openapi(root: &Path) -> Result<()> {
     let mut paths = serde_json::Map::new();
     for route in discover_routes(root)? {
+        let parameters = openapi_path_parameters(&route.path);
         let entry = paths
             .entry(route.path)
             .or_insert_with(|| Value::Object(serde_json::Map::new()));
@@ -585,6 +586,26 @@ fn generate_openapi(root: &Path) -> Result<()> {
             }
             if !route.tags.is_empty() {
                 operation.insert("tags".to_owned(), json!(route.tags));
+            }
+            if !parameters.is_empty() {
+                operation.insert(
+                    "parameters".to_owned(),
+                    json!(
+                        parameters
+                            .into_iter()
+                            .map(|name| {
+                                json!({
+                                    "name": name,
+                                    "in": "path",
+                                    "required": true,
+                                    "schema": {
+                                        "type": "string"
+                                    }
+                                })
+                            })
+                            .collect::<Vec<_>>()
+                    ),
+                );
             }
             methods.insert(route.method, Value::Object(operation));
         }
@@ -910,6 +931,15 @@ fn convert_nest_params(path: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join("/")
+}
+
+fn openapi_path_parameters(path: &str) -> Vec<String> {
+    path.split('/')
+        .filter_map(|segment| {
+            let name = segment.strip_prefix('{')?.strip_suffix('}')?;
+            (!name.is_empty()).then(|| name.to_owned())
+        })
+        .collect()
 }
 
 fn to_pascal_case(name: &str) -> String {
