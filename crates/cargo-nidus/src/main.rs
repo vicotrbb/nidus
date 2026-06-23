@@ -237,12 +237,12 @@ fn discover_routes(root: &Path) -> Result<Vec<DiscoveredRoute>> {
         let Some(prefix) = extract_attr_value(&contents, "controller") else {
             continue;
         };
-        routes.extend(discover_controller_routes(&prefix, &contents));
+        routes.extend(discover_controller_routes(&prefix, &contents)?);
     }
     Ok(routes)
 }
 
-fn discover_controller_routes(prefix: &str, contents: &str) -> Vec<DiscoveredRoute> {
+fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<DiscoveredRoute>> {
     let mut routes = Vec::new();
     let mut pending_route = None;
     let mut pending_summary = None;
@@ -259,7 +259,7 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Vec<DiscoveredRou
             if let Some((method, path)) = pending_route.take() {
                 routes.push(DiscoveredRoute {
                     method,
-                    path: join_route(prefix, &path),
+                    path: join_route(prefix, &path)?,
                     summary: pending_summary.take(),
                 });
             } else {
@@ -268,7 +268,7 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Vec<DiscoveredRou
         }
     }
 
-    routes
+    Ok(routes)
 }
 
 fn inspect_graph(root: &Path) -> Result<()> {
@@ -827,9 +827,9 @@ fn path_last_segment(path: &str) -> String {
         .to_owned()
 }
 
-fn join_route(prefix: &str, route: &str) -> String {
-    let prefix = normalize_path(prefix);
-    let route = normalize_path(route);
+fn join_route(prefix: &str, route: &str) -> Result<String> {
+    let prefix = normalize_path(prefix)?;
+    let route = normalize_path(route)?;
     let joined = if prefix == "/" {
         route
     } else if route == "/" {
@@ -837,16 +837,27 @@ fn join_route(prefix: &str, route: &str) -> String {
     } else {
         format!("{prefix}{route}")
     };
-    convert_nest_params(&joined)
+    Ok(convert_nest_params(&joined))
 }
 
-fn normalize_path(path: &str) -> String {
+fn normalize_path(path: &str) -> Result<String> {
     let path = path.trim();
-    if path.starts_with('/') {
+    validate_path(path)?;
+    let normalized = if path.starts_with('/') {
         path.to_owned()
     } else {
         format!("/{path}")
+    };
+    Ok(normalized)
+}
+
+fn validate_path(path: &str) -> Result<()> {
+    for segment in path.split('/') {
+        if segment == ":" {
+            bail!("route path `{path}` contains a parameter segment without a name after ':'");
+        }
     }
+    Ok(())
 }
 
 fn convert_nest_params(path: &str) -> String {

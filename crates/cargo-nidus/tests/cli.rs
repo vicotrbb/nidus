@@ -369,6 +369,34 @@ fn cargo_nidus_routes_and_graph_inspect_generated_sources() {
 }
 
 #[test]
+fn cargo_nidus_routes_rejects_empty_route_param_names() {
+    let root = temp_project_root("routes_rejects_empty_route_param_names");
+    let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "generate", "controller", "users", "--path"])
+        .arg(&root)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    let controller_path = root.join("src/controllers/users.rs");
+    let controller = fs::read_to_string(&controller_path)
+        .unwrap()
+        .replace("#[get(\"/\")]", "#[get(\"/:\")]");
+    fs::write(controller_path, controller).unwrap();
+
+    let routes = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "routes", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+
+    assert!(!routes.status.success());
+    let stderr = String::from_utf8(routes.stderr).unwrap();
+    assert!(
+        stderr.contains("route path `/:` contains a parameter segment without a name after ':'")
+    );
+}
+
+#[test]
 fn cargo_nidus_graph_prints_module_builder_metadata() {
     let root = temp_project_root("graph_prints_module_builder_metadata");
     let modules = root.join("src/modules");
