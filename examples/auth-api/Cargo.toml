@@ -1,0 +1,12 @@
+[package]
+name = "nidus-example-auth-api"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+async-trait.workspace = true
+axum.workspace = true
+nidus-auth = { path = "../../crates/nidus-auth" }
+tokio.workspace = true
+

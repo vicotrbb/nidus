@@ -1,0 +1,12 @@
+[package]
+name = "nidus-example-rest-api"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+axum.workspace = true
+nidus = { path = "../../crates/nidus" }
+serde.workspace = true
+tokio.workspace = true
+

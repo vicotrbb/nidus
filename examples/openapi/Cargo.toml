@@ -1,0 +1,9 @@
+[package]
+name = "nidus-example-openapi"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+nidus-openapi = { path = "../../crates/nidus-openapi" }
+

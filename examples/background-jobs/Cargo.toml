@@ -1,0 +1,9 @@
+[package]
+name = "nidus-example-background-jobs"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+nidus-jobs = { path = "../../crates/nidus-jobs" }
+
