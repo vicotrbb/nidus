@@ -17,6 +17,7 @@ auth = ["dep:nidus-auth"]
 events = ["dep:nidus-events"]
 jobs = ["dep:nidus-jobs"]
 testing = ["dep:nidus-testing"]
+sqlx-postgres = ["dep:sqlx"]
 tracing = []
 
 [dependencies]
@@ -30,6 +31,7 @@ nidus-auth = { path = "../nidus-auth", optional = true }
 nidus-events = { path = "../nidus-events", optional = true }
 nidus-jobs = { path = "../nidus-jobs", optional = true }
 nidus-testing = { path = "../nidus-testing", optional = true }
+sqlx = { workspace = true, optional = true }
 tokio.workspace = true
 
 [dev-dependencies]

@@ -51,6 +51,10 @@ impl UsersController {
 - Compile-fail tests for invalid macro usage.
 - Criterion benchmark targets for routing, dependency resolution, and request lifecycle setup.
 
+Default features enable the core HTTP, config, and tracing facade. Optional
+facade features are available for `openapi`, `validation`, `auth`, `events`,
+`jobs`, `testing`, and `sqlx-postgres`.
+
 ## Status
 
 Nidus is under active implementation. The current repository is a working foundation, not a finished production release. Public APIs can change before the first published version.

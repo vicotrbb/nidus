@@ -1160,6 +1160,7 @@ dependencies = [
  "nidus-openapi",
  "nidus-testing",
  "nidus-validation",
+ "sqlx",
  "tokio",
  "trybuild",
 ]
