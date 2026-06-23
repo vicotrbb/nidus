@@ -23,11 +23,22 @@ pub(crate) fn expand_routes(attr: TokenStream, item: TokenStream) -> TokenStream
 
 fn expand_routes_impl(item: ItemImpl) -> TokenStream {
     let self_ty = &item.self_ty;
-    let metadata = item
-        .items
-        .iter()
-        .filter_map(route_metadata)
-        .collect::<Vec<_>>();
+    let mut metadata = Vec::new();
+    let mut errors = Vec::new();
+    for item in &item.items {
+        match route_metadata(item) {
+            Ok(Some(route)) => metadata.push(route),
+            Ok(None) => {}
+            Err(error) => errors.push(error),
+        }
+    }
+    if !errors.is_empty() {
+        let compile_errors = errors.iter().map(syn::Error::to_compile_error);
+        return quote! {
+            #item
+            #(#compile_errors)*
+        };
+    }
     let route_entries = metadata.iter().map(|route| {
         let method = &route.method;
         let path = &route.path;
@@ -73,9 +84,9 @@ struct RouteMacroMetadata {
     validates: bool,
 }
 
-fn route_metadata(item: &ImplItem) -> Option<RouteMacroMetadata> {
+fn route_metadata(item: &ImplItem) -> syn::Result<Option<RouteMacroMetadata>> {
     let ImplItem::Fn(function) = item else {
-        return None;
+        return Ok(None);
     };
 
     let summary = openapi_summary(function);
@@ -85,31 +96,45 @@ fn route_metadata(item: &ImplItem) -> Option<RouteMacroMetadata> {
         .attrs
         .iter()
         .any(|attr| attr.path().is_ident("validate"));
-    for attr in &function.attrs {
-        for (name, method) in [
-            ("get", "GET"),
-            ("post", "POST"),
-            ("put", "PUT"),
-            ("patch", "PATCH"),
-            ("delete", "DELETE"),
-        ] {
-            if attr.path().is_ident(name) {
-                return attr
-                    .parse_args::<LitStr>()
-                    .ok()
-                    .map(|path| RouteMacroMetadata {
-                        method: method.to_owned(),
-                        path,
-                        summary: summary.clone(),
-                        guards: guards.clone(),
-                        pipes: pipes.clone(),
-                        validates,
-                    });
-            }
-        }
+    let route_attrs = function
+        .attrs
+        .iter()
+        .filter_map(|attr| {
+            [
+                ("get", "GET"),
+                ("post", "POST"),
+                ("put", "PUT"),
+                ("patch", "PATCH"),
+                ("delete", "DELETE"),
+            ]
+            .into_iter()
+            .find(|(name, _method)| attr.path().is_ident(name))
+            .map(|(_name, method)| (attr, method))
+        })
+        .collect::<Vec<_>>();
+
+    if route_attrs.len() > 1 {
+        return Err(syn::Error::new_spanned(
+            function.sig.ident.clone(),
+            "route methods must declare exactly one HTTP method attribute",
+        ));
     }
 
-    None
+    let Some((attr, method)) = route_attrs.first() else {
+        return Ok(None);
+    };
+
+    let Ok(path) = attr.parse_args::<LitStr>() else {
+        return Ok(None);
+    };
+    Ok(Some(RouteMacroMetadata {
+        method: (*method).to_owned(),
+        path,
+        summary,
+        guards,
+        pipes,
+        validates,
+    }))
 }
 
 fn type_attributes(function: &ImplItemFn, name: &str) -> Vec<Path> {

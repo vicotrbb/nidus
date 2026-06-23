@@ -13,6 +13,7 @@ let router = Controller::new("/users")
 
 `RouteDefinition` supports `get`, `post`, `put`, `patch`, and `delete`.
 Nidus accepts Nest-style `:id` route parameters and normalizes them to Axum-compatible `{id}` paths.
+Each route method must declare exactly one HTTP method attribute.
 
 The `#[controller("/prefix")]` macro preserves the struct and generates a
 `controller_prefix()` accessor so route inspection and documentation tooling can

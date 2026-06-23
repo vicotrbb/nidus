@@ -1,0 +1,5 @@
+error: route methods must declare exactly one HTTP method attribute
+ --> tests/ui/route_duplicate_method.rs:9:14
+  |
+9 |     async fn find_one(&self) {}
+  |              ^^^^^^^^
