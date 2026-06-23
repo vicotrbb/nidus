@@ -9,3 +9,5 @@ axum.workspace = true
 nidus = { path = "../../crates/nidus" }
 tokio.workspace = true
 
+[dev-dependencies]
+nidus-testing = { path = "../../crates/nidus-testing" }

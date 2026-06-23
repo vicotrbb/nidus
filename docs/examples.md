@@ -5,7 +5,7 @@ requiring external services by default.
 
 | Example | Purpose |
 | --- | --- |
-| `hello-world` | Minimal Tokio binary used as the smallest runnable project shape. |
+| `hello-world` | Minimal Nidus HTTP server with a composed route on `127.0.0.1:3000`. |
 | `rest-api` | Nidus controller route composition with an Axum JSON handler served on `127.0.0.1:3000`. |
 | `auth-api` | Guard trait implementation with explicit guard failure mapping in a Nidus-composed route. |
 | `sqlx-postgres` | Facade `sqlx-postgres` feature plus typed provider registration around Postgres pool options without opening a database connection. |
@@ -22,8 +22,8 @@ cargo run -p nidus-example-openapi
 Server examples bind to `127.0.0.1:3000` and keep running until interrupted:
 
 ```bash
-cargo run -p nidus-example-rest-api
-curl http://127.0.0.1:3000/users/1
+cargo run -p nidus-example-hello-world
+curl http://127.0.0.1:3000/
 ```
 
 All examples are workspace members, so they are checked by the normal workspace
