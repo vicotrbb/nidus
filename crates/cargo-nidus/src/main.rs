@@ -198,11 +198,24 @@ fn inspect_routes(root: &Path) -> Result<()> {
     for route in discover_routes(root)? {
         let method = route.method.to_uppercase();
         let path = route.path;
+        let mut line = format!("{method} {path}");
         if let Some(summary) = route.summary {
-            println!("{method} {path} - {summary}");
-        } else {
-            println!("{method} {path}");
+            line.push_str(&format!(" - {summary}"));
         }
+        let mut annotations = Vec::new();
+        if !route.guards.is_empty() {
+            annotations.push(format!("guards: {}", route.guards.join(", ")));
+        }
+        if !route.pipes.is_empty() {
+            annotations.push(format!("pipes: {}", route.pipes.join(", ")));
+        }
+        if route.validates {
+            annotations.push("validates".to_owned());
+        }
+        if !annotations.is_empty() {
+            line.push_str(&format!(" [{}]", annotations.join("; ")));
+        }
+        println!("{line}");
     }
     Ok(())
 }
@@ -215,6 +228,9 @@ struct DiscoveredRoute {
     tags: Vec<String>,
     request_schema: Option<String>,
     response_schema: Option<String>,
+    guards: Vec<String>,
+    pipes: Vec<String>,
+    validates: bool,
 }
 
 fn discover_routes(root: &Path) -> Result<Vec<DiscoveredRoute>> {
@@ -249,6 +265,9 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<Discov
     let mut pending_tags = Vec::new();
     let mut pending_request_schema = None;
     let mut pending_response_schema = None;
+    let mut pending_guards = Vec::new();
+    let mut pending_pipes = Vec::new();
+    let mut pending_validates = false;
 
     for line in contents.lines() {
         let trimmed = line.trim();
@@ -272,6 +291,15 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<Discov
 
         if let Some((method, path)) = extract_route_attr_from_line(line) {
             pending_route = Some((method, path));
+        }
+        if let Some(guard) = extract_type_attr_from_line(line, "guard") {
+            pending_guards.push(guard);
+        }
+        if let Some(pipe) = extract_type_attr_from_line(line, "pipe") {
+            pending_pipes.push(pipe);
+        }
+        if trimmed == "#[validate]" {
+            pending_validates = true;
         }
         if trimmed.starts_with("#[openapi(") {
             if trimmed.ends_with(")]") {
@@ -298,12 +326,19 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<Discov
                     tags: std::mem::take(&mut pending_tags),
                     request_schema: pending_request_schema.take(),
                     response_schema: pending_response_schema.take(),
+                    guards: std::mem::take(&mut pending_guards),
+                    pipes: std::mem::take(&mut pending_pipes),
+                    validates: pending_validates,
                 });
+                pending_validates = false;
             } else {
                 pending_summary = None;
                 pending_tags.clear();
                 pending_request_schema = None;
                 pending_response_schema = None;
+                pending_guards.clear();
+                pending_pipes.clear();
+                pending_validates = false;
             }
         }
     }
@@ -906,6 +941,15 @@ fn extract_route_attr_from_line(line: &str) -> Option<(String, String)> {
         }
     }
     None
+}
+
+fn extract_type_attr_from_line(line: &str, attr: &str) -> Option<String> {
+    let needle = format!("#[{attr}(");
+    let start = line.find(&needle)? + needle.len();
+    let rest = &line[start..];
+    let end = rest.find(")]")?;
+    let value = rest[..end].trim();
+    (!value.is_empty()).then(|| value.to_owned())
 }
 
 fn extract_openapi_args_from_line(line: &str) -> Option<String> {

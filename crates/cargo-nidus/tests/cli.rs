@@ -351,7 +351,7 @@ fn cargo_nidus_routes_and_graph_inspect_generated_sources() {
     let controller_path = root.join("src/controllers/users.rs");
     let controller = fs::read_to_string(&controller_path).unwrap().replace(
         "#[get(\"/\")]",
-        "#[get(\"/:id\")]\n    #[openapi(summary=\"Find user\",tags=[\"users\", \"read\"])]",
+        "#[get(\"/:id\")]\n    #[guard(AuthGuard)]\n    #[pipe(ValidationPipe)]\n    #[validate]\n    #[openapi(summary=\"Find user\",tags=[\"users\", \"read\"])]",
     );
     fs::write(controller_path, controller).unwrap();
 
@@ -363,6 +363,7 @@ fn cargo_nidus_routes_and_graph_inspect_generated_sources() {
     assert!(routes.status.success());
     let routes_stdout = String::from_utf8(routes.stdout).unwrap();
     assert!(routes_stdout.contains("GET /users/{id} - Find user"));
+    assert!(routes_stdout.contains("[guards: AuthGuard; pipes: ValidationPipe; validates]"));
 
     let graph = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
         .args(["nidus", "graph", "--path"])
