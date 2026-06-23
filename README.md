@@ -59,8 +59,8 @@ Nidus is under active implementation. The current repository is a working founda
 
 - Expand macro code generation from validation-only attributes into explicit registration code.
 - Add richer module graph provider validation.
-- Add request-scoped providers and lifecycle hooks.
-- Build complete examples for REST, auth, SQLx, jobs, and modular monoliths.
+- Wire request-scoped providers through higher-level HTTP request flows.
+- Expand REST, auth, SQLx, jobs, and modular monolith examples into production-shaped applications.
 - Measure and publish overhead against raw Axum baselines.
 
 ## Contributing
