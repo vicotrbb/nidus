@@ -1,4 +1,8 @@
-use std::{convert::Infallible, time::Duration};
+use std::{
+    convert::Infallible,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use axum::{Router, body::Body, routing::get};
 use http::{
@@ -9,12 +13,45 @@ use http::{
     },
 };
 use nidus_http::middleware::{
-    RouteMakeSpan, compression_layer, cors_layer, rate_limit_layer, request_id_layer,
-    route_trace_layer, timeout_layer, trace_layer,
+    HttpMetricsHook, RouteMakeSpan, compression_layer, cors_layer, rate_limit_layer,
+    request_id_layer, route_metrics_layer, route_trace_layer, timeout_layer, trace_layer,
 };
 use tokio::time::sleep;
 use tower::{Service, ServiceBuilder, ServiceExt, service_fn};
 use tower_http::trace::MakeSpan;
+
+#[derive(Clone, Default)]
+struct RecordingMetrics {
+    events: Arc<Mutex<Vec<String>>>,
+}
+
+impl RecordingMetrics {
+    fn events(&self) -> Vec<String> {
+        self.events.lock().unwrap().clone()
+    }
+}
+
+impl HttpMetricsHook for RecordingMetrics {
+    fn on_request(&self, method: &Method, route: Option<&str>) {
+        self.events
+            .lock()
+            .unwrap()
+            .push(format!("request {method} {}", route.unwrap_or("<unknown>")));
+    }
+
+    fn on_response(
+        &self,
+        method: &Method,
+        route: Option<&str>,
+        status: StatusCode,
+        _latency: Duration,
+    ) {
+        self.events.lock().unwrap().push(format!(
+            "response {method} {} {status}",
+            route.unwrap_or("<unknown>")
+        ));
+    }
+}
 
 #[tokio::test]
 async fn request_id_layer_adds_response_header() {
@@ -76,6 +113,41 @@ async fn rate_limit_layer_backpressures_until_period_resets() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn route_metrics_layer_records_request_and_response() {
+    let metrics = RecordingMetrics::default();
+    let service = ServiceBuilder::new()
+        .layer(route_metrics_layer("/users/{id}", metrics.clone()))
+        .service(service_fn(|_request: Request<()>| async {
+            Ok::<_, Infallible>(
+                Response::builder()
+                    .status(StatusCode::CREATED)
+                    .body(())
+                    .unwrap(),
+            )
+        }));
+
+    let response = service
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/users/42")
+                .body(())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    assert_eq!(
+        metrics.events(),
+        [
+            "request POST /users/{id}",
+            "response POST /users/{id} 201 Created"
+        ]
+    );
 }
 
 #[tokio::test]
