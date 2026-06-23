@@ -1,3 +1,4 @@
+use nidus_http::router::RouteMetadata;
 use nidus_openapi::{OpenApiDocument, OpenApiRoute};
 use nidus_testing::TestApp;
 
@@ -9,6 +10,26 @@ fn openapi_document_records_routes_and_serves_json() {
     let json = document.to_json_value();
 
     assert_eq!(json["info"]["title"], "Nidus API");
+    assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["summary"],
+        "Find user by ID"
+    );
+}
+
+#[test]
+fn openapi_document_can_be_generated_from_route_metadata() {
+    let routes = [RouteMetadata::with_annotations(
+        "GET",
+        "/users/:id",
+        Some("Find user by ID"),
+        &["AuthGuard"],
+        &["ValidationPipe"],
+        true,
+    )];
+
+    let document = OpenApiDocument::from_route_metadata("Nidus API", "0.1.0", &routes);
+
+    let json = document.to_json_value();
     assert_eq!(
         json["paths"]["/users/{id}"]["get"]["summary"],
         "Find user by ID"

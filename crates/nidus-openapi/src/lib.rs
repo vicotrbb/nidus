@@ -1,6 +1,7 @@
 //! OpenAPI document generation and serving support.
 
 use axum::{Json, Router, routing::get};
+use nidus_http::router::RouteMetadata;
 use serde_json::{Value, json};
 
 /// Minimal OpenAPI document metadata builder.
@@ -25,6 +26,19 @@ impl OpenApiDocument {
     pub fn route(mut self, route: OpenApiRoute) -> Self {
         self.routes.push(route);
         self
+    }
+
+    /// Creates an OpenAPI document from generated route metadata.
+    pub fn from_route_metadata(
+        title: impl Into<String>,
+        version: impl Into<String>,
+        routes: &[RouteMetadata],
+    ) -> Self {
+        let mut document = Self::new(title, version);
+        for route in routes {
+            document = document.route(OpenApiRoute::from_route_metadata(route));
+        }
+        document
     }
 
     /// Renders the document as JSON.
@@ -108,4 +122,28 @@ impl OpenApiRoute {
             summary: None,
         }
     }
+
+    fn from_route_metadata(metadata: &RouteMetadata) -> Self {
+        let mut route = Self::new(
+            metadata.method().to_ascii_lowercase(),
+            openapi_path(metadata.path()),
+        );
+        if let Some(summary) = metadata.summary() {
+            route = route.summary(summary);
+        }
+        route
+    }
+}
+
+fn openapi_path(path: &str) -> String {
+    path.split('/')
+        .map(|segment| {
+            if let Some(name) = segment.strip_prefix(':') {
+                format!("{{{name}}}")
+            } else {
+                segment.to_owned()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("/")
 }
