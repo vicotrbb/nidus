@@ -1,6 +1,7 @@
 use std::{
     fs,
     path::{Path, PathBuf},
+    process::Command as ProcessCommand,
 };
 
 use anyhow::{Context, Result, bail};
@@ -50,7 +51,14 @@ enum Command {
         path: PathBuf,
     },
     /// Print expanded generated code guidance.
-    Expand,
+    Expand {
+        /// Project root.
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+        /// Print the cargo-expand command without running it.
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Check project structure.
     Check {
         /// Project root.
@@ -86,10 +94,7 @@ fn main() -> Result<()> {
         Command::Generate { kind, name, path } => generate_artifact(&kind, &name, &path),
         Command::Routes { path } => inspect_routes(&path),
         Command::Graph { path } => inspect_graph(&path),
-        Command::Expand => {
-            println!("use cargo expand to inspect Nidus generated code");
-            Ok(())
-        }
+        Command::Expand { path, dry_run } => expand_project(&path, dry_run),
         Command::Check { path } => check_project(&path),
         Command::Openapi { path } => generate_openapi(&path),
     }
@@ -259,6 +264,32 @@ fn check_project(root: &Path) -> Result<()> {
     }
 
     println!("Nidus project check passed for {}", root.display());
+    Ok(())
+}
+
+fn expand_project(root: &Path, dry_run: bool) -> Result<()> {
+    let manifest = root.join("Cargo.toml");
+    if !manifest.exists() {
+        bail!(
+            "Nidus expand failed for {}. Missing required file: Cargo.toml",
+            root.display()
+        );
+    }
+
+    if dry_run {
+        println!("cargo expand --manifest-path {}", manifest.display());
+        return Ok(());
+    }
+
+    let status = ProcessCommand::new("cargo")
+        .arg("expand")
+        .arg("--manifest-path")
+        .arg(&manifest)
+        .status()
+        .with_context(|| "running cargo expand")?;
+    if !status.success() {
+        bail!("cargo expand failed for {}", root.display());
+    }
     Ok(())
 }
 

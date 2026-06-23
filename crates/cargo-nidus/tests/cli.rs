@@ -158,6 +158,31 @@ fn cargo_nidus_openapi_generates_document_from_controllers() {
     assert!(stdout.contains(r#""summary":"List users""#));
 }
 
+#[test]
+fn cargo_nidus_expand_prints_cargo_expand_command_in_dry_run_mode() {
+    let root = temp_project_root("expand_prints_cargo_expand_command");
+    let project = root.join("hello-nidus");
+    let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "new", "hello-nidus", "--path"])
+        .arg(&root)
+        .arg("--nidus-path")
+        .arg(workspace_root().join("crates/nidus"))
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let expand = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "expand", "--path"])
+        .arg(&project)
+        .arg("--dry-run")
+        .output()
+        .unwrap();
+    assert!(expand.status.success());
+    let stdout = String::from_utf8(expand.stdout).unwrap();
+    assert!(stdout.contains("cargo expand --manifest-path"));
+    assert!(stdout.contains("Cargo.toml"));
+}
+
 fn temp_project_root(name: &str) -> PathBuf {
     let root = std::env::temp_dir()
         .join("nidus-cli-tests")
