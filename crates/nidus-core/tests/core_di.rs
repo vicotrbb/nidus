@@ -186,6 +186,27 @@ fn container_reports_missing_provider_type_name() {
 }
 
 #[test]
+fn provider_factory_errors_include_provider_context() {
+    let mut container = Container::new();
+    container
+        .register_factory::<UsersRepository, _>(ProviderLifetime::Transient, |container| {
+            Ok(UsersRepository {
+                database: container.inject::<Database>()?,
+            })
+        })
+        .unwrap();
+
+    let error = container.resolve::<UsersRepository>().unwrap_err();
+
+    let NidusError::ProviderFactory { type_name, source } = error else {
+        panic!("expected provider factory error");
+    };
+    assert!(type_name.contains("UsersRepository"));
+    assert!(matches!(*source, NidusError::MissingProvider { .. }));
+    assert!(source.to_string().contains("Database"));
+}
+
+#[test]
 fn module_builder_records_explicit_imports_providers_controllers_and_exports() {
     let definition = ModuleBuilder::new("UsersModule")
         .import("DatabaseModule")

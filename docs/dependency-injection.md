@@ -16,6 +16,9 @@ container.register_factory(ProviderLifetime::Singleton, |container| {
 })?;
 ```
 
+Factory failures are reported with the provider type that failed and preserve
+the underlying source error.
+
 The default provider lifetime is expected to be singleton. Request-scoped
 providers are opt-in and must be resolved through an explicit request scope
 because they add request path overhead:

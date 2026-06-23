@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{Container, Result};
+use crate::{Container, NidusError, Result};
 
 /// Provider creation and reuse strategy.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -71,11 +71,20 @@ impl ProviderEntry {
                     return Ok(instance);
                 }
 
-                let instance = (self.factory)(container)?;
+                let instance = self.create_erased(container)?;
                 let mut singleton = self.singleton.lock().expect("singleton mutex poisoned");
                 Ok(singleton.get_or_insert_with(|| instance).clone())
             }
-            ProviderLifetime::Transient | ProviderLifetime::Request => (self.factory)(container),
+            ProviderLifetime::Transient | ProviderLifetime::Request => {
+                self.create_erased(container)
+            }
         }
+    }
+
+    fn create_erased(&self, container: &Container) -> Result<Arc<ErasedProvider>> {
+        (self.factory)(container).map_err(|source| NidusError::ProviderFactory {
+            type_name: self.type_name,
+            source: Box::new(source),
+        })
     }
 }
