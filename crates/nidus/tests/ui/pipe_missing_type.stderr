@@ -1,0 +1,7 @@
+error: #[pipe] requires a pipe type like #[pipe(ValidationPipe)]
+ --> tests/ui/pipe_missing_type.rs:9:5
+  |
+9 |     #[pipe]
+  |     ^^^^^^^
+  |
+  = note: this error originates in the attribute macro `pipe` (in Nightly builds, run with -Z macro-backtrace for more info)

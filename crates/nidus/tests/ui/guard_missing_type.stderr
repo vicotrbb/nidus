@@ -1,0 +1,7 @@
+error: #[guard] requires a guard type like #[guard(AuthGuard)]
+ --> tests/ui/guard_missing_type.rs:9:5
+  |
+9 |     #[guard]
+  |     ^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `guard` (in Nightly builds, run with -Z macro-backtrace for more info)
