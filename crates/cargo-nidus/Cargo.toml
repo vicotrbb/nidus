@@ -10,4 +10,4 @@ rust-version.workspace = true
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
-
+serde_json.workspace = true

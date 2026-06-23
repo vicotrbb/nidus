@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
+use serde_json::{Value, json};
 
 #[derive(Debug, Parser)]
 #[command(name = "cargo-nidus", bin_name = "cargo nidus")]
@@ -57,7 +58,11 @@ enum Command {
         path: PathBuf,
     },
     /// Generate OpenAPI output.
-    Openapi,
+    Openapi {
+        /// Project root.
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+    },
 }
 
 fn main() -> Result<()> {
@@ -86,10 +91,7 @@ fn main() -> Result<()> {
             Ok(())
         }
         Command::Check { path } => check_project(&path),
-        Command::Openapi => {
-            println!("OpenAPI generation is available in projects using nidus-openapi");
-            Ok(())
-        }
+        Command::Openapi { path } => generate_openapi(&path),
     }
 }
 
@@ -152,11 +154,19 @@ fn generate_artifact(kind: &str, name: &str, root: &Path) -> Result<()> {
 }
 
 fn inspect_routes(root: &Path) -> Result<()> {
+    for (method, path) in discover_routes(root)? {
+        println!("{} {}", method.to_uppercase(), path);
+    }
+    Ok(())
+}
+
+fn discover_routes(root: &Path) -> Result<Vec<(String, String)>> {
     let controllers = root.join("src/controllers");
     if !controllers.exists() {
-        return Ok(());
+        return Ok(Vec::new());
     }
 
+    let mut routes = Vec::new();
     for entry in
         fs::read_dir(&controllers).with_context(|| format!("reading {}", controllers.display()))?
     {
@@ -171,11 +181,11 @@ fn inspect_routes(root: &Path) -> Result<()> {
         };
         for method in ["get", "post", "put", "patch", "delete"] {
             for route in extract_all_attr_values(&contents, method) {
-                println!("{} {}", method.to_uppercase(), join_route(&prefix, &route));
+                routes.push((method.to_owned(), join_route(&prefix, &route)));
             }
         }
     }
-    Ok(())
+    Ok(routes)
 }
 
 fn inspect_graph(root: &Path) -> Result<()> {
@@ -215,6 +225,40 @@ fn check_project(root: &Path) -> Result<()> {
     }
 
     println!("Nidus project check passed for {}", root.display());
+    Ok(())
+}
+
+fn generate_openapi(root: &Path) -> Result<()> {
+    let mut paths = serde_json::Map::new();
+    for (method, path) in discover_routes(root)? {
+        let entry = paths
+            .entry(path)
+            .or_insert_with(|| Value::Object(serde_json::Map::new()));
+        if let Value::Object(methods) = entry {
+            methods.insert(
+                method,
+                json!({
+                    "responses": {
+                        "200": {
+                            "description": "Success"
+                        }
+                    }
+                }),
+            );
+        }
+    }
+
+    println!(
+        "{}",
+        json!({
+            "openapi": "3.1.0",
+            "info": {
+                "title": "Nidus API",
+                "version": "0.1.0",
+            },
+            "paths": paths,
+        })
+    );
     Ok(())
 }
 

@@ -129,6 +129,28 @@ fn cargo_nidus_check_validates_project_structure() {
     assert!(stderr.contains("src/main.rs"));
 }
 
+#[test]
+fn cargo_nidus_openapi_generates_document_from_controllers() {
+    let root = temp_project_root("openapi_generates_document_from_controllers");
+    let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "generate", "controller", "users", "--path"])
+        .arg(&root)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let openapi = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "openapi", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+    assert!(openapi.status.success());
+    let stdout = String::from_utf8(openapi.stdout).unwrap();
+    assert!(stdout.contains(r#""openapi":"3.1.0""#));
+    assert!(stdout.contains(r#""/users/""#));
+    assert!(stdout.contains(r#""get""#));
+}
+
 fn temp_project_root(name: &str) -> PathBuf {
     let root = std::env::temp_dir()
         .join("nidus-cli-tests")
