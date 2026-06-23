@@ -51,4 +51,11 @@ let database_url = config
     .and_then(serde_json::Value::as_str);
 ```
 
+Individual values can also be deserialized with path-aware errors:
+
+```rust
+let port = config.get_typed::<u16>("port")?;
+let database_url: Option<String> = config.get_path_typed(["database", "url"])?;
+```
+
 Applications should keep configuration explicit and validate it during startup.

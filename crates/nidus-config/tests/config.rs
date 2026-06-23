@@ -60,6 +60,24 @@ fn config_exposes_top_level_raw_values() {
 }
 
 #[test]
+fn config_deserializes_top_level_values_by_key() {
+    let config = Config::from_pairs([("port", "3000"), ("debug", "true")]);
+
+    assert_eq!(config.get_typed::<u16>("port").unwrap(), Some(3000));
+    assert_eq!(config.get_typed::<bool>("debug").unwrap(), Some(true));
+    assert_eq!(config.get_typed::<String>("missing").unwrap(), None);
+}
+
+#[test]
+fn config_reports_typed_key_deserialization_path() {
+    let config = Config::from_pairs([("port", "70000")]);
+
+    let error = config.get_typed::<u16>("port").unwrap_err();
+
+    assert!(error.to_string().contains("port"));
+}
+
+#[test]
 fn config_reports_missing_typed_fields() {
     let config = Config::from_pairs([("name", "nidus")]);
     let error = config.deserialize::<AppConfig>().unwrap_err();
@@ -120,6 +138,47 @@ fn config_exposes_nested_raw_values_by_path() {
     );
     assert!(config.get_path(["database", "missing"]).is_none());
     assert!(config.get_path(["database", "url", "host"]).is_none());
+}
+
+#[test]
+fn config_deserializes_nested_values_by_path() {
+    let config = Config::from_prefixed_vars(
+        "APP",
+        [
+            ("APP_DATABASE__URL", "postgres://localhost/nidus"),
+            ("APP_DATABASE__POOL_SIZE", "5"),
+        ],
+    );
+
+    assert_eq!(
+        config
+            .get_path_typed::<_, _, String>(["database", "url"])
+            .unwrap(),
+        Some("postgres://localhost/nidus".to_owned())
+    );
+    assert_eq!(
+        config
+            .get_path_typed::<_, _, u16>(["database", "pool_size"])
+            .unwrap(),
+        Some(5)
+    );
+    assert_eq!(
+        config
+            .get_path_typed::<_, _, String>(["database", "missing"])
+            .unwrap(),
+        None
+    );
+}
+
+#[test]
+fn config_reports_typed_path_deserialization_path() {
+    let config = Config::from_prefixed_vars("APP", [("APP_DATABASE__POOL_SIZE", "70000")]);
+
+    let error = config
+        .get_path_typed::<_, _, u16>(["database", "pool_size"])
+        .unwrap_err();
+
+    assert!(error.to_string().contains("database.pool_size"));
 }
 
 #[test]

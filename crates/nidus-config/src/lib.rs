@@ -80,6 +80,17 @@ impl Config {
         self.values.get(key)
     }
 
+    /// Deserializes a top-level configuration value into a typed value.
+    pub fn get_typed<T>(&self, key: &str) -> Result<Option<T>>
+    where
+        T: DeserializeOwned,
+    {
+        self.get(key)
+            .cloned()
+            .map(|value| deserialize_value(key.to_owned(), value))
+            .transpose()
+    }
+
     /// Returns a nested raw configuration value by path.
     pub fn get_path<I, S>(&self, path: I) -> Option<&Value>
     where
@@ -95,6 +106,24 @@ impl Config {
         }
 
         Some(value)
+    }
+
+    /// Deserializes a nested configuration value into a typed value.
+    pub fn get_path_typed<I, S, T>(&self, path: I) -> Result<Option<T>>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+        T: DeserializeOwned,
+    {
+        let path = path
+            .into_iter()
+            .map(|segment| segment.as_ref().to_owned())
+            .collect::<Vec<_>>();
+        let label = path.join(".");
+        self.get_path(path.iter().map(String::as_str))
+            .cloned()
+            .map(|value| deserialize_value(label, value))
+            .transpose()
     }
 
     /// Merges another configuration source into this one.
@@ -130,6 +159,23 @@ pub enum ConfigError {
     /// Deserialization into the requested type failed.
     #[error("configuration deserialize error: {0}")]
     Deserialize(#[from] serde_json::Error),
+
+    /// Deserialization of one configuration value failed.
+    #[error("configuration deserialize error at `{path}`: {source}")]
+    ValueDeserialize {
+        /// Configuration key or dot-separated path that failed.
+        path: String,
+        /// Underlying serde error.
+        #[source]
+        source: serde_json::Error,
+    },
+}
+
+fn deserialize_value<T>(path: String, value: Value) -> Result<T>
+where
+    T: DeserializeOwned,
+{
+    serde_json::from_value(value).map_err(|source| ConfigError::ValueDeserialize { path, source })
 }
 
 fn parse_scalar(value: &str) -> Value {
