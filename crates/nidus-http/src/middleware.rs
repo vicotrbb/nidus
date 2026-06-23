@@ -9,6 +9,7 @@ use std::{
 
 use http::{HeaderValue, Method, Request, Response, header::HeaderName};
 use tower::{Layer, Service, timeout::TimeoutLayer};
+use tower_http::compression::CompressionLayer;
 use tower_http::cors::{Any, CorsLayer};
 
 /// Creates a Tower timeout layer.
@@ -34,6 +35,11 @@ pub fn cors_layer() -> CorsLayer {
             Method::OPTIONS,
         ])
         .allow_headers(Any)
+}
+
+/// Creates a gzip response compression layer.
+pub fn compression_layer() -> CompressionLayer {
+    CompressionLayer::new()
 }
 
 /// Tower layer that adds an `x-request-id` response header when absent.
