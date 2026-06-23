@@ -217,6 +217,21 @@ fn module_graph_detects_circular_imports() {
 }
 
 #[test]
+fn module_graph_rejects_duplicate_module_names() {
+    let first = ModuleBuilder::new("UsersModule")
+        .provider("UsersService")
+        .build();
+    let second = ModuleBuilder::new("UsersModule")
+        .provider("UsersRepository")
+        .build();
+
+    let error = ModuleGraph::from_modules([first, second]).unwrap_err();
+
+    assert!(matches!(error, NidusError::DuplicateModule { .. }));
+    assert!(error.to_string().contains("UsersModule"));
+}
+
+#[test]
 fn module_graph_rejects_exports_that_are_not_local_providers() {
     let users = ModuleBuilder::new("UsersModule")
         .provider("UsersRepository")

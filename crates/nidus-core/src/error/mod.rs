@@ -27,6 +27,13 @@ pub enum NidusError {
         type_name: &'static str,
     },
 
+    /// A module was registered more than once with the same name.
+    #[error("duplicate module `{module}`")]
+    DuplicateModule {
+        /// Module name registered more than once.
+        module: String,
+    },
+
     /// A registered provider factory returned an error.
     #[error("provider factory failed for type `{type_name}`: {source}")]
     ProviderFactory {

@@ -106,11 +106,16 @@ pub struct ModuleGraph {
 impl ModuleGraph {
     /// Builds and validates a module graph.
     pub fn from_modules(modules: impl IntoIterator<Item = ModuleDefinition>) -> Result<Self> {
-        let modules = modules
-            .into_iter()
-            .map(|module| (module.name.clone(), module))
-            .collect::<HashMap<_, _>>();
-        let graph = Self { modules };
+        let mut registered = HashMap::new();
+        for module in modules {
+            let name = module.name.clone();
+            if registered.insert(name.clone(), module).is_some() {
+                return Err(NidusError::DuplicateModule { module: name });
+            }
+        }
+        let graph = Self {
+            modules: registered,
+        };
         tracing::debug!(
             module_count = graph.modules.len(),
             "validating module graph"
