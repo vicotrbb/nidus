@@ -167,7 +167,11 @@ fn generate_artifact(kind: &str, name: &str, root: &Path) -> Result<()> {
     ensure_supported_artifact(kind)?;
     let directory = root.join("src").join(pluralize(kind));
     fs::create_dir_all(&directory).with_context(|| format!("creating {}", directory.display()))?;
-    write(&directory.join(format!("{name}.rs")), &artifact(kind, name))
+    let path = directory.join(format!("{name}.rs"));
+    if path.exists() {
+        bail!("artifact already exists: {}", path.display());
+    }
+    write(&path, &artifact(kind, name))
 }
 
 fn ensure_supported_artifact(kind: &str) -> Result<()> {

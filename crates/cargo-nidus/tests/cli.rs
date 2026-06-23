@@ -86,6 +86,30 @@ fn cargo_nidus_generate_rejects_unknown_artifact_kinds() {
 }
 
 #[test]
+fn cargo_nidus_generate_refuses_to_overwrite_existing_artifacts() {
+    let root = temp_project_root("generate_refuses_to_overwrite_existing_artifacts");
+    let service_path = root.join("src/services/users.rs");
+    let first = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "generate", "service", "users", "--path"])
+        .arg(&root)
+        .status()
+        .unwrap();
+    assert!(first.success());
+    fs::write(&service_path, "// user edits\n").unwrap();
+
+    let second = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "generate", "service", "users", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+
+    assert!(!second.status.success());
+    let stderr = String::from_utf8(second.stderr).unwrap();
+    assert!(stderr.contains("already exists"));
+    assert_eq!(fs::read_to_string(service_path).unwrap(), "// user edits\n");
+}
+
+#[test]
 fn cargo_nidus_routes_and_graph_inspect_generated_sources() {
     let root = temp_project_root("routes_and_graph_inspect_generated_sources");
     for (kind, name) in [("module", "users"), ("controller", "users")] {
