@@ -14,6 +14,8 @@ cd hello-nidus
 cargo run
 ```
 
+`cargo nidus new` refuses to overwrite an existing destination directory.
+
 The generated project starts as a small Axum server and can add Nidus modules, providers, controllers, and route metadata as the application grows.
 
 Inspect generated controller metadata:

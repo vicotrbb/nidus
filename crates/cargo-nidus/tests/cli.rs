@@ -38,6 +38,35 @@ fn cargo_nidus_new_generates_compilable_axum_project() {
 }
 
 #[test]
+fn cargo_nidus_new_refuses_to_overwrite_existing_project() {
+    let root = temp_project_root("new_refuses_to_overwrite_existing_project");
+    let project = root.join("hello-nidus");
+    fs::create_dir_all(project.join("src")).unwrap();
+    fs::write(project.join("Cargo.toml"), "# existing manifest\n").unwrap();
+    fs::write(project.join("src/main.rs"), "// user edits\n").unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "new", "hello-nidus", "--path"])
+        .arg(&root)
+        .arg("--nidus-path")
+        .arg(workspace_root().join("crates/nidus"))
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("project already exists"));
+    assert_eq!(
+        fs::read_to_string(project.join("Cargo.toml")).unwrap(),
+        "# existing manifest\n"
+    );
+    assert_eq!(
+        fs::read_to_string(project.join("src/main.rs")).unwrap(),
+        "// user edits\n"
+    );
+}
+
+#[test]
 fn cargo_nidus_generate_writes_rust_artifact_scaffolds() {
     let root = temp_project_root("generate_writes_rust_artifact_scaffolds");
     for (kind, expected_path, expected_content) in [

@@ -102,6 +102,9 @@ fn main() -> Result<()> {
 
 fn create_project(name: &str, root: &Path, nidus_path: Option<&Path>) -> Result<()> {
     let project = root.join(name);
+    if project.exists() {
+        bail!("project already exists: {}", project.display());
+    }
     let src = project.join("src");
     fs::create_dir_all(&src).with_context(|| format!("creating {}", src.display()))?;
     let nidus_dependency = nidus_path
