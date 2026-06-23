@@ -652,6 +652,7 @@ fn expand_project(root: &Path, dry_run: bool) -> Result<()> {
 
 fn generate_openapi(root: &Path) -> Result<()> {
     let mut paths = serde_json::Map::new();
+    let mut schema_names = BTreeSet::new();
     for route in discover_routes(root)? {
         let parameters = openapi_path_parameters(&route.path);
         let entry = paths
@@ -673,6 +674,7 @@ fn generate_openapi(root: &Path) -> Result<()> {
                 operation.insert("tags".to_owned(), json!(route.tags));
             }
             if let Some(schema) = route.request_schema {
+                schema_names.insert(schema.clone());
                 operation.insert(
                     "requestBody".to_owned(),
                     json!({
@@ -686,6 +688,7 @@ fn generate_openapi(root: &Path) -> Result<()> {
                 );
             }
             if let Some(schema) = route.response_schema {
+                schema_names.insert(schema.clone());
                 operation.insert(
                     "responses".to_owned(),
                     json!({
@@ -724,17 +727,33 @@ fn generate_openapi(root: &Path) -> Result<()> {
         }
     }
 
-    println!(
-        "{}",
-        json!({
-            "openapi": "3.1.0",
-            "info": {
-                "title": "Nidus API",
-                "version": "0.1.0",
-            },
-            "paths": paths,
-        })
-    );
+    let mut document = json!({
+        "openapi": "3.1.0",
+        "info": {
+            "title": "Nidus API",
+            "version": "0.1.0",
+        },
+        "paths": paths,
+    });
+
+    if !schema_names.is_empty() {
+        let schemas = schema_names
+            .into_iter()
+            .map(|name| {
+                (
+                    name,
+                    json!({
+                        "type": "object"
+                    }),
+                )
+            })
+            .collect::<serde_json::Map<_, _>>();
+        document["components"] = json!({
+            "schemas": schemas,
+        });
+    }
+
+    println!("{}", document);
     Ok(())
 }
 

@@ -704,6 +704,11 @@ fn cargo_nidus_openapi_generates_document_from_controllers() {
             ["$ref"],
         "#/components/schemas/UserDto"
     );
+    assert_eq!(
+        json["components"]["schemas"]["CreateUserDto"]["type"],
+        "object"
+    );
+    assert_eq!(json["components"]["schemas"]["UserDto"]["type"], "object");
 }
 
 #[test]
