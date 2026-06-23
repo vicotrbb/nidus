@@ -176,6 +176,11 @@ impl Container {
         T: Send + Sync + 'static,
     {
         let entry = self.entry::<T>()?;
+        if entry.lifetime() == ProviderLifetime::Request {
+            return Err(NidusError::RequestScopeRequired {
+                type_name: type_name::<T>(),
+            });
+        }
         let erased = entry.resolve_erased(self)?;
         downcast::<T>(erased)
     }

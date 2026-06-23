@@ -20,6 +20,13 @@ pub enum NidusError {
         type_name: &'static str,
     },
 
+    /// A request-scoped provider was resolved outside an explicit request scope.
+    #[error("request-scoped provider `{type_name}` must be resolved through RequestScope")]
+    RequestScopeRequired {
+        /// Rust type name requested from the root container.
+        type_name: &'static str,
+    },
+
     /// A registered provider factory returned an error.
     #[error("provider factory failed for type `{type_name}`: {source}")]
     ProviderFactory {

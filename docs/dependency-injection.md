@@ -16,5 +16,15 @@ container.register_factory(ProviderLifetime::Singleton, |container| {
 })?;
 ```
 
-The default provider lifetime is expected to be singleton. Request-scoped providers should remain opt-in because they add request path overhead.
+The default provider lifetime is expected to be singleton. Request-scoped
+providers are opt-in and must be resolved through an explicit request scope
+because they add request path overhead:
 
+```rust
+let scope = container.request_scope();
+let request_state = scope.resolve::<RequestState>()?;
+```
+
+Resolving a request-scoped provider through the root container returns a
+`RequestScopeRequired` error instead of silently behaving like a transient
+provider.

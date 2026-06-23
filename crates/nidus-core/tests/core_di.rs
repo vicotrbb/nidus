@@ -151,6 +151,21 @@ fn request_factories_reuse_within_scope_but_not_across_scopes() {
 }
 
 #[test]
+fn request_factories_require_explicit_request_scope() {
+    let mut container = Container::new();
+    container
+        .register_factory::<Database, _>(ProviderLifetime::Request, |_container| {
+            Ok(Database("request"))
+        })
+        .unwrap();
+
+    let error = container.resolve::<Database>().unwrap_err();
+
+    assert!(matches!(error, NidusError::RequestScopeRequired { .. }));
+    assert!(error.to_string().contains("Database"));
+}
+
+#[test]
 fn container_rejects_duplicate_providers() {
     let mut container = Container::new();
     container.register_singleton(Database("primary")).unwrap();
