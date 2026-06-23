@@ -7,8 +7,9 @@ impl Job for SendDigest {
         "send_digest"
     }
 
-    fn run(&self) {
+    fn run(&self) -> nidus_jobs::Result<()> {
         println!("digest sent");
+        Ok(())
     }
 }
 
@@ -17,4 +18,5 @@ fn main() {
     queue.push(SendDigest);
     let report = queue.run_all();
     println!("completed jobs: {:?}", report.completed());
+    println!("failed jobs: {:?}", report.failed());
 }
