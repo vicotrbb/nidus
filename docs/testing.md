@@ -29,6 +29,17 @@ let app = TestApp::builder(router)
     .build();
 ```
 
+Request-lifetime providers can be registered with a factory and resolved through an explicit request scope:
+
+```rust
+let app = TestApp::builder(router)
+    .request_provider::<RequestContext, _>(|_container| Ok(RequestContext::new()))?
+    .build();
+
+let scope = app.request_scope();
+let context = scope.resolve::<RequestContext>()?;
+```
+
 Lifecycle hooks can be started and shut down inside tests:
 
 ```rust

@@ -6,7 +6,10 @@ use axum::{
 };
 use http::{Method, Request, StatusCode};
 use nidus_config::Config;
-use nidus_core::{Container, LifecycleHook, LifecycleRunner, Module, Nidus, Result};
+use nidus_core::{
+    Container, LifecycleHook, LifecycleRunner, Module, Nidus, ProviderLifetime, RequestScope,
+    Result,
+};
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use std::sync::Arc;
@@ -84,6 +87,11 @@ impl TestApp {
         self.container.resolve::<T>()
     }
 
+    /// Creates a request scope for resolving request-lifetime providers in tests.
+    pub fn request_scope(&self) -> RequestScope<'_> {
+        self.container.request_scope()
+    }
+
     /// Returns test configuration overrides.
     pub fn config(&self) -> &Config {
         &self.config
@@ -110,6 +118,17 @@ impl TestAppBuilder {
         T: Send + Sync + 'static,
     {
         self.container.register_singleton(value)?;
+        Ok(self)
+    }
+
+    /// Registers a request-lifetime provider factory in the test container.
+    pub fn request_provider<T, F>(mut self, factory: F) -> Result<Self>
+    where
+        T: Send + Sync + 'static,
+        F: Fn(&Container) -> Result<T> + Send + Sync + 'static,
+    {
+        self.container
+            .register_factory::<T, F>(ProviderLifetime::Request, factory)?;
         Ok(self)
     }
 
