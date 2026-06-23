@@ -1,4 +1,5 @@
-use nidus_openapi::{OpenApiDocument, OpenApiRoute};
+use nidus::prelude::*;
+use nidus_openapi::OpenApiDocument;
 
 #[derive(utoipa::ToSchema)]
 #[allow(dead_code)]
@@ -7,13 +8,24 @@ struct UserDto {
     email: String,
 }
 
+#[controller("/users")]
+struct UsersController;
+
+#[routes]
+#[allow(dead_code)]
+impl UsersController {
+    #[get("/:id")]
+    #[openapi(summary = "Find user")]
+    async fn find_one(&self) {}
+}
+
 fn main() {
-    let document = OpenApiDocument::new("Nidus Example", "0.1.0")
-        .schema::<UserDto>()
-        .route(
-            OpenApiRoute::get("/users/{id}")
-                .summary("Find user")
-                .response_schema::<UserDto>(),
-        );
+    let document = OpenApiDocument::from_controller_routes(
+        "Nidus Example",
+        "0.1.0",
+        UsersController::controller_prefix(),
+        &UsersController::routes(),
+    )
+    .schema::<UserDto>();
     println!("{}", document.to_json_value());
 }

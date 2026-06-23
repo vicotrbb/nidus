@@ -1239,6 +1239,7 @@ dependencies = [
 name = "nidus-example-openapi"
 version = "0.1.0"
 dependencies = [
+ "nidus",
  "nidus-openapi",
  "utoipa",
 ]
