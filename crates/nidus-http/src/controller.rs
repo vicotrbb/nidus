@@ -1,0 +1,37 @@
+//! Controller metadata.
+
+use axum::Router;
+
+use crate::router::{RouteDefinition, join_paths};
+
+/// Controller route group with a shared path prefix.
+pub struct Controller {
+    prefix: String,
+    routes: Vec<RouteDefinition>,
+}
+
+impl Controller {
+    /// Creates an empty controller route group.
+    pub fn new(prefix: impl Into<String>) -> Self {
+        Self {
+            prefix: prefix.into(),
+            routes: Vec::new(),
+        }
+    }
+
+    /// Adds a route to this controller.
+    pub fn route(mut self, route: RouteDefinition) -> Self {
+        self.routes.push(route);
+        self
+    }
+
+    /// Builds an Axum router from the controller routes.
+    pub fn into_router(self) -> Router {
+        self.routes
+            .into_iter()
+            .fold(Router::new(), |router, route| {
+                let full_path = join_paths(&self.prefix, route.path());
+                router.merge(route.into_router(full_path))
+            })
+    }
+}

@@ -1,0 +1,88 @@
+//! Axum router composition.
+
+use axum::{Router, handler::Handler, routing};
+use http::Method;
+
+/// A route declaration that can be mounted by a controller.
+pub struct RouteDefinition {
+    method: Method,
+    path: String,
+    route: routing::MethodRouter,
+}
+
+impl RouteDefinition {
+    /// Creates a GET route.
+    pub fn get<H, T>(path: impl Into<String>, handler: H) -> Self
+    where
+        H: Handler<T, ()> + Clone + Send + Sync + 'static,
+        T: 'static,
+    {
+        Self::new(Method::GET, path, routing::get(handler))
+    }
+
+    /// Creates a POST route.
+    pub fn post<H, T>(path: impl Into<String>, handler: H) -> Self
+    where
+        H: Handler<T, ()> + Clone + Send + Sync + 'static,
+        T: 'static,
+    {
+        Self::new(Method::POST, path, routing::post(handler))
+    }
+
+    /// Returns the route path.
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
+    /// Returns the route method.
+    pub fn method(&self) -> &Method {
+        &self.method
+    }
+
+    pub(crate) fn into_router(self, full_path: String) -> Router {
+        Router::new().route(&full_path, self.route)
+    }
+
+    fn new(method: Method, path: impl Into<String>, route: routing::MethodRouter) -> Self {
+        Self {
+            method,
+            path: normalize_path(path.into()),
+            route,
+        }
+    }
+}
+
+pub(crate) fn join_paths(prefix: &str, path: &str) -> String {
+    let prefix = normalize_path(prefix);
+    let path = normalize_path(path);
+    if prefix == "/" {
+        path
+    } else if path == "/" {
+        prefix
+    } else {
+        format!("{prefix}{path}")
+    }
+}
+
+fn normalize_path(path: impl AsRef<str>) -> String {
+    let path = path.as_ref().trim();
+    let with_slash = if path.starts_with('/') {
+        path.to_owned()
+    } else {
+        format!("/{path}")
+    };
+    convert_nest_params(&with_slash)
+}
+
+fn convert_nest_params(path: &str) -> String {
+    path.split('/')
+        .map(|segment| {
+            if let Some(name) = segment.strip_prefix(':') {
+                format!("{{{name}}}")
+            } else {
+                segment.to_owned()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("/")
+}

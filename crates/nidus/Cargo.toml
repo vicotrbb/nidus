@@ -1,0 +1,35 @@
+[package]
+name = "nidus"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["http", "config", "tracing"]
+http = ["dep:nidus-http"]
+config = ["dep:nidus-config"]
+openapi = ["dep:nidus-openapi"]
+validation = ["dep:nidus-validation"]
+auth = ["dep:nidus-auth"]
+events = ["dep:nidus-events"]
+jobs = ["dep:nidus-jobs"]
+testing = ["dep:nidus-testing"]
+tracing = []
+
+[dependencies]
+nidus-core = { path = "../nidus-core" }
+nidus-macros = { path = "../nidus-macros" }
+nidus-http = { path = "../nidus-http", optional = true }
+nidus-config = { path = "../nidus-config", optional = true }
+nidus-openapi = { path = "../nidus-openapi", optional = true }
+nidus-validation = { path = "../nidus-validation", optional = true }
+nidus-auth = { path = "../nidus-auth", optional = true }
+nidus-events = { path = "../nidus-events", optional = true }
+nidus-jobs = { path = "../nidus-jobs", optional = true }
+nidus-testing = { path = "../nidus-testing", optional = true }
+
+[dev-dependencies]
+trybuild.workspace = true

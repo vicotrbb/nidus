@@ -1,0 +1,15 @@
+[package]
+name = "nidus-validation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+validator.workspace = true
+
+[dev-dependencies]
+serde.workspace = true

@@ -1,0 +1,46 @@
+[workspace]
+members = [
+  "crates/nidus",
+  "crates/nidus-core",
+  "crates/nidus-http",
+  "crates/nidus-macros",
+  "crates/nidus-config",
+  "crates/nidus-openapi",
+  "crates/nidus-validation",
+  "crates/nidus-auth",
+  "crates/nidus-events",
+  "crates/nidus-jobs",
+  "crates/nidus-testing",
+  "crates/cargo-nidus",
+  "examples/hello-world",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/victorbona/nidus"
+homepage = "https://nidus.dev"
+rust-version = "1.96"
+
+[workspace.dependencies]
+anyhow = "1"
+async-trait = "0.1"
+axum = "0.8"
+clap = { version = "4", features = ["derive"] }
+http = "1"
+insta = "1"
+proc-macro2 = "1"
+quote = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+syn = { version = "2", features = ["full"] }
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tower = { version = "0.5", features = ["util"] }
+tracing = "0.1"
+trybuild = "1"
+utoipa = "5"
+validator = { version = "0.20", features = ["derive"] }
+

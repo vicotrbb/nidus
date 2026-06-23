@@ -1,0 +1,7 @@
+error: #[get] requires a string literal path like #[get("/:id")]
+ --> tests/ui/route_missing_path.rs:7:5
+  |
+7 |     #[get]
+  |     ^^^^^^
+  |
+  = note: this error originates in the attribute macro `get` (in Nightly builds, run with -Z macro-backtrace for more info)

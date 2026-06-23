@@ -1,0 +1,12 @@
+[package]
+name = "nidus-events"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tokio.workspace = true
+
