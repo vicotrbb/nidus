@@ -41,6 +41,25 @@ fn config_deserializes_typed_settings_from_pairs() {
 }
 
 #[test]
+fn config_exposes_top_level_raw_values() {
+    let config = Config::from_pairs([("name", "nidus"), ("port", "3000"), ("debug", "true")]);
+
+    assert_eq!(
+        config.get("name").and_then(serde_json::Value::as_str),
+        Some("nidus")
+    );
+    assert_eq!(
+        config.get("port").and_then(serde_json::Value::as_i64),
+        Some(3000)
+    );
+    assert_eq!(
+        config.get("debug").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert!(config.get("missing").is_none());
+}
+
+#[test]
 fn config_reports_missing_typed_fields() {
     let config = Config::from_pairs([("name", "nidus")]);
     let error = config.deserialize::<AppConfig>().unwrap_err();
@@ -75,6 +94,32 @@ fn config_loads_prefixed_environment_style_variables() {
             },
         }
     );
+}
+
+#[test]
+fn config_exposes_nested_raw_values_by_path() {
+    let config = Config::from_prefixed_vars(
+        "APP",
+        [
+            ("APP_DATABASE__URL", "postgres://localhost/nidus"),
+            ("APP_DATABASE__POOL_SIZE", "5"),
+        ],
+    );
+
+    assert_eq!(
+        config
+            .get_path(["database", "url"])
+            .and_then(serde_json::Value::as_str),
+        Some("postgres://localhost/nidus")
+    );
+    assert_eq!(
+        config
+            .get_path(["database", "pool_size"])
+            .and_then(serde_json::Value::as_i64),
+        Some(5)
+    );
+    assert!(config.get_path(["database", "missing"]).is_none());
+    assert!(config.get_path(["database", "url", "host"]).is_none());
 }
 
 #[test]

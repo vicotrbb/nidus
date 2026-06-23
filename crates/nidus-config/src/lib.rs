@@ -75,6 +75,28 @@ impl Config {
         self.values.insert(key.into(), value);
     }
 
+    /// Returns a top-level raw configuration value.
+    pub fn get(&self, key: &str) -> Option<&Value> {
+        self.values.get(key)
+    }
+
+    /// Returns a nested raw configuration value by path.
+    pub fn get_path<I, S>(&self, path: I) -> Option<&Value>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let mut path = path.into_iter();
+        let first = path.next()?;
+        let mut value = self.values.get(first.as_ref())?;
+
+        for segment in path {
+            value = value.as_object()?.get(segment.as_ref())?;
+        }
+
+        Some(value)
+    }
+
     /// Merges another configuration source into this one.
     ///
     /// Values from `other` take precedence. Nested objects are merged

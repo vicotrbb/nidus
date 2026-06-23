@@ -42,4 +42,13 @@ let env = Config::from_env_prefix("APP");
 let config = defaults.merge(env);
 ```
 
+Raw values can be inspected before or after typed deserialization when tests or
+startup checks need targeted assertions:
+
+```rust
+let database_url = config
+    .get_path(["database", "url"])
+    .and_then(serde_json::Value::as_str);
+```
+
 Applications should keep configuration explicit and validate it during startup.
