@@ -43,6 +43,15 @@ pub enum NidusError {
         provider: String,
     },
 
+    /// A module declares the same controller more than once.
+    #[error("module `{module}` declares duplicate controller `{controller}`")]
+    DuplicateModuleController {
+        /// Module declaring the duplicate controller.
+        module: String,
+        /// Controller name declared more than once.
+        controller: String,
+    },
+
     /// A module imports the same module more than once.
     #[error("module `{module}` imports `{import}` more than once")]
     DuplicateModuleImport {

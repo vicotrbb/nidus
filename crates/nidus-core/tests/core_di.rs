@@ -246,6 +246,23 @@ fn module_graph_rejects_duplicate_local_providers() {
 }
 
 #[test]
+fn module_graph_rejects_duplicate_local_controllers() {
+    let users = ModuleBuilder::new("UsersModule")
+        .controller("UsersController")
+        .controller("UsersController")
+        .build();
+
+    let error = ModuleGraph::from_modules([users]).unwrap_err();
+
+    assert!(matches!(
+        error,
+        NidusError::DuplicateModuleController { .. }
+    ));
+    assert!(error.to_string().contains("UsersModule"));
+    assert!(error.to_string().contains("UsersController"));
+}
+
+#[test]
 fn module_graph_rejects_duplicate_imports() {
     let database = ModuleBuilder::new("DatabaseModule")
         .provider("DatabasePool")
