@@ -12,7 +12,7 @@ let router = Controller::new("/users")
 ```
 
 `RouteDefinition` supports `get`, `post`, `put`, `patch`, and `delete`.
-Nidus accepts Nest-style `:id` route parameters and normalizes them to Axum-compatible `{id}` paths.
+Nidus accepts Nest-style `:id` route parameters and normalizes them to Axum-compatible `{id}` paths. Parameter segments must include a non-empty name after `:`.
 Each route method must declare exactly one HTTP method attribute.
 Route metadata attributes such as `#[guard]`, `#[pipe]`, `#[validate]`, and `#[openapi]` must be attached to a method with an HTTP method attribute.
 

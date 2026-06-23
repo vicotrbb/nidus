@@ -133,6 +133,9 @@ fn route_metadata(item: &ImplItem) -> syn::Result<Option<RouteMacroMetadata>> {
     let Ok(path) = attr.parse_args::<LitStr>() else {
         return Ok(None);
     };
+    if validate_route_path(&path).is_err() {
+        return Ok(None);
+    }
     Ok(Some(RouteMacroMetadata {
         method: (*method).to_owned(),
         path,
@@ -188,11 +191,17 @@ fn parse_openapi_summary(attr: &syn::Attribute) -> Option<LitStr> {
 }
 
 pub(crate) fn expand_route(name: &str, attr: TokenStream, item: TokenStream) -> TokenStream {
-    if require_path_attr(attr, name).is_err() {
-        return crate::diagnostics::compile_error_with_item(
-            format!("#[{name}] requires a string literal path like #[{name}(\"/:id\")]"),
-            item,
-        );
+    let path = match require_path_attr(attr, name) {
+        Ok(path) => path,
+        Err(_) => {
+            return crate::diagnostics::compile_error_with_item(
+                format!("#[{name}] requires a string literal path like #[{name}(\"/:id\")]"),
+                item,
+            );
+        }
+    };
+    if let Err(error) = validate_route_path(&path) {
+        return crate::diagnostics::compile_error_with_item(error.to_string(), item);
     }
 
     match parse2::<ImplItemFn>(item.clone()) {
@@ -222,4 +231,16 @@ pub(crate) fn expand_openapi(attr: TokenStream, item: TokenStream) -> TokenStrea
     }
 
     quote!(#function)
+}
+
+fn validate_route_path(path: &LitStr) -> syn::Result<()> {
+    for segment in path.value().split('/') {
+        if segment == ":" {
+            return Err(syn::Error::new(
+                path.span(),
+                "route path parameters must include a name after ':'",
+            ));
+        }
+    }
+    Ok(())
 }
