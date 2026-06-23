@@ -172,6 +172,9 @@ fn generate_artifact(kind: &str, name: &str, root: &Path) -> Result<()> {
     if module_name.is_empty() {
         bail!("artifact name must contain at least one ASCII letter or digit");
     }
+    if !module_name.starts_with(|character: char| character.is_ascii_alphabetic()) {
+        bail!("artifact name must start with an ASCII letter after normalization");
+    }
     let directory = root.join("src").join(pluralize(kind));
     fs::create_dir_all(&directory).with_context(|| format!("creating {}", directory.display()))?;
     let path = directory.join(format!("{module_name}.rs"));
