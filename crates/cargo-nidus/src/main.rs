@@ -120,19 +120,20 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-axum = "0.8"
 nidus = {nidus_dependency}
 "#
         ),
     )?;
     write(
         &src.join("main.rs"),
-        r#"use axum::{Router, routing::get};
-use nidus::prelude::*;
+        r#"use nidus::prelude::*;
 
 #[nidus::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let app = Router::new().route("/", get(|| async { "hello from nidus" }));
+    let app = Controller::new("/")
+        .route(RouteDefinition::get("/", || async { "hello from nidus" }))
+        .into_router();
+
     Nidus::bootstrap::<AppModule>()?
         .with_router(app)
         .listen("127.0.0.1:3000")
