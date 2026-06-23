@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  ".",
   "crates/nidus",
   "crates/nidus-core",
   "crates/nidus-http",
@@ -16,6 +17,39 @@ members = [
 ]
 resolver = "2"
 
+[package]
+name = "nidus-workspace"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bench]]
+name = "routing"
+path = "benches/routing.rs"
+harness = false
+
+[[bench]]
+name = "dependency_resolution"
+path = "benches/dependency_resolution.rs"
+harness = false
+
+[[bench]]
+name = "request_lifecycle"
+path = "benches/request_lifecycle.rs"
+harness = false
+
+[dev-dependencies]
+axum.workspace = true
+criterion.workspace = true
+nidus-core = { path = "crates/nidus-core" }
+nidus-http = { path = "crates/nidus-http" }
+tower.workspace = true
+
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
@@ -29,6 +63,7 @@ anyhow = "1"
 async-trait = "0.1"
 axum = "0.8"
 clap = { version = "4", features = ["derive"] }
+criterion = "0.7"
 http = "1"
 insta = "1"
 proc-macro2 = "1"
@@ -43,4 +78,3 @@ tracing = "0.1"
 trybuild = "1"
 utoipa = "5"
 validator = { version = "0.20", features = ["derive"] }
-
