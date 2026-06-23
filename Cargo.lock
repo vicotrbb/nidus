@@ -1240,6 +1240,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "http",
+ "nidus-config",
  "nidus-core",
  "nidus-http",
  "serde",

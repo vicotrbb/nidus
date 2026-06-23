@@ -5,6 +5,7 @@ use axum::{
     body::{Body, Bytes, to_bytes},
 };
 use http::{Method, Request, StatusCode};
+use nidus_config::Config;
 use nidus_core::{Container, Result};
 use serde::Serialize;
 use serde_json::Value;
@@ -16,6 +17,7 @@ use tower::ServiceExt;
 pub struct TestApp {
     router: Router,
     container: Arc<Container>,
+    config: Config,
 }
 
 impl TestApp {
@@ -24,6 +26,7 @@ impl TestApp {
         Self {
             router,
             container: Arc::new(Container::new()),
+            config: Config::new(),
         }
     }
 
@@ -32,6 +35,7 @@ impl TestApp {
         TestAppBuilder {
             router,
             container: Container::new(),
+            config: Config::new(),
         }
     }
 
@@ -52,12 +56,18 @@ impl TestApp {
     {
         self.container.resolve::<T>()
     }
+
+    /// Returns test configuration overrides.
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
 }
 
 /// Builder for in-memory test applications.
 pub struct TestAppBuilder {
     router: Router,
     container: Container,
+    config: Config,
 }
 
 impl TestAppBuilder {
@@ -79,11 +89,18 @@ impl TestAppBuilder {
         Ok(self)
     }
 
+    /// Sets configuration overrides for the test application.
+    pub fn config(mut self, config: Config) -> Self {
+        self.config = config;
+        self
+    }
+
     /// Builds the test application.
     pub fn build(self) -> TestApp {
         TestApp {
             router: self.router,
             container: Arc::new(self.container),
+            config: self.config,
         }
     }
 }
