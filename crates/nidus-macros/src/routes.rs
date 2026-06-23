@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    Expr, ImplItem, ImplItemFn, ItemImpl, Lit, LitStr, MetaNameValue, Token, parse2,
+    Expr, ImplItem, ImplItemFn, ItemImpl, Lit, LitStr, MetaNameValue, Path, Token, parse2,
     punctuated::Punctuated,
 };
 
@@ -31,11 +31,21 @@ fn expand_routes_impl(item: ItemImpl) -> TokenStream {
     let route_entries = metadata.iter().map(|route| {
         let method = &route.method;
         let path = &route.path;
-        match &route.summary {
-            Some(summary) => {
-                quote!(::nidus::prelude::RouteMetadata::with_summary(#method, #path, #summary))
-            }
-            None => quote!(::nidus::prelude::RouteMetadata::new(#method, #path)),
+        let summary = match &route.summary {
+            Some(summary) => quote!(::std::option::Option::Some(#summary)),
+            None => quote!(::std::option::Option::None),
+        };
+        let guards = &route.guards;
+        let pipes = &route.pipes;
+
+        quote! {
+            ::nidus::prelude::RouteMetadata::with_annotations(
+                #method,
+                #path,
+                #summary,
+                &[#(::std::stringify!(#guards),)*],
+                &[#(::std::stringify!(#pipes),)*],
+            )
         }
     });
 
@@ -56,6 +66,8 @@ struct RouteMacroMetadata {
     method: String,
     path: LitStr,
     summary: Option<LitStr>,
+    guards: Vec<Path>,
+    pipes: Vec<Path>,
 }
 
 fn route_metadata(item: &ImplItem) -> Option<RouteMacroMetadata> {
@@ -64,6 +76,8 @@ fn route_metadata(item: &ImplItem) -> Option<RouteMacroMetadata> {
     };
 
     let summary = openapi_summary(function);
+    let guards = type_attributes(function, "guard");
+    let pipes = type_attributes(function, "pipe");
     for attr in &function.attrs {
         for (name, method) in [
             ("get", "GET"),
@@ -80,12 +94,23 @@ fn route_metadata(item: &ImplItem) -> Option<RouteMacroMetadata> {
                         method: method.to_owned(),
                         path,
                         summary: summary.clone(),
+                        guards: guards.clone(),
+                        pipes: pipes.clone(),
                     });
             }
         }
     }
 
     None
+}
+
+fn type_attributes(function: &ImplItemFn, name: &str) -> Vec<Path> {
+    function
+        .attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident(name))
+        .filter_map(|attr| attr.parse_args::<Path>().ok())
+        .collect()
 }
 
 fn openapi_summary(function: &ImplItemFn) -> Option<LitStr> {

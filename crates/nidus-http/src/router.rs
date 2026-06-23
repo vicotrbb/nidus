@@ -9,6 +9,8 @@ pub struct RouteMetadata {
     method: &'static str,
     path: &'static str,
     summary: Option<&'static str>,
+    guards: &'static [&'static str],
+    pipes: &'static [&'static str],
 }
 
 impl RouteMetadata {
@@ -18,6 +20,8 @@ impl RouteMetadata {
             method,
             path,
             summary: None,
+            guards: &[],
+            pipes: &[],
         }
     }
 
@@ -31,6 +35,25 @@ impl RouteMetadata {
             method,
             path,
             summary: Some(summary),
+            guards: &[],
+            pipes: &[],
+        }
+    }
+
+    /// Creates route metadata with all supported static annotations.
+    pub const fn with_annotations(
+        method: &'static str,
+        path: &'static str,
+        summary: Option<&'static str>,
+        guards: &'static [&'static str],
+        pipes: &'static [&'static str],
+    ) -> Self {
+        Self {
+            method,
+            path,
+            summary,
+            guards,
+            pipes,
         }
     }
 
@@ -47,6 +70,16 @@ impl RouteMetadata {
     /// Returns the OpenAPI summary, when declared.
     pub const fn summary(&self) -> Option<&'static str> {
         self.summary
+    }
+
+    /// Returns guard type names declared on the route.
+    pub const fn guards(&self) -> &'static [&'static str] {
+        self.guards
+    }
+
+    /// Returns pipe type names declared on the route.
+    pub const fn pipes(&self) -> &'static [&'static str] {
+        self.pipes
     }
 }
 
