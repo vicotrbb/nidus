@@ -264,6 +264,21 @@ fn module_graph_rejects_duplicate_imports() {
 }
 
 #[test]
+fn module_graph_rejects_duplicate_exports() {
+    let users = ModuleBuilder::new("UsersModule")
+        .provider("UsersService")
+        .export("UsersService")
+        .export("UsersService")
+        .build();
+
+    let error = ModuleGraph::from_modules([users]).unwrap_err();
+
+    assert!(matches!(error, NidusError::DuplicateModuleExport { .. }));
+    assert!(error.to_string().contains("UsersModule"));
+    assert!(error.to_string().contains("UsersService"));
+}
+
+#[test]
 fn module_graph_rejects_exports_that_are_not_local_providers() {
     let users = ModuleBuilder::new("UsersModule")
         .provider("UsersRepository")
