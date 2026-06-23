@@ -300,17 +300,27 @@ struct DiscoveredModule {
 }
 
 fn discover_modules(root: &Path) -> Result<Vec<DiscoveredModule>> {
+    let mut sources = Vec::new();
+    for root_source in ["main.rs", "lib.rs"] {
+        let path = root.join("src").join(root_source);
+        if path.exists() {
+            sources.push(path);
+        }
+    }
     let modules = root.join("src/modules");
-    if !modules.exists() {
-        return Ok(Vec::new());
+    if modules.exists() {
+        for entry in
+            fs::read_dir(&modules).with_context(|| format!("reading {}", modules.display()))?
+        {
+            let path = entry?.path();
+            if path.extension().and_then(|extension| extension.to_str()) == Some("rs") {
+                sources.push(path);
+            }
+        }
     }
 
     let mut discovered = Vec::new();
-    for entry in fs::read_dir(&modules).with_context(|| format!("reading {}", modules.display()))? {
-        let path = entry?.path();
-        if path.extension().and_then(|extension| extension.to_str()) != Some("rs") {
-            continue;
-        }
+    for path in sources {
         let contents =
             fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
         let modules = discover_modules_in_source(&contents);

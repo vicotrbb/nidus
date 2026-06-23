@@ -30,5 +30,5 @@ cargo nidus check
 ```
 
 `cargo nidus routes` prints HTTP methods, normalized paths such as `/users/{id}`, and OpenAPI summaries when route metadata includes them.
-`cargo nidus graph` prints modules and any explicit imports, providers, controllers, and exports discovered from `#[module]` field metadata or `ModuleBuilder` metadata.
+`cargo nidus graph` prints root and feature modules plus any explicit imports, providers, controllers, and exports discovered from `#[module]` field metadata or `ModuleBuilder` metadata.
 `cargo nidus check` validates required project files and catches stale generated `mod.rs` index entries.

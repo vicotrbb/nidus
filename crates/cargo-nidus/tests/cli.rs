@@ -67,6 +67,30 @@ fn cargo_nidus_new_refuses_to_overwrite_existing_project() {
 }
 
 #[test]
+fn cargo_nidus_graph_inspects_crate_root_modules() {
+    let root = temp_project_root("graph_inspects_crate_root_modules");
+    let project = root.join("hello-nidus");
+    let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "new", "hello-nidus", "--path"])
+        .arg(&root)
+        .arg("--nidus-path")
+        .arg(workspace_root().join("crates/nidus"))
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let graph = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "graph", "--path"])
+        .arg(&project)
+        .output()
+        .unwrap();
+
+    assert!(graph.status.success());
+    let stdout = String::from_utf8(graph.stdout).unwrap();
+    assert!(stdout.contains("AppModule"));
+}
+
+#[test]
 fn cargo_nidus_generate_writes_rust_artifact_scaffolds() {
     let root = temp_project_root("generate_writes_rust_artifact_scaffolds");
     for (kind, expected_path, expected_mod_rs, expected_content) in [
