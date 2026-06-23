@@ -4,7 +4,7 @@ use std::{
     any::{Any, TypeId, type_name},
     collections::HashMap,
     ops::Deref,
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 use crate::{NidusError, ProviderEntry, ProviderLifetime, Result};
@@ -123,6 +123,14 @@ impl Container {
         Self::default()
     }
 
+    /// Creates a request scope for request-lifetime providers.
+    pub fn request_scope(&self) -> RequestScope<'_> {
+        RequestScope {
+            container: self,
+            request_instances: Mutex::new(HashMap::new()),
+        }
+    }
+
     /// Registers a concrete singleton value.
     pub fn register_singleton<T>(&mut self, value: T) -> Result<()>
     where
@@ -167,18 +175,9 @@ impl Container {
     where
         T: Send + Sync + 'static,
     {
-        let entry =
-            self.providers
-                .get(&TypeId::of::<T>())
-                .ok_or_else(|| NidusError::MissingProvider {
-                    type_name: type_name::<T>(),
-                })?;
+        let entry = self.entry::<T>()?;
         let erased = entry.resolve_erased(self)?;
-        erased
-            .downcast::<T>()
-            .map_err(|_| NidusError::MissingProvider {
-                type_name: type_name::<T>(),
-            })
+        downcast::<T>(erased)
     }
 
     fn insert<T>(
@@ -202,4 +201,76 @@ impl Container {
         );
         Ok(())
     }
+
+    fn entry<T>(&self) -> Result<&ProviderEntry>
+    where
+        T: Send + Sync + 'static,
+    {
+        self.providers
+            .get(&TypeId::of::<T>())
+            .ok_or_else(|| NidusError::MissingProvider {
+                type_name: type_name::<T>(),
+            })
+    }
+}
+
+/// Per-request dependency scope.
+pub struct RequestScope<'a> {
+    container: &'a Container,
+    request_instances: Mutex<HashMap<TypeId, Arc<dyn Any + Send + Sync>>>,
+}
+
+impl RequestScope<'_> {
+    /// Resolves a dependency in this request scope.
+    pub fn resolve<T>(&self) -> Result<Arc<T>>
+    where
+        T: Send + Sync + 'static,
+    {
+        let entry = self.container.entry::<T>()?;
+        let erased = match entry.lifetime() {
+            ProviderLifetime::Request => {
+                let type_id = TypeId::of::<T>();
+                if let Some(existing) = self
+                    .request_instances
+                    .lock()
+                    .expect("request scope mutex poisoned")
+                    .get(&type_id)
+                    .cloned()
+                {
+                    existing
+                } else {
+                    let instance = entry.resolve_erased(self.container)?;
+                    self.request_instances
+                        .lock()
+                        .expect("request scope mutex poisoned")
+                        .insert(type_id, Arc::clone(&instance));
+                    instance
+                }
+            }
+            ProviderLifetime::Singleton | ProviderLifetime::Transient => {
+                entry.resolve_erased(self.container)?
+            }
+        };
+
+        downcast::<T>(erased)
+    }
+
+    /// Resolves a typed dependency reference in this request scope.
+    pub fn inject<T>(&self) -> Result<Inject<T>>
+    where
+        T: Send + Sync + 'static,
+    {
+        self.resolve::<T>().map(Inject::new)
+    }
+}
+
+fn downcast<T>(erased: Arc<dyn Any + Send + Sync>) -> Result<Arc<T>>
+where
+    T: Send + Sync + 'static,
+{
+    erased
+        .downcast::<T>()
+        .map_err(|_| NidusError::MissingProvider {
+            type_name: type_name::<T>(),
+        })
 }

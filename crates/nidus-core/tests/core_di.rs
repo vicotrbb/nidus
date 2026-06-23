@@ -1,3 +1,8 @@
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
+
 use nidus_core::{Container, Inject, ModuleBuilder, ModuleGraph, NidusError, ProviderLifetime};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -32,6 +37,75 @@ fn container_can_build_injected_provider_from_typed_dependency() {
     let repository = container.resolve::<UsersRepository>().unwrap();
 
     assert_eq!(repository.database.0, "primary");
+}
+
+#[test]
+fn singleton_factories_reuse_one_instance() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut container = Container::new();
+    container
+        .register_factory::<Database, _>(ProviderLifetime::Singleton, {
+            let calls = Arc::clone(&calls);
+            move |_container| {
+                let call = calls.fetch_add(1, Ordering::SeqCst);
+                Ok(Database(if call == 0 { "first" } else { "second" }))
+            }
+        })
+        .unwrap();
+
+    let first = container.resolve::<Database>().unwrap();
+    let second = container.resolve::<Database>().unwrap();
+
+    assert!(Arc::ptr_eq(&first, &second));
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn transient_factories_create_each_resolution() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut container = Container::new();
+    container
+        .register_factory::<Database, _>(ProviderLifetime::Transient, {
+            let calls = Arc::clone(&calls);
+            move |_container| {
+                let call = calls.fetch_add(1, Ordering::SeqCst);
+                Ok(Database(if call == 0 { "first" } else { "second" }))
+            }
+        })
+        .unwrap();
+
+    let first = container.resolve::<Database>().unwrap();
+    let second = container.resolve::<Database>().unwrap();
+
+    assert!(!Arc::ptr_eq(&first, &second));
+    assert_eq!(first.0, "first");
+    assert_eq!(second.0, "second");
+}
+
+#[test]
+fn request_factories_reuse_within_scope_but_not_across_scopes() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut container = Container::new();
+    container
+        .register_factory::<Database, _>(ProviderLifetime::Request, {
+            let calls = Arc::clone(&calls);
+            move |_container| {
+                let call = calls.fetch_add(1, Ordering::SeqCst);
+                Ok(Database(if call == 0 { "first" } else { "second" }))
+            }
+        })
+        .unwrap();
+
+    let first_scope = container.request_scope();
+    let first = first_scope.resolve::<Database>().unwrap();
+    let first_again = first_scope.resolve::<Database>().unwrap();
+    let second_scope = container.request_scope();
+    let second = second_scope.resolve::<Database>().unwrap();
+
+    assert!(Arc::ptr_eq(&first, &first_again));
+    assert!(!Arc::ptr_eq(&first, &second));
+    assert_eq!(first.0, "first");
+    assert_eq!(second.0, "second");
 }
 
 #[test]
