@@ -10,6 +10,15 @@ response.assert_text("ok").await;
 
 Request helpers are available for `GET`, `POST`, `PUT`, `PATCH`, and `DELETE`.
 
+Use `TestApp::bootstrap::<AppModule>()` when a test should validate the Nidus
+module graph before applying overrides:
+
+```rust
+let app = TestApp::bootstrap::<AppModule>()?
+    .override_provider(MockUsersRepository::new())?
+    .build();
+```
+
 Provider and config overrides are configured through the builder:
 
 ```rust

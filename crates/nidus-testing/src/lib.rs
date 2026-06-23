@@ -6,7 +6,7 @@ use axum::{
 };
 use http::{Method, Request, StatusCode};
 use nidus_config::Config;
-use nidus_core::{Container, LifecycleHook, LifecycleRunner, Result};
+use nidus_core::{Container, LifecycleHook, LifecycleRunner, Module, Nidus, Result};
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use std::sync::Arc;
@@ -22,6 +22,15 @@ pub struct TestApp {
 }
 
 impl TestApp {
+    /// Creates a test application builder after validating a root Nidus module.
+    pub fn bootstrap<M>() -> Result<TestAppBuilder>
+    where
+        M: Module,
+    {
+        Nidus::bootstrap::<M>()?;
+        Ok(Self::builder(Router::new()))
+    }
+
     /// Creates a test application from an Axum router.
     pub fn from_router(router: Router) -> Self {
         Self {
