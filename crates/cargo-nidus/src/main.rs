@@ -164,9 +164,20 @@ cargo run
 }
 
 fn generate_artifact(kind: &str, name: &str, root: &Path) -> Result<()> {
+    ensure_supported_artifact(kind)?;
     let directory = root.join("src").join(pluralize(kind));
     fs::create_dir_all(&directory).with_context(|| format!("creating {}", directory.display()))?;
     write(&directory.join(format!("{name}.rs")), &artifact(kind, name))
+}
+
+fn ensure_supported_artifact(kind: &str) -> Result<()> {
+    if matches!(kind, "module" | "controller" | "service" | "repository") {
+        Ok(())
+    } else {
+        bail!(
+            "unsupported artifact kind `{kind}`. Expected one of: module, controller, service, repository"
+        );
+    }
 }
 
 fn inspect_routes(root: &Path) -> Result<()> {
@@ -391,10 +402,7 @@ pub struct {type_name}Service;
 pub struct {type_name}Repository;
 "#
         ),
-        other => format!(
-            r#"// Generated Nidus {other}: {name}
-"#
-        ),
+        _ => unreachable!("artifact kind should be validated before rendering"),
     }
 }
 

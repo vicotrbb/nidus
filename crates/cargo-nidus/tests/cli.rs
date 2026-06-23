@@ -71,6 +71,21 @@ fn cargo_nidus_generate_writes_rust_artifact_scaffolds() {
 }
 
 #[test]
+fn cargo_nidus_generate_rejects_unknown_artifact_kinds() {
+    let root = temp_project_root("generate_rejects_unknown_artifact_kinds");
+    let output = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "generate", "widget", "users", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("unsupported artifact kind"));
+    assert!(!root.join("src/widgets/users.rs").exists());
+}
+
+#[test]
 fn cargo_nidus_routes_and_graph_inspect_generated_sources() {
     let root = temp_project_root("routes_and_graph_inspect_generated_sources");
     for (kind, name) in [("module", "users"), ("controller", "users")] {
