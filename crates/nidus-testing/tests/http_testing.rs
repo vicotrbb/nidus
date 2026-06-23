@@ -52,6 +52,23 @@ async fn test_response_exposes_status_body_and_typed_json() {
             name: "Ada".to_owned(),
         }
     );
+    assert_eq!(
+        response.try_json::<UserDto>().unwrap(),
+        UserDto {
+            id: 7,
+            name: "Ada".to_owned(),
+        }
+    );
+}
+
+#[tokio::test]
+async fn test_response_exposes_text_and_fallible_json_decode() {
+    let router = Router::new().route("/health", get(|| async { "ok" }));
+
+    let response = TestApp::from_router(router).get("/health").send().await;
+
+    assert_eq!(response.text().unwrap(), "ok");
+    assert!(response.try_json::<UserDto>().is_err());
 }
 
 #[tokio::test]

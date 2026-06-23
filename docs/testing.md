@@ -31,8 +31,9 @@ let error = app
     .unwrap_err();
 ```
 
-Responses expose `status()`, `headers()`, `header(name)`, `body()`, typed
-`json()`, and assertion helpers for status, headers, text, and JSON.
+Responses expose `status()`, `headers()`, `header(name)`, `body()`, `text()`,
+typed `json()`, fallible `try_json()`, and assertion helpers for status,
+headers, text, and JSON.
 
 Use `TestApp::bootstrap::<AppModule>()` when a test should validate the Nidus
 module graph before applying overrides:

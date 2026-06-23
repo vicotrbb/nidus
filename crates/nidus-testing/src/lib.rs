@@ -12,7 +12,7 @@ use nidus_core::{
 };
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
-use std::sync::Arc;
+use std::{str, sync::Arc};
 use tower::ServiceExt;
 
 /// In-memory test application backed by an Axum router.
@@ -336,19 +336,31 @@ impl TestResponse {
     where
         T: DeserializeOwned,
     {
-        serde_json::from_slice(&self.body).expect("test response was not valid JSON")
+        self.try_json().expect("test response was not valid JSON")
+    }
+
+    /// Tries to decode the response body as JSON.
+    pub fn try_json<T>(&self) -> serde_json::Result<T>
+    where
+        T: DeserializeOwned,
+    {
+        serde_json::from_slice(&self.body)
+    }
+
+    /// Returns the response body as UTF-8 text.
+    pub fn text(&self) -> std::result::Result<&str, str::Utf8Error> {
+        str::from_utf8(&self.body)
     }
 
     /// Asserts the response body as UTF-8 text.
     pub async fn assert_text(self, expected: &str) {
-        let text = String::from_utf8(self.body.to_vec()).expect("test response was not UTF-8");
+        let text = self.text().expect("test response was not UTF-8");
         assert_eq!(text, expected);
     }
 
     /// Asserts the response body as JSON.
     pub async fn assert_json(self, expected: Value) {
-        let actual: Value =
-            serde_json::from_slice(&self.body).expect("test response was not valid JSON");
+        let actual: Value = self.json();
         assert_eq!(actual, expected);
     }
 }
