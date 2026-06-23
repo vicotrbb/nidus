@@ -5,7 +5,7 @@ The workspace is split into focused crates:
 - `nidus`: public facade and prelude.
 - `nidus-core`: container, modules, app, lifecycle, and errors.
 - `nidus-macros`: procedural macro validation and generation.
-- `nidus-http`: Axum controller and route composition.
+- `nidus-http`: Axum controller, route composition, middleware, and default HTTP errors.
 - `nidus-config`: typed configuration.
 - `nidus-openapi`: OpenAPI metadata.
 - `nidus-validation`: validation pipes.

@@ -14,22 +14,47 @@ pub struct HttpError {
 }
 
 impl HttpError {
-    /// Creates a 404 not found error.
-    pub fn not_found(message: impl Into<String>) -> Self {
+    /// Creates an HTTP error with an explicit status, code, and message.
+    pub fn new(status: StatusCode, code: &'static str, message: impl Into<String>) -> Self {
         Self {
-            status: StatusCode::NOT_FOUND,
-            code: "not_found",
+            status,
+            code,
             message: message.into(),
         }
     }
 
+    /// Creates a 400 bad request error.
+    pub fn bad_request(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::BAD_REQUEST, "bad_request", message)
+    }
+
+    /// Creates a 401 unauthorized error.
+    pub fn unauthorized(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::UNAUTHORIZED, "unauthorized", message)
+    }
+
+    /// Creates a 403 forbidden error.
+    pub fn forbidden(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::FORBIDDEN, "forbidden", message)
+    }
+
+    /// Creates a 404 not found error.
+    pub fn not_found(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::NOT_FOUND, "not_found", message)
+    }
+
+    /// Creates a 409 conflict error.
+    pub fn conflict(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::CONFLICT, "conflict", message)
+    }
+
     /// Creates a sanitized 500 internal server error.
     pub fn internal_server_error() -> Self {
-        Self {
-            status: StatusCode::INTERNAL_SERVER_ERROR,
-            code: "internal_server_error",
-            message: "internal server error".to_owned(),
-        }
+        Self::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "internal_server_error",
+            "internal server error",
+        )
     }
 
     /// Returns the HTTP status code.
