@@ -158,3 +158,37 @@ fn module_graph_detects_circular_imports() {
 
     assert!(matches!(error, NidusError::CircularModuleImport { .. }));
 }
+
+#[test]
+fn module_graph_rejects_exports_that_are_not_local_providers() {
+    let users = ModuleBuilder::new("UsersModule")
+        .provider("UsersRepository")
+        .export("UsersService")
+        .build();
+
+    let error = ModuleGraph::from_modules([users]).unwrap_err();
+
+    assert!(matches!(error, NidusError::MissingProviderExport { .. }));
+    assert!(error.to_string().contains("UsersService"));
+}
+
+#[test]
+fn module_graph_rejects_ambiguous_visible_providers() {
+    let database_a = ModuleBuilder::new("PrimaryDatabaseModule")
+        .provider("DatabasePool")
+        .export("DatabasePool")
+        .build();
+    let database_b = ModuleBuilder::new("ReplicaDatabaseModule")
+        .provider("DatabasePool")
+        .export("DatabasePool")
+        .build();
+    let users = ModuleBuilder::new("UsersModule")
+        .import("PrimaryDatabaseModule")
+        .import("ReplicaDatabaseModule")
+        .build();
+
+    let error = ModuleGraph::from_modules([database_a, database_b, users]).unwrap_err();
+
+    assert!(matches!(error, NidusError::AmbiguousProvider { .. }));
+    assert!(error.to_string().contains("DatabasePool"));
+}

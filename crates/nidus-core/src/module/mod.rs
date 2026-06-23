@@ -113,6 +113,8 @@ impl ModuleGraph {
         let graph = Self { modules };
         graph.validate_imports_exist()?;
         graph.validate_acyclic()?;
+        graph.validate_exports_are_local()?;
+        graph.validate_visible_providers_unambiguous()?;
         Ok(graph)
     }
 
@@ -142,6 +144,47 @@ impl ModuleGraph {
 
         for name in self.modules.keys() {
             self.visit(name, &mut visiting, &mut visited, &mut stack)?;
+        }
+        Ok(())
+    }
+
+    fn validate_exports_are_local(&self) -> Result<()> {
+        for module in self.modules.values() {
+            let providers = module.providers.iter().collect::<HashSet<_>>();
+            for export in &module.exports {
+                if !providers.contains(export) {
+                    return Err(NidusError::MissingProviderExport {
+                        module: module.name.clone(),
+                        provider: export.clone(),
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_visible_providers_unambiguous(&self) -> Result<()> {
+        for module in self.modules.values() {
+            let mut visible_exports = HashMap::<&str, Vec<&str>>::new();
+            for import in &module.imports {
+                let imported = self.modules.get(import).expect("imports were validated");
+                for export in &imported.exports {
+                    visible_exports
+                        .entry(export.as_str())
+                        .or_default()
+                        .push(import.as_str());
+                }
+            }
+
+            for (provider, imports) in visible_exports {
+                if imports.len() > 1 {
+                    return Err(NidusError::AmbiguousProvider {
+                        module: module.name.clone(),
+                        provider: provider.to_owned(),
+                        imports: imports.into_iter().map(str::to_owned).collect(),
+                    });
+                }
+            }
         }
         Ok(())
     }

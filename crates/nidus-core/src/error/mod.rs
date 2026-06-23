@@ -45,4 +45,27 @@ pub enum NidusError {
         /// Ordered cycle path.
         cycle: Vec<String>,
     },
+
+    /// A module exports a provider it does not own.
+    #[error("module `{module}` exports missing local provider `{provider}`")]
+    MissingProviderExport {
+        /// Module declaring the export.
+        module: String,
+        /// Provider missing from the module's provider list.
+        provider: String,
+    },
+
+    /// A module can see multiple providers with the same name through imports.
+    #[error(
+        "module `{module}` has ambiguous provider `{provider}` from imports: {}",
+        imports.join(", ")
+    )]
+    AmbiguousProvider {
+        /// Module with ambiguous visibility.
+        module: String,
+        /// Provider name that is visible from more than one import.
+        provider: String,
+        /// Imports exporting the same provider.
+        imports: Vec<String>,
+    },
 }
