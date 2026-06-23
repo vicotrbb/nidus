@@ -3,7 +3,7 @@
 Controllers group HTTP routes under a prefix and compile to Axum routers.
 
 ```rust
-use nidus_http::{controller::Controller, router::RouteDefinition};
+use nidus::prelude::*;
 
 let router = Controller::new("/users")
     .route(RouteDefinition::get("/:id", || async { "ok" }))
@@ -18,6 +18,10 @@ when route paths come from generated or external input and invalid paths should 
 a `RoutePathError` instead of panicking.
 Each route method must declare exactly one HTTP method attribute.
 Route metadata attributes such as `#[guard]`, `#[pipe]`, `#[validate]`, and `#[openapi]` must be attached to a method with an HTTP method attribute.
+
+With the facade `http` feature, `nidus::prelude::*` also exports common Axum
+request and response types used in controllers: `Json`, `Path`, `Query`,
+`State`, `HeaderMap`, `StatusCode`, `IntoResponse`, and `Response`.
 
 The `#[controller("/prefix")]` macro preserves the struct and generates a
 `controller_prefix()` accessor so route inspection and documentation tooling can

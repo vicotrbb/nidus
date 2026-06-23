@@ -13,9 +13,16 @@ fn prelude_exports_optional_feature_crates() {
     let _async_jobs = AsyncJobQueue::new();
     let events = EventBus::<String>::new();
     let _app = TestApp::from_router(axum::Router::new());
+    let _path: Path<u64> = Path(42);
+    let _query: Query<Vec<(String, String)>> = Query(Vec::new());
+    let _state: State<&'static str> = State("ready");
+    let _headers = HeaderMap::new();
+    let _body = Json("ok");
+    let response: Response = StatusCode::OK.into_response();
 
     jobs.run_all();
     events.subscribe();
+    assert_eq!(response.status(), StatusCode::OK);
 }
 
 #[test]
