@@ -1210,7 +1210,8 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "axum",
- "nidus-auth",
+ "nidus",
+ "nidus-testing",
  "tokio",
 ]
 
