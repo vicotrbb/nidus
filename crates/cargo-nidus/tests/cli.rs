@@ -93,6 +93,42 @@ fn cargo_nidus_routes_and_graph_inspect_generated_sources() {
     assert!(graph_stdout.contains("UsersModule"));
 }
 
+#[test]
+fn cargo_nidus_check_validates_project_structure() {
+    let root = temp_project_root("check_validates_project_structure");
+    let project = root.join("hello-nidus");
+    let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "new", "hello-nidus", "--path"])
+        .arg(&root)
+        .arg("--nidus-path")
+        .arg(workspace_root().join("crates/nidus"))
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let valid = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "check", "--path"])
+        .arg(&project)
+        .output()
+        .unwrap();
+    assert!(valid.status.success());
+    assert!(
+        String::from_utf8(valid.stdout)
+            .unwrap()
+            .contains("Nidus project check passed")
+    );
+
+    let invalid = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "check", "--path"])
+        .arg(root.join("missing"))
+        .output()
+        .unwrap();
+    assert!(!invalid.status.success());
+    let stderr = String::from_utf8(invalid.stderr).unwrap();
+    assert!(stderr.contains("Cargo.toml"));
+    assert!(stderr.contains("src/main.rs"));
+}
+
 fn temp_project_root(name: &str) -> PathBuf {
     let root = std::env::temp_dir()
         .join("nidus-cli-tests")

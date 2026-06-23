@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 
 #[derive(Debug, Parser)]
@@ -51,7 +51,11 @@ enum Command {
     /// Print expanded generated code guidance.
     Expand,
     /// Check project structure.
-    Check,
+    Check {
+        /// Project root.
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+    },
     /// Generate OpenAPI output.
     Openapi,
 }
@@ -81,10 +85,7 @@ fn main() -> Result<()> {
             println!("use cargo expand to inspect Nidus generated code");
             Ok(())
         }
-        Command::Check => {
-            println!("Nidus project check completed");
-            Ok(())
-        }
+        Command::Check { path } => check_project(&path),
         Command::Openapi => {
             println!("OpenAPI generation is available in projects using nidus-openapi");
             Ok(())
@@ -194,6 +195,26 @@ fn inspect_graph(root: &Path) -> Result<()> {
             println!("{module}");
         }
     }
+    Ok(())
+}
+
+fn check_project(root: &Path) -> Result<()> {
+    let required = ["Cargo.toml", "src/main.rs"];
+    let missing = required
+        .iter()
+        .filter(|path| !root.join(path).exists())
+        .copied()
+        .collect::<Vec<_>>();
+
+    if !missing.is_empty() {
+        bail!(
+            "Nidus project check failed for {}. Missing required files: {}",
+            root.display(),
+            missing.join(", ")
+        );
+    }
+
+    println!("Nidus project check passed for {}", root.display());
     Ok(())
 }
 
