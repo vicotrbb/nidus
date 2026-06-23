@@ -7,7 +7,7 @@ use axum::{
 use http::{Method, Request, StatusCode};
 use nidus_config::Config;
 use nidus_core::{Container, LifecycleHook, LifecycleRunner, Result};
-use serde::Serialize;
+use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use std::sync::Arc;
 use tower::ServiceExt;
@@ -200,9 +200,27 @@ pub struct TestResponse {
 }
 
 impl TestResponse {
+    /// Returns the response status code.
+    pub fn status(&self) -> StatusCode {
+        self.status
+    }
+
+    /// Returns the raw response body bytes.
+    pub fn body(&self) -> &[u8] {
+        &self.body
+    }
+
     /// Asserts the response status code.
     pub fn assert_status(&self, expected: StatusCode) {
         assert_eq!(self.status, expected);
+    }
+
+    /// Decodes the response body as JSON.
+    pub fn json<T>(&self) -> T
+    where
+        T: DeserializeOwned,
+    {
+        serde_json::from_slice(&self.body).expect("test response was not valid JSON")
     }
 
     /// Asserts the response body as UTF-8 text.

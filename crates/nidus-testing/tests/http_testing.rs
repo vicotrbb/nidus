@@ -1,10 +1,18 @@
 use axum::{
     Json, Router,
-    routing::{delete, get, patch, put},
+    routing::{delete, get, patch, post, put},
 };
+use http::StatusCode;
 use nidus_http::{controller::Controller, router::RouteDefinition};
 use nidus_testing::TestApp;
+use serde::Deserialize;
 use serde_json::json;
+
+#[derive(Debug, Deserialize, PartialEq, Eq)]
+struct UserDto {
+    id: u64,
+    name: String,
+}
 
 #[tokio::test]
 async fn route_definition_mounts_controller_prefix_on_axum_router() {
@@ -18,6 +26,30 @@ async fn route_definition_mounts_controller_prefix_on_axum_router() {
 
     response.assert_status(http::StatusCode::OK);
     response.assert_json(json!({ "id": 42 })).await;
+}
+
+#[tokio::test]
+async fn test_response_exposes_status_body_and_typed_json() {
+    let router = Router::new().route(
+        "/users",
+        post(|| async { (StatusCode::CREATED, Json(json!({ "id": 7, "name": "Ada" }))) }),
+    );
+
+    let response = TestApp::from_router(router)
+        .post("/users")
+        .json(&json!({ "name": "Ada" }))
+        .send()
+        .await;
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    assert!(!response.body().is_empty());
+    assert_eq!(
+        response.json::<UserDto>(),
+        UserDto {
+            id: 7,
+            name: "Ada".to_owned(),
+        }
+    );
 }
 
 #[tokio::test]
