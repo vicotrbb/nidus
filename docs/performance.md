@@ -10,12 +10,12 @@ cargo bench --workspace --all-features
 
 Benchmarks cover:
 
-- raw Axum baseline setup
+- raw Axum baseline requests
 - routing composition
 - singleton dependency resolution
-- Nidus hello-world setup
+- Nidus hello-world requests
 - Nidus controller setup
-- Nidus controller + service setup
+- Nidus controller + service requests
 - guarded route checks
 - validation pipe route input checks
 

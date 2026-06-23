@@ -1,10 +1,11 @@
-use axum::{Router, routing::get};
+use axum::{Router, body::Body, http::Request, routing::get};
 use criterion::{Criterion, criterion_group, criterion_main};
 use nidus_auth::{Guard, GuardContext, GuardError};
 use nidus_core::{Container, Inject};
 use nidus_http::{controller::Controller, router::RouteDefinition};
 use nidus_validation::ValidationPipe;
 use std::hint::black_box;
+use tower::ServiceExt;
 use validator::Validate;
 
 struct AllowGuard;
@@ -41,22 +42,42 @@ struct CreateUserDto {
 }
 
 fn request_lifecycle_setup(c: &mut Criterion) {
-    c.bench_function("raw axum baseline", |b| {
-        b.iter(|| Router::<()>::new().route("/health", get(|| async { "ok" })));
-    });
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let raw_router = Router::<()>::new().route("/health", get(|| async { "ok" }));
+    let hello_router = Controller::new("/")
+        .route(RouteDefinition::get("/", || async { "hello" }))
+        .into_router();
+    let mut container = Container::new();
+    container.register_singleton(UsersService).unwrap();
+    let controller = UsersController::new(container.inject::<UsersService>().unwrap());
+    let service_router = Controller::new("/users")
+        .route(controller.route())
+        .into_router();
 
-    c.bench_function("nidus hello-world app", |b| {
-        b.iter(|| Controller::new("/").route(RouteDefinition::get("/", || async { "hello" })));
-    });
-
-    c.bench_function("nidus controller + service app", |b| {
+    c.bench_function("raw axum baseline request", |b| {
         b.iter(|| {
-            let mut container = Container::new();
-            container.register_singleton(UsersService).unwrap();
-            let controller = UsersController::new(container.inject::<UsersService>().unwrap());
-            Controller::new("/users")
-                .route(controller.route())
-                .into_router()
+            let response = runtime
+                .block_on(raw_router.clone().oneshot(get_request("/health")))
+                .unwrap();
+            black_box(response.status());
+        });
+    });
+
+    c.bench_function("nidus hello-world request", |b| {
+        b.iter(|| {
+            let response = runtime
+                .block_on(hello_router.clone().oneshot(get_request("/")))
+                .unwrap();
+            black_box(response.status());
+        });
+    });
+
+    c.bench_function("nidus controller + service request", |b| {
+        b.iter(|| {
+            let response = runtime
+                .block_on(service_router.clone().oneshot(get_request("/users/42")))
+                .unwrap();
+            black_box(response.status());
         });
     });
 
@@ -64,7 +85,6 @@ fn request_lifecycle_setup(c: &mut Criterion) {
         b.iter(|| Controller::new("/health").route(RouteDefinition::get("/", || async { "ok" })));
     });
 
-    let runtime = tokio::runtime::Runtime::new().unwrap();
     c.bench_function("nidus guarded route", |b| {
         b.iter(|| {
             runtime
@@ -81,6 +101,13 @@ fn request_lifecycle_setup(c: &mut Criterion) {
             black_box(ValidationPipe::new().transform(input).unwrap());
         });
     });
+}
+
+fn get_request(path: &'static str) -> Request<Body> {
+    Request::builder()
+        .uri(path)
+        .body(Body::empty())
+        .expect("benchmark request should be valid")
 }
 
 criterion_group!(benches, request_lifecycle_setup);
