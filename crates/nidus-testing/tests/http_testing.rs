@@ -1,8 +1,9 @@
 use axum::{
     Json, Router,
+    response::IntoResponse,
     routing::{delete, get, patch, post, put},
 };
-use http::StatusCode;
+use http::{StatusCode, header::HeaderName};
 use nidus_http::{controller::Controller, router::RouteDefinition};
 use nidus_testing::TestApp;
 use serde::Deserialize;
@@ -49,6 +50,34 @@ async fn test_response_exposes_status_body_and_typed_json() {
             id: 7,
             name: "Ada".to_owned(),
         }
+    );
+}
+
+#[tokio::test]
+async fn test_response_exposes_and_asserts_headers() {
+    let router = Router::new().route(
+        "/health",
+        get(|| async {
+            ([(HeaderName::from_static("x-request-id"), "req-123")], "ok").into_response()
+        }),
+    );
+
+    let response = TestApp::from_router(router).get("/health").send().await;
+
+    response.assert_status(StatusCode::OK);
+    response.assert_header("x-request-id", "req-123");
+    assert_eq!(
+        response
+            .headers()
+            .get("x-request-id")
+            .and_then(|value| value.to_str().ok()),
+        Some("req-123")
+    );
+    assert_eq!(
+        response
+            .header("x-request-id")
+            .and_then(|value| value.to_str().ok()),
+        Some("req-123")
     );
 }
 

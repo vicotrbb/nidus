@@ -4,7 +4,7 @@ use axum::{
     Router,
     body::{Body, Bytes, to_bytes},
 };
-use http::{Method, Request, StatusCode};
+use http::{HeaderMap, HeaderValue, Method, Request, StatusCode};
 use nidus_config::Config;
 use nidus_core::{
     Container, LifecycleHook, LifecycleRunner, Module, ModuleDefinition, Nidus, ProviderLifetime,
@@ -223,17 +223,23 @@ impl TestRequest {
             .await
             .expect("test router response failed");
         let status = response.status();
+        let headers = response.headers().clone();
         let body = to_bytes(response.into_body(), usize::MAX)
             .await
             .expect("test response body read failed");
 
-        TestResponse { status, body }
+        TestResponse {
+            status,
+            headers,
+            body,
+        }
     }
 }
 
 /// Captured in-memory HTTP response.
 pub struct TestResponse {
     status: StatusCode,
+    headers: HeaderMap,
     body: Bytes,
 }
 
@@ -248,9 +254,33 @@ impl TestResponse {
         &self.body
     }
 
+    /// Returns the response headers.
+    pub fn headers(&self) -> &HeaderMap {
+        &self.headers
+    }
+
+    /// Returns a response header by name.
+    pub fn header(&self, name: impl AsRef<str>) -> Option<&HeaderValue> {
+        self.headers.get(name.as_ref())
+    }
+
     /// Asserts the response status code.
     pub fn assert_status(&self, expected: StatusCode) {
         assert_eq!(self.status, expected);
+    }
+
+    /// Asserts a response header as a UTF-8 string.
+    pub fn assert_header(&self, name: impl AsRef<str>, expected: &str) {
+        let name = name.as_ref();
+        let actual = self
+            .header(name)
+            .unwrap_or_else(|| panic!("missing response header `{name}`"));
+        assert_eq!(
+            actual
+                .to_str()
+                .unwrap_or_else(|_| panic!("response header `{name}` was not valid UTF-8")),
+            expected
+        );
     }
 
     /// Decodes the response body as JSON.

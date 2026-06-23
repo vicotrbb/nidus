@@ -5,10 +5,13 @@
 ```rust
 let response = TestApp::from_router(router).get("/health").send().await;
 response.assert_status(http::StatusCode::OK);
+response.assert_header("content-type", "text/plain; charset=utf-8");
 response.assert_text("ok").await;
 ```
 
 Request helpers are available for `GET`, `POST`, `PUT`, `PATCH`, and `DELETE`.
+Responses expose `status()`, `headers()`, `header(name)`, `body()`, typed
+`json()`, and assertion helpers for status, headers, text, and JSON.
 
 Use `TestApp::bootstrap::<AppModule>()` when a test should validate the Nidus
 module graph before applying overrides:
