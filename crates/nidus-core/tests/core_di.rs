@@ -253,6 +253,7 @@ fn module_graph_emits_debug_logs() {
         .build();
 
     tracing::subscriber::with_default(subscriber, || {
+        tracing_core::callsite::rebuild_interest_cache();
         ModuleGraph::from_modules([database, users]).unwrap();
     });
 
