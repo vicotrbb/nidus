@@ -43,6 +43,15 @@ pub enum NidusError {
         provider: String,
     },
 
+    /// A module imports the same module more than once.
+    #[error("module `{module}` imports `{import}` more than once")]
+    DuplicateModuleImport {
+        /// Module declaring the duplicate import.
+        module: String,
+        /// Imported module named more than once.
+        import: String,
+    },
+
     /// A registered provider factory returned an error.
     #[error("provider factory failed for type `{type_name}`: {source}")]
     ProviderFactory {

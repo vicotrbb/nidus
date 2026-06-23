@@ -246,6 +246,24 @@ fn module_graph_rejects_duplicate_local_providers() {
 }
 
 #[test]
+fn module_graph_rejects_duplicate_imports() {
+    let database = ModuleBuilder::new("DatabaseModule")
+        .provider("DatabasePool")
+        .export("DatabasePool")
+        .build();
+    let users = ModuleBuilder::new("UsersModule")
+        .import("DatabaseModule")
+        .import("DatabaseModule")
+        .build();
+
+    let error = ModuleGraph::from_modules([database, users]).unwrap_err();
+
+    assert!(matches!(error, NidusError::DuplicateModuleImport { .. }));
+    assert!(error.to_string().contains("UsersModule"));
+    assert!(error.to_string().contains("DatabaseModule"));
+}
+
+#[test]
 fn module_graph_rejects_exports_that_are_not_local_providers() {
     let users = ModuleBuilder::new("UsersModule")
         .provider("UsersRepository")

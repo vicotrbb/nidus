@@ -130,6 +130,7 @@ impl ModuleGraph {
                 "module graph node"
             );
         }
+        graph.validate_local_imports_unique()?;
         graph.validate_imports_exist()?;
         graph.validate_acyclic()?;
         graph.validate_local_providers_unique()?;
@@ -142,6 +143,21 @@ impl ModuleGraph {
     /// Returns a module definition by name.
     pub fn get(&self, name: &str) -> Option<&ModuleDefinition> {
         self.modules.get(name)
+    }
+
+    fn validate_local_imports_unique(&self) -> Result<()> {
+        for module in self.modules.values() {
+            let mut seen = HashSet::new();
+            for import in &module.imports {
+                if !seen.insert(import) {
+                    return Err(NidusError::DuplicateModuleImport {
+                        module: module.name.clone(),
+                        import: import.clone(),
+                    });
+                }
+            }
+        }
+        Ok(())
     }
 
     fn validate_imports_exist(&self) -> Result<()> {
