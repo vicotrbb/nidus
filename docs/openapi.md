@@ -29,5 +29,13 @@ let document = OpenApiDocument::from_controller_routes(
 );
 ```
 
+For multiple controllers, use the builder form:
+
+```rust
+let document = OpenApiDocument::new("Nidus API", "0.1.0")
+    .controller_routes(UsersController::controller_prefix(), &UsersController::routes())
+    .controller_routes(AdminController::controller_prefix(), &AdminController::routes());
+```
+
 This keeps controller prefixes and route paths explicit while reusing the same
 normalization rules as the HTTP router.
