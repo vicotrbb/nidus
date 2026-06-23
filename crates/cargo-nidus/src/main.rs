@@ -37,9 +37,17 @@ enum Command {
         path: PathBuf,
     },
     /// Print route metadata.
-    Routes,
+    Routes {
+        /// Project root.
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+    },
     /// Print dependency graph metadata.
-    Graph,
+    Graph {
+        /// Project root.
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+    },
     /// Print expanded generated code guidance.
     Expand,
     /// Check project structure.
@@ -67,14 +75,8 @@ fn main() -> Result<()> {
             nidus_path,
         } => create_project(&name, &path, nidus_path.as_deref()),
         Command::Generate { kind, name, path } => generate_artifact(&kind, &name, &path),
-        Command::Routes => {
-            println!("route inspection is available for generated Nidus projects");
-            Ok(())
-        }
-        Command::Graph => {
-            println!("dependency graph inspection is available for generated Nidus projects");
-            Ok(())
-        }
+        Command::Routes { path } => inspect_routes(&path),
+        Command::Graph { path } => inspect_graph(&path),
         Command::Expand => {
             println!("use cargo expand to inspect Nidus generated code");
             Ok(())
@@ -148,6 +150,53 @@ fn generate_artifact(kind: &str, name: &str, root: &Path) -> Result<()> {
     write(&directory.join(format!("{name}.rs")), &artifact(kind, name))
 }
 
+fn inspect_routes(root: &Path) -> Result<()> {
+    let controllers = root.join("src/controllers");
+    if !controllers.exists() {
+        return Ok(());
+    }
+
+    for entry in
+        fs::read_dir(&controllers).with_context(|| format!("reading {}", controllers.display()))?
+    {
+        let path = entry?.path();
+        if path.extension().and_then(|extension| extension.to_str()) != Some("rs") {
+            continue;
+        }
+        let contents =
+            fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+        let Some(prefix) = extract_attr_value(&contents, "controller") else {
+            continue;
+        };
+        for method in ["get", "post", "put", "patch", "delete"] {
+            for route in extract_all_attr_values(&contents, method) {
+                println!("{} {}", method.to_uppercase(), join_route(&prefix, &route));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn inspect_graph(root: &Path) -> Result<()> {
+    let modules = root.join("src/modules");
+    if !modules.exists() {
+        return Ok(());
+    }
+
+    for entry in fs::read_dir(&modules).with_context(|| format!("reading {}", modules.display()))? {
+        let path = entry?.path();
+        if path.extension().and_then(|extension| extension.to_str()) != Some("rs") {
+            continue;
+        }
+        let contents =
+            fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+        for module in extract_struct_names(&contents) {
+            println!("{module}");
+        }
+    }
+    Ok(())
+}
+
 fn write(path: &Path, contents: &str) -> Result<()> {
     fs::write(path, contents).with_context(|| format!("writing {}", path.display()))
 }
@@ -203,6 +252,43 @@ pub struct {type_name}Repository;
             r#"// Generated Nidus {other}: {name}
 "#
         ),
+    }
+}
+
+fn extract_attr_value(contents: &str, attr: &str) -> Option<String> {
+    extract_all_attr_values(contents, attr).into_iter().next()
+}
+
+fn extract_all_attr_values(contents: &str, attr: &str) -> Vec<String> {
+    let needle = format!("#[{attr}(\"");
+    contents
+        .lines()
+        .filter_map(|line| {
+            let start = line.find(&needle)? + needle.len();
+            let rest = &line[start..];
+            let end = rest.find('"')?;
+            Some(rest[..end].to_owned())
+        })
+        .collect()
+}
+
+fn extract_struct_names(contents: &str) -> Vec<String> {
+    contents
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("pub struct "))
+        .filter_map(|rest| rest.split([';', '{', '(']).next())
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+
+fn join_route(prefix: &str, route: &str) -> String {
+    match (prefix, route) {
+        ("/", "/") => "/".to_owned(),
+        ("/", route) => route.to_owned(),
+        (prefix, "/") => format!("{prefix}/"),
+        (prefix, route) => format!("{prefix}{route}"),
     }
 }
 

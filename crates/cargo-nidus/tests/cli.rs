@@ -62,6 +62,37 @@ fn cargo_nidus_generate_writes_rust_artifact_scaffolds() {
     }
 }
 
+#[test]
+fn cargo_nidus_routes_and_graph_inspect_generated_sources() {
+    let root = temp_project_root("routes_and_graph_inspect_generated_sources");
+    for (kind, name) in [("module", "users"), ("controller", "users")] {
+        let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+            .args(["nidus", "generate", kind, name, "--path"])
+            .arg(&root)
+            .status()
+            .unwrap();
+        assert!(status.success());
+    }
+
+    let routes = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "routes", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+    assert!(routes.status.success());
+    let routes_stdout = String::from_utf8(routes.stdout).unwrap();
+    assert!(routes_stdout.contains("GET /users/"));
+
+    let graph = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "graph", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+    assert!(graph.status.success());
+    let graph_stdout = String::from_utf8(graph.stdout).unwrap();
+    assert!(graph_stdout.contains("UsersModule"));
+}
+
 fn temp_project_root(name: &str) -> PathBuf {
     let root = std::env::temp_dir()
         .join("nidus-cli-tests")
