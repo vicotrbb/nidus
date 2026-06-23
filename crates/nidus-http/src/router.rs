@@ -12,6 +12,8 @@ pub struct RouteMetadata {
     path: &'static str,
     summary: Option<&'static str>,
     tags: &'static [&'static str],
+    request_schema: Option<&'static str>,
+    response_schema: Option<&'static str>,
     guards: &'static [&'static str],
     pipes: &'static [&'static str],
     validates: bool,
@@ -25,6 +27,8 @@ impl RouteMetadata {
             path,
             summary: None,
             tags: &[],
+            request_schema: None,
+            response_schema: None,
             guards: &[],
             pipes: &[],
             validates: false,
@@ -42,6 +46,8 @@ impl RouteMetadata {
             path,
             summary: Some(summary),
             tags: &[],
+            request_schema: None,
+            response_schema: None,
             guards: &[],
             pipes: &[],
             validates: false,
@@ -62,6 +68,8 @@ impl RouteMetadata {
             path,
             summary,
             tags: &[],
+            request_schema: None,
+            response_schema: None,
             guards,
             pipes,
             validates,
@@ -83,10 +91,23 @@ impl RouteMetadata {
             path,
             summary,
             tags,
+            request_schema: None,
+            response_schema: None,
             guards,
             pipes,
             validates,
         }
+    }
+
+    /// Adds OpenAPI schema references to route metadata.
+    pub const fn with_openapi_schemas(
+        mut self,
+        request_schema: Option<&'static str>,
+        response_schema: Option<&'static str>,
+    ) -> Self {
+        self.request_schema = request_schema;
+        self.response_schema = response_schema;
+        self
     }
 
     /// Returns the HTTP method.
@@ -107,6 +128,16 @@ impl RouteMetadata {
     /// Returns OpenAPI tags declared on the route.
     pub const fn tags(&self) -> &'static [&'static str] {
         self.tags
+    }
+
+    /// Returns the OpenAPI request schema reference name, when declared.
+    pub const fn request_schema(&self) -> Option<&'static str> {
+        self.request_schema
+    }
+
+    /// Returns the OpenAPI response schema reference name, when declared.
+    pub const fn response_schema(&self) -> Option<&'static str> {
+        self.response_schema
     }
 
     /// Returns guard type names declared on the route.

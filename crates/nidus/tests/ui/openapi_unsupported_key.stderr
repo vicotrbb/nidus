@@ -1,4 +1,4 @@
-error: #[openapi] supports only summary = "..." and tags = ["..."] metadata
+error: #[openapi] supports only summary = "...", tags = ["..."], request = Type, and response = Type metadata
  --> tests/ui/openapi_unsupported_key.rs:9:5
   |
 9 |     #[openapi(description = "Find user by ID")]

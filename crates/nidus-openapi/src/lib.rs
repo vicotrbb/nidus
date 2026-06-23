@@ -249,20 +249,28 @@ impl OpenApiRoute {
     }
 
     /// Sets the JSON request body schema reference.
-    pub fn request_schema<T>(mut self) -> Self
+    pub fn request_schema<T>(self) -> Self
     where
         T: ToSchema,
     {
-        self.request_schema = Some(T::name().to_string());
-        self
+        self.request_schema_ref(T::name())
     }
 
     /// Sets the successful JSON response schema reference.
-    pub fn response_schema<T>(mut self) -> Self
+    pub fn response_schema<T>(self) -> Self
     where
         T: ToSchema,
     {
-        self.response_schema = Some(T::name().to_string());
+        self.response_schema_ref(T::name())
+    }
+
+    fn request_schema_ref(mut self, schema: impl Into<String>) -> Self {
+        self.request_schema = Some(schema.into());
+        self
+    }
+
+    fn response_schema_ref(mut self, schema: impl Into<String>) -> Self {
+        self.response_schema = Some(schema.into());
         self
     }
 
@@ -309,6 +317,12 @@ impl OpenApiRoute {
         }
         for tag in metadata.tags() {
             route = route.tag(*tag);
+        }
+        if let Some(schema) = metadata.request_schema() {
+            route = route.request_schema_ref(schema);
+        }
+        if let Some(schema) = metadata.response_schema() {
+            route = route.response_schema_ref(schema);
         }
         Ok(route)
     }

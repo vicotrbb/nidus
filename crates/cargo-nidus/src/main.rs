@@ -218,6 +218,8 @@ struct DiscoveredRoute {
     path: String,
     summary: Option<String>,
     tags: Vec<String>,
+    request_schema: Option<String>,
+    response_schema: Option<String>,
 }
 
 fn discover_routes(root: &Path) -> Result<Vec<DiscoveredRoute>> {
@@ -249,6 +251,8 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<Discov
     let mut pending_route = None;
     let mut pending_summary = None;
     let mut pending_tags = Vec::new();
+    let mut pending_request_schema = None;
+    let mut pending_response_schema = None;
 
     for line in contents.lines() {
         if let Some((method, path)) = extract_route_attr_from_line(line) {
@@ -261,6 +265,8 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<Discov
             };
             pending_summary = Some(summary);
             pending_tags = extract_openapi_tags(&args)?;
+            pending_request_schema = extract_openapi_schema(&args, "request")?;
+            pending_response_schema = extract_openapi_schema(&args, "response")?;
         }
 
         if line.contains("fn ") {
@@ -270,10 +276,14 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<Discov
                     path: join_route(prefix, &path)?,
                     summary: pending_summary.take(),
                     tags: std::mem::take(&mut pending_tags),
+                    request_schema: pending_request_schema.take(),
+                    response_schema: pending_response_schema.take(),
                 });
             } else {
                 pending_summary = None;
                 pending_tags.clear();
+                pending_request_schema = None;
+                pending_response_schema = None;
             }
         }
     }
@@ -591,6 +601,34 @@ fn generate_openapi(root: &Path) -> Result<()> {
             if !route.tags.is_empty() {
                 operation.insert("tags".to_owned(), json!(route.tags));
             }
+            if let Some(schema) = route.request_schema {
+                operation.insert(
+                    "requestBody".to_owned(),
+                    json!({
+                        "required": true,
+                        "content": {
+                            "application/json": {
+                                "schema": schema_ref(&schema)
+                            }
+                        }
+                    }),
+                );
+            }
+            if let Some(schema) = route.response_schema {
+                operation.insert(
+                    "responses".to_owned(),
+                    json!({
+                        "200": {
+                            "description": "Success",
+                            "content": {
+                                "application/json": {
+                                    "schema": schema_ref(&schema)
+                                }
+                            }
+                        }
+                    }),
+                );
+            }
             if !parameters.is_empty() {
                 operation.insert(
                     "parameters".to_owned(),
@@ -627,6 +665,12 @@ fn generate_openapi(root: &Path) -> Result<()> {
         })
     );
     Ok(())
+}
+
+fn schema_ref(schema: &str) -> Value {
+    json!({
+        "$ref": format!("#/components/schemas/{schema}")
+    })
 }
 
 fn write(path: &Path, contents: &str) -> Result<()> {
@@ -808,8 +852,10 @@ fn validate_openapi_args(args: &str) -> Result<()> {
             continue;
         };
         let key = key.trim();
-        if !matches!(key, "summary" | "tags") {
-            bail!("#[openapi] supports only summary = \"...\" and tags = [\"...\"] metadata");
+        if !matches!(key, "summary" | "tags" | "request" | "response") {
+            bail!(
+                "#[openapi] supports only summary = \"...\", tags = [\"...\"], request = Type, and response = Type metadata"
+            );
         }
     }
     Ok(())
@@ -875,6 +921,45 @@ fn extract_openapi_tags(args: &str) -> Result<Vec<String>> {
         values.push(value.to_owned());
     }
     Ok(values)
+}
+
+fn extract_openapi_schema(args: &str, key: &str) -> Result<Option<String>> {
+    for arg in split_openapi_args(args) {
+        let Some((name, value)) = arg.split_once('=') else {
+            continue;
+        };
+        if name.trim() != key {
+            continue;
+        }
+        let value = value.trim();
+        if value.starts_with('"') || value.is_empty() {
+            bail!("#[openapi] {key} must be a type path");
+        }
+        if !is_type_path(value) {
+            bail!("#[openapi] {key} must be a type path");
+        }
+        let schema = value
+            .split("::")
+            .last()
+            .map(str::trim)
+            .filter(|segment| !segment.is_empty())
+            .ok_or_else(|| anyhow::anyhow!("#[openapi] {key} must be a type path"))?;
+        return Ok(Some(schema.to_owned()));
+    }
+    Ok(None)
+}
+
+fn is_type_path(value: &str) -> bool {
+    value.split("::").all(is_type_segment)
+}
+
+fn is_type_segment(value: &str) -> bool {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first == '_' || first.is_ascii_alphabetic())
+        && chars.all(|character| character == '_' || character.is_ascii_alphanumeric())
 }
 
 fn extract_module_index_entry(line: &str) -> Option<String> {

@@ -41,14 +41,18 @@ Route macros can emit the same operation tags through `#[openapi]` metadata:
 
 ```rust
 #[get("/:id")]
-#[openapi(summary = "Find user by ID", tags = ["users", "read"])]
+#[openapi(
+    summary = "Find user by ID",
+    tags = ["users", "read"],
+    response = UserDto
+)]
 async fn find_one(&self) {}
 ```
 
 Macro metadata currently supports `summary = "..."` and optional
-`tags = ["..."]`. Unsupported keys fail at compile time, and the
-`cargo nidus openapi` inspector reports the same error when reading source
-files.
+`tags = ["..."]`, `request = Type`, and `response = Type`. Unsupported keys
+fail at compile time, and the `cargo nidus openapi` inspector reports the same
+error when reading source files.
 
 Generated route metadata can also seed a document directly:
 

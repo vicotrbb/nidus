@@ -1,0 +1,7 @@
+error: #[openapi] request must be a type path
+ --> tests/ui/openapi_request_must_be_type.rs:9:5
+  |
+9 |     #[openapi(summary = "Create user", request = "CreateUserDto")]
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `openapi` (in Nightly builds, run with -Z macro-backtrace for more info)

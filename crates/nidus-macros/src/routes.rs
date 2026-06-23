@@ -1,8 +1,8 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    Expr, ImplItem, ImplItemFn, ItemImpl, Lit, LitStr, MetaNameValue, Path, Token, parse2,
-    punctuated::Punctuated,
+    Expr, ImplItem, ImplItemFn, ItemImpl, Lit, LitStr, MetaNameValue, Path, PathArguments, Token,
+    parse2, punctuated::Punctuated,
 };
 
 use crate::utils::{require_empty_attr, require_path_attr, validate_route_path};
@@ -47,6 +47,14 @@ fn expand_routes_impl(item: ItemImpl) -> TokenStream {
             None => quote!(::std::option::Option::None),
         };
         let tags = &route.tags;
+        let request_schema = match &route.request_schema {
+            Some(schema) => quote!(::std::option::Option::Some(#schema)),
+            None => quote!(::std::option::Option::None),
+        };
+        let response_schema = match &route.response_schema {
+            Some(schema) => quote!(::std::option::Option::Some(#schema)),
+            None => quote!(::std::option::Option::None),
+        };
         let guards = &route.guards;
         let pipes = &route.pipes;
         let validates = route.validates;
@@ -61,6 +69,7 @@ fn expand_routes_impl(item: ItemImpl) -> TokenStream {
                 &[#(::std::stringify!(#pipes),)*],
                 #validates,
             )
+            .with_openapi_schemas(#request_schema, #response_schema)
         }
     });
 
@@ -82,6 +91,8 @@ struct RouteMacroMetadata {
     path: LitStr,
     summary: Option<LitStr>,
     tags: Vec<LitStr>,
+    request_schema: Option<LitStr>,
+    response_schema: Option<LitStr>,
     guards: Vec<Path>,
     pipes: Vec<Path>,
     validates: bool,
@@ -97,9 +108,15 @@ fn route_metadata(item: &ImplItem) -> syn::Result<Option<RouteMacroMetadata>> {
         Err(_) => return Ok(None),
     };
     let summary = openapi.as_ref().map(|metadata| metadata.summary.clone());
-    let tags = openapi
-        .map(|metadata| metadata.tags)
-        .unwrap_or_else(Vec::new);
+    let (tags, request_schema, response_schema) = openapi
+        .map(|metadata| {
+            (
+                metadata.tags,
+                metadata.request_schema,
+                metadata.response_schema,
+            )
+        })
+        .unwrap_or_else(|| (Vec::new(), None, None));
     let guards = type_attributes(function, "guard");
     let pipes = type_attributes(function, "pipe");
     let validates = function
@@ -151,6 +168,8 @@ fn route_metadata(item: &ImplItem) -> syn::Result<Option<RouteMacroMetadata>> {
         path,
         summary,
         tags,
+        request_schema,
+        response_schema,
         guards,
         pipes,
         validates,
@@ -178,6 +197,8 @@ fn type_attributes(function: &ImplItemFn, name: &str) -> Vec<Path> {
 struct OpenApiMetadata {
     summary: LitStr,
     tags: Vec<LitStr>,
+    request_schema: Option<LitStr>,
+    response_schema: Option<LitStr>,
 }
 
 fn openapi_metadata(function: &ImplItemFn) -> syn::Result<Option<OpenApiMetadata>> {
@@ -196,6 +217,8 @@ fn parse_openapi_metadata(attr: &syn::Attribute) -> syn::Result<OpenApiMetadata>
     let args = attr.parse_args_with(Punctuated::<MetaNameValue, Token![,]>::parse_terminated)?;
     let mut summary = None;
     let mut tags = Vec::new();
+    let mut request_schema = None;
+    let mut response_schema = None;
 
     for arg in args {
         if arg.path.is_ident("summary") {
@@ -234,10 +257,14 @@ fn parse_openapi_metadata(attr: &syn::Attribute) -> syn::Result<OpenApiMetadata>
                 };
                 tags.push(tag);
             }
+        } else if arg.path.is_ident("request") {
+            request_schema = Some(schema_name(&arg.value, "request")?);
+        } else if arg.path.is_ident("response") {
+            response_schema = Some(schema_name(&arg.value, "response")?);
         } else {
             return Err(syn::Error::new_spanned(
                 arg.path,
-                "#[openapi] supports only summary = \"...\" and tags = [\"...\"] metadata",
+                "#[openapi] supports only summary = \"...\", tags = [\"...\"], request = Type, and response = Type metadata",
             ));
         }
     }
@@ -249,7 +276,42 @@ fn parse_openapi_metadata(attr: &syn::Attribute) -> syn::Result<OpenApiMetadata>
         ));
     };
 
-    Ok(OpenApiMetadata { summary, tags })
+    Ok(OpenApiMetadata {
+        summary,
+        tags,
+        request_schema,
+        response_schema,
+    })
+}
+
+fn schema_name(value: &Expr, name: &str) -> syn::Result<LitStr> {
+    let Expr::Path(expr_path) = value else {
+        return Err(syn::Error::new_spanned(
+            value,
+            format!("#[openapi] {name} must be a type path"),
+        ));
+    };
+    let Some(segment) = expr_path.path.segments.last() else {
+        return Err(syn::Error::new_spanned(
+            value,
+            format!("#[openapi] {name} must be a type path"),
+        ));
+    };
+    if expr_path
+        .path
+        .segments
+        .iter()
+        .any(|segment| !matches!(segment.arguments, PathArguments::None))
+    {
+        return Err(syn::Error::new_spanned(
+            value,
+            format!("#[openapi] {name} must be a type path"),
+        ));
+    }
+    Ok(LitStr::new(
+        &segment.ident.to_string(),
+        segment.ident.span(),
+    ))
 }
 
 pub(crate) fn expand_route(name: &str, attr: TokenStream, item: TokenStream) -> TokenStream {

@@ -176,6 +176,35 @@ fn openapi_document_can_be_generated_from_route_metadata() {
 }
 
 #[test]
+fn openapi_document_uses_schema_refs_from_route_metadata() {
+    let routes = [RouteMetadata::with_openapi_annotations(
+        "POST",
+        "/users",
+        Some("Create user"),
+        &["users"],
+        &[],
+        &[],
+        true,
+    )
+    .with_openapi_schemas(Some("CreateUserDto"), Some("UserDto"))];
+
+    let document = OpenApiDocument::from_route_metadata("Nidus API", "0.1.0", &routes)
+        .schema::<CreateUserDto>()
+        .schema::<UserDto>();
+
+    let json = document.to_json_value();
+    assert_eq!(
+        json["paths"]["/users"]["post"]["requestBody"]["content"]["application/json"]["schema"]["$ref"],
+        "#/components/schemas/CreateUserDto"
+    );
+    assert_eq!(
+        json["paths"]["/users"]["post"]["responses"]["200"]["content"]["application/json"]["schema"]
+            ["$ref"],
+        "#/components/schemas/UserDto"
+    );
+}
+
+#[test]
 fn openapi_document_try_from_route_metadata_rejects_invalid_route_path() {
     let routes = [RouteMetadata::new("GET", "/:")];
 
