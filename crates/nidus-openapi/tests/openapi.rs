@@ -135,6 +135,18 @@ fn openapi_document_can_be_generated_from_route_metadata() {
 }
 
 #[test]
+fn openapi_document_try_from_route_metadata_rejects_invalid_route_path() {
+    let routes = [RouteMetadata::new("GET", "/:")];
+
+    let error = match OpenApiDocument::try_from_route_metadata("Nidus API", "0.1.0", &routes) {
+        Ok(_) => panic!("empty route parameter should fail"),
+        Err(error) => error,
+    };
+
+    assert_eq!(error.path(), "/:");
+}
+
+#[test]
 fn openapi_document_can_be_generated_from_controller_route_metadata() {
     let routes = [RouteMetadata::with_summary(
         "GET",

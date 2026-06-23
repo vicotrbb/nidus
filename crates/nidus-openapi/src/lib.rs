@@ -45,10 +45,10 @@ impl OpenApiDocument {
         routes: &[RouteMetadata],
     ) -> Result<Self, RoutePathError> {
         for route in routes {
-            self = self.route(OpenApiRoute::from_route_metadata_at_path(
+            self = self.route(OpenApiRoute::try_from_route_metadata_at_path(
                 route,
                 route.try_full_path(controller_prefix)?,
-            ));
+            )?);
         }
         Ok(self)
     }
@@ -77,11 +77,21 @@ impl OpenApiDocument {
         version: impl Into<String>,
         routes: &[RouteMetadata],
     ) -> Self {
+        Self::try_from_route_metadata(title, version, routes)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    /// Tries to create an OpenAPI document from generated route metadata.
+    pub fn try_from_route_metadata(
+        title: impl Into<String>,
+        version: impl Into<String>,
+        routes: &[RouteMetadata],
+    ) -> Result<Self, RoutePathError> {
         let mut document = Self::new(title, version);
         for route in routes {
-            document = document.route(OpenApiRoute::from_route_metadata(route));
+            document = document.route(OpenApiRoute::try_from_route_metadata(route)?);
         }
-        document
+        Ok(document)
     }
 
     /// Creates an OpenAPI document from a controller prefix and generated route metadata.
@@ -260,14 +270,17 @@ impl OpenApiRoute {
         Ok(Self::new(method, openapi_path(&path)?))
     }
 
-    fn from_route_metadata(metadata: &RouteMetadata) -> Self {
-        Self::from_route_metadata_at_path(metadata, metadata.path())
+    fn try_from_route_metadata(metadata: &RouteMetadata) -> Result<Self, RoutePathError> {
+        Self::try_from_route_metadata_at_path(metadata, metadata.path())
     }
 
-    fn from_route_metadata_at_path(metadata: &RouteMetadata, path: impl AsRef<str>) -> Self {
+    fn try_from_route_metadata_at_path(
+        metadata: &RouteMetadata,
+        path: impl AsRef<str>,
+    ) -> Result<Self, RoutePathError> {
         let mut route = Self::new(
             metadata.method().to_ascii_lowercase(),
-            openapi_path(path.as_ref()).unwrap_or_else(|error| panic!("{error}")),
+            openapi_path(path.as_ref())?,
         );
         if let Some(summary) = metadata.summary() {
             route = route.summary(summary);
@@ -275,7 +288,7 @@ impl OpenApiRoute {
         for tag in metadata.tags() {
             route = route.tag(*tag);
         }
-        route
+        Ok(route)
     }
 
     fn to_json_value(&self) -> Value {
