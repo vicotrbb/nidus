@@ -181,7 +181,7 @@ fn generate_artifact(kind: &str, name: &str, root: &Path) -> Result<()> {
     if path.exists() {
         bail!("artifact already exists: {}", path.display());
     }
-    write(&path, &artifact(kind, name))?;
+    write(&path, &artifact(kind, name, &module_name))?;
     update_module_index(&directory, &module_name)
 }
 
@@ -492,8 +492,8 @@ fn pluralize(kind: &str) -> String {
     }
 }
 
-fn artifact(kind: &str, name: &str) -> String {
-    let type_name = to_pascal_case(name);
+fn artifact(kind: &str, name: &str, module_name: &str) -> String {
+    let type_name = to_pascal_case(module_name);
     match kind {
         "module" => format!(
             r#"use nidus::prelude::*;

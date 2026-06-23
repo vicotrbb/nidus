@@ -161,6 +161,23 @@ fn cargo_nidus_generate_normalizes_artifact_module_names() {
 }
 
 #[test]
+fn cargo_nidus_generate_derives_type_names_from_normalized_modules() {
+    let root = temp_project_root("generate_derives_type_names_from_normalized_modules");
+    let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "generate", "service", "user.profile", "--path"])
+        .arg(&root)
+        .status()
+        .unwrap();
+
+    assert!(status.success());
+    let contents = fs::read_to_string(root.join("src/services/user_profile.rs")).unwrap();
+    assert!(contents.contains("pub struct UserProfileService;"));
+    assert!(!contents.contains("User.profileService"));
+    let mod_rs = fs::read_to_string(root.join("src/services/mod.rs")).unwrap();
+    assert!(mod_rs.contains("pub mod user_profile;"));
+}
+
+#[test]
 fn cargo_nidus_generate_rejects_digit_leading_artifact_names() {
     let root = temp_project_root("generate_rejects_digit_leading_artifact_names");
     let output = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
