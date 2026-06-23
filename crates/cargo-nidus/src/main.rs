@@ -176,14 +176,16 @@ fn generate_artifact(kind: &str, name: &str, root: &Path) -> Result<()> {
     if !module_name.starts_with(|character: char| character.is_ascii_alphabetic()) {
         bail!("artifact name must start with an ASCII letter after normalization");
     }
-    let directory = root.join("src").join(pluralize(kind));
+    let directory_name = pluralize(kind);
+    let directory = root.join("src").join(&directory_name);
     fs::create_dir_all(&directory).with_context(|| format!("creating {}", directory.display()))?;
     let path = directory.join(format!("{module_name}.rs"));
     if path.exists() {
         bail!("artifact already exists: {}", path.display());
     }
     write(&path, &artifact(kind, name, &module_name))?;
-    update_module_index(&directory, &module_name)
+    update_module_index(&directory, &module_name)?;
+    update_crate_root_module(root, &directory_name)
 }
 
 fn ensure_supported_artifact(kind: &str) -> Result<()> {
@@ -558,6 +560,35 @@ fn update_module_index(directory: &Path, name: &str) -> Result<()> {
     write(&path, &contents)
 }
 
+fn update_crate_root_module(root: &Path, module: &str) -> Result<()> {
+    let src = root.join("src");
+    let (path, visibility) = if src.join("lib.rs").exists() {
+        (src.join("lib.rs"), "pub ")
+    } else if src.join("main.rs").exists() {
+        (src.join("main.rs"), "")
+    } else {
+        return Ok(());
+    };
+    let contents =
+        fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    let private_entry = format!("mod {module};");
+    let public_entry = format!("pub mod {module};");
+    if contents
+        .lines()
+        .map(str::trim)
+        .any(|line| line == private_entry || line == public_entry)
+    {
+        return Ok(());
+    }
+
+    let mut updated = contents;
+    if !updated.ends_with('\n') {
+        updated.push('\n');
+    }
+    updated.push_str(&format!("{visibility}mod {module};\n"));
+    write(&path, &updated)
+}
+
 fn pluralize(kind: &str) -> String {
     match kind {
         "module" => "modules".to_owned(),
@@ -575,6 +606,7 @@ fn artifact(kind: &str, name: &str, module_name: &str) -> String {
             r#"use nidus::prelude::*;
 
 #[module]
+#[allow(dead_code)]
 pub struct {type_name}Module;
 "#
         ),
@@ -582,9 +614,11 @@ pub struct {type_name}Module;
             r#"use nidus::prelude::*;
 
 #[controller("/{name}")]
+#[allow(dead_code)]
 pub struct {type_name}Controller;
 
 #[routes]
+#[allow(dead_code)]
 impl {type_name}Controller {{
     #[get("/")]
     pub async fn index(&self) {{}}
@@ -595,6 +629,7 @@ impl {type_name}Controller {{
             r#"use nidus::prelude::*;
 
 #[injectable]
+#[allow(dead_code)]
 pub struct {type_name}Service;
 "#
         ),
@@ -602,6 +637,7 @@ pub struct {type_name}Service;
             r#"use nidus::prelude::*;
 
 #[injectable]
+#[allow(dead_code)]
 pub struct {type_name}Repository;
 "#
         ),

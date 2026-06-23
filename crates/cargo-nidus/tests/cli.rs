@@ -135,6 +135,51 @@ fn cargo_nidus_generate_maintains_directory_module_indexes() {
 }
 
 #[test]
+fn cargo_nidus_generate_updates_crate_root_module_declarations() {
+    let root = temp_project_root("generate_updates_crate_root_module_declarations");
+    fs::write(
+        root.join("Cargo.toml"),
+        format!(
+            r#"[package]
+name = "demo"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+nidus = {{ path = {:?} }}
+"#,
+            workspace_root().join("crates/nidus").display().to_string()
+        ),
+    )
+    .unwrap();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(root.join("src/main.rs"), "fn main() {}\n").unwrap();
+
+    for kind in ["service", "controller"] {
+        let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+            .args(["nidus", "generate", kind, "users", "--path"])
+            .arg(&root)
+            .status()
+            .unwrap();
+        assert!(status.success());
+    }
+
+    let main_rs = fs::read_to_string(root.join("src/main.rs")).unwrap();
+    assert!(main_rs.contains("mod controllers;"));
+    assert!(main_rs.contains("mod services;"));
+    assert_eq!(main_rs.matches("mod controllers;").count(), 1);
+    assert_eq!(main_rs.matches("mod services;").count(), 1);
+
+    let check = Command::new("cargo")
+        .arg("check")
+        .env("RUSTFLAGS", "-Dwarnings")
+        .current_dir(&root)
+        .status()
+        .unwrap();
+    assert!(check.success());
+}
+
+#[test]
 fn cargo_nidus_generate_normalizes_artifact_module_names() {
     let root = temp_project_root("generate_normalizes_artifact_module_names");
     let first = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
