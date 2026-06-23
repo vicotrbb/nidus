@@ -2,10 +2,13 @@
 
 use std::sync::{Arc, Mutex};
 
+type SubscriberQueue<T> = Arc<Mutex<Vec<T>>>;
+type SubscriberList<T> = Arc<Mutex<Vec<SubscriberQueue<T>>>>;
+
 /// In-process typed event bus.
 #[derive(Clone, Debug)]
 pub struct EventBus<T> {
-    subscribers: Arc<Mutex<Vec<Arc<Mutex<Vec<T>>>>>>,
+    subscribers: SubscriberList<T>,
 }
 
 impl<T> EventBus<T>

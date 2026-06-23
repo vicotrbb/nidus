@@ -3,9 +3,7 @@ use quote::quote;
 use syn::Error;
 
 pub(crate) fn compile_error(message: impl AsRef<str>) -> TokenStream {
-    Error::new(Span::call_site(), message.as_ref())
-        .to_compile_error()
-        .into()
+    Error::new(Span::call_site(), message.as_ref()).to_compile_error()
 }
 
 pub(crate) fn compile_error_with_item(message: impl AsRef<str>, item: TokenStream) -> TokenStream {
