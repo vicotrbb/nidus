@@ -17,3 +17,5 @@ Nidus accepts Nest-style `:id` route parameters and normalizes them to Axum-comp
 The `#[controller("/prefix")]` macro preserves the struct and generates a
 `controller_prefix()` accessor so route inspection and documentation tooling can
 compose controller and route metadata explicitly.
+Use `RouteMetadata::full_path(controller_prefix)` when tooling needs the
+Axum-normalized full route path.

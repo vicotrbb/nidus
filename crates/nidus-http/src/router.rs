@@ -91,6 +91,11 @@ impl RouteMetadata {
     pub const fn validates(&self) -> bool {
         self.validates
     }
+
+    /// Composes this route path with a controller prefix using Nidus path normalization.
+    pub fn full_path(&self, controller_prefix: &str) -> String {
+        join_paths(controller_prefix, self.path)
+    }
 }
 
 /// A route declaration that can be mounted by a controller.
