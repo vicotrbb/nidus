@@ -7,8 +7,9 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use http::{HeaderValue, Request, Response, header::HeaderName};
+use http::{HeaderValue, Method, Request, Response, header::HeaderName};
 use tower::{Layer, Service, timeout::TimeoutLayer};
+use tower_http::cors::{Any, CorsLayer};
 
 /// Creates a Tower timeout layer.
 pub fn timeout_layer(timeout: Duration) -> TimeoutLayer {
@@ -18,6 +19,21 @@ pub fn timeout_layer(timeout: Duration) -> TimeoutLayer {
 /// Creates a response request-id layer.
 pub fn request_id_layer() -> RequestIdLayer {
     RequestIdLayer
+}
+
+/// Creates a permissive CORS layer for API development and examples.
+pub fn cors_layer() -> CorsLayer {
+    CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::PATCH,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
+        .allow_headers(Any)
 }
 
 /// Tower layer that adds an `x-request-id` response header when absent.
