@@ -168,14 +168,18 @@ cargo run
 
 fn generate_artifact(kind: &str, name: &str, root: &Path) -> Result<()> {
     ensure_supported_artifact(kind)?;
+    let module_name = to_snake_case(name);
+    if module_name.is_empty() {
+        bail!("artifact name must contain at least one ASCII letter or digit");
+    }
     let directory = root.join("src").join(pluralize(kind));
     fs::create_dir_all(&directory).with_context(|| format!("creating {}", directory.display()))?;
-    let path = directory.join(format!("{name}.rs"));
+    let path = directory.join(format!("{module_name}.rs"));
     if path.exists() {
         bail!("artifact already exists: {}", path.display());
     }
     write(&path, &artifact(kind, name))?;
-    update_module_index(&directory, name)
+    update_module_index(&directory, &module_name)
 }
 
 fn ensure_supported_artifact(kind: &str) -> Result<()> {
@@ -635,4 +639,27 @@ fn to_pascal_case(name: &str) -> String {
             }
         })
         .collect()
+}
+
+fn to_snake_case(name: &str) -> String {
+    let mut output = String::new();
+    let mut previous_was_separator = true;
+
+    for character in name.chars() {
+        if character.is_ascii_alphanumeric() {
+            if character.is_ascii_uppercase() && !previous_was_separator {
+                output.push('_');
+            }
+            output.push(character.to_ascii_lowercase());
+            previous_was_separator = false;
+        } else if !previous_was_separator {
+            output.push('_');
+            previous_was_separator = true;
+        }
+    }
+
+    if output.ends_with('_') {
+        output.pop();
+    }
+    output
 }

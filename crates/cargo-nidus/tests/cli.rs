@@ -135,6 +135,32 @@ fn cargo_nidus_generate_maintains_directory_module_indexes() {
 }
 
 #[test]
+fn cargo_nidus_generate_normalizes_artifact_module_names() {
+    let root = temp_project_root("generate_normalizes_artifact_module_names");
+    let first = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "generate", "service", "user-profile", "--path"])
+        .arg(&root)
+        .status()
+        .unwrap();
+    assert!(first.success());
+
+    let contents = fs::read_to_string(root.join("src/services/user_profile.rs")).unwrap();
+    assert!(contents.contains("pub struct UserProfileService;"));
+    let mod_rs = fs::read_to_string(root.join("src/services/mod.rs")).unwrap();
+    assert!(mod_rs.contains("pub mod user_profile;"));
+    assert!(!root.join("src/services/user-profile.rs").exists());
+
+    let duplicate = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "generate", "service", "user_profile", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+    assert!(!duplicate.status.success());
+    let stderr = String::from_utf8(duplicate.stderr).unwrap();
+    assert!(stderr.contains("already exists"));
+}
+
+#[test]
 fn cargo_nidus_generate_rejects_unknown_artifact_kinds() {
     let root = temp_project_root("generate_rejects_unknown_artifact_kinds");
     let output = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
@@ -147,6 +173,21 @@ fn cargo_nidus_generate_rejects_unknown_artifact_kinds() {
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(stderr.contains("unsupported artifact kind"));
     assert!(!root.join("src/widgets/users.rs").exists());
+}
+
+#[test]
+fn cargo_nidus_generate_rejects_names_without_module_identifiers() {
+    let root = temp_project_root("generate_rejects_names_without_module_identifiers");
+    let output = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "generate", "service", "!!!", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("artifact name must contain"));
+    assert!(!root.join("src/services").exists());
 }
 
 #[test]
