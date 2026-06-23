@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use http::StatusCode;
 use nidus_auth::{Guard, GuardContext, GuardError};
 
 struct RoleGuard(&'static str);
@@ -29,6 +30,15 @@ async fn guard_error_carries_forbidden_reason() {
 
     let error = guard.check(context).await.unwrap_err();
 
-    assert_eq!(error.status_code(), 403);
-    assert!(error.to_string().contains("route role"));
+    assert_eq!(error.status_code(), StatusCode::FORBIDDEN);
+    assert_eq!(error.reason(), "route role does not match");
+    assert_eq!(error.to_string(), "route role does not match");
+}
+
+#[test]
+fn guard_error_carries_typed_unauthorized_status() {
+    let error = GuardError::unauthorized("missing token");
+
+    assert_eq!(error.status_code(), StatusCode::UNAUTHORIZED);
+    assert_eq!(error.reason(), "missing token");
 }

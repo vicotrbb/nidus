@@ -1169,6 +1169,7 @@ name = "nidus-auth"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "http",
  "thiserror",
  "tokio",
 ]

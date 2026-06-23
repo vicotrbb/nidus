@@ -1,6 +1,7 @@
 //! Authentication and guard support.
 
 use async_trait::async_trait;
+use http::StatusCode;
 
 /// Composable authorization guard.
 #[async_trait]
@@ -48,7 +49,7 @@ pub type Result<T, E = GuardError> = std::result::Result<T, E>;
 #[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
 #[error("{reason}")]
 pub struct GuardError {
-    status_code: u16,
+    status_code: StatusCode,
     reason: String,
 }
 
@@ -56,7 +57,7 @@ impl GuardError {
     /// Creates a 401 authorization error.
     pub fn unauthorized(reason: impl Into<String>) -> Self {
         Self {
-            status_code: 401,
+            status_code: StatusCode::UNAUTHORIZED,
             reason: reason.into(),
         }
     }
@@ -64,13 +65,18 @@ impl GuardError {
     /// Creates a 403 authorization error.
     pub fn forbidden(reason: impl Into<String>) -> Self {
         Self {
-            status_code: 403,
+            status_code: StatusCode::FORBIDDEN,
             reason: reason.into(),
         }
     }
 
     /// Returns the HTTP status code corresponding to this guard failure.
-    pub fn status_code(&self) -> u16 {
+    pub fn status_code(&self) -> StatusCode {
         self.status_code
+    }
+
+    /// Returns the authorization failure reason.
+    pub fn reason(&self) -> &str {
+        &self.reason
     }
 }

@@ -11,5 +11,5 @@ impl Guard<AppState> for AuthGuard {
 }
 ```
 
-Guard errors carry an HTTP-oriented status code and a reason that can be mapped into framework responses.
-
+Guard errors carry a typed `http::StatusCode` and a reason that can be mapped
+into framework responses.
