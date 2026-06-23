@@ -181,6 +181,7 @@ pub struct OpenApiRoute {
     path_parameters: Vec<String>,
     summary: Option<String>,
     tags: Vec<String>,
+    request_schema: Option<String>,
     response_schema: Option<String>,
 }
 
@@ -247,6 +248,15 @@ impl OpenApiRoute {
         self
     }
 
+    /// Sets the JSON request body schema reference.
+    pub fn request_schema<T>(mut self) -> Self
+    where
+        T: ToSchema,
+    {
+        self.request_schema = Some(T::name().to_string());
+        self
+    }
+
     /// Sets the successful JSON response schema reference.
     pub fn response_schema<T>(mut self) -> Self
     where
@@ -267,6 +277,7 @@ impl OpenApiRoute {
             path_parameters,
             summary: None,
             tags: Vec::new(),
+            request_schema: None,
             response_schema: None,
         }
     }
@@ -325,6 +336,18 @@ impl OpenApiRoute {
 
         if !self.tags.is_empty() {
             operation["tags"] = json!(self.tags);
+        }
+        if let Some(schema) = &self.request_schema {
+            operation["requestBody"] = json!({
+                "required": true,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": format!("#/components/schemas/{schema}")
+                        }
+                    }
+                }
+            });
         }
         if !self.path_parameters.is_empty() {
             operation["parameters"] = json!(

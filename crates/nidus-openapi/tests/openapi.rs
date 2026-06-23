@@ -9,6 +9,12 @@ struct UserDto {
     email: String,
 }
 
+#[derive(utoipa::ToSchema)]
+#[allow(dead_code)]
+struct CreateUserDto {
+    email: String,
+}
+
 #[test]
 fn openapi_document_records_routes_and_serves_json() {
     let document = OpenApiDocument::new("Nidus API", "0.1.0")
@@ -104,6 +110,24 @@ fn openapi_route_can_reference_registered_response_schema() {
             ["$ref"],
         "#/components/schemas/UserDto"
     );
+}
+
+#[test]
+fn openapi_route_can_reference_registered_request_schema() {
+    let document = OpenApiDocument::new("Nidus API", "0.1.0")
+        .schema::<CreateUserDto>()
+        .route(OpenApiRoute::post("/users").request_schema::<CreateUserDto>());
+
+    let json = document.to_json_value();
+    assert_eq!(
+        json["paths"]["/users"]["post"]["requestBody"]["content"]["application/json"]["schema"]["$ref"],
+        "#/components/schemas/CreateUserDto"
+    );
+    assert_eq!(
+        json["paths"]["/users"]["post"]["requestBody"]["required"],
+        true
+    );
+    assert!(json["components"]["schemas"]["CreateUserDto"].is_object());
 }
 
 #[test]
