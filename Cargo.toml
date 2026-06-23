@@ -50,11 +50,16 @@ path = "benches/request_lifecycle.rs"
 harness = false
 
 [dev-dependencies]
+async-trait.workspace = true
 axum.workspace = true
 criterion.workspace = true
+nidus-auth = { path = "crates/nidus-auth" }
 nidus-core = { path = "crates/nidus-core" }
 nidus-http = { path = "crates/nidus-http" }
+nidus-validation = { path = "crates/nidus-validation" }
+tokio.workspace = true
 tower.workspace = true
+validator.workspace = true
 
 [workspace.package]
 version = "0.1.0"

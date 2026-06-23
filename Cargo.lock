@@ -1337,11 +1337,16 @@ dependencies = [
 name = "nidus-workspace"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "axum",
  "criterion",
+ "nidus-auth",
  "nidus-core",
  "nidus-http",
+ "nidus-validation",
+ "tokio",
  "tower",
+ "validator",
 ]
 
 [[package]]
