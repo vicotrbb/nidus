@@ -1,6 +1,7 @@
 //! Tower middleware helpers.
 
 use std::{
+    borrow::Cow,
     future::Future,
     pin::Pin,
     task::{Context, Poll},
@@ -11,7 +12,8 @@ use http::{HeaderValue, Method, Request, Response, header::HeaderName};
 use tower::{Layer, Service, timeout::TimeoutLayer};
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::{Any, CorsLayer};
-use tower_http::trace::{HttpMakeClassifier, TraceLayer};
+use tower_http::trace::{HttpMakeClassifier, MakeSpan, TraceLayer};
+use tracing::{Level, Span};
 
 /// Creates a Tower timeout layer.
 pub fn timeout_layer(timeout: Duration) -> TimeoutLayer {
@@ -46,6 +48,40 @@ pub fn compression_layer() -> CompressionLayer {
 /// Creates an HTTP tracing layer for requests and responses.
 pub fn trace_layer() -> TraceLayer<HttpMakeClassifier> {
     TraceLayer::new_for_http()
+}
+
+/// Creates an HTTP tracing layer that records a stable route label.
+pub fn route_trace_layer(
+    route: impl Into<Cow<'static, str>>,
+) -> TraceLayer<HttpMakeClassifier, RouteMakeSpan> {
+    TraceLayer::new_for_http().make_span_with(RouteMakeSpan::new(route))
+}
+
+/// Span maker that records request method, URI, and a stable route label.
+#[derive(Clone, Debug)]
+pub struct RouteMakeSpan {
+    route: Cow<'static, str>,
+}
+
+impl RouteMakeSpan {
+    /// Creates a route-labelled span maker.
+    pub fn new(route: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            route: route.into(),
+        }
+    }
+}
+
+impl<B> MakeSpan<B> for RouteMakeSpan {
+    fn make_span(&mut self, request: &Request<B>) -> Span {
+        tracing::span!(
+            Level::DEBUG,
+            "request",
+            method = %request.method(),
+            uri = %request.uri(),
+            route = %self.route,
+        )
+    }
 }
 
 /// Tower layer that adds an `x-request-id` response header when absent.

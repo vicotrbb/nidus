@@ -9,10 +9,12 @@ use http::{
     },
 };
 use nidus_http::middleware::{
-    compression_layer, cors_layer, request_id_layer, timeout_layer, trace_layer,
+    RouteMakeSpan, compression_layer, cors_layer, request_id_layer, route_trace_layer,
+    timeout_layer, trace_layer,
 };
 use tokio::time::sleep;
 use tower::{ServiceBuilder, ServiceExt, service_fn};
+use tower_http::trace::MakeSpan;
 
 #[tokio::test]
 async fn request_id_layer_adds_response_header() {
@@ -107,6 +109,44 @@ async fn trace_layer_preserves_http_responses() {
             Request::builder()
                 .method(Method::GET)
                 .uri("/")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+#[test]
+fn route_make_span_records_route_label_field() {
+    let mut make_span = RouteMakeSpan::new("/users/{id}");
+    let request = Request::builder()
+        .method(Method::GET)
+        .uri("/users/42")
+        .body(())
+        .unwrap();
+
+    let span = make_span.make_span(&request);
+    let metadata = span.metadata().unwrap();
+
+    assert_eq!(metadata.name(), "request");
+    assert!(metadata.fields().field("method").is_some());
+    assert!(metadata.fields().field("uri").is_some());
+    assert!(metadata.fields().field("route").is_some());
+}
+
+#[tokio::test]
+async fn route_trace_layer_preserves_http_responses() {
+    let app = Router::new()
+        .route("/users/42", get(|| async { "ok" }))
+        .layer(route_trace_layer("/users/{id}"));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/users/42")
                 .body(Body::empty())
                 .unwrap(),
         )
