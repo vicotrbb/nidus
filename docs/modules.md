@@ -40,3 +40,14 @@ let app = Nidus::bootstrap_with_modules::<AppModule, _>([
     UsersModule::definition(),
 ])?;
 ```
+
+When startup hooks are needed, validate the same explicit graph before running
+the lifecycle runner:
+
+```rust
+let app = Nidus::bootstrap_with_modules_and_lifecycle::<AppModule, _>(
+    [UsersModule::definition()],
+    lifecycle,
+)
+.await?;
+```

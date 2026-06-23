@@ -81,4 +81,23 @@ impl Nidus {
             lifecycle,
         ))
     }
+
+    /// Bootstraps a Nidus application from an explicit module graph and runs startup hooks.
+    pub async fn bootstrap_with_modules_and_lifecycle<M, I>(
+        modules: I,
+        lifecycle: LifecycleRunner,
+    ) -> Result<Application>
+    where
+        M: Module,
+        I: IntoIterator<Item = ModuleDefinition>,
+    {
+        let definitions = std::iter::once(M::definition()).chain(modules);
+        let graph = ModuleGraph::from_modules(definitions)?;
+        lifecycle.startup().await?;
+        Ok(Application::with_lifecycle(
+            Container::new(),
+            graph,
+            lifecycle,
+        ))
+    }
 }
