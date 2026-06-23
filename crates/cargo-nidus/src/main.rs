@@ -154,13 +154,22 @@ fn generate_artifact(kind: &str, name: &str, root: &Path) -> Result<()> {
 }
 
 fn inspect_routes(root: &Path) -> Result<()> {
-    for (method, path) in discover_routes(root)? {
-        println!("{} {}", method.to_uppercase(), path);
+    for route in discover_routes(root)? {
+        let method = route.method.to_uppercase();
+        let path = route.path;
+        println!("{method} {path}");
     }
     Ok(())
 }
 
-fn discover_routes(root: &Path) -> Result<Vec<(String, String)>> {
+#[derive(Debug)]
+struct DiscoveredRoute {
+    method: String,
+    path: String,
+    summary: Option<String>,
+}
+
+fn discover_routes(root: &Path) -> Result<Vec<DiscoveredRoute>> {
     let controllers = root.join("src/controllers");
     if !controllers.exists() {
         return Ok(Vec::new());
@@ -179,13 +188,38 @@ fn discover_routes(root: &Path) -> Result<Vec<(String, String)>> {
         let Some(prefix) = extract_attr_value(&contents, "controller") else {
             continue;
         };
-        for method in ["get", "post", "put", "patch", "delete"] {
-            for route in extract_all_attr_values(&contents, method) {
-                routes.push((method.to_owned(), join_route(&prefix, &route)));
+        routes.extend(discover_controller_routes(&prefix, &contents));
+    }
+    Ok(routes)
+}
+
+fn discover_controller_routes(prefix: &str, contents: &str) -> Vec<DiscoveredRoute> {
+    let mut routes = Vec::new();
+    let mut pending_route = None;
+    let mut pending_summary = None;
+
+    for line in contents.lines() {
+        if let Some((method, path)) = extract_route_attr_from_line(line) {
+            pending_route = Some((method, path));
+        }
+        if let Some(args) = extract_openapi_args_from_line(line) {
+            pending_summary = extract_openapi_summary(&args);
+        }
+
+        if line.contains("fn ") {
+            if let Some((method, path)) = pending_route.take() {
+                routes.push(DiscoveredRoute {
+                    method,
+                    path: join_route(prefix, &path),
+                    summary: pending_summary.take(),
+                });
+            } else {
+                pending_summary = None;
             }
         }
     }
-    Ok(routes)
+
+    routes
 }
 
 fn inspect_graph(root: &Path) -> Result<()> {
@@ -230,21 +264,23 @@ fn check_project(root: &Path) -> Result<()> {
 
 fn generate_openapi(root: &Path) -> Result<()> {
     let mut paths = serde_json::Map::new();
-    for (method, path) in discover_routes(root)? {
+    for route in discover_routes(root)? {
         let entry = paths
-            .entry(path)
+            .entry(route.path)
             .or_insert_with(|| Value::Object(serde_json::Map::new()));
         if let Value::Object(methods) = entry {
-            methods.insert(
-                method,
+            let mut operation = serde_json::Map::from_iter([(
+                "responses".to_owned(),
                 json!({
-                    "responses": {
-                        "200": {
-                            "description": "Success"
-                        }
+                    "200": {
+                        "description": "Success"
                     }
                 }),
-            );
+            )]);
+            if let Some(summary) = route.summary {
+                operation.insert("summary".to_owned(), json!(summary));
+            }
+            methods.insert(route.method, Value::Object(operation));
         }
     }
 
@@ -325,16 +361,43 @@ fn extract_attr_value(contents: &str, attr: &str) -> Option<String> {
 }
 
 fn extract_all_attr_values(contents: &str, attr: &str) -> Vec<String> {
-    let needle = format!("#[{attr}(\"");
     contents
         .lines()
-        .filter_map(|line| {
-            let start = line.find(&needle)? + needle.len();
-            let rest = &line[start..];
-            let end = rest.find('"')?;
-            Some(rest[..end].to_owned())
-        })
+        .filter_map(|line| extract_attr_value_from_line(line, attr))
         .collect()
+}
+
+fn extract_attr_value_from_line(line: &str, attr: &str) -> Option<String> {
+    let needle = format!("#[{attr}(\"");
+    let start = line.find(&needle)? + needle.len();
+    let rest = &line[start..];
+    let end = rest.find('"')?;
+    Some(rest[..end].to_owned())
+}
+
+fn extract_route_attr_from_line(line: &str) -> Option<(String, String)> {
+    for method in ["get", "post", "put", "patch", "delete"] {
+        if let Some(path) = extract_attr_value_from_line(line, method) {
+            return Some((method.to_owned(), path));
+        }
+    }
+    None
+}
+
+fn extract_openapi_args_from_line(line: &str) -> Option<String> {
+    let needle = "#[openapi(";
+    let start = line.find(needle)? + needle.len();
+    let rest = &line[start..];
+    let end = rest.find(']')?.checked_sub(1)?;
+    Some(rest[..end].to_owned())
+}
+
+fn extract_openapi_summary(args: &str) -> Option<String> {
+    let needle = "summary = \"";
+    let start = args.find(needle)? + needle.len();
+    let rest = &args[start..];
+    let end = rest.find('"')?;
+    Some(rest[..end].to_owned())
 }
 
 fn extract_struct_names(contents: &str) -> Vec<String> {

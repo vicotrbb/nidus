@@ -138,6 +138,12 @@ fn cargo_nidus_openapi_generates_document_from_controllers() {
         .status()
         .unwrap();
     assert!(status.success());
+    let controller_path = root.join("src/controllers/users.rs");
+    let controller = fs::read_to_string(&controller_path).unwrap().replace(
+        "#[get(\"/\")]",
+        "#[get(\"/\")]\n    #[openapi(summary = \"List users\")]",
+    );
+    fs::write(controller_path, controller).unwrap();
 
     let openapi = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
         .args(["nidus", "openapi", "--path"])
@@ -149,6 +155,7 @@ fn cargo_nidus_openapi_generates_document_from_controllers() {
     assert!(stdout.contains(r#""openapi":"3.1.0""#));
     assert!(stdout.contains(r#""/users/""#));
     assert!(stdout.contains(r#""get""#));
+    assert!(stdout.contains(r#""summary":"List users""#));
 }
 
 fn temp_project_root(name: &str) -> PathBuf {
