@@ -24,6 +24,9 @@ fn cargo_nidus_new_generates_compilable_nidus_project() {
     assert!(main_rs.contains("Controller::new(\"/\")"));
     assert!(main_rs.contains("RouteDefinition::get(\"/\""));
     assert!(main_rs.contains("Nidus::bootstrap::<AppModule>()"));
+    assert!(main_rs.contains("#[module]"));
+    assert!(main_rs.contains("struct AppModule;"));
+    assert!(!main_rs.contains("impl Module for AppModule"));
     assert!(main_rs.contains(".with_router("));
     assert!(main_rs.contains(".listen(\"127.0.0.1:3000\")"));
     assert!(

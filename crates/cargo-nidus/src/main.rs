@@ -141,13 +141,8 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[module]
 struct AppModule;
-
-impl Module for AppModule {
-    fn definition() -> ModuleDefinition {
-        ModuleBuilder::new("AppModule").build()
-    }
-}
 "#,
     )?;
     write(

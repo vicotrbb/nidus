@@ -19,8 +19,8 @@ Generated artifacts are written under their feature directory, the matching `mod
 Artifact names must start with an ASCII letter after normalization; names such as `user.profile` are normalized to Rust module filenames such as `user_profile.rs` and Rust types such as `UserProfileService`.
 
 The generated project starts as a small Nidus HTTP server with a composed route
-and can add modules, providers, controllers, and route metadata as the
-application grows.
+and a macro-defined root `AppModule`. It can add modules, providers,
+controllers, and route metadata as the application grows.
 
 Inspect generated controller metadata:
 
