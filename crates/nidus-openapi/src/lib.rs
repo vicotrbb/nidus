@@ -178,6 +178,7 @@ impl OpenApiDocument {
 pub struct OpenApiRoute {
     method: String,
     path: String,
+    path_parameters: Vec<String>,
     summary: Option<String>,
     tags: Vec<String>,
     response_schema: Option<String>,
@@ -255,10 +256,15 @@ impl OpenApiRoute {
         self
     }
 
-    fn new(method: impl Into<String>, path: impl Into<String>) -> Self {
+    fn new(
+        method: impl Into<String>,
+        path: impl Into<String>,
+        path_parameters: Vec<String>,
+    ) -> Self {
         Self {
             method: method.into(),
             path: path.into(),
+            path_parameters,
             summary: None,
             tags: Vec::new(),
             response_schema: None,
@@ -267,7 +273,9 @@ impl OpenApiRoute {
 
     fn try_new(method: impl Into<String>, path: impl Into<String>) -> Result<Self, RoutePathError> {
         let path = path.into();
-        Ok(Self::new(method, openapi_path(&path)?))
+        let path = openapi_path(&path)?;
+        let path_parameters = openapi_path_parameters(&path);
+        Ok(Self::new(method, path, path_parameters))
     }
 
     fn try_from_route_metadata(metadata: &RouteMetadata) -> Result<Self, RoutePathError> {
@@ -278,9 +286,12 @@ impl OpenApiRoute {
         metadata: &RouteMetadata,
         path: impl AsRef<str>,
     ) -> Result<Self, RoutePathError> {
+        let path = openapi_path(path.as_ref())?;
+        let path_parameters = openapi_path_parameters(&path);
         let mut route = Self::new(
             metadata.method().to_ascii_lowercase(),
-            openapi_path(path.as_ref())?,
+            path,
+            path_parameters,
         );
         if let Some(summary) = metadata.summary() {
             route = route.summary(summary);
@@ -315,6 +326,23 @@ impl OpenApiRoute {
         if !self.tags.is_empty() {
             operation["tags"] = json!(self.tags);
         }
+        if !self.path_parameters.is_empty() {
+            operation["parameters"] = json!(
+                self.path_parameters
+                    .iter()
+                    .map(|name| {
+                        json!({
+                            "name": name,
+                            "in": "path",
+                            "required": true,
+                            "schema": {
+                                "type": "string"
+                            }
+                        })
+                    })
+                    .collect::<Vec<_>>()
+            );
+        }
 
         operation
     }
@@ -333,6 +361,15 @@ fn openapi_path(path: &str) -> Result<String, RoutePathError> {
         }
     }
     Ok(segments.join("/"))
+}
+
+fn openapi_path_parameters(path: &str) -> Vec<String> {
+    path.split('/')
+        .filter_map(|segment| {
+            let name = segment.strip_prefix('{')?.strip_suffix('}')?;
+            (!name.is_empty()).then(|| name.to_owned())
+        })
+        .collect()
 }
 
 fn docs_html(title: &str, spec_url: &str) -> String {

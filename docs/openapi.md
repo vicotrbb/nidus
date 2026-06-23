@@ -22,8 +22,10 @@ let document = OpenApiDocument::new("Nidus API", "0.1.0")
 Use `.tag("...")` to group operations in generated OpenAPI tooling. Multiple
 tags can be attached to the same route.
 Manual OpenAPI route builders accept Nidus-style `:id` parameters and normalize
-them to OpenAPI `{id}` path parameters. Use `try_get`, `try_post`, `try_put`,
-`try_patch`, or `try_delete` when invalid paths should return a `RoutePathError`.
+them to OpenAPI `{id}` path parameters. Parameter segments are emitted as
+required OpenAPI path parameters with string schemas. Use `try_get`, `try_post`,
+`try_put`, `try_patch`, or `try_delete` when invalid paths should return a
+`RoutePathError`.
 
 Route macros can emit the same operation tags through `#[openapi]` metadata:
 

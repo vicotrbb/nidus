@@ -21,6 +21,19 @@ fn openapi_document_records_routes_and_serves_json() {
         json["paths"]["/users/{id}"]["get"]["summary"],
         "Find user by ID"
     );
+    assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["parameters"],
+        serde_json::json!([
+            {
+                "name": "id",
+                "in": "path",
+                "required": true,
+                "schema": {
+                    "type": "string"
+                }
+            }
+        ])
+    );
 }
 
 #[test]
@@ -132,6 +145,10 @@ fn openapi_document_can_be_generated_from_route_metadata() {
         json["paths"]["/users/{id}"]["get"]["tags"],
         serde_json::json!(["users", "read"])
     );
+    assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["parameters"][0]["name"],
+        "id"
+    );
 }
 
 #[test]
@@ -160,6 +177,10 @@ fn openapi_document_can_be_generated_from_controller_route_metadata() {
     assert_eq!(
         json["paths"]["/users/{id}"]["get"]["summary"],
         "Find user by ID"
+    );
+    assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["parameters"][0]["name"],
+        "id"
     );
 }
 
@@ -237,6 +258,16 @@ async fn openapi_document_serves_json_and_docs_routes() {
                             "description": "Success"
                         }
                     },
+                    "parameters": [
+                        {
+                            "name": "id",
+                            "in": "path",
+                            "required": true,
+                            "schema": {
+                                "type": "string"
+                            }
+                        }
+                    ],
                     "summary": "Find user by ID"
                 }
             }
