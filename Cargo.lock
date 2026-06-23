@@ -1219,7 +1219,9 @@ dependencies = [
 name = "nidus-example-background-jobs"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "nidus-jobs",
+ "tokio",
 ]
 
 [[package]]
@@ -1287,6 +1289,7 @@ dependencies = [
 name = "nidus-jobs"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "tokio",
 ]
 

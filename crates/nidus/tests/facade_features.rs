@@ -10,6 +10,7 @@ fn prelude_exports_optional_feature_crates() {
     let _pool: Option<PgPool> = None;
     let _pool_options = PgPoolOptions::new();
     let jobs = JobQueue::new();
+    let _async_jobs = AsyncJobQueue::new();
     let events = EventBus::<String>::new();
     let _app = TestApp::from_router(axum::Router::new());
 
@@ -26,6 +27,7 @@ fn facade_exports_optional_feature_modules() {
     let _context = nidus::auth::GuardContext::new((), "/health");
     let _pool_options = nidus::sqlx::postgres::PgPoolOptions::new();
     let jobs = nidus::jobs::JobQueue::new();
+    let _async_jobs = nidus::jobs::AsyncJobQueue::new();
     let events = nidus::events::EventBus::<String>::new();
     let _app = nidus::testing::TestApp::from_router(axum::Router::new());
 

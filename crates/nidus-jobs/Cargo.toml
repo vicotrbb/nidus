@@ -8,5 +8,5 @@ homepage.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+async-trait.workspace = true
 tokio.workspace = true
-

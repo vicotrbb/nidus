@@ -25,7 +25,7 @@ pub use nidus_config::Config;
 #[cfg(feature = "events")]
 pub use nidus_events::{EventBus, EventSubscriber};
 #[cfg(feature = "jobs")]
-pub use nidus_jobs::{Job, JobError, JobFailure, JobQueue, JobReport};
+pub use nidus_jobs::{AsyncJob, AsyncJobQueue, Job, JobError, JobFailure, JobQueue, JobReport};
 #[cfg(feature = "openapi")]
 pub use nidus_openapi::{OpenApiDocument, OpenApiRoute};
 #[cfg(feature = "testing")]

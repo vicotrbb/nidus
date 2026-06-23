@@ -11,6 +11,16 @@ pub trait Job: Send + Sync + 'static {
     fn run(&self) -> Result<()>;
 }
 
+/// Asynchronous job abstraction for Tokio-backed background work.
+#[async_trait::async_trait]
+pub trait AsyncJob: Send + Sync + 'static {
+    /// Stable job name.
+    fn name(&self) -> &'static str;
+
+    /// Runs the job asynchronously.
+    async fn run(&self) -> Result<()>;
+}
+
 /// Result type for background job execution.
 pub type Result<T> = std::result::Result<T, JobError>;
 
@@ -68,6 +78,43 @@ impl JobQueue {
         let mut failed = Vec::new();
         for job in &self.jobs {
             match job.run() {
+                Ok(()) => completed.push(job.name()),
+                Err(error) => failed.push(JobFailure {
+                    job: job.name(),
+                    error,
+                }),
+            }
+        }
+        JobReport { completed, failed }
+    }
+}
+
+/// In-memory asynchronous job queue.
+#[derive(Default)]
+pub struct AsyncJobQueue {
+    jobs: Vec<Box<dyn AsyncJob>>,
+}
+
+impl AsyncJobQueue {
+    /// Creates an empty asynchronous job queue.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Pushes an asynchronous job into the queue.
+    pub fn push<J>(&mut self, job: J)
+    where
+        J: AsyncJob,
+    {
+        self.jobs.push(Box::new(job));
+    }
+
+    /// Runs all queued asynchronous jobs in insertion order.
+    pub async fn run_all(&self) -> JobReport {
+        let mut completed = Vec::with_capacity(self.jobs.len());
+        let mut failed = Vec::new();
+        for job in &self.jobs {
+            match job.run().await {
                 Ok(()) => completed.push(job.name()),
                 Err(error) => failed.push(JobFailure {
                     job: job.name(),
