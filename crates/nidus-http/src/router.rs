@@ -119,6 +119,33 @@ impl RouteDefinition {
         Self::new(Method::POST, path, routing::post(handler))
     }
 
+    /// Creates a PUT route.
+    pub fn put<H, T>(path: impl Into<String>, handler: H) -> Self
+    where
+        H: Handler<T, ()> + Clone + Send + Sync + 'static,
+        T: 'static,
+    {
+        Self::new(Method::PUT, path, routing::put(handler))
+    }
+
+    /// Creates a PATCH route.
+    pub fn patch<H, T>(path: impl Into<String>, handler: H) -> Self
+    where
+        H: Handler<T, ()> + Clone + Send + Sync + 'static,
+        T: 'static,
+    {
+        Self::new(Method::PATCH, path, routing::patch(handler))
+    }
+
+    /// Creates a DELETE route.
+    pub fn delete<H, T>(path: impl Into<String>, handler: H) -> Self
+    where
+        H: Handler<T, ()> + Clone + Send + Sync + 'static,
+        T: 'static,
+    {
+        Self::new(Method::DELETE, path, routing::delete(handler))
+    }
+
     /// Returns the route path.
     pub fn path(&self) -> &str {
         &self.path

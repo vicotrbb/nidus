@@ -21,6 +21,28 @@ async fn route_definition_mounts_controller_prefix_on_axum_router() {
 }
 
 #[tokio::test]
+async fn route_definition_mounts_common_mutation_verbs() {
+    let router = Controller::new("/users")
+        .route(RouteDefinition::put("/:id", || async { "put" }))
+        .route(RouteDefinition::patch("/:id", || async { "patch" }))
+        .route(RouteDefinition::delete("/:id", || async { "delete" }))
+        .into_router();
+    let app = TestApp::from_router(router);
+
+    app.put("/users/42").send().await.assert_text("put").await;
+    app.patch("/users/42")
+        .send()
+        .await
+        .assert_text("patch")
+        .await;
+    app.delete("/users/42")
+        .send()
+        .await
+        .assert_text("delete")
+        .await;
+}
+
+#[tokio::test]
 async fn test_app_can_wrap_plain_axum_router() {
     let router = Router::new().route("/health", get(|| async { "ok" }));
 
