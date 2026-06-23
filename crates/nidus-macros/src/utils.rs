@@ -21,3 +21,15 @@ pub(crate) fn require_path_attr(
         ))
     })
 }
+
+pub(crate) fn validate_route_path(path: &LitStr) -> syn::Result<()> {
+    for segment in path.value().split('/') {
+        if segment == ":" {
+            return Err(syn::Error::new(
+                path.span(),
+                "route path parameters must include a name after ':'",
+            ));
+        }
+    }
+    Ok(())
+}

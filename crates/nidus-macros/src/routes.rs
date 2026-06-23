@@ -5,7 +5,7 @@ use syn::{
     punctuated::Punctuated,
 };
 
-use crate::utils::{require_empty_attr, require_path_attr};
+use crate::utils::{require_empty_attr, require_path_attr, validate_route_path};
 
 pub(crate) fn expand_routes(attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Err(error) = require_empty_attr(attr, "routes") {
@@ -231,16 +231,4 @@ pub(crate) fn expand_openapi(attr: TokenStream, item: TokenStream) -> TokenStrea
     }
 
     quote!(#function)
-}
-
-fn validate_route_path(path: &LitStr) -> syn::Result<()> {
-    for segment in path.value().split('/') {
-        if segment == ":" {
-            return Err(syn::Error::new(
-                path.span(),
-                "route path parameters must include a name after ':'",
-            ));
-        }
-    }
-    Ok(())
 }

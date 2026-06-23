@@ -1,0 +1,7 @@
+error: route path parameters must include a name after ':'
+ --> tests/ui/controller_empty_param_path.rs:3:1
+  |
+3 | #[controller("/:")]
+  | ^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `controller` (in Nightly builds, run with -Z macro-backtrace for more info)
