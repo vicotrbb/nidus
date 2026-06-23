@@ -1,0 +1,7 @@
+error: #[openapi] requires summary = "..." metadata
+ --> tests/ui/openapi_missing_summary.rs:9:5
+  |
+9 |     #[openapi(description = "Find user by ID")]
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `openapi` (in Nightly builds, run with -Z macro-backtrace for more info)
