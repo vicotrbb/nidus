@@ -1263,8 +1263,7 @@ dependencies = [
 name = "nidus-example-sqlx-postgres"
 version = "0.1.0"
 dependencies = [
- "nidus-core",
- "sqlx",
+ "nidus",
 ]
 
 [[package]]

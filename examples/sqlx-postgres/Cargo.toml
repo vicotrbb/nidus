@@ -5,6 +5,4 @@ edition = "2024"
 publish = false
 
 [dependencies]
-nidus-core = { path = "../../crates/nidus-core" }
-sqlx.workspace = true
-
+nidus = { path = "../../crates/nidus", features = ["sqlx-postgres"] }
