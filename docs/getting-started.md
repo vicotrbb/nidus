@@ -23,4 +23,4 @@ cargo nidus routes
 cargo nidus openapi
 ```
 
-`cargo nidus routes` prints HTTP methods, paths, and OpenAPI summaries when route metadata includes them.
+`cargo nidus routes` prints HTTP methods, normalized paths such as `/users/{id}`, and OpenAPI summaries when route metadata includes them.

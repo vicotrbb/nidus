@@ -123,7 +123,7 @@ fn cargo_nidus_routes_and_graph_inspect_generated_sources() {
     let controller_path = root.join("src/controllers/users.rs");
     let controller = fs::read_to_string(&controller_path).unwrap().replace(
         "#[get(\"/\")]",
-        "#[get(\"/\")]\n    #[openapi(summary = \"List users\")]",
+        "#[get(\"/:id\")]\n    #[openapi(summary = \"Find user\")]",
     );
     fs::write(controller_path, controller).unwrap();
 
@@ -134,7 +134,7 @@ fn cargo_nidus_routes_and_graph_inspect_generated_sources() {
         .unwrap();
     assert!(routes.status.success());
     let routes_stdout = String::from_utf8(routes.stdout).unwrap();
-    assert!(routes_stdout.contains("GET /users/ - List users"));
+    assert!(routes_stdout.contains("GET /users/{id} - Find user"));
 
     let graph = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
         .args(["nidus", "graph", "--path"])
@@ -194,7 +194,7 @@ fn cargo_nidus_openapi_generates_document_from_controllers() {
     let controller_path = root.join("src/controllers/users.rs");
     let controller = fs::read_to_string(&controller_path).unwrap().replace(
         "#[get(\"/\")]",
-        "#[get(\"/\")]\n    #[openapi(summary = \"List users\")]",
+        "#[get(\"/:id\")]\n    #[openapi(summary = \"Find user\")]",
     );
     fs::write(controller_path, controller).unwrap();
 
@@ -206,9 +206,9 @@ fn cargo_nidus_openapi_generates_document_from_controllers() {
     assert!(openapi.status.success());
     let stdout = String::from_utf8(openapi.stdout).unwrap();
     assert!(stdout.contains(r#""openapi":"3.1.0""#));
-    assert!(stdout.contains(r#""/users/""#));
+    assert!(stdout.contains(r#""/users/{id}""#));
     assert!(stdout.contains(r#""get""#));
-    assert!(stdout.contains(r#""summary":"List users""#));
+    assert!(stdout.contains(r#""summary":"Find user""#));
 }
 
 #[test]

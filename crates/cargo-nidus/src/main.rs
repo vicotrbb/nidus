@@ -470,12 +470,38 @@ fn extract_struct_names(contents: &str) -> Vec<String> {
 }
 
 fn join_route(prefix: &str, route: &str) -> String {
-    match (prefix, route) {
-        ("/", "/") => "/".to_owned(),
-        ("/", route) => route.to_owned(),
-        (prefix, "/") => format!("{prefix}/"),
-        (prefix, route) => format!("{prefix}{route}"),
+    let prefix = normalize_path(prefix);
+    let route = normalize_path(route);
+    let joined = if prefix == "/" {
+        route
+    } else if route == "/" {
+        format!("{prefix}/")
+    } else {
+        format!("{prefix}{route}")
+    };
+    convert_nest_params(&joined)
+}
+
+fn normalize_path(path: &str) -> String {
+    let path = path.trim();
+    if path.starts_with('/') {
+        path.to_owned()
+    } else {
+        format!("/{path}")
     }
+}
+
+fn convert_nest_params(path: &str) -> String {
+    path.split('/')
+        .map(|segment| {
+            if let Some(name) = segment.strip_prefix(':') {
+                format!("{{{name}}}")
+            } else {
+                segment.to_owned()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("/")
 }
 
 fn to_pascal_case(name: &str) -> String {
