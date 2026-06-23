@@ -216,6 +216,7 @@ struct DiscoveredRoute {
     method: String,
     path: String,
     summary: Option<String>,
+    tags: Vec<String>,
 }
 
 fn discover_routes(root: &Path) -> Result<Vec<DiscoveredRoute>> {
@@ -246,6 +247,7 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<Discov
     let mut routes = Vec::new();
     let mut pending_route = None;
     let mut pending_summary = None;
+    let mut pending_tags = Vec::new();
 
     for line in contents.lines() {
         if let Some((method, path)) = extract_route_attr_from_line(line) {
@@ -253,6 +255,7 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<Discov
         }
         if let Some(args) = extract_openapi_args_from_line(line) {
             pending_summary = extract_openapi_summary(&args);
+            pending_tags = extract_openapi_tags(&args)?;
         }
 
         if line.contains("fn ") {
@@ -261,9 +264,11 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<Discov
                     method,
                     path: join_route(prefix, &path)?,
                     summary: pending_summary.take(),
+                    tags: std::mem::take(&mut pending_tags),
                 });
             } else {
                 pending_summary = None;
+                pending_tags.clear();
             }
         }
     }
@@ -577,6 +582,9 @@ fn generate_openapi(root: &Path) -> Result<()> {
             if let Some(summary) = route.summary {
                 operation.insert("summary".to_owned(), json!(summary));
             }
+            if !route.tags.is_empty() {
+                operation.insert("tags".to_owned(), json!(route.tags));
+            }
             methods.insert(route.method, Value::Object(operation));
         }
     }
@@ -744,7 +752,7 @@ fn extract_openapi_args_from_line(line: &str) -> Option<String> {
     let needle = "#[openapi(";
     let start = line.find(needle)? + needle.len();
     let rest = &line[start..];
-    let end = rest.find(']')?.checked_sub(1)?;
+    let end = rest.rfind(")]")?;
     Some(rest[..end].to_owned())
 }
 
@@ -754,6 +762,36 @@ fn extract_openapi_summary(args: &str) -> Option<String> {
     let rest = &args[start..];
     let end = rest.find('"')?;
     Some(rest[..end].to_owned())
+}
+
+fn extract_openapi_tags(args: &str) -> Result<Vec<String>> {
+    let Some(tags_start) = args.find("tags") else {
+        return Ok(Vec::new());
+    };
+    let rest = &args[tags_start..];
+    let Some(open) = rest.find('[') else {
+        bail!("#[openapi] tags must be an array of string literals");
+    };
+    let rest = &rest[open + 1..];
+    let Some(close) = rest.find(']') else {
+        bail!("#[openapi] tags must be an array of string literals");
+    };
+    let tags = &rest[..close];
+    let mut values = Vec::new();
+    for raw in tags.split(',') {
+        let raw = raw.trim();
+        if raw.is_empty() {
+            continue;
+        }
+        let Some(value) = raw
+            .strip_prefix('"')
+            .and_then(|value| value.strip_suffix('"'))
+        else {
+            bail!("#[openapi] tags must be string literals");
+        };
+        values.push(value.to_owned());
+    }
+    Ok(values)
 }
 
 fn extract_module_index_entry(line: &str) -> Option<String> {
