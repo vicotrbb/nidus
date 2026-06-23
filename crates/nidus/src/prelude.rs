@@ -10,4 +10,7 @@ pub use nidus_macros::{
 };
 
 #[cfg(feature = "http")]
-pub use nidus_http::{controller::Controller, router::RouteDefinition};
+pub use nidus_http::{
+    controller::Controller,
+    router::{RouteDefinition, RouteMetadata},
+};
