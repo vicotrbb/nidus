@@ -30,6 +30,7 @@ nidus-auth = { path = "../nidus-auth", optional = true }
 nidus-events = { path = "../nidus-events", optional = true }
 nidus-jobs = { path = "../nidus-jobs", optional = true }
 nidus-testing = { path = "../nidus-testing", optional = true }
+tokio.workspace = true
 
 [dev-dependencies]
 axum.workspace = true

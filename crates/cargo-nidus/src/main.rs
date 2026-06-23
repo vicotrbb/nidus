@@ -118,7 +118,6 @@ edition = "2024"
 [dependencies]
 axum = "0.8"
 nidus = {nidus_dependency}
-tokio = {{ version = "1", features = ["macros", "net", "rt-multi-thread"] }}
 "#
         ),
     )?;
@@ -127,7 +126,7 @@ tokio = {{ version = "1", features = ["macros", "net", "rt-multi-thread"] }}
         r#"use axum::{Router, routing::get};
 use nidus::prelude::*;
 
-#[tokio::main]
+#[nidus::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let app = Router::new().route("/", get(|| async { "hello from nidus" }));
     Nidus::bootstrap::<AppModule>()?

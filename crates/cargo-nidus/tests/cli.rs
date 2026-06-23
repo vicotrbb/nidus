@@ -15,7 +15,11 @@ fn cargo_nidus_new_generates_compilable_axum_project() {
     assert!(status.success());
     assert!(project.join("Cargo.toml").exists());
     assert!(project.join("src/main.rs").exists());
+    let cargo_toml = fs::read_to_string(project.join("Cargo.toml")).unwrap();
+    assert!(!cargo_toml.contains("tokio ="));
     let main_rs = fs::read_to_string(project.join("src/main.rs")).unwrap();
+    assert!(main_rs.contains("#[nidus::main]"));
+    assert!(!main_rs.contains("#[tokio::main]"));
     assert!(main_rs.contains("Nidus::bootstrap::<AppModule>()"));
     assert!(main_rs.contains(".with_router("));
     assert!(main_rs.contains(".listen(\"127.0.0.1:3000\")"));

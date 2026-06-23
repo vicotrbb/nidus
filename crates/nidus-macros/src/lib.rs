@@ -2,6 +2,7 @@
 
 mod controller;
 mod diagnostics;
+mod entrypoint;
 mod guard;
 mod injectable;
 mod module;
@@ -10,6 +11,12 @@ mod routes;
 mod utils;
 
 use proc_macro::TokenStream;
+
+/// Runs an async main function on the Nidus Tokio runtime.
+#[proc_macro_attribute]
+pub fn main(attr: TokenStream, item: TokenStream) -> TokenStream {
+    entrypoint::expand(attr.into(), item.into()).into()
+}
 
 /// Declares a Nidus module.
 #[proc_macro_attribute]

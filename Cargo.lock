@@ -1096,6 +1096,7 @@ dependencies = [
  "nidus-openapi",
  "nidus-testing",
  "nidus-validation",
+ "tokio",
  "trybuild",
 ]
 
