@@ -1,6 +1,7 @@
 #[test]
 fn public_macros_report_useful_compile_errors() {
     let tests = trybuild::TestCases::new();
+    tests.pass("tests/ui/application_listen_chain.rs");
     tests.pass("tests/ui/controller_valid.rs");
     tests.pass("tests/ui/injectable_registers_provider.rs");
     tests.pass("tests/ui/module_generates_definition.rs");

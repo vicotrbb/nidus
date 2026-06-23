@@ -32,4 +32,5 @@ nidus-jobs = { path = "../nidus-jobs", optional = true }
 nidus-testing = { path = "../nidus-testing", optional = true }
 
 [dev-dependencies]
+axum.workspace = true
 trybuild.workspace = true

@@ -14,4 +14,5 @@ pub use nidus_macros::{
 pub use nidus_http::{
     controller::Controller,
     router::{RouteDefinition, RouteMetadata},
+    server::{ApplicationHttpExt, HttpApplication},
 };

@@ -1085,6 +1085,7 @@ dependencies = [
 name = "nidus"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "nidus-auth",
  "nidus-config",
  "nidus-core",
@@ -1198,6 +1199,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "http",
+ "nidus-core",
  "serde",
  "serde_json",
  "thiserror",
