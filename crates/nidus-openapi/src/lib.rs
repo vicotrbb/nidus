@@ -70,17 +70,7 @@ impl OpenApiDocument {
                 .entry(route.path.clone())
                 .or_insert_with(|| Value::Object(serde_json::Map::new()));
             if let Value::Object(methods) = entry {
-                methods.insert(
-                    route.method.clone(),
-                    json!({
-                        "summary": route.summary,
-                        "responses": {
-                            "200": {
-                                "description": "Success"
-                            }
-                        }
-                    }),
-                );
+                methods.insert(route.method.clone(), route.to_json_value());
             }
         }
 
@@ -130,6 +120,7 @@ pub struct OpenApiRoute {
     method: String,
     path: String,
     summary: Option<String>,
+    response_schema: Option<String>,
 }
 
 impl OpenApiRoute {
@@ -164,11 +155,21 @@ impl OpenApiRoute {
         self
     }
 
+    /// Sets the successful JSON response schema reference.
+    pub fn response_schema<T>(mut self) -> Self
+    where
+        T: ToSchema,
+    {
+        self.response_schema = Some(T::name().to_string());
+        self
+    }
+
     fn new(method: impl Into<String>, path: impl Into<String>) -> Self {
         Self {
             method: method.into(),
             path: path.into(),
             summary: None,
+            response_schema: None,
         }
     }
 
@@ -181,6 +182,28 @@ impl OpenApiRoute {
             route = route.summary(summary);
         }
         route
+    }
+
+    fn to_json_value(&self) -> Value {
+        let mut success_response = json!({
+            "description": "Success"
+        });
+        if let Some(schema) = &self.response_schema {
+            success_response["content"] = json!({
+                "application/json": {
+                    "schema": {
+                        "$ref": format!("#/components/schemas/{schema}")
+                    }
+                }
+            });
+        }
+
+        json!({
+            "summary": self.summary,
+            "responses": {
+                "200": success_response
+            }
+        })
     }
 }
 

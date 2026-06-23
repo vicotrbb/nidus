@@ -58,6 +58,20 @@ fn openapi_route_builders_cover_mutation_methods() {
 }
 
 #[test]
+fn openapi_route_can_reference_registered_response_schema() {
+    let document = OpenApiDocument::new("Nidus API", "0.1.0")
+        .schema::<UserDto>()
+        .route(OpenApiRoute::get("/users/{id}").response_schema::<UserDto>());
+
+    let json = document.to_json_value();
+    assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+            ["$ref"],
+        "#/components/schemas/UserDto"
+    );
+}
+
+#[test]
 fn openapi_document_can_be_generated_from_route_metadata() {
     let routes = [RouteMetadata::with_annotations(
         "GET",
