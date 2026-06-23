@@ -1,6 +1,6 @@
 //! OpenAPI document generation and serving support.
 
-use axum::{Json, Router, routing::get};
+use axum::{Json, Router, response::Html, routing::get};
 use nidus_http::router::RouteMetadata;
 use serde_json::{Value, json};
 use utoipa::{PartialSchema, ToSchema};
@@ -118,10 +118,10 @@ impl OpenApiDocument {
         document
     }
 
-    /// Builds an Axum router serving OpenAPI JSON and a docs placeholder.
+    /// Builds an Axum router serving OpenAPI JSON and Swagger UI docs.
     pub fn into_router(self) -> Router {
         let json = self.to_json_value();
-        let docs = format!("{} docs are available at /openapi.json", self.title);
+        let docs = docs_html(&self.title, "/openapi.json");
 
         Router::new()
             .route(
@@ -131,7 +131,13 @@ impl OpenApiDocument {
                     async move { Json(json) }
                 }),
             )
-            .route("/docs", get(move || async move { docs }))
+            .route(
+                "/docs",
+                get(move || {
+                    let docs = docs.clone();
+                    async move { Html(docs) }
+                }),
+            )
     }
 }
 
@@ -243,4 +249,42 @@ fn openapi_path(path: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join("/")
+}
+
+fn docs_html(title: &str, spec_url: &str) -> String {
+    let title = escape_html(title);
+    let spec_url = escape_js_string(spec_url);
+    format!(
+        r##"<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{title} Documentation</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist/swagger-ui.css">
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist/swagger-ui-bundle.js"></script>
+  <script>
+    window.ui = SwaggerUIBundle({{
+      url: "{spec_url}",
+      dom_id: "#swagger-ui"
+    }});
+  </script>
+</body>
+</html>"##
+    )
+}
+
+fn escape_html(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+
+fn escape_js_string(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
 }

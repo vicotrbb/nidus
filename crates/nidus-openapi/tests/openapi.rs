@@ -161,6 +161,9 @@ async fn openapi_document_serves_json_and_docs_routes() {
 
     let docs = app.get("/docs").send().await;
     docs.assert_status(http::StatusCode::OK);
-    docs.assert_text("Nidus API docs are available at /openapi.json")
-        .await;
+    let html = String::from_utf8(docs.body().to_vec()).unwrap();
+    assert!(html.contains("<!doctype html>"));
+    assert!(html.contains("<title>Nidus API Documentation</title>"));
+    assert!(html.contains("https://cdn.jsdelivr.net/npm/swagger-ui-dist/"));
+    assert!(html.contains("url: \"/openapi.json\""));
 }

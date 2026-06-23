@@ -39,3 +39,13 @@ let document = OpenApiDocument::new("Nidus API", "0.1.0")
 
 This keeps controller prefixes and route paths explicit while reusing the same
 normalization rules as the HTTP router.
+
+Serve the generated OpenAPI document and interactive documentation from an
+Axum router:
+
+```rust
+let router = document.into_router();
+```
+
+This exposes `/openapi.json` and `/docs`. The docs page loads Swagger UI in the
+browser and points it at the local OpenAPI JSON route.
