@@ -145,10 +145,7 @@ cargo run
 fn generate_artifact(kind: &str, name: &str, root: &Path) -> Result<()> {
     let directory = root.join("src").join(pluralize(kind));
     fs::create_dir_all(&directory).with_context(|| format!("creating {}", directory.display()))?;
-    write(
-        &directory.join(format!("{name}.rs")),
-        &format!("// Generated Nidus {kind}: {name}\n"),
-    )
+    write(&directory.join(format!("{name}.rs")), &artifact(kind, name))
 }
 
 fn write(path: &Path, contents: &str) -> Result<()> {
@@ -163,4 +160,61 @@ fn pluralize(kind: &str) -> String {
         "repository" => "repositories".to_owned(),
         other => format!("{other}s"),
     }
+}
+
+fn artifact(kind: &str, name: &str) -> String {
+    let type_name = to_pascal_case(name);
+    match kind {
+        "module" => format!(
+            r#"use nidus::prelude::*;
+
+#[module]
+pub struct {type_name}Module;
+"#
+        ),
+        "controller" => format!(
+            r#"use nidus::prelude::*;
+
+#[controller("/{name}")]
+pub struct {type_name}Controller;
+
+#[routes]
+impl {type_name}Controller {{
+    #[get("/")]
+    pub async fn index(&self) {{}}
+}}
+"#
+        ),
+        "service" => format!(
+            r#"use nidus::prelude::*;
+
+#[injectable]
+pub struct {type_name}Service;
+"#
+        ),
+        "repository" => format!(
+            r#"use nidus::prelude::*;
+
+#[injectable]
+pub struct {type_name}Repository;
+"#
+        ),
+        other => format!(
+            r#"// Generated Nidus {other}: {name}
+"#
+        ),
+    }
+}
+
+fn to_pascal_case(name: &str) -> String {
+    name.split(['-', '_'])
+        .filter(|part| !part.is_empty())
+        .map(|part| {
+            let mut chars = part.chars();
+            match chars.next() {
+                Some(first) => first.to_uppercase().chain(chars).collect::<String>(),
+                None => String::new(),
+            }
+        })
+        .collect()
 }
