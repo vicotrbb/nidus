@@ -12,6 +12,7 @@ fn public_macros_report_useful_compile_errors() {
     tests.compile_fail("tests/ui/controller_missing_path.rs");
     tests.compile_fail("tests/ui/guard_missing_type.rs");
     tests.compile_fail("tests/ui/openapi_missing_summary.rs");
+    tests.compile_fail("tests/ui/openapi_tags_must_be_strings.rs");
     tests.compile_fail("tests/ui/pipe_missing_type.rs");
     tests.compile_fail("tests/ui/route_duplicate_method.rs");
     tests.compile_fail("tests/ui/route_empty_param_path.rs");

@@ -89,10 +89,11 @@ fn openapi_route_records_operation_tags() {
 
 #[test]
 fn openapi_document_can_be_generated_from_route_metadata() {
-    let routes = [RouteMetadata::with_annotations(
+    let routes = [RouteMetadata::with_openapi_annotations(
         "GET",
         "/users/:id",
         Some("Find user by ID"),
+        &["users", "read"],
         &["AuthGuard"],
         &["ValidationPipe"],
         true,
@@ -104,6 +105,10 @@ fn openapi_document_can_be_generated_from_route_metadata() {
     assert_eq!(
         json["paths"]["/users/{id}"]["get"]["summary"],
         "Find user by ID"
+    );
+    assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["tags"],
+        serde_json::json!(["users", "read"])
     );
 }
 

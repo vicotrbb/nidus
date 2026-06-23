@@ -22,6 +22,14 @@ let document = OpenApiDocument::new("Nidus API", "0.1.0")
 Use `.tag("...")` to group operations in generated OpenAPI tooling. Multiple
 tags can be attached to the same route.
 
+Route macros can emit the same operation tags through `#[openapi]` metadata:
+
+```rust
+#[get("/:id")]
+#[openapi(summary = "Find user by ID", tags = ["users", "read"])]
+async fn find_one(&self) {}
+```
+
 Generated route metadata can also seed a document directly:
 
 ```rust

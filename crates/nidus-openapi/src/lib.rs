@@ -220,6 +220,9 @@ impl OpenApiRoute {
         if let Some(summary) = metadata.summary() {
             route = route.summary(summary);
         }
+        for tag in metadata.tags() {
+            route = route.tag(*tag);
+        }
         route
     }
 

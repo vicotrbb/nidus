@@ -46,15 +46,17 @@ fn expand_routes_impl(item: ItemImpl) -> TokenStream {
             Some(summary) => quote!(::std::option::Option::Some(#summary)),
             None => quote!(::std::option::Option::None),
         };
+        let tags = &route.tags;
         let guards = &route.guards;
         let pipes = &route.pipes;
         let validates = route.validates;
 
         quote! {
-            ::nidus::prelude::RouteMetadata::with_annotations(
+            ::nidus::prelude::RouteMetadata::with_openapi_annotations(
                 #method,
                 #path,
                 #summary,
+                &[#(#tags,)*],
                 &[#(::std::stringify!(#guards),)*],
                 &[#(::std::stringify!(#pipes),)*],
                 #validates,
@@ -79,6 +81,7 @@ struct RouteMacroMetadata {
     method: String,
     path: LitStr,
     summary: Option<LitStr>,
+    tags: Vec<LitStr>,
     guards: Vec<Path>,
     pipes: Vec<Path>,
     validates: bool,
@@ -89,7 +92,14 @@ fn route_metadata(item: &ImplItem) -> syn::Result<Option<RouteMacroMetadata>> {
         return Ok(None);
     };
 
-    let summary = openapi_summary(function);
+    let openapi = match openapi_metadata(function) {
+        Ok(openapi) => openapi,
+        Err(_) => return Ok(None),
+    };
+    let summary = openapi.as_ref().map(|metadata| metadata.summary.clone());
+    let tags = openapi
+        .map(|metadata| metadata.tags)
+        .unwrap_or_else(Vec::new);
     let guards = type_attributes(function, "guard");
     let pipes = type_attributes(function, "pipe");
     let validates = function
@@ -140,6 +150,7 @@ fn route_metadata(item: &ImplItem) -> syn::Result<Option<RouteMacroMetadata>> {
         method: (*method).to_owned(),
         path,
         summary,
+        tags,
         guards,
         pipes,
         validates,
@@ -164,30 +175,78 @@ fn type_attributes(function: &ImplItemFn, name: &str) -> Vec<Path> {
         .collect()
 }
 
-fn openapi_summary(function: &ImplItemFn) -> Option<LitStr> {
-    function
+struct OpenApiMetadata {
+    summary: LitStr,
+    tags: Vec<LitStr>,
+}
+
+fn openapi_metadata(function: &ImplItemFn) -> syn::Result<Option<OpenApiMetadata>> {
+    let Some(attr) = function
         .attrs
         .iter()
         .find(|attr| attr.path().is_ident("openapi"))
-        .and_then(parse_openapi_summary)
+    else {
+        return Ok(None);
+    };
+
+    parse_openapi_metadata(attr).map(Some)
 }
 
-fn parse_openapi_summary(attr: &syn::Attribute) -> Option<LitStr> {
-    let args = attr
-        .parse_args_with(Punctuated::<MetaNameValue, Token![,]>::parse_terminated)
-        .ok()?;
-    args.into_iter().find_map(|arg| {
+fn parse_openapi_metadata(attr: &syn::Attribute) -> syn::Result<OpenApiMetadata> {
+    let args = attr.parse_args_with(Punctuated::<MetaNameValue, Token![,]>::parse_terminated)?;
+    let mut summary = None;
+    let mut tags = Vec::new();
+
+    for arg in args {
         if !arg.path.is_ident("summary") {
-            return None;
+            if arg.path.is_ident("tags") {
+                let Expr::Array(array) = arg.value else {
+                    return Err(syn::Error::new_spanned(
+                        arg,
+                        "#[openapi] tags must be an array of string literals",
+                    ));
+                };
+                for element in array.elems {
+                    let Expr::Lit(expr_lit) = element else {
+                        return Err(syn::Error::new_spanned(
+                            element,
+                            "#[openapi] tags must be string literals",
+                        ));
+                    };
+                    let Lit::Str(tag) = expr_lit.lit else {
+                        return Err(syn::Error::new_spanned(
+                            expr_lit,
+                            "#[openapi] tags must be string literals",
+                        ));
+                    };
+                    tags.push(tag);
+                }
+            }
+            continue;
         }
         let Expr::Lit(expr_lit) = arg.value else {
-            return None;
+            return Err(syn::Error::new_spanned(
+                arg,
+                "#[openapi] summary must be a string literal",
+            ));
         };
-        let Lit::Str(summary) = expr_lit.lit else {
-            return None;
+        let Lit::Str(value) = expr_lit.lit else {
+            return Err(syn::Error::new_spanned(
+                expr_lit,
+                "#[openapi] summary must be a string literal",
+            ));
         };
-        Some(summary)
-    })
+        summary = Some(value);
+    }
+
+    let Some(summary) = summary else {
+        return Err(syn::Error::new_spanned(
+            attr,
+            "#[openapi] requires summary = \"...\" metadata",
+        ));
+    };
+
+    Ok(OpenApiMetadata { summary, tags })
 }
 
 pub(crate) fn expand_route(name: &str, attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -223,11 +282,8 @@ pub(crate) fn expand_openapi(attr: TokenStream, item: TokenStream) -> TokenStrea
     };
 
     let attribute = syn::parse_quote!(#[openapi(#attr)]);
-    if parse_openapi_summary(&attribute).is_none() {
-        return crate::diagnostics::compile_error_with_item(
-            "#[openapi] requires summary = \"...\" metadata",
-            quote!(#function),
-        );
+    if let Err(error) = parse_openapi_metadata(&attribute) {
+        return crate::diagnostics::compile_error_with_item(error.to_string(), quote!(#function));
     }
 
     quote!(#function)
