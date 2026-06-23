@@ -6,4 +6,4 @@ publish = false
 
 [dependencies]
 nidus-openapi = { path = "../../crates/nidus-openapi" }
-
+utoipa.workspace = true
