@@ -657,7 +657,13 @@ fn cargo_nidus_openapi_generates_document_from_controllers() {
     let controller_path = root.join("src/controllers/users.rs");
     let controller = fs::read_to_string(&controller_path).unwrap().replace(
         "#[get(\"/\")]",
-        "#[get(\"/:id\")]\n    #[openapi(summary = \"Find user\", tags = [\"users\", \"read\"], request = CreateUserDto, response = UserDto)]",
+        r#"#[get("/:id")]
+    #[openapi(
+        summary = "Find user",
+        tags = ["users", "read"],
+        request = CreateUserDto,
+        response = UserDto
+    )]"#,
     );
     fs::write(controller_path, controller).unwrap();
 

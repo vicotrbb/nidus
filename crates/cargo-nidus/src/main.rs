@@ -243,6 +243,7 @@ fn discover_routes(root: &Path) -> Result<Vec<DiscoveredRoute>> {
 
 fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<DiscoveredRoute>> {
     let mut routes = Vec::new();
+    let mut openapi_attr = None::<String>;
     let mut pending_route = None;
     let mut pending_summary = None;
     let mut pending_tags = Vec::new();
@@ -250,18 +251,42 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<Discov
     let mut pending_response_schema = None;
 
     for line in contents.lines() {
+        let trimmed = line.trim();
+        if let Some(attr) = openapi_attr.as_mut() {
+            attr.push(' ');
+            attr.push_str(trimmed);
+            if trimmed.ends_with(']') {
+                let args = extract_openapi_args_from_line(attr)
+                    .context("parsing multiline #[openapi] metadata")?;
+                apply_openapi_args(
+                    &args,
+                    &mut pending_summary,
+                    &mut pending_tags,
+                    &mut pending_request_schema,
+                    &mut pending_response_schema,
+                )?;
+                openapi_attr = None;
+            }
+            continue;
+        }
+
         if let Some((method, path)) = extract_route_attr_from_line(line) {
             pending_route = Some((method, path));
         }
-        if let Some(args) = extract_openapi_args_from_line(line) {
-            validate_openapi_args(&args)?;
-            let Some(summary) = extract_openapi_summary(&args)? else {
-                bail!("#[openapi] requires summary = \"...\" metadata");
-            };
-            pending_summary = Some(summary);
-            pending_tags = extract_openapi_tags(&args)?;
-            pending_request_schema = extract_openapi_schema(&args, "request")?;
-            pending_response_schema = extract_openapi_schema(&args, "response")?;
+        if trimmed.starts_with("#[openapi(") {
+            if trimmed.ends_with(")]") {
+                if let Some(args) = extract_openapi_args_from_line(trimmed) {
+                    apply_openapi_args(
+                        &args,
+                        &mut pending_summary,
+                        &mut pending_tags,
+                        &mut pending_request_schema,
+                        &mut pending_response_schema,
+                    )?;
+                }
+            } else {
+                openapi_attr = Some(trimmed.to_owned());
+            }
         }
 
         if line.contains("fn ") {
@@ -284,6 +309,24 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<Discov
     }
 
     Ok(routes)
+}
+
+fn apply_openapi_args(
+    args: &str,
+    pending_summary: &mut Option<String>,
+    pending_tags: &mut Vec<String>,
+    pending_request_schema: &mut Option<String>,
+    pending_response_schema: &mut Option<String>,
+) -> Result<()> {
+    validate_openapi_args(args)?;
+    let Some(summary) = extract_openapi_summary(args)? else {
+        bail!("#[openapi] requires summary = \"...\" metadata");
+    };
+    *pending_summary = Some(summary);
+    *pending_tags = extract_openapi_tags(args)?;
+    *pending_request_schema = extract_openapi_schema(args, "request")?;
+    *pending_response_schema = extract_openapi_schema(args, "response")?;
+    Ok(())
 }
 
 fn inspect_graph(root: &Path) -> Result<()> {
