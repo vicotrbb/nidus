@@ -16,7 +16,11 @@ pub struct UsersModule {
 }
 ```
 
-The tuple syntax is intentional: module fields are compile-time metadata that the macro lowers to an explicit `ModuleBuilder` definition.
+The tuple syntax is intentional: module fields are compile-time metadata that
+the macro lowers to an explicit `ModuleBuilder` definition. Use tuple groups for
+multiple entries because Rust field type syntax does not allow comma-separated
+`[A, B]` lists before the attribute macro runs. Single-entry bracket groups such
+as `providers: [UsersService]` are also accepted.
 
 ```rust
 use nidus_core::ModuleBuilder;

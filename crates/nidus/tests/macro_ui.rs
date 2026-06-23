@@ -4,6 +4,7 @@ fn public_macros_report_useful_compile_errors() {
     tests.pass("tests/ui/application_listen_chain.rs");
     tests.pass("tests/ui/controller_valid.rs");
     tests.pass("tests/ui/module_field_metadata.rs");
+    tests.pass("tests/ui/module_single_bracket_metadata.rs");
     tests.pass("tests/ui/injectable_registers_provider.rs");
     tests.pass("tests/ui/module_generates_definition.rs");
     tests.pass("tests/ui/nidus_main_attribute.rs");

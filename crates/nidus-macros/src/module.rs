@@ -123,7 +123,7 @@ impl Parse for ModuleField {
                 .collect::<Vec<_>>()
         } else {
             return Err(input.error(
-                "module metadata fields must use [SinglePath] or tuple syntax like (First, Second)",
+                "module metadata fields must use single-item [Path] syntax or tuple syntax like (First, Second)",
             ));
         };
         Ok(Self { section, values })
