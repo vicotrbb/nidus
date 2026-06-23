@@ -20,7 +20,9 @@ Inspect generated controller metadata:
 
 ```bash
 cargo nidus routes
+cargo nidus graph
 cargo nidus openapi
 ```
 
 `cargo nidus routes` prints HTTP methods, normalized paths such as `/users/{id}`, and OpenAPI summaries when route metadata includes them.
+`cargo nidus graph` prints modules and any explicit imports, providers, controllers, and exports discovered from `ModuleBuilder` metadata.

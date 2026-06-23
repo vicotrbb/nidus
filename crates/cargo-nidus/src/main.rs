@@ -258,11 +258,40 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Vec<DiscoveredRou
 }
 
 fn inspect_graph(root: &Path) -> Result<()> {
+    for module in discover_modules(root)? {
+        println!("{}", module.name);
+        if !module.imports.is_empty() {
+            println!("  imports: {}", module.imports.join(", "));
+        }
+        if !module.providers.is_empty() {
+            println!("  providers: {}", module.providers.join(", "));
+        }
+        if !module.controllers.is_empty() {
+            println!("  controllers: {}", module.controllers.join(", "));
+        }
+        if !module.exports.is_empty() {
+            println!("  exports: {}", module.exports.join(", "));
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug, Default)]
+struct DiscoveredModule {
+    name: String,
+    imports: Vec<String>,
+    providers: Vec<String>,
+    controllers: Vec<String>,
+    exports: Vec<String>,
+}
+
+fn discover_modules(root: &Path) -> Result<Vec<DiscoveredModule>> {
     let modules = root.join("src/modules");
     if !modules.exists() {
-        return Ok(());
+        return Ok(Vec::new());
     }
 
+    let mut discovered = Vec::new();
     for entry in fs::read_dir(&modules).with_context(|| format!("reading {}", modules.display()))? {
         let path = entry?.path();
         if path.extension().and_then(|extension| extension.to_str()) != Some("rs") {
@@ -270,11 +299,62 @@ fn inspect_graph(root: &Path) -> Result<()> {
         }
         let contents =
             fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
-        for module in extract_struct_names(&contents) {
-            println!("{module}");
+        let modules = discover_modules_in_source(&contents);
+        if modules.is_empty() {
+            discovered.extend(extract_struct_names(&contents).into_iter().map(|name| {
+                DiscoveredModule {
+                    name,
+                    ..DiscoveredModule::default()
+                }
+            }));
+        } else {
+            discovered.extend(modules);
         }
     }
-    Ok(())
+    Ok(discovered)
+}
+
+fn discover_modules_in_source(contents: &str) -> Vec<DiscoveredModule> {
+    let mut modules = Vec::new();
+    let mut current = None::<DiscoveredModule>;
+
+    for line in contents.lines() {
+        if let Some(name) = extract_call_arg(line, "ModuleBuilder::new") {
+            if let Some(module) = current.take() {
+                modules.push(module);
+            }
+            current = Some(DiscoveredModule {
+                name,
+                ..DiscoveredModule::default()
+            });
+        }
+
+        if let Some(module) = current.as_mut() {
+            if let Some(import) = extract_call_arg(line, ".import") {
+                module.imports.push(import);
+            }
+            if let Some(provider) = extract_call_arg(line, ".provider") {
+                module.providers.push(provider);
+            }
+            if let Some(controller) = extract_call_arg(line, ".controller") {
+                module.controllers.push(controller);
+            }
+            if let Some(export) = extract_call_arg(line, ".export") {
+                module.exports.push(export);
+            }
+        }
+
+        if line.contains(".build()")
+            && let Some(module) = current.take()
+        {
+            modules.push(module);
+        }
+    }
+
+    if let Some(module) = current {
+        modules.push(module);
+    }
+    modules
 }
 
 fn check_project(root: &Path) -> Result<()> {
@@ -454,6 +534,14 @@ fn extract_openapi_summary(args: &str) -> Option<String> {
     let needle = "summary = \"";
     let start = args.find(needle)? + needle.len();
     let rest = &args[start..];
+    let end = rest.find('"')?;
+    Some(rest[..end].to_owned())
+}
+
+fn extract_call_arg(line: &str, call: &str) -> Option<String> {
+    let start = line.find(call)? + call.len();
+    let rest = line[start..].trim_start();
+    let rest = rest.strip_prefix("(\"")?;
     let end = rest.find('"')?;
     Some(rest[..end].to_owned())
 }

@@ -147,6 +147,46 @@ fn cargo_nidus_routes_and_graph_inspect_generated_sources() {
 }
 
 #[test]
+fn cargo_nidus_graph_prints_module_builder_metadata() {
+    let root = temp_project_root("graph_prints_module_builder_metadata");
+    let modules = root.join("src/modules");
+    fs::create_dir_all(&modules).unwrap();
+    fs::write(
+        modules.join("users.rs"),
+        r#"use nidus::prelude::*;
+
+pub struct UsersModule;
+
+impl Module for UsersModule {
+    fn definition() -> ModuleDefinition {
+        ModuleBuilder::new("UsersModule")
+            .import("DatabaseModule")
+            .provider("UsersService")
+            .controller("UsersController")
+            .export("UsersService")
+            .build()
+    }
+}
+"#,
+    )
+    .unwrap();
+
+    let graph = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "graph", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+
+    assert!(graph.status.success());
+    let stdout = String::from_utf8(graph.stdout).unwrap();
+    assert!(stdout.contains("UsersModule"));
+    assert!(stdout.contains("imports: DatabaseModule"));
+    assert!(stdout.contains("providers: UsersService"));
+    assert!(stdout.contains("controllers: UsersController"));
+    assert!(stdout.contains("exports: UsersService"));
+}
+
+#[test]
 fn cargo_nidus_check_validates_project_structure() {
     let root = temp_project_root("check_validates_project_structure");
     let project = root.join("hello-nidus");
