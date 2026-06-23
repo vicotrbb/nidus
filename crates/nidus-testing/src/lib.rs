@@ -5,20 +5,34 @@ use axum::{
     body::{Body, Bytes, to_bytes},
 };
 use http::{Method, Request, StatusCode};
+use nidus_core::{Container, Result};
 use serde::Serialize;
 use serde_json::Value;
+use std::sync::Arc;
 use tower::ServiceExt;
 
 /// In-memory test application backed by an Axum router.
 #[derive(Clone)]
 pub struct TestApp {
     router: Router,
+    container: Arc<Container>,
 }
 
 impl TestApp {
     /// Creates a test application from an Axum router.
     pub fn from_router(router: Router) -> Self {
-        Self { router }
+        Self {
+            router,
+            container: Arc::new(Container::new()),
+        }
+    }
+
+    /// Creates a configurable test application builder.
+    pub fn builder(router: Router) -> TestAppBuilder {
+        TestAppBuilder {
+            router,
+            container: Container::new(),
+        }
     }
 
     /// Starts a GET request.
@@ -29,6 +43,48 @@ impl TestApp {
     /// Starts a POST request.
     pub fn post(&self, path: impl Into<String>) -> TestRequest {
         TestRequest::new(self.router.clone(), Method::POST, path.into())
+    }
+
+    /// Resolves a provider from the test container.
+    pub fn resolve<T>(&self) -> Result<Arc<T>>
+    where
+        T: Send + Sync + 'static,
+    {
+        self.container.resolve::<T>()
+    }
+}
+
+/// Builder for in-memory test applications.
+pub struct TestAppBuilder {
+    router: Router,
+    container: Container,
+}
+
+impl TestAppBuilder {
+    /// Registers a provider in the test container.
+    pub fn provider<T>(mut self, value: T) -> Result<Self>
+    where
+        T: Send + Sync + 'static,
+    {
+        self.container.register_singleton(value)?;
+        Ok(self)
+    }
+
+    /// Overrides a provider in the test container.
+    pub fn override_provider<T>(mut self, value: T) -> Result<Self>
+    where
+        T: Send + Sync + 'static,
+    {
+        self.container.override_singleton(value)?;
+        Ok(self)
+    }
+
+    /// Builds the test application.
+    pub fn build(self) -> TestApp {
+        TestApp {
+            router: self.router,
+            container: Arc::new(self.container),
+        }
     }
 }
 

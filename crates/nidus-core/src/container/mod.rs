@@ -134,6 +134,15 @@ impl Container {
         })
     }
 
+    /// Replaces a singleton provider, intended for explicit test overrides.
+    pub fn override_singleton<T>(&mut self, value: T) -> Result<()>
+    where
+        T: Send + Sync + 'static,
+    {
+        self.providers.remove(&TypeId::of::<T>());
+        self.register_singleton(value)
+    }
+
     /// Registers a provider factory.
     pub fn register_factory<T, F>(&mut self, lifetime: ProviderLifetime, factory: F) -> Result<()>
     where
