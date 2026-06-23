@@ -24,6 +24,28 @@ fn openapi_document_records_routes_and_serves_json() {
 }
 
 #[test]
+fn openapi_route_builders_normalize_nidus_params() {
+    let document = OpenApiDocument::new("Nidus API", "0.1.0")
+        .route(OpenApiRoute::get("/users/:id").summary("Find user by ID"));
+
+    let json = document.to_json_value();
+    assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["summary"],
+        "Find user by ID"
+    );
+}
+
+#[test]
+fn openapi_route_try_builder_rejects_empty_parameter_name() {
+    let error = match OpenApiRoute::try_get("/:") {
+        Ok(_) => panic!("empty route parameter should fail"),
+        Err(error) => error,
+    };
+
+    assert_eq!(error.path(), "/:");
+}
+
+#[test]
 fn openapi_document_registers_utoipa_schemas() {
     let document = OpenApiDocument::new("Nidus API", "0.1.0").schema::<UserDto>();
 

@@ -12,7 +12,7 @@ struct UserDto {
 let document = OpenApiDocument::new("Nidus API", "0.1.0")
     .schema::<UserDto>()
     .route(
-        OpenApiRoute::get("/users/{id}")
+        OpenApiRoute::get("/users/:id")
             .summary("Find user by ID")
             .tag("users")
             .response_schema::<UserDto>(),
@@ -21,6 +21,9 @@ let document = OpenApiDocument::new("Nidus API", "0.1.0")
 
 Use `.tag("...")` to group operations in generated OpenAPI tooling. Multiple
 tags can be attached to the same route.
+Manual OpenAPI route builders accept Nidus-style `:id` parameters and normalize
+them to OpenAPI `{id}` path parameters. Use `try_get`, `try_post`, `try_put`,
+`try_patch`, or `try_delete` when invalid paths should return a `RoutePathError`.
 
 Route macros can emit the same operation tags through `#[openapi]` metadata:
 

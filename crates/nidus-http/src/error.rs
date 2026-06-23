@@ -105,7 +105,8 @@ pub struct RoutePathError {
 }
 
 impl RoutePathError {
-    pub(crate) fn empty_parameter(path: impl Into<String>) -> Self {
+    /// Creates an error for a route path parameter segment without a name.
+    pub fn empty_parameter(path: impl Into<String>) -> Self {
         Self { path: path.into() }
     }
 

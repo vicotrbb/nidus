@@ -176,27 +176,52 @@ pub struct OpenApiRoute {
 impl OpenApiRoute {
     /// Creates GET route metadata.
     pub fn get(path: impl Into<String>) -> Self {
-        Self::new("get", path)
+        Self::try_get(path).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    /// Tries to create GET route metadata.
+    pub fn try_get(path: impl Into<String>) -> Result<Self, RoutePathError> {
+        Self::try_new("get", path)
     }
 
     /// Creates POST route metadata.
     pub fn post(path: impl Into<String>) -> Self {
-        Self::new("post", path)
+        Self::try_post(path).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    /// Tries to create POST route metadata.
+    pub fn try_post(path: impl Into<String>) -> Result<Self, RoutePathError> {
+        Self::try_new("post", path)
     }
 
     /// Creates PUT route metadata.
     pub fn put(path: impl Into<String>) -> Self {
-        Self::new("put", path)
+        Self::try_put(path).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    /// Tries to create PUT route metadata.
+    pub fn try_put(path: impl Into<String>) -> Result<Self, RoutePathError> {
+        Self::try_new("put", path)
     }
 
     /// Creates PATCH route metadata.
     pub fn patch(path: impl Into<String>) -> Self {
-        Self::new("patch", path)
+        Self::try_patch(path).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    /// Tries to create PATCH route metadata.
+    pub fn try_patch(path: impl Into<String>) -> Result<Self, RoutePathError> {
+        Self::try_new("patch", path)
     }
 
     /// Creates DELETE route metadata.
     pub fn delete(path: impl Into<String>) -> Self {
-        Self::new("delete", path)
+        Self::try_delete(path).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    /// Tries to create DELETE route metadata.
+    pub fn try_delete(path: impl Into<String>) -> Result<Self, RoutePathError> {
+        Self::try_new("delete", path)
     }
 
     /// Sets the route summary.
@@ -230,6 +255,11 @@ impl OpenApiRoute {
         }
     }
 
+    fn try_new(method: impl Into<String>, path: impl Into<String>) -> Result<Self, RoutePathError> {
+        let path = path.into();
+        Ok(Self::new(method, openapi_path(&path)?))
+    }
+
     fn from_route_metadata(metadata: &RouteMetadata) -> Self {
         Self::from_route_metadata_at_path(metadata, metadata.path())
     }
@@ -237,7 +267,7 @@ impl OpenApiRoute {
     fn from_route_metadata_at_path(metadata: &RouteMetadata, path: impl AsRef<str>) -> Self {
         let mut route = Self::new(
             metadata.method().to_ascii_lowercase(),
-            openapi_path(path.as_ref()),
+            openapi_path(path.as_ref()).unwrap_or_else(|error| panic!("{error}")),
         );
         if let Some(summary) = metadata.summary() {
             route = route.summary(summary);
@@ -277,17 +307,19 @@ impl OpenApiRoute {
     }
 }
 
-fn openapi_path(path: &str) -> String {
-    path.split('/')
-        .map(|segment| {
-            if let Some(name) = segment.strip_prefix(':') {
-                format!("{{{name}}}")
-            } else {
-                segment.to_owned()
-            }
-        })
-        .collect::<Vec<_>>()
-        .join("/")
+fn openapi_path(path: &str) -> Result<String, RoutePathError> {
+    let mut segments = Vec::new();
+    for segment in path.split('/') {
+        if segment == ":" {
+            return Err(RoutePathError::empty_parameter(path));
+        }
+        if let Some(name) = segment.strip_prefix(':') {
+            segments.push(format!("{{{name}}}"));
+        } else {
+            segments.push(segment.to_owned());
+        }
+    }
+    Ok(segments.join("/"))
 }
 
 fn docs_html(title: &str, spec_url: &str) -> String {
