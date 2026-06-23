@@ -1223,8 +1223,11 @@ name = "nidus-openapi"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "http",
+ "nidus-testing",
  "serde",
  "serde_json",
+ "tokio",
  "utoipa",
 ]
 

@@ -1,5 +1,6 @@
 //! OpenAPI document generation and serving support.
 
+use axum::{Json, Router, routing::get};
 use serde_json::{Value, json};
 
 /// Minimal OpenAPI document metadata builder.
@@ -56,6 +57,22 @@ impl OpenApiDocument {
             },
             "paths": paths,
         })
+    }
+
+    /// Builds an Axum router serving OpenAPI JSON and a docs placeholder.
+    pub fn into_router(self) -> Router {
+        let json = self.to_json_value();
+        let docs = format!("{} docs are available at /openapi.json", self.title);
+
+        Router::new()
+            .route(
+                "/openapi.json",
+                get(move || {
+                    let json = json.clone();
+                    async move { Json(json) }
+                }),
+            )
+            .route("/docs", get(move || async move { docs }))
     }
 }
 
