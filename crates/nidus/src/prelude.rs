@@ -6,7 +6,7 @@ pub use nidus_core::{
     Scoped,
 };
 pub use nidus_macros::{
-    controller, delete, get, guard, injectable, module, patch, pipe, post, put, routes,
+    controller, delete, get, guard, injectable, module, openapi, patch, pipe, post, put, routes,
 };
 
 #[cfg(feature = "http")]

@@ -65,6 +65,12 @@ pub fn delete(attr: TokenStream, item: TokenStream) -> TokenStream {
     routes::expand_route("delete", attr.into(), item.into()).into()
 }
 
+/// Declares OpenAPI metadata for a route.
+#[proc_macro_attribute]
+pub fn openapi(attr: TokenStream, item: TokenStream) -> TokenStream {
+    routes::expand_openapi(attr.into(), item.into()).into()
+}
+
 /// Declares a route guard.
 #[proc_macro_attribute]
 pub fn guard(attr: TokenStream, item: TokenStream) -> TokenStream {

@@ -8,12 +8,30 @@ use http::Method;
 pub struct RouteMetadata {
     method: &'static str,
     path: &'static str,
+    summary: Option<&'static str>,
 }
 
 impl RouteMetadata {
     /// Creates route metadata.
     pub const fn new(method: &'static str, path: &'static str) -> Self {
-        Self { method, path }
+        Self {
+            method,
+            path,
+            summary: None,
+        }
+    }
+
+    /// Creates route metadata with an OpenAPI summary.
+    pub const fn with_summary(
+        method: &'static str,
+        path: &'static str,
+        summary: &'static str,
+    ) -> Self {
+        Self {
+            method,
+            path,
+            summary: Some(summary),
+        }
     }
 
     /// Returns the HTTP method.
@@ -24,6 +42,11 @@ impl RouteMetadata {
     /// Returns the route path as declared by the user.
     pub const fn path(&self) -> &'static str {
         self.path
+    }
+
+    /// Returns the OpenAPI summary, when declared.
+    pub const fn summary(&self) -> Option<&'static str> {
+        self.summary
     }
 }
 

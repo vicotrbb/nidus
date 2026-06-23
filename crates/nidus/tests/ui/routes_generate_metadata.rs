@@ -6,6 +6,7 @@ struct UsersController;
 #[routes]
 impl UsersController {
     #[get("/:id")]
+    #[openapi(summary = "Find user by ID")]
     async fn find_one(&self) {}
 
     #[post("/")]
@@ -17,6 +18,8 @@ fn main() {
     assert_eq!(routes.len(), 2);
     assert_eq!(routes[0].method(), "GET");
     assert_eq!(routes[0].path(), "/:id");
+    assert_eq!(routes[0].summary(), Some("Find user by ID"));
     assert_eq!(routes[1].method(), "POST");
     assert_eq!(routes[1].path(), "/");
+    assert_eq!(routes[1].summary(), None);
 }
