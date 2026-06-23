@@ -22,6 +22,9 @@ enum Command {
         /// Directory where the project folder should be created.
         #[arg(long, default_value = ".")]
         path: PathBuf,
+        /// Local path to the nidus facade crate, used by tests and unreleased development builds.
+        #[arg(long, hide = true)]
+        nidus_path: Option<PathBuf>,
     },
     /// Generate a framework artifact.
     Generate {
@@ -58,7 +61,11 @@ fn main() -> Result<()> {
     let cli = Cli::parse_from(args);
 
     match cli.command {
-        Command::New { name, path } => create_project(&name, &path),
+        Command::New {
+            name,
+            path,
+            nidus_path,
+        } => create_project(&name, &path, nidus_path.as_deref()),
         Command::Generate { kind, name, path } => generate_artifact(&kind, &name, &path),
         Command::Routes => {
             println!("route inspection is available for generated Nidus projects");
@@ -83,10 +90,13 @@ fn main() -> Result<()> {
     }
 }
 
-fn create_project(name: &str, root: &Path) -> Result<()> {
+fn create_project(name: &str, root: &Path, nidus_path: Option<&Path>) -> Result<()> {
     let project = root.join(name);
     let src = project.join("src");
     fs::create_dir_all(&src).with_context(|| format!("creating {}", src.display()))?;
+    let nidus_dependency = nidus_path
+        .map(|path| format!("{{ path = {:?} }}", path.display().to_string()))
+        .unwrap_or_else(|| "\"0.1\"".to_owned());
     write(
         &project.join("Cargo.toml"),
         &format!(
@@ -97,8 +107,8 @@ edition = "2024"
 
 [dependencies]
 axum = "0.8"
-nidus = "0.1"
-tokio = {{ version = "1", features = ["macros", "rt-multi-thread"] }}
+nidus = {nidus_dependency}
+tokio = {{ version = "1", features = ["macros", "net", "rt-multi-thread"] }}
 "#
         ),
     )?;

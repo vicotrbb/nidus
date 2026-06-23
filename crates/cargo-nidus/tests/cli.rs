@@ -7,6 +7,8 @@ fn cargo_nidus_new_generates_compilable_axum_project() {
     let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
         .args(["nidus", "new", "hello-nidus", "--path"])
         .arg(&root)
+        .arg("--nidus-path")
+        .arg(workspace_root().join("crates/nidus"))
         .status()
         .unwrap();
 
@@ -18,6 +20,13 @@ fn cargo_nidus_new_generates_compilable_axum_project() {
             .unwrap()
             .contains("hello-nidus")
     );
+
+    let check = Command::new("cargo")
+        .arg("check")
+        .current_dir(&project)
+        .status()
+        .unwrap();
+    assert!(check.success());
 }
 
 fn temp_project_root(name: &str) -> PathBuf {
@@ -29,4 +38,13 @@ fn temp_project_root(name: &str) -> PathBuf {
     }
     fs::create_dir_all(&root).unwrap();
     root
+}
+
+fn workspace_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .to_path_buf()
 }
