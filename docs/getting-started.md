@@ -15,7 +15,7 @@ cargo run
 ```
 
 `cargo nidus new` refuses to overwrite an existing destination directory.
-Generated artifacts are written under their feature directory and the matching `mod.rs` index is updated.
+Generated artifacts are written under their feature directory, the matching `mod.rs` index is updated, and the feature directory is declared from `src/main.rs` or `src/lib.rs`.
 Artifact names must start with an ASCII letter after normalization; names such as `user.profile` are normalized to Rust module filenames such as `user_profile.rs` and Rust types such as `UserProfileService`.
 
 The generated project starts as a small Axum server and can add Nidus modules, providers, controllers, and route metadata as the application grows.
