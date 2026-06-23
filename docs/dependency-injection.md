@@ -19,6 +19,19 @@ container.register_factory(ProviderLifetime::Singleton, |container| {
 Factory failures are reported with the provider type that failed and preserve
 the underlying source error.
 
+Optional dependencies can be resolved without turning missing providers into
+startup failures:
+
+```rust
+let cache = container.optional::<CacheClient>()?;
+if let Some(cache) = cache.as_ref() {
+    cache.warm();
+}
+```
+
+Only missing providers become `None`; registered providers that fail to build
+still return their original construction error.
+
 The default provider lifetime is expected to be singleton. Request-scoped
 providers are opt-in and must be resolved through an explicit request scope
 because they add request path overhead:
@@ -26,6 +39,7 @@ because they add request path overhead:
 ```rust
 let scope = container.request_scope();
 let request_state = scope.resolve::<RequestState>()?;
+let scoped_state = scope.scoped::<RequestState>()?;
 ```
 
 Resolving a request-scoped provider through the root container returns a

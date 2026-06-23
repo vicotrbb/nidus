@@ -49,6 +49,21 @@ impl<T: Send + Sync + 'static> Optional<T> {
         Self(value)
     }
 
+    /// Returns `true` when the optional dependency is present.
+    pub fn is_some(&self) -> bool {
+        self.0.is_some()
+    }
+
+    /// Returns `true` when the optional dependency is absent.
+    pub fn is_none(&self) -> bool {
+        self.0.is_none()
+    }
+
+    /// Returns a shared reference to the optional dependency.
+    pub fn as_ref(&self) -> Option<&Inject<T>> {
+        self.0.as_ref()
+    }
+
     /// Returns the optional dependency.
     pub fn into_option(self) -> Option<Inject<T>> {
         self.0
@@ -111,6 +126,14 @@ impl<T: Send + Sync + 'static> Scoped<T> {
     }
 }
 
+impl<T: Send + Sync + 'static> Deref for Scoped<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 /// Type-indexed dependency container.
 #[derive(Default)]
 pub struct Container {
@@ -168,6 +191,21 @@ impl Container {
         T: Send + Sync + 'static,
     {
         self.resolve::<T>().map(Inject::new)
+    }
+
+    /// Resolves an optional typed dependency reference.
+    ///
+    /// Missing providers become `Optional::new(None)`, while registered providers
+    /// that fail to construct still return their original error.
+    pub fn optional<T>(&self) -> Result<Optional<T>>
+    where
+        T: Send + Sync + 'static,
+    {
+        match self.inject::<T>() {
+            Ok(value) => Ok(Optional::new(Some(value))),
+            Err(NidusError::MissingProvider { .. }) => Ok(Optional::new(None)),
+            Err(error) => Err(error),
+        }
     }
 
     /// Resolves a shared typed dependency.
@@ -266,6 +304,29 @@ impl RequestScope<'_> {
         T: Send + Sync + 'static,
     {
         self.resolve::<T>().map(Inject::new)
+    }
+
+    /// Resolves an optional typed dependency reference in this request scope.
+    ///
+    /// Missing providers become `Optional::new(None)`, while registered providers
+    /// that fail to construct still return their original error.
+    pub fn optional<T>(&self) -> Result<Optional<T>>
+    where
+        T: Send + Sync + 'static,
+    {
+        match self.inject::<T>() {
+            Ok(value) => Ok(Optional::new(Some(value))),
+            Err(NidusError::MissingProvider { .. }) => Ok(Optional::new(None)),
+            Err(error) => Err(error),
+        }
+    }
+
+    /// Resolves a request-scoped dependency wrapper in this request scope.
+    pub fn scoped<T>(&self) -> Result<Scoped<T>>
+    where
+        T: Send + Sync + 'static,
+    {
+        self.inject::<T>().map(Scoped::new)
     }
 }
 

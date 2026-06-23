@@ -82,6 +82,44 @@ fn container_can_build_injected_provider_from_typed_dependency() {
 }
 
 #[test]
+fn container_resolves_optional_dependency_when_present() {
+    let mut container = Container::new();
+    container.register_singleton(Database("primary")).unwrap();
+
+    let database = container.optional::<Database>().unwrap();
+
+    assert!(database.is_some());
+    assert_eq!(database.as_ref().unwrap().0, "primary");
+}
+
+#[test]
+fn container_resolves_optional_dependency_as_none_when_missing() {
+    let container = Container::new();
+
+    let database = container.optional::<Database>().unwrap();
+
+    assert!(database.is_none());
+    assert!(database.into_option().is_none());
+}
+
+#[test]
+fn optional_dependency_resolution_preserves_factory_errors() {
+    let mut container = Container::new();
+    container
+        .register_factory::<UsersRepository, _>(ProviderLifetime::Transient, |container| {
+            Ok(UsersRepository {
+                database: container.inject::<Database>()?,
+            })
+        })
+        .unwrap();
+
+    let error = container.optional::<UsersRepository>().unwrap_err();
+
+    assert!(matches!(error, NidusError::ProviderFactory { .. }));
+    assert!(error.to_string().contains("UsersRepository"));
+}
+
+#[test]
 fn singleton_factories_reuse_one_instance() {
     let calls = Arc::new(AtomicUsize::new(0));
     let mut container = Container::new();
@@ -148,6 +186,43 @@ fn request_factories_reuse_within_scope_but_not_across_scopes() {
     assert!(!Arc::ptr_eq(&first, &second));
     assert_eq!(first.0, "first");
     assert_eq!(second.0, "second");
+}
+
+#[test]
+fn request_scope_resolves_scoped_wrapper() {
+    let mut container = Container::new();
+    container
+        .register_factory::<Database, _>(ProviderLifetime::Request, |_container| {
+            Ok(Database("request"))
+        })
+        .unwrap();
+    let scope = container.request_scope();
+
+    let database = scope.scoped::<Database>().unwrap();
+
+    assert_eq!(database.0, "request");
+}
+
+#[test]
+fn request_scope_optional_reuses_request_scoped_instances() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut container = Container::new();
+    container
+        .register_factory::<Database, _>(ProviderLifetime::Request, {
+            let calls = Arc::clone(&calls);
+            move |_container| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                Ok(Database("request"))
+            }
+        })
+        .unwrap();
+    let scope = container.request_scope();
+
+    let first = scope.optional::<Database>().unwrap().into_option().unwrap();
+    let second = scope.optional::<Database>().unwrap().into_option().unwrap();
+
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert!(Arc::ptr_eq(&first.into_inner(), &second.into_inner()));
 }
 
 #[test]
