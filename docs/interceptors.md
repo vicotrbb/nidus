@@ -16,6 +16,10 @@ Recommended interceptor concerns:
 let app = router.layer(route_trace_layer("/users/{id}"));
 ```
 
+`request_id_layer()` propagates an incoming `x-request-id` response header when
+present, preserves a handler-provided response ID, and generates one only when
+neither exists.
+
 Rate limiting uses Tower's built-in rate limiter:
 
 ```rust

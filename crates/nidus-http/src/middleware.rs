@@ -215,6 +215,9 @@ where
 }
 
 /// Tower layer that adds an `x-request-id` response header when absent.
+///
+/// Incoming request IDs are propagated to the response unless the inner service
+/// already set a response ID. Requests without an ID receive a generated one.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct RequestIdLayer;
 
@@ -249,16 +252,21 @@ where
     }
 
     fn call(&mut self, request: Request<RequestBody>) -> Self::Future {
+        let request_id = request.headers().get(request_id_header()).cloned();
         let future = self.inner.call(request);
         Box::pin(async move {
             let mut response = future.await?;
             response
                 .headers_mut()
-                .entry(HeaderName::from_static("x-request-id"))
-                .or_insert_with(new_request_id);
+                .entry(request_id_header())
+                .or_insert_with(|| request_id.unwrap_or_else(new_request_id));
             Ok(response)
         })
     }
+}
+
+fn request_id_header() -> HeaderName {
+    HeaderName::from_static("x-request-id")
 }
 
 fn new_request_id() -> HeaderValue {

@@ -6,7 +6,7 @@ use std::{
 
 use axum::{Router, body::Body, routing::get};
 use http::{
-    Method, Request, Response, StatusCode,
+    HeaderValue, Method, Request, Response, StatusCode,
     header::{
         ACCEPT_ENCODING, ACCESS_CONTROL_ALLOW_ORIGIN, ACCESS_CONTROL_REQUEST_METHOD,
         CONTENT_ENCODING, HeaderName, ORIGIN,
@@ -74,6 +74,59 @@ async fn request_id_layer_adds_response_header() {
         response
             .headers()
             .contains_key(HeaderName::from_static("x-request-id"))
+    );
+}
+
+#[tokio::test]
+async fn request_id_layer_propagates_incoming_request_id() {
+    let service = ServiceBuilder::new()
+        .layer(request_id_layer())
+        .service(service_fn(|_request: Request<()>| async {
+            Ok::<_, Infallible>(Response::new(()))
+        }));
+
+    let response = service
+        .oneshot(
+            Request::builder()
+                .header("x-request-id", "req-123")
+                .body(())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        response.headers().get("x-request-id"),
+        Some(&HeaderValue::from_static("req-123"))
+    );
+}
+
+#[tokio::test]
+async fn request_id_layer_preserves_existing_response_id() {
+    let service = ServiceBuilder::new()
+        .layer(request_id_layer())
+        .service(service_fn(|_request: Request<()>| async {
+            Ok::<_, Infallible>(
+                Response::builder()
+                    .header("x-request-id", "handler-456")
+                    .body(())
+                    .unwrap(),
+            )
+        }));
+
+    let response = service
+        .oneshot(
+            Request::builder()
+                .header("x-request-id", "req-123")
+                .body(())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        response.headers().get("x-request-id"),
+        Some(&HeaderValue::from_static("handler-456"))
     );
 }
 
