@@ -4,7 +4,7 @@ use axum::{
     Router,
     body::{Body, Bytes, to_bytes},
 };
-use http::{HeaderMap, HeaderValue, Method, Request, StatusCode};
+use http::{HeaderMap, HeaderName, HeaderValue, Method, Request, StatusCode, header::CONTENT_TYPE};
 use nidus_config::Config;
 use nidus_core::{
     Container, LifecycleHook, LifecycleRunner, Module, ModuleDefinition, Nidus, ProviderLifetime,
@@ -189,6 +189,7 @@ pub struct TestRequest {
     method: Method,
     path: String,
     body: Body,
+    headers: HeaderMap,
     content_type: Option<&'static str>,
 }
 
@@ -199,8 +200,40 @@ impl TestRequest {
             method,
             path,
             body: Body::empty(),
+            headers: HeaderMap::new(),
             content_type: None,
         }
+    }
+
+    /// Sets a request header.
+    pub fn header<N, V>(mut self, name: N, value: V) -> Self
+    where
+        N: TryInto<HeaderName>,
+        N::Error: std::fmt::Debug,
+        V: TryInto<HeaderValue>,
+        V::Error: std::fmt::Debug,
+    {
+        let name = name
+            .try_into()
+            .expect("test request header name was invalid");
+        let value = value
+            .try_into()
+            .expect("test request header value was invalid");
+        self.headers.insert(name, value);
+        self
+    }
+
+    /// Sets a UTF-8 text request body.
+    pub fn text(mut self, body: impl Into<String>) -> Self {
+        self.body = Body::from(body.into());
+        self.content_type = Some("text/plain; charset=utf-8");
+        self
+    }
+
+    /// Sets a raw request body.
+    pub fn body(mut self, body: impl Into<Bytes>) -> Self {
+        self.body = Body::from(body.into());
+        self
     }
 
     /// Sets a JSON request body.
@@ -214,7 +247,12 @@ impl TestRequest {
     pub async fn send(self) -> TestResponse {
         let mut builder = Request::builder().method(self.method).uri(self.path);
         if let Some(content_type) = self.content_type {
-            builder = builder.header(http::header::CONTENT_TYPE, content_type);
+            builder = builder.header(CONTENT_TYPE, content_type);
+        }
+        for (name, value) in self.headers {
+            if let Some(name) = name {
+                builder = builder.header(name, value);
+            }
         }
         let request = builder.body(self.body).expect("test request build failed");
         let response = self

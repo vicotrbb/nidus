@@ -1,9 +1,10 @@
 use axum::{
     Json, Router,
+    body::Bytes,
     response::IntoResponse,
     routing::{delete, get, patch, post, put},
 };
-use http::{StatusCode, header::HeaderName};
+use http::{HeaderMap, StatusCode, header::HeaderName};
 use nidus_http::{controller::Controller, router::RouteDefinition};
 use nidus_testing::TestApp;
 use serde::Deserialize;
@@ -51,6 +52,68 @@ async fn test_response_exposes_status_body_and_typed_json() {
             name: "Ada".to_owned(),
         }
     );
+}
+
+#[tokio::test]
+async fn test_request_sends_custom_headers() {
+    let router = Router::new().route(
+        "/echo-header",
+        post(|headers: HeaderMap| async move {
+            headers
+                .get("x-api-key")
+                .and_then(|value| value.to_str().ok())
+                .unwrap_or("missing")
+                .to_owned()
+        }),
+    );
+
+    let response = TestApp::from_router(router)
+        .post("/echo-header")
+        .header("x-api-key", "secret")
+        .send()
+        .await;
+
+    response.assert_text("secret").await;
+}
+
+#[tokio::test]
+async fn test_request_sends_text_body_with_content_type() {
+    let router = Router::new().route(
+        "/echo-text",
+        post(|headers: HeaderMap, body: String| async move {
+            let content_type = headers
+                .get(http::header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok())
+                .unwrap_or("missing");
+            format!("{content_type}:{body}")
+        }),
+    );
+
+    let response = TestApp::from_router(router)
+        .post("/echo-text")
+        .text("hello")
+        .send()
+        .await;
+
+    response
+        .assert_text("text/plain; charset=utf-8:hello")
+        .await;
+}
+
+#[tokio::test]
+async fn test_request_sends_raw_body() {
+    let router = Router::new().route(
+        "/bytes",
+        post(|body: Bytes| async move { body.len().to_string() }),
+    );
+
+    let response = TestApp::from_router(router)
+        .post("/bytes")
+        .body(Bytes::from_static(b"nidus"))
+        .send()
+        .await;
+
+    response.assert_text("5").await;
 }
 
 #[tokio::test]

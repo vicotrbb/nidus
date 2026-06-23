@@ -10,6 +10,17 @@ response.assert_text("ok").await;
 ```
 
 Request helpers are available for `GET`, `POST`, `PUT`, `PATCH`, and `DELETE`.
+Requests can set JSON, text, or raw byte bodies and custom headers:
+
+```rust
+let response = app
+    .post("/users")
+    .header("x-api-key", "secret")
+    .json(&CreateUser { name: "Ada".to_owned() })
+    .send()
+    .await;
+```
+
 Responses expose `status()`, `headers()`, `header(name)`, `body()`, typed
 `json()`, and assertion helpers for status, headers, text, and JSON.
 
