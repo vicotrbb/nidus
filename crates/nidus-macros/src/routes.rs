@@ -121,6 +121,12 @@ fn route_metadata(item: &ImplItem) -> syn::Result<Option<RouteMacroMetadata>> {
     }
 
     let Some((attr, method)) = route_attrs.first() else {
+        if has_route_metadata_attributes(function) {
+            return Err(syn::Error::new_spanned(
+                function.sig.ident.clone(),
+                "route metadata attributes require an HTTP method attribute",
+            ));
+        }
         return Ok(None);
     };
 
@@ -135,6 +141,15 @@ fn route_metadata(item: &ImplItem) -> syn::Result<Option<RouteMacroMetadata>> {
         pipes,
         validates,
     }))
+}
+
+fn has_route_metadata_attributes(function: &ImplItemFn) -> bool {
+    function.attrs.iter().any(|attr| {
+        attr.path().is_ident("guard")
+            || attr.path().is_ident("pipe")
+            || attr.path().is_ident("validate")
+            || attr.path().is_ident("openapi")
+    })
 }
 
 fn type_attributes(function: &ImplItemFn, name: &str) -> Vec<Path> {

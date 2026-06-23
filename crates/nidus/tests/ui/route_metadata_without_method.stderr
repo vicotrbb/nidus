@@ -1,0 +1,5 @@
+error: route metadata attributes require an HTTP method attribute
+ --> tests/ui/route_metadata_without_method.rs:9:14
+  |
+9 |     async fn helper(&self) {}
+  |              ^^^^^^
