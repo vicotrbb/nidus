@@ -308,6 +308,10 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<Discov
         }
     }
 
+    if openapi_attr.is_some() {
+        bail!("unterminated #[openapi] metadata");
+    }
+
     Ok(routes)
 }
 
