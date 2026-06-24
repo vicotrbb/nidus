@@ -58,6 +58,11 @@ fn http_error_common_helpers_use_stable_codes_and_statuses() {
             "conflict",
         ),
         (
+            HttpError::too_many_requests("slow down"),
+            StatusCode::TOO_MANY_REQUESTS,
+            "too_many_requests",
+        ),
+        (
             HttpError::unprocessable_entity("validation failed"),
             StatusCode::UNPROCESSABLE_ENTITY,
             "unprocessable_entity",

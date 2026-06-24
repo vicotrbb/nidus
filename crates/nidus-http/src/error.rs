@@ -48,6 +48,11 @@ impl HttpError {
         Self::new(StatusCode::CONFLICT, "conflict", message)
     }
 
+    /// Creates a 429 too many requests error.
+    pub fn too_many_requests(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::TOO_MANY_REQUESTS, "too_many_requests", message)
+    }
+
     /// Creates a 422 unprocessable entity error.
     pub fn unprocessable_entity(message: impl Into<String>) -> Self {
         Self::new(

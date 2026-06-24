@@ -28,4 +28,5 @@ implement Axum's `IntoResponse` directly when they need full control.
 
 Common helpers cover default API failures including `bad_request`,
 `unauthorized`, `forbidden`, `not_found`, `conflict`,
-`unprocessable_entity`, and sanitized `internal_server_error` responses.
+`too_many_requests`, `unprocessable_entity`, and sanitized
+`internal_server_error` responses.
