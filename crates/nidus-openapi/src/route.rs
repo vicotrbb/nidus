@@ -14,6 +14,9 @@ pub struct OpenApiRoute {
     response_status: StatusCode,
     request_schema: Option<String>,
     response_schema: Option<String>,
+    guards: Vec<String>,
+    pipes: Vec<String>,
+    validates: bool,
 }
 
 impl OpenApiRoute {
@@ -141,6 +144,17 @@ impl OpenApiRoute {
         if let Some(schema) = metadata.response_schema() {
             route = route.response_schema_ref(schema);
         }
+        route.guards = metadata
+            .guards()
+            .iter()
+            .map(|guard| (*guard).to_owned())
+            .collect();
+        route.pipes = metadata
+            .pipes()
+            .iter()
+            .map(|pipe| (*pipe).to_owned())
+            .collect();
+        route.validates = metadata.validates();
         Ok(route)
     }
 
@@ -201,6 +215,15 @@ impl OpenApiRoute {
                     .collect::<Vec<_>>()
             );
         }
+        if !self.guards.is_empty() {
+            operation["x-nidus-guards"] = json!(self.guards);
+        }
+        if !self.pipes.is_empty() {
+            operation["x-nidus-pipes"] = json!(self.pipes);
+        }
+        if self.validates {
+            operation["x-nidus-validates"] = json!(true);
+        }
 
         operation
     }
@@ -229,6 +252,9 @@ impl OpenApiRoute {
             response_status: StatusCode::OK,
             request_schema: None,
             response_schema: None,
+            guards: Vec::new(),
+            pipes: Vec::new(),
+            validates: false,
         }
     }
 

@@ -202,6 +202,9 @@ fn openapi_route_omits_absent_optional_operation_metadata() {
     assert!(json["paths"]["/health"]["get"]["tags"].is_null());
     assert!(json["paths"]["/health"]["get"]["requestBody"].is_null());
     assert!(json["paths"]["/health"]["get"]["parameters"].is_null());
+    assert!(json["paths"]["/health"]["get"]["x-nidus-guards"].is_null());
+    assert!(json["paths"]["/health"]["get"]["x-nidus-pipes"].is_null());
+    assert!(json["paths"]["/health"]["get"]["x-nidus-validates"].is_null());
 }
 
 #[test]
@@ -230,6 +233,18 @@ fn openapi_document_can_be_generated_from_route_metadata() {
     assert_eq!(
         json["paths"]["/users/{id}"]["get"]["parameters"][0]["name"],
         "id"
+    );
+    assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["x-nidus-guards"],
+        serde_json::json!(["AuthGuard"])
+    );
+    assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["x-nidus-pipes"],
+        serde_json::json!(["ValidationPipe"])
+    );
+    assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["x-nidus-validates"],
+        true
     );
 }
 
