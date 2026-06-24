@@ -8,8 +8,12 @@ homepage.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+axum.workspace = true
+http.workspace = true
+serde.workspace = true
 thiserror.workspace = true
 validator.workspace = true
 
 [dev-dependencies]
-serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true

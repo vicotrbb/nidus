@@ -1,5 +1,8 @@
 //! Validation pipe support.
 
+use axum::{Json, response::IntoResponse};
+use http::StatusCode;
+use serde::Serialize;
 use validator::Validate;
 
 /// Typed request transformation or validation pipe.
@@ -58,6 +61,16 @@ pub enum ValidationPipeError {
 }
 
 impl ValidationPipeError {
+    /// Returns the HTTP status code corresponding to this validation failure.
+    pub fn status_code(&self) -> StatusCode {
+        StatusCode::UNPROCESSABLE_ENTITY
+    }
+
+    /// Returns the stable machine-readable error code.
+    pub fn code(&self) -> &'static str {
+        "validation_failed"
+    }
+
     /// Returns field-level validation errors in deterministic order.
     pub fn field_errors(&self) -> Vec<FieldValidationError> {
         match self {
@@ -84,8 +97,34 @@ impl ValidationPipeError {
     }
 }
 
+impl IntoResponse for ValidationPipeError {
+    fn into_response(self) -> axum::response::Response {
+        let status = self.status_code();
+        let body = Json(ValidationErrorBody {
+            error: ValidationErrorDetails {
+                code: self.code(),
+                message: "request validation failed",
+                fields: self.field_errors(),
+            },
+        });
+        (status, body).into_response()
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct ValidationErrorBody {
+    error: ValidationErrorDetails,
+}
+
+#[derive(Debug, Serialize)]
+struct ValidationErrorDetails {
+    code: &'static str,
+    message: &'static str,
+    fields: Vec<FieldValidationError>,
+}
+
 /// Stable field-level validation error summary.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct FieldValidationError {
     field: String,
     code: String,

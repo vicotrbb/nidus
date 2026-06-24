@@ -31,3 +31,8 @@ for field in error.field_errors() {
     println!("{} failed {}", field.field(), field.code());
 }
 ```
+
+`ValidationPipeError` implements Axum's `IntoResponse`. The default response is
+HTTP 422 with a stable `validation_failed` code and deterministic field-level
+error details, so route handlers can return `Result<T, ValidationPipeError>`
+when the framework JSON shape is acceptable.

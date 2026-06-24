@@ -1343,8 +1343,12 @@ dependencies = [
 name = "nidus-validation"
 version = "0.1.0"
 dependencies = [
+ "axum",
+ "http",
  "serde",
+ "serde_json",
  "thiserror",
+ "tokio",
  "validator",
 ]
 
