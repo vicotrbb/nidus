@@ -41,15 +41,16 @@ measurement windows on the release machine.
 
 | Benchmark | Central estimate | Local comparison |
 | --- | ---: | --- |
-| raw Axum baseline request | 637.97 ns | baseline |
-| Nidus hello-world request | 623.26 ns | same shape as raw Axum in this run |
-| Nidus controller + service request | 741.64 ns | about 1.16x raw Axum |
-| Nidus guarded route | 914.36 ns | about 1.43x raw Axum |
-| Nidus validation route | 2.0249 us | about 3.17x raw Axum |
-| Nidus request-scoped route | 1.2719 us | about 1.99x raw Axum |
-| raw Axum route composition | 1.7513 us | startup/composition baseline |
-| Nidus controller route composition | 5.5560 us | about 3.17x raw Axum composition |
-| Nidus singleton dependency resolution | 22.085 ns | direct container lookup |
+| raw Axum baseline request | 640.85 ns | baseline |
+| Nidus hello-world request | 622.01 ns | same shape as raw Axum in this run |
+| Nidus controller + service request | 734.96 ns | about 1.15x raw Axum |
+| Nidus guarded route | 906.63 ns | about 1.42x raw Axum |
+| Nidus validation route | 2.0153 us | about 3.14x raw Axum |
+| Nidus request-scoped route | 1.1494 us | about 1.79x raw Axum |
+| Nidus controller setup | 265.27 ns | local setup microbenchmark |
+| raw Axum route composition | 3.1499 us | startup/composition baseline |
+| Nidus controller route composition | 8.3362 us | about 2.65x raw Axum composition |
+| Nidus singleton dependency resolution | 145.82 ns | direct container lookup |
 
 These results support the current design constraints: default request handling
 does not resolve the dependency graph per request, request-scoped providers are
