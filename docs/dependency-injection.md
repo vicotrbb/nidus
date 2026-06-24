@@ -38,6 +38,9 @@ still return their original construction error.
 
 Use `#[injectable(transient)]` or `#[injectable(request)]` when a provider
 should not use the default singleton lifetime.
+Request-lifetime injectables generate scope-aware registration code, so
+`Inject<T>` and `Optional<T>` fields are resolved through the active
+`RequestScope`.
 
 `Lazy<T>` defers resolution until the dependency is actually needed:
 

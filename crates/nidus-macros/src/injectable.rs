@@ -19,10 +19,10 @@ pub(crate) fn expand(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 fn expand_struct(item: ItemStruct, lifetime: InjectableLifetime) -> TokenStream {
     let name = &item.ident;
-    let provider_lifetime = lifetime.provider_lifetime_tokens();
     let fields = match &item.fields {
         Fields::Named(fields) => fields,
         Fields::Unit => {
+            let register_provider = unit_register_provider(&lifetime);
             return quote! {
                 #item
 
@@ -30,10 +30,7 @@ fn expand_struct(item: ItemStruct, lifetime: InjectableLifetime) -> TokenStream 
                     pub fn register_provider(
                         container: &mut ::nidus::prelude::Container,
                     ) -> ::nidus::prelude::Result<()> {
-                        container.register_factory::<Self, _>(
-                            #provider_lifetime,
-                            |_container| Ok(Self),
-                        )
+                        #register_provider
                     }
                 }
             };
@@ -46,14 +43,17 @@ fn expand_struct(item: ItemStruct, lifetime: InjectableLifetime) -> TokenStream 
         }
     };
 
-    let initializers = fields.named.iter().map(|field| {
-        let ident = field.ident.as_ref().expect("named field has ident");
-        match dependency_wrapper(&field.ty) {
-            Some(DependencyWrapper::Inject) => quote!(#ident: container.inject()?),
-            Some(DependencyWrapper::Optional) => quote!(#ident: container.optional()?),
-            None => quote!(#ident: ::core::default::Default::default()),
-        }
-    });
+    let resolver = Ident::new("resolver", proc_macro2::Span::call_site());
+    let initializers = field_initializers(fields, &resolver);
+    let register_provider = named_register_provider(
+        &lifetime,
+        &resolver,
+        quote! {
+            Ok(Self {
+                #(#initializers,)*
+            })
+        },
+    );
 
     quote! {
         #item
@@ -62,14 +62,7 @@ fn expand_struct(item: ItemStruct, lifetime: InjectableLifetime) -> TokenStream 
             pub fn register_provider(
                 container: &mut ::nidus::prelude::Container,
             ) -> ::nidus::prelude::Result<()> {
-                container.register_factory::<Self, _>(
-                    #provider_lifetime,
-                    |container| {
-                        Ok(Self {
-                            #(#initializers,)*
-                        })
-                    },
-                )
+                #register_provider
             }
         }
     }
@@ -89,6 +82,58 @@ impl InjectableLifetime {
             Self::Request => quote!(::nidus::prelude::ProviderLifetime::Request),
         }
     }
+}
+
+fn unit_register_provider(lifetime: &InjectableLifetime) -> TokenStream {
+    match lifetime {
+        InjectableLifetime::Request => {
+            quote!(container.register_request_scoped::<Self, _>(|_scope| Ok(Self)))
+        }
+        InjectableLifetime::Singleton | InjectableLifetime::Transient => {
+            let provider_lifetime = lifetime.provider_lifetime_tokens();
+            quote! {
+                container.register_factory::<Self, _>(
+                    #provider_lifetime,
+                    |_container| Ok(Self),
+                )
+            }
+        }
+    }
+}
+
+fn named_register_provider(
+    lifetime: &InjectableLifetime,
+    resolver: &Ident,
+    body: TokenStream,
+) -> TokenStream {
+    match lifetime {
+        InjectableLifetime::Request => {
+            quote!(container.register_request_scoped::<Self, _>(|#resolver| #body))
+        }
+        InjectableLifetime::Singleton | InjectableLifetime::Transient => {
+            let provider_lifetime = lifetime.provider_lifetime_tokens();
+            quote! {
+                container.register_factory::<Self, _>(
+                    #provider_lifetime,
+                    |#resolver| #body,
+                )
+            }
+        }
+    }
+}
+
+fn field_initializers<'a>(
+    fields: &'a syn::FieldsNamed,
+    resolver: &'a Ident,
+) -> impl Iterator<Item = TokenStream> + 'a {
+    fields.named.iter().map(move |field| {
+        let ident = field.ident.as_ref().expect("named field has ident");
+        match dependency_wrapper(&field.ty) {
+            Some(DependencyWrapper::Inject) => quote!(#ident: #resolver.inject()?),
+            Some(DependencyWrapper::Optional) => quote!(#ident: #resolver.optional()?),
+            None => quote!(#ident: ::core::default::Default::default()),
+        }
+    })
 }
 
 fn injectable_lifetime(attr: TokenStream) -> Result<InjectableLifetime, &'static str> {
