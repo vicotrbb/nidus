@@ -2,8 +2,9 @@
 
 use async_trait::async_trait;
 use axum::Router;
-use nidus::prelude::{Controller, Guard, GuardContext, GuardError, RouteDefinition};
+use nidus::prelude::{Controller, Guard, GuardContext, GuardError, RouteDefinition, guard_layer};
 
+#[derive(Clone)]
 struct ApiKeyGuard;
 
 #[async_trait]
@@ -18,15 +19,18 @@ impl Guard<()> for ApiKeyGuard {
 }
 
 fn app() -> Router {
+    app_with_route_label("profile")
+}
+
+fn app_with_route_label(route_label: &'static str) -> Router {
     Controller::new("/")
         .route(RouteDefinition::get("/me", me))
         .into_router()
+        .layer(guard_layer((), route_label, ApiKeyGuard))
 }
 
-async fn me() -> Result<&'static str, GuardError> {
-    ApiKeyGuard.check(GuardContext::new((), "profile")).await?;
-
-    Ok("authorized")
+async fn me() -> &'static str {
+    "authorized"
 }
 
 #[tokio::main]
@@ -67,5 +71,23 @@ mod tests {
 
         response.assert_status(axum::http::StatusCode::OK);
         response.assert_text("authorized").await;
+    }
+
+    #[tokio::test]
+    async fn auth_route_rejects_guard_failures() {
+        let response = TestApp::from_router(app_with_route_label("admin"))
+            .get("/me")
+            .send()
+            .await;
+
+        response.assert_status(axum::http::StatusCode::FORBIDDEN);
+        response
+            .assert_json(serde_json::json!({
+                "error": {
+                    "code": "forbidden",
+                    "message": "invalid route"
+                }
+            }))
+            .await;
     }
 }

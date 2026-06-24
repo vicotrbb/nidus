@@ -12,3 +12,4 @@ tokio.workspace = true
 
 [dev-dependencies]
 nidus-testing = { path = "../../crates/nidus-testing" }
+serde_json.workspace = true

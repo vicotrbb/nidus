@@ -1217,6 +1217,7 @@ dependencies = [
  "axum",
  "nidus",
  "nidus-testing",
+ "serde_json",
  "tokio",
 ]
 
