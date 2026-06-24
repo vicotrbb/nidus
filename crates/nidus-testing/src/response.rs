@@ -1,5 +1,5 @@
 use axum::body::Bytes;
-use http::{HeaderMap, HeaderValue, StatusCode};
+use http::{HeaderMap, HeaderValue, StatusCode, header::ToStrError};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::str;
@@ -38,6 +38,11 @@ impl TestResponse {
     /// Returns a response header by name.
     pub fn header(&self, name: impl AsRef<str>) -> Option<&HeaderValue> {
         self.headers.get(name.as_ref())
+    }
+
+    /// Returns a response header as a UTF-8 string when present.
+    pub fn header_str(&self, name: impl AsRef<str>) -> Result<Option<&str>, ToStrError> {
+        self.header(name).map(HeaderValue::to_str).transpose()
     }
 
     /// Asserts the response status code.

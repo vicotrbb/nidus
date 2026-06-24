@@ -203,6 +203,11 @@ async fn test_response_exposes_and_asserts_headers() {
             .and_then(|value| value.to_str().ok()),
         Some("req-123")
     );
+    assert_eq!(
+        response.header_str("x-request-id").unwrap(),
+        Some("req-123")
+    );
+    assert_eq!(response.header_str("x-missing").unwrap(), None);
 }
 
 #[tokio::test]
