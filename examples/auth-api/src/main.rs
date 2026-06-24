@@ -2,7 +2,10 @@
 
 use async_trait::async_trait;
 use axum::Router;
-use nidus::prelude::{Controller, Guard, GuardContext, GuardError, RouteDefinition, guard_layer};
+use nidus::prelude::{
+    ApplicationHttpExt, Controller, Guard, GuardContext, GuardError, Nidus, RouteDefinition,
+    guard_layer, module,
+};
 
 #[derive(Clone)]
 struct ApiKeyGuard;
@@ -33,13 +36,17 @@ async fn me() -> &'static str {
     "authorized"
 }
 
-#[tokio::main]
-async fn main() {
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
-        .await
-        .unwrap();
-    axum::serve(listener, app()).await.unwrap();
+#[nidus::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    Nidus::bootstrap::<AppModule>()?
+        .with_router(app())
+        .listen("127.0.0.1:3000")
+        .await?;
+    Ok(())
 }
+
+#[module]
+struct AppModule;
 
 #[cfg(test)]
 mod tests {

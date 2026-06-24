@@ -9,7 +9,7 @@ fn app() -> Router {
         .into_router()
 }
 
-#[tokio::main]
+#[nidus::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     Nidus::bootstrap::<AppModule>()?
         .with_router(app())
@@ -18,13 +18,8 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[module]
 struct AppModule;
-
-impl Module for AppModule {
-    fn definition() -> ModuleDefinition {
-        ModuleBuilder::new("AppModule").build()
-    }
-}
 
 #[cfg(test)]
 mod tests {

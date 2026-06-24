@@ -7,8 +7,8 @@ use std::sync::{
 
 use axum::Router;
 use nidus::prelude::{
-    Container, Controller, Inject, Json, Path, RequestScoped, RouteDefinition, injectable,
-    request_scope_layer,
+    ApplicationHttpExt, Container, Controller, Inject, Json, Nidus, Path, RequestScoped,
+    RouteDefinition, injectable, module, request_scope_layer,
 };
 use serde::Serialize;
 
@@ -53,13 +53,17 @@ async fn find_user(Path(id): Path<i64>, context: RequestScoped<RequestContext>) 
     })
 }
 
-#[tokio::main]
-async fn main() {
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
-        .await
-        .unwrap();
-    axum::serve(listener, app()).await.unwrap();
+#[nidus::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    Nidus::bootstrap::<AppModule>()?
+        .with_router(app())
+        .listen("127.0.0.1:3000")
+        .await?;
+    Ok(())
 }
+
+#[module]
+struct AppModule;
 
 #[cfg(test)]
 mod tests {
