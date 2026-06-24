@@ -1,16 +1,15 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Fields, GenericArgument, ItemStruct, PathArguments, Type, parse2};
-
-use crate::utils::require_empty_attr;
+use syn::{Fields, GenericArgument, Ident, ItemStruct, PathArguments, Type, parse2};
 
 pub(crate) fn expand(attr: TokenStream, item: TokenStream) -> TokenStream {
-    if let Err(error) = require_empty_attr(attr, "injectable") {
-        return error;
-    }
+    let lifetime = match injectable_lifetime(attr) {
+        Ok(lifetime) => lifetime,
+        Err(error) => return crate::diagnostics::compile_error_with_item(error, item),
+    };
 
     match parse2::<ItemStruct>(item.clone()) {
-        Ok(item) => expand_struct(item),
+        Ok(item) => expand_struct(item, lifetime),
         Err(error) => crate::diagnostics::compile_error_with_item(
             format!("#[injectable] can only be used on structs: {error}"),
             item,
@@ -18,8 +17,9 @@ pub(crate) fn expand(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 }
 
-fn expand_struct(item: ItemStruct) -> TokenStream {
+fn expand_struct(item: ItemStruct, lifetime: InjectableLifetime) -> TokenStream {
     let name = &item.ident;
+    let provider_lifetime = lifetime.provider_lifetime_tokens();
     let fields = match &item.fields {
         Fields::Named(fields) => fields,
         Fields::Unit => {
@@ -31,7 +31,7 @@ fn expand_struct(item: ItemStruct) -> TokenStream {
                         container: &mut ::nidus::prelude::Container,
                     ) -> ::nidus::prelude::Result<()> {
                         container.register_factory::<Self, _>(
-                            ::nidus::prelude::ProviderLifetime::Singleton,
+                            #provider_lifetime,
                             |_container| Ok(Self),
                         )
                     }
@@ -63,7 +63,7 @@ fn expand_struct(item: ItemStruct) -> TokenStream {
                 container: &mut ::nidus::prelude::Container,
             ) -> ::nidus::prelude::Result<()> {
                 container.register_factory::<Self, _>(
-                    ::nidus::prelude::ProviderLifetime::Singleton,
+                    #provider_lifetime,
                     |container| {
                         Ok(Self {
                             #(#initializers,)*
@@ -72,6 +72,39 @@ fn expand_struct(item: ItemStruct) -> TokenStream {
                 )
             }
         }
+    }
+}
+
+enum InjectableLifetime {
+    Singleton,
+    Transient,
+    Request,
+}
+
+impl InjectableLifetime {
+    fn provider_lifetime_tokens(&self) -> TokenStream {
+        match self {
+            Self::Singleton => quote!(::nidus::prelude::ProviderLifetime::Singleton),
+            Self::Transient => quote!(::nidus::prelude::ProviderLifetime::Transient),
+            Self::Request => quote!(::nidus::prelude::ProviderLifetime::Request),
+        }
+    }
+}
+
+fn injectable_lifetime(attr: TokenStream) -> Result<InjectableLifetime, &'static str> {
+    if attr.is_empty() {
+        return Ok(InjectableLifetime::Singleton);
+    }
+
+    let Ok(ident) = parse2::<Ident>(attr) else {
+        return Err("#[injectable] supports no arguments, singleton, transient, or request");
+    };
+
+    match ident.to_string().as_str() {
+        "singleton" => Ok(InjectableLifetime::Singleton),
+        "transient" => Ok(InjectableLifetime::Transient),
+        "request" => Ok(InjectableLifetime::Request),
+        _ => Err("#[injectable] supports no arguments, singleton, transient, or request"),
     }
 }
 

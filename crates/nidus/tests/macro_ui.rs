@@ -5,6 +5,7 @@ fn public_macros_report_useful_compile_errors() {
     tests.pass("tests/ui/controller_valid.rs");
     tests.pass("tests/ui/module_field_metadata.rs");
     tests.pass("tests/ui/module_single_bracket_metadata.rs");
+    tests.pass("tests/ui/injectable_lifetimes.rs");
     tests.pass("tests/ui/injectable_registers_provider.rs");
     tests.pass("tests/ui/module_generates_definition.rs");
     tests.pass("tests/ui/nidus_main_attribute.rs");
@@ -12,6 +13,7 @@ fn public_macros_report_useful_compile_errors() {
     tests.compile_fail("tests/ui/controller_empty_param_path.rs");
     tests.compile_fail("tests/ui/controller_missing_path.rs");
     tests.compile_fail("tests/ui/guard_missing_type.rs");
+    tests.compile_fail("tests/ui/injectable_unsupported_lifetime.rs");
     tests.compile_fail("tests/ui/openapi_missing_summary.rs");
     tests.compile_fail("tests/ui/openapi_request_must_be_type.rs");
     tests.compile_fail("tests/ui/openapi_status_must_be_code.rs");

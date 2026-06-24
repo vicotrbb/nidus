@@ -32,9 +32,12 @@ if let Some(cache) = cache.as_ref() {
 Only missing providers become `None`; registered providers that fail to build
 still return their original construction error.
 
-`#[injectable]` provider registration recognizes `Inject<T>` and `Optional<T>`
-fields. Required dependencies use `container.inject()?`; optional dependencies
-use `container.optional()?`.
+`#[injectable]` registers a singleton provider by default and recognizes
+`Inject<T>` and `Optional<T>` fields. Required dependencies use
+`container.inject()?`; optional dependencies use `container.optional()?`.
+
+Use `#[injectable(transient)]` or `#[injectable(request)]` when a provider
+should not use the default singleton lifetime.
 
 `Lazy<T>` defers resolution until the dependency is actually needed:
 
