@@ -105,6 +105,19 @@ pub enum NidusError {
         provider: String,
     },
 
+    /// A module declares a local provider that is also exported by one of its imports.
+    #[error(
+        "module `{module}` declares provider `{provider}` that conflicts with export from `{import}`"
+    )]
+    ProviderVisibilityConflict {
+        /// Module with the conflicting provider visibility.
+        module: String,
+        /// Provider name declared locally and exported by an import.
+        provider: String,
+        /// Imported module exporting the same provider name.
+        import: String,
+    },
+
     /// A module can see multiple providers with the same name through imports.
     #[error(
         "module `{module}` has ambiguous provider `{provider}` from imports: {}",

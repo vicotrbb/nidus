@@ -44,6 +44,7 @@ impl ModuleGraph {
         graph.validate_local_controllers_unique()?;
         graph.validate_exports_unique()?;
         graph.validate_exports_are_local()?;
+        graph.validate_local_providers_do_not_conflict_with_imports()?;
         graph.validate_visible_providers_unambiguous()?;
         tracing::debug!(module_count = graph.modules.len(), "module graph validated");
         Ok(graph)
@@ -148,6 +149,25 @@ impl ModuleGraph {
                         module: module.name.clone(),
                         provider: export.clone(),
                     });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_local_providers_do_not_conflict_with_imports(&self) -> Result<()> {
+        for module in self.modules.values() {
+            let local_providers = module.providers.iter().collect::<HashSet<_>>();
+            for import in &module.imports {
+                let imported = self.modules.get(import).expect("imports were validated");
+                for export in &imported.exports {
+                    if local_providers.contains(export) {
+                        return Err(NidusError::ProviderVisibilityConflict {
+                            module: module.name.clone(),
+                            provider: export.clone(),
+                            import: import.clone(),
+                        });
+                    }
                 }
             }
         }

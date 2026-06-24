@@ -489,6 +489,28 @@ fn module_graph_rejects_exports_that_are_not_local_providers() {
 }
 
 #[test]
+fn module_graph_rejects_local_providers_that_conflict_with_imported_exports() {
+    let database = ModuleBuilder::new("DatabaseModule")
+        .provider("DatabasePool")
+        .export("DatabasePool")
+        .build();
+    let users = ModuleBuilder::new("UsersModule")
+        .import("DatabaseModule")
+        .provider("DatabasePool")
+        .build();
+
+    let error = ModuleGraph::from_modules([database, users]).unwrap_err();
+
+    assert!(matches!(
+        error,
+        NidusError::ProviderVisibilityConflict { .. }
+    ));
+    assert!(error.to_string().contains("UsersModule"));
+    assert!(error.to_string().contains("DatabasePool"));
+    assert!(error.to_string().contains("DatabaseModule"));
+}
+
+#[test]
 fn module_graph_rejects_ambiguous_visible_providers() {
     let database_a = ModuleBuilder::new("PrimaryDatabaseModule")
         .provider("DatabasePool")

@@ -34,7 +34,10 @@ let users = ModuleBuilder::new("UsersModule")
     .build();
 ```
 
-The module graph validates duplicate module names, duplicate local imports, providers, controllers, and exports, missing imports, circular imports, invalid exports, and ambiguous imported providers before an application is considered bootstrapped.
+The module graph validates duplicate module names, duplicate local imports,
+providers, controllers, and exports, missing imports, circular imports, invalid
+exports, local providers that conflict with imported exports, and ambiguous
+imported providers before an application is considered bootstrapped.
 
 Applications with imports bootstrap by passing the root module type plus the
 explicit imported module definitions:
