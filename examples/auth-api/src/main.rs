@@ -1,3 +1,5 @@
+//! Guard-focused Nidus example API.
+
 use async_trait::async_trait;
 use axum::Router;
 use nidus::prelude::{Controller, Guard, GuardContext, GuardError, RouteDefinition};

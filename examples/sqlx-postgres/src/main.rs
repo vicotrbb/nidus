@@ -1,3 +1,5 @@
+//! SQLx Postgres provider registration example without opening a database connection.
+
 use nidus::prelude::{Container, Inject, PgPoolOptions, ProviderLifetime};
 
 struct DatabaseOptions(PgPoolOptions);

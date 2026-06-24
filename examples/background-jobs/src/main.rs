@@ -1,3 +1,5 @@
+//! Background job queue example using synchronous and asynchronous Nidus jobs.
+
 use nidus_jobs::{AsyncJob, AsyncJobQueue, Job, JobQueue};
 
 struct SendDigest;

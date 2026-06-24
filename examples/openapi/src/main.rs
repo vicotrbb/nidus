@@ -1,3 +1,5 @@
+//! OpenAPI document generation example from controller route metadata.
+
 use nidus::prelude::*;
 use nidus_openapi::OpenApiDocument;
 

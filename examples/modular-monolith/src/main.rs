@@ -1,3 +1,5 @@
+//! Macro-defined module graph example for a modular monolith shape.
+
 use nidus::prelude::*;
 
 #[allow(dead_code)]

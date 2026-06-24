@@ -1,3 +1,5 @@
+//! Command-line tooling for generating and inspecting Nidus projects.
+
 use std::{
     collections::BTreeSet,
     fs,

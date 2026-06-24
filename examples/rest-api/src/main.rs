@@ -1,3 +1,5 @@
+//! REST API example built from a Nidus controller and Axum JSON response.
+
 use axum::Router;
 use nidus::prelude::{Controller, Json, Path, RouteDefinition};
 use serde::Serialize;

@@ -1,3 +1,5 @@
+//! Minimal Nidus HTTP server example.
+
 use axum::Router;
 use nidus::prelude::*;
 
