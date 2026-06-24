@@ -140,6 +140,85 @@ fn cargo_nidus_generate_writes_rust_artifact_scaffolds() {
 }
 
 #[test]
+fn cargo_nidus_generate_module_includes_existing_feature_artifacts() {
+    let root = temp_project_root("generate_module_includes_existing_feature_artifacts");
+    for kind in ["repository", "service", "controller", "module"] {
+        let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+            .args(["nidus", "generate", kind, "users", "--path"])
+            .arg(&root)
+            .status()
+            .unwrap();
+        assert!(status.success());
+    }
+
+    let module = fs::read_to_string(root.join("src/modules/users.rs")).unwrap();
+    assert_module_metadata_is_synced(&module);
+
+    let graph = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "graph", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+    assert!(graph.status.success());
+    let stdout = String::from_utf8(graph.stdout).unwrap();
+    assert!(stdout.contains("providers: UsersRepository, UsersService"));
+    assert!(stdout.contains("controllers: UsersController"));
+    assert!(stdout.contains("exports: UsersService"));
+}
+
+fn assert_module_metadata_is_synced(module: &str) {
+    assert!(module.contains(
+        "providers(crate::repositories::users::UsersRepository, crate::services::users::UsersService)"
+    ));
+    assert!(module.contains("controllers(crate::controllers::users::UsersController)"));
+    assert!(module.contains("exports(crate::services::users::UsersService)"));
+}
+
+#[test]
+fn cargo_nidus_generate_artifacts_update_existing_generated_module() {
+    let root = temp_project_root("generate_artifacts_update_existing_generated_module");
+    for kind in ["module", "repository", "service", "controller"] {
+        let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+            .args(["nidus", "generate", kind, "users", "--path"])
+            .arg(&root)
+            .status()
+            .unwrap();
+        assert!(status.success());
+    }
+
+    let module = fs::read_to_string(root.join("src/modules/users.rs")).unwrap();
+    assert_module_metadata_is_synced(&module);
+}
+
+#[test]
+fn cargo_nidus_generate_artifacts_preserve_custom_module_bodies() {
+    let root = temp_project_root("generate_artifacts_preserve_custom_module_bodies");
+    fs::create_dir_all(root.join("src/modules")).unwrap();
+    fs::write(
+        root.join("src/modules/users.rs"),
+        r#"use nidus::prelude::*;
+
+#[module]
+pub struct UsersModule {
+    providers: (ExistingProvider,),
+}
+"#,
+    )
+    .unwrap();
+
+    let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "generate", "service", "users", "--path"])
+        .arg(&root)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let module = fs::read_to_string(root.join("src/modules/users.rs")).unwrap();
+    assert!(module.contains("providers: (ExistingProvider,)"));
+    assert!(!module.contains("UsersService"));
+}
+
+#[test]
 fn cargo_nidus_generate_maintains_directory_module_indexes() {
     let root = temp_project_root("generate_maintains_directory_module_indexes");
     for name in ["users", "accounts"] {
