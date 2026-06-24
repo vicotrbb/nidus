@@ -32,6 +32,10 @@ if let Some(cache) = cache.as_ref() {
 Only missing providers become `None`; registered providers that fail to build
 still return their original construction error.
 
+`#[injectable]` provider registration recognizes `Inject<T>` and `Optional<T>`
+fields. Required dependencies use `container.inject()?`; optional dependencies
+use `container.optional()?`.
+
 `Lazy<T>` defers resolution until the dependency is actually needed:
 
 ```rust

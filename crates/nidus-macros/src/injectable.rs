@@ -48,10 +48,10 @@ fn expand_struct(item: ItemStruct) -> TokenStream {
 
     let initializers = fields.named.iter().map(|field| {
         let ident = field.ident.as_ref().expect("named field has ident");
-        if inject_inner_type(&field.ty).is_some() {
-            quote!(#ident: container.inject()?)
-        } else {
-            quote!(#ident: ::core::default::Default::default())
+        match dependency_wrapper(&field.ty) {
+            Some(DependencyWrapper::Inject) => quote!(#ident: container.inject()?),
+            Some(DependencyWrapper::Optional) => quote!(#ident: container.optional()?),
+            None => quote!(#ident: ::core::default::Default::default()),
         }
     });
 
@@ -75,19 +75,29 @@ fn expand_struct(item: ItemStruct) -> TokenStream {
     }
 }
 
-fn inject_inner_type(ty: &Type) -> Option<&Type> {
+enum DependencyWrapper {
+    Inject,
+    Optional,
+}
+
+fn dependency_wrapper(ty: &Type) -> Option<DependencyWrapper> {
     let Type::Path(type_path) = ty else {
         return None;
     };
     let segment = type_path.path.segments.last()?;
-    if segment.ident != "Inject" {
-        return None;
-    }
     let PathArguments::AngleBracketed(arguments) = &segment.arguments else {
         return None;
     };
-    arguments.args.iter().find_map(|argument| match argument {
-        GenericArgument::Type(ty) => Some(ty),
+    let has_type_argument = arguments
+        .args
+        .iter()
+        .any(|argument| matches!(argument, GenericArgument::Type(_)));
+    if !has_type_argument {
+        return None;
+    }
+    match segment.ident.to_string().as_str() {
+        "Inject" => Some(DependencyWrapper::Inject),
+        "Optional" => Some(DependencyWrapper::Optional),
         _ => None,
-    })
+    }
 }
