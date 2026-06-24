@@ -10,6 +10,7 @@ mod injectable;
 mod module;
 mod pipe;
 mod routes;
+mod routes_metadata;
 mod routes_openapi;
 mod utils;
 
