@@ -1,11 +1,13 @@
 use std::convert::Infallible;
 
-use axum::{body::to_bytes, response::IntoResponse};
+use axum::{Router, body::to_bytes, response::IntoResponse, routing::post};
 use http::StatusCode;
-use nidus_validation::{Pipe, ValidationPipe};
+use nidus_validation::{Pipe, ValidatedJson, ValidationPipe};
+use serde::Deserialize;
+use tower::ServiceExt;
 use validator::Validate;
 
-#[derive(Debug, Validate)]
+#[derive(Debug, Deserialize, Validate)]
 struct CreateUser {
     #[validate(email)]
     email: String,
@@ -107,4 +109,56 @@ fn validation_pipe_implements_typed_pipe_trait() {
         <ValidationPipe as Pipe<CreateUser>>::transform(&ValidationPipe::new(), input).unwrap();
 
     assert_eq!(output.email, "user@nidus.dev");
+}
+
+#[tokio::test]
+async fn validated_json_extractor_accepts_valid_bodies() {
+    async fn create_user(ValidatedJson(input): ValidatedJson<CreateUser>) -> String {
+        input.email
+    }
+
+    let app = Router::new().route("/users", post(create_user));
+    let response = app
+        .oneshot(
+            http::Request::builder()
+                .method(http::Method::POST)
+                .uri("/users")
+                .header(http::header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(r#"{"email":"user@nidus.dev"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(&body[..], b"user@nidus.dev");
+}
+
+#[tokio::test]
+async fn validated_json_extractor_rejects_invalid_bodies_with_validation_response() {
+    async fn create_user(ValidatedJson(input): ValidatedJson<CreateUser>) -> String {
+        input.email
+    }
+
+    let app = Router::new().route("/users", post(create_user));
+    let response = app
+        .oneshot(
+            http::Request::builder()
+                .method(http::Method::POST)
+                .uri("/users")
+                .header(http::header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(r#"{"email":"not-an-email"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(json["error"]["code"], "validation_failed");
+    assert_eq!(json["error"]["fields"][0]["field"], "email");
 }

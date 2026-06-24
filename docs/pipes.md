@@ -36,3 +36,12 @@ for field in error.field_errors() {
 HTTP 422 with a stable `validation_failed` code and deterministic field-level
 error details, so route handlers can return `Result<T, ValidationPipeError>`
 when the framework JSON shape is acceptable.
+
+For JSON request bodies, use `ValidatedJson<T>` to deserialize with Axum and
+validate with `ValidationPipe` before the handler runs:
+
+```rust
+async fn create(ValidatedJson(input): ValidatedJson<CreateUser>) -> Json<UserDto> {
+    Json(create_user(input))
+}
+```

@@ -1,8 +1,14 @@
 //! Validation pipe support.
 
-use axum::{Json, response::IntoResponse};
+use std::ops::{Deref, DerefMut};
+
+use axum::{
+    Json,
+    extract::{FromRequest, Request, rejection::JsonRejection},
+    response::IntoResponse,
+};
 use http::StatusCode;
-use serde::Serialize;
+use serde::{Serialize, de::DeserializeOwned};
 use validator::Validate;
 
 /// Typed request transformation or validation pipe.
@@ -46,6 +52,73 @@ where
 
     fn transform(&self, input: T) -> std::result::Result<Self::Output, Self::Error> {
         ValidationPipe::transform(self, input)
+    }
+}
+
+/// Axum extractor that deserializes a JSON body and validates it with [`ValidationPipe`].
+///
+/// JSON parsing errors keep Axum's normal JSON rejection response. Values that
+/// parse successfully but fail validation return Nidus's stable validation
+/// error response.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ValidatedJson<T>(pub T);
+
+impl<T> ValidatedJson<T> {
+    /// Consumes the extractor and returns the validated value.
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
+impl<T> Deref for ValidatedJson<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> DerefMut for ValidatedJson<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<S, T> FromRequest<S> for ValidatedJson<T>
+where
+    S: Send + Sync,
+    T: DeserializeOwned + Validate,
+{
+    type Rejection = ValidatedJsonRejection;
+
+    async fn from_request(req: Request, state: &S) -> std::result::Result<Self, Self::Rejection> {
+        let Json(value) = Json::<T>::from_request(req, state)
+            .await
+            .map_err(ValidatedJsonRejection::Json)?;
+        let value = ValidationPipe::new()
+            .transform(value)
+            .map_err(ValidatedJsonRejection::Validation)?;
+        Ok(Self(value))
+    }
+}
+
+/// Rejection emitted by [`ValidatedJson`].
+#[derive(Debug, thiserror::Error)]
+pub enum ValidatedJsonRejection {
+    /// The request body was not valid JSON for the target type.
+    #[error(transparent)]
+    Json(#[from] JsonRejection),
+    /// The parsed JSON failed validation.
+    #[error(transparent)]
+    Validation(#[from] ValidationPipeError),
+}
+
+impl IntoResponse for ValidatedJsonRejection {
+    fn into_response(self) -> axum::response::Response {
+        match self {
+            Self::Json(error) => error.into_response(),
+            Self::Validation(error) => error.into_response(),
+        }
     }
 }
 

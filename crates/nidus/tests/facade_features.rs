@@ -6,6 +6,8 @@ fn prelude_exports_optional_feature_crates() {
     let _error = HttpError::bad_request("invalid request");
     let _document = OpenApiDocument::new("Nidus API", "0.1.0");
     let _validation = ValidationPipe::new();
+    let _validated_json = ValidatedJson("ok");
+    let _validated_json_rejection: Option<ValidatedJsonRejection> = None;
     let _context = GuardContext::new((), "/health");
     let _and_guard: Option<AndGuard<(), ()>> = None;
     let _or_guard: Option<OrGuard<(), ()>> = None;
@@ -36,6 +38,7 @@ fn facade_exports_optional_feature_modules() {
     let _error = nidus::http::error::HttpError::bad_request("invalid request");
     let _document = nidus::openapi::OpenApiDocument::new("Nidus API", "0.1.0");
     let _validation = nidus::validation::ValidationPipe::new();
+    let _validated_json = nidus::validation::ValidatedJson("ok");
     let _context = nidus::auth::GuardContext::new((), "/health");
     let _pool_options = nidus::sqlx::postgres::PgPoolOptions::new();
     let jobs = nidus::jobs::JobQueue::new();
