@@ -15,7 +15,12 @@ pub use nidus_http::{
     HeaderMap, IntoResponse, Json, Path, Query, Response, State, StatusCode,
     controller::Controller,
     error::{HttpError, RoutePathError},
-    middleware::{RequestScopeLayer, RequestScopeService, request_scope_layer},
+    middleware::{
+        HttpMetricsHook, MetricsLayer, MetricsService, RequestIdLayer, RequestIdService,
+        RequestScopeLayer, RequestScopeService, RouteMakeSpan, compression_layer, cors_layer,
+        metrics_layer, rate_limit_layer, request_id_layer, request_scope_layer,
+        route_metrics_layer, route_trace_layer, timeout_layer, trace_layer,
+    },
     request::{RequestScopeRejection, RequestScoped},
     router::{RouteDefinition, RouteMetadata},
     server::{ApplicationHttpExt, HttpApplication},

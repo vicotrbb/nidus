@@ -1,5 +1,21 @@
 use nidus::prelude::*;
 
+#[derive(Clone)]
+struct NoopMetrics;
+
+impl HttpMetricsHook for NoopMetrics {
+    fn on_request(&self, _method: &axum::http::Method, _route: Option<&str>) {}
+
+    fn on_response(
+        &self,
+        _method: &axum::http::Method,
+        _route: Option<&str>,
+        _status: StatusCode,
+        _latency: std::time::Duration,
+    ) {
+    }
+}
+
 #[test]
 fn prelude_exports_optional_feature_crates() {
     let _config = Config::new();
@@ -33,6 +49,19 @@ fn prelude_exports_optional_feature_crates() {
     let _scope_service: Option<RequestScopeService<()>> = None;
     let _request_scoped: Option<RequestScoped<String>> = None;
     let _request_scope_rejection: Option<RequestScopeRejection> = None;
+    let _request_id_layer: RequestIdLayer = request_id_layer();
+    let _request_id_service: Option<RequestIdService<()>> = None;
+    let _timeout_layer = timeout_layer(std::time::Duration::from_secs(1));
+    let _rate_limit_layer = rate_limit_layer(10, std::time::Duration::from_secs(60));
+    let _cors_layer = cors_layer();
+    let _compression_layer = compression_layer();
+    let _trace_layer = trace_layer();
+    let _route_trace_layer = route_trace_layer("/health");
+    let _route_make_span = RouteMakeSpan::new("/health");
+    let _metrics_layer: MetricsLayer<NoopMetrics> = metrics_layer(NoopMetrics);
+    let _route_metrics_layer: MetricsLayer<NoopMetrics> =
+        route_metrics_layer("/health", NoopMetrics);
+    let _metrics_service: Option<MetricsService<(), NoopMetrics>> = None;
 
     jobs.run_all();
     events.subscribe();
