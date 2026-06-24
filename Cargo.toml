@@ -57,6 +57,7 @@ nidus-auth = { path = "crates/nidus-auth" }
 nidus-core = { path = "crates/nidus-core" }
 nidus-http = { path = "crates/nidus-http" }
 nidus-validation = { path = "crates/nidus-validation" }
+serde.workspace = true
 tokio.workspace = true
 tower.workspace = true
 validator.workspace = true

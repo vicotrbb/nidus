@@ -1,13 +1,20 @@
-use axum::{Router, body::Body, http::Request, routing::get};
+use axum::{
+    Router,
+    body::Body,
+    http::{Method, Request, header::CONTENT_TYPE},
+    routing::{get, post},
+};
 use criterion::{Criterion, criterion_group, criterion_main};
-use nidus_auth::{Guard, GuardContext, GuardError};
+use nidus_auth::{Guard, GuardContext, GuardError, guard_layer};
 use nidus_core::{Container, Inject};
 use nidus_http::{controller::Controller, router::RouteDefinition};
-use nidus_validation::ValidationPipe;
+use nidus_validation::ValidatedJson;
+use serde::Deserialize;
 use std::hint::black_box;
 use tower::ServiceExt;
 use validator::Validate;
 
+#[derive(Clone)]
 struct AllowGuard;
 
 #[async_trait::async_trait]
@@ -35,7 +42,7 @@ impl UsersController {
     }
 }
 
-#[derive(Validate)]
+#[derive(Deserialize, Validate)]
 struct CreateUserDto {
     #[validate(email)]
     email: String,
@@ -53,6 +60,19 @@ fn request_lifecycle_setup(c: &mut Criterion) {
     let service_router = Controller::new("/users")
         .route(controller.route())
         .into_router();
+    let guarded_router = Controller::new("/")
+        .route(RouteDefinition::get("/guarded", || async { "guarded" }))
+        .into_router()
+        .layer(guard_layer((), "/guarded", AllowGuard));
+    let validation_router = Router::new().route(
+        "/users",
+        post(
+            |ValidatedJson(input): ValidatedJson<CreateUserDto>| async move {
+                black_box(input.email);
+                "created"
+            },
+        ),
+    );
 
     c.bench_function("raw axum baseline request", |b| {
         b.iter(|| {
@@ -87,18 +107,23 @@ fn request_lifecycle_setup(c: &mut Criterion) {
 
     c.bench_function("nidus guarded route", |b| {
         b.iter(|| {
-            runtime
-                .block_on(AllowGuard.check(GuardContext::new((), "/users/{id}")))
+            let response = runtime
+                .block_on(guarded_router.clone().oneshot(get_request("/guarded")))
                 .unwrap();
+            black_box(response.status());
         });
     });
 
     c.bench_function("nidus validation route", |b| {
         b.iter(|| {
-            let input = CreateUserDto {
-                email: "user@example.com".to_owned(),
-            };
-            black_box(ValidationPipe::new().transform(input).unwrap());
+            let response = runtime
+                .block_on(
+                    validation_router
+                        .clone()
+                        .oneshot(json_request("/users", r#"{"email":"user@example.com"}"#)),
+                )
+                .unwrap();
+            black_box(response.status());
         });
     });
 }
@@ -107,6 +132,15 @@ fn get_request(path: &'static str) -> Request<Body> {
     Request::builder()
         .uri(path)
         .body(Body::empty())
+        .expect("benchmark request should be valid")
+}
+
+fn json_request(path: &'static str, body: &'static str) -> Request<Body> {
+    Request::builder()
+        .method(Method::POST)
+        .uri(path)
+        .header(CONTENT_TYPE, "application/json")
+        .body(Body::from(body))
         .expect("benchmark request should be valid")
 }
 

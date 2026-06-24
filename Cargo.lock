@@ -1364,6 +1364,7 @@ dependencies = [
  "nidus-core",
  "nidus-http",
  "nidus-validation",
+ "serde",
  "tokio",
  "tower",
  "validator",
