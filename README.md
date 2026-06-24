@@ -62,9 +62,9 @@ Nidus is under active implementation. The current repository is a working founda
 ## Roadmap
 
 - Expand macro code generation from validation-only attributes into explicit registration code.
-- Add richer module graph provider validation.
 - Continue hardening SQLx, jobs, and modular monolith examples into production-shaped applications.
-- Measure and publish overhead against raw Axum baselines.
+- Publish benchmark result tables for the existing raw Axum and Nidus overhead baselines.
+- Keep broadening compile-fail and CLI regression coverage as the public API settles.
 
 ## Contributing
 
