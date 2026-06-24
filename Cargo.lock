@@ -1289,6 +1289,8 @@ dependencies = [
  "tower",
  "tower-http",
  "tracing",
+ "tracing-core",
+ "tracing-subscriber",
 ]
 
 [[package]]

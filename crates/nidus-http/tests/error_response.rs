@@ -1,6 +1,49 @@
 use axum::{body::to_bytes, response::IntoResponse};
 use http::StatusCode;
 use nidus_http::error::HttpError;
+use std::sync::{Arc, Mutex};
+use tracing::Level;
+use tracing_subscriber::{Layer, fmt::MakeWriter, layer::SubscriberExt};
+
+#[derive(Clone, Default)]
+struct SharedLogWriter {
+    output: Arc<Mutex<Vec<u8>>>,
+}
+
+impl SharedLogWriter {
+    fn clear(&self) {
+        self.output.lock().unwrap().clear();
+    }
+
+    fn contents(&self) -> String {
+        String::from_utf8(self.output.lock().unwrap().clone()).unwrap()
+    }
+}
+
+impl<'writer> MakeWriter<'writer> for SharedLogWriter {
+    type Writer = SharedLogGuard;
+
+    fn make_writer(&'writer self) -> Self::Writer {
+        SharedLogGuard {
+            output: Arc::clone(&self.output),
+        }
+    }
+}
+
+struct SharedLogGuard {
+    output: Arc<Mutex<Vec<u8>>>,
+}
+
+impl std::io::Write for SharedLogGuard {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.output.lock().unwrap().extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
 
 #[tokio::test]
 async fn http_error_maps_to_json_response() {
@@ -85,6 +128,41 @@ async fn http_error_can_wrap_internal_failures_without_leaking_details() {
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
     assert_eq!(json["error"]["code"], "internal_server_error");
     assert_eq!(json["error"]["message"], "internal server error");
+}
+
+#[test]
+fn http_error_emits_structured_tracing_event() {
+    let writer = SharedLogWriter::default();
+    let subscriber = tracing_subscriber::registry().with(
+        tracing_subscriber::fmt::layer()
+            .with_writer(writer.clone())
+            .with_ansi(false)
+            .with_target(false)
+            .with_filter(tracing_subscriber::filter::LevelFilter::from_level(
+                Level::WARN,
+            )),
+    );
+
+    tracing::subscriber::with_default(subscriber, || {
+        for _ in 0..16 {
+            writer.clear();
+            tracing_core::callsite::rebuild_interest_cache();
+            let _response = HttpError::too_many_requests("slow down").into_response();
+            let logs = writer.contents();
+            if logs.contains("http error response")
+                && logs.contains("http.status=429")
+                && logs.contains("error.code=\"too_many_requests\"")
+            {
+                return;
+            }
+            std::thread::yield_now();
+        }
+    });
+
+    let logs = writer.contents();
+    assert!(logs.contains("http error response"), "{logs}");
+    assert!(logs.contains("http.status=429"), "{logs}");
+    assert!(logs.contains("error.code=\"too_many_requests\""), "{logs}");
 }
 
 #[allow(dead_code)]

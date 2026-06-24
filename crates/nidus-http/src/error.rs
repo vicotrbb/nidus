@@ -90,11 +90,27 @@ impl HttpError {
 impl IntoResponse for HttpError {
     fn into_response(self) -> axum::response::Response {
         let status = self.status;
+        let code = self.code;
+        let message = self.message;
+
+        if status.is_server_error() {
+            tracing::error!(
+                http.status = status.as_u16(),
+                error.code = code,
+                error.message = %message,
+                "http error response"
+            );
+        } else {
+            tracing::warn!(
+                http.status = status.as_u16(),
+                error.code = code,
+                error.message = %message,
+                "http error response"
+            );
+        }
+
         let body = Json(ErrorBody {
-            error: ErrorDetails {
-                code: self.code,
-                message: self.message,
-            },
+            error: ErrorDetails { code, message },
         });
         (status, body).into_response()
     }
