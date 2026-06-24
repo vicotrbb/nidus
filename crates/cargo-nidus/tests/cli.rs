@@ -554,6 +554,39 @@ fn cargo_nidus_routes_rejects_duplicate_route_methods() {
 }
 
 #[test]
+fn cargo_nidus_routes_and_openapi_reject_duplicate_route_declarations() {
+    let root = temp_project_root("routes_and_openapi_reject_duplicate_route_declarations");
+    for controller in ["users", "accounts"] {
+        let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+            .args(["nidus", "generate", "controller", controller, "--path"])
+            .arg(&root)
+            .status()
+            .unwrap();
+        assert!(status.success());
+    }
+    let accounts_path = root.join("src/controllers/accounts.rs");
+    let accounts = fs::read_to_string(&accounts_path)
+        .unwrap()
+        .replace("#[controller(\"/accounts\")]", "#[controller(\"/users\")]");
+    fs::write(accounts_path, accounts).unwrap();
+
+    for command in ["routes", "openapi"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+            .args(["nidus", command, "--path"])
+            .arg(&root)
+            .output()
+            .unwrap();
+
+        assert!(
+            !output.status.success(),
+            "{command} should reject duplicate route"
+        );
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(stderr.contains("duplicate route declaration for GET /users"));
+    }
+}
+
+#[test]
 fn cargo_nidus_graph_prints_module_builder_metadata() {
     let root = temp_project_root("graph_prints_module_builder_metadata");
     let modules = root.join("src/modules");

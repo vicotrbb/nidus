@@ -1,4 +1,8 @@
-use std::{collections::HashMap, fs, path::Path};
+use std::{
+    collections::{BTreeSet, HashMap},
+    fs,
+    path::Path,
+};
 
 use anyhow::{Context, Result, bail};
 use syn::{Attribute, ImplItem, Item, ItemImpl, ItemStruct, LitStr, Meta, PathArguments, Type};
@@ -71,7 +75,22 @@ pub(crate) fn discover_routes(root: &Path) -> Result<Vec<DiscoveredRoute>> {
         routes.extend(discover_controller_routes(&file)?);
     }
     sort_discovered_routes(&mut routes);
+    reject_duplicate_routes(&routes)?;
     Ok(routes)
+}
+
+fn reject_duplicate_routes(routes: &[DiscoveredRoute]) -> Result<()> {
+    let mut seen = BTreeSet::new();
+    for route in routes {
+        if !seen.insert((route.method.as_str(), route.path.as_str())) {
+            bail!(
+                "duplicate route declaration for {} {}",
+                route.method.to_uppercase(),
+                route.path
+            );
+        }
+    }
+    Ok(())
 }
 
 fn discover_controller_routes(file: &syn::File) -> Result<Vec<DiscoveredRoute>> {
