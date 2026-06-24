@@ -166,7 +166,7 @@ async fn lifecycle_runner_starts_in_order_and_shuts_down_in_reverse_order() {
     );
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn lifecycle_runner_emits_startup_and_shutdown_debug_logs() {
     let writer = SharedLogWriter::default();
     let subscriber = tracing_subscriber::registry().with(
@@ -227,7 +227,7 @@ async fn lifecycle_runner_rolls_back_started_hooks_when_startup_fails() {
     );
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn lifecycle_runner_emits_failure_and_rollback_logs() {
     let writer = SharedLogWriter::default();
     let subscriber = tracing_subscriber::registry().with(
