@@ -3,6 +3,8 @@ use nidus_http::{StatusCode, error::RoutePathError};
 use serde_json::{Value, json};
 use utoipa::ToSchema;
 
+use crate::path::{openapi_path, openapi_path_parameters, operation_id};
+
 /// OpenAPI route metadata.
 #[derive(Clone, Debug)]
 pub struct OpenApiRoute {
@@ -263,73 +265,5 @@ impl OpenApiRoute {
         let path = openapi_path(&path)?;
         let path_parameters = openapi_path_parameters(&path);
         Ok(Self::new(method, path, path_parameters))
-    }
-}
-
-fn openapi_path(path: &str) -> Result<String, RoutePathError> {
-    let mut segments = Vec::new();
-    for segment in path.split('/') {
-        if segment == ":" {
-            return Err(RoutePathError::empty_parameter(path));
-        }
-        if let Some(name) = segment.strip_prefix(':') {
-            segments.push(format!("{{{name}}}"));
-        } else {
-            segments.push(segment.to_owned());
-        }
-    }
-    Ok(segments.join("/"))
-}
-
-fn openapi_path_parameters(path: &str) -> Vec<String> {
-    path.split('/')
-        .filter_map(|segment| {
-            let name = segment.strip_prefix('{')?.strip_suffix('}')?;
-            (!name.is_empty()).then(|| name.to_owned())
-        })
-        .collect()
-}
-
-fn operation_id(method: &str, path: &str) -> String {
-    let mut parts = vec![method.to_owned()];
-    for segment in path.split('/') {
-        if segment.is_empty() {
-            continue;
-        }
-        if let Some(name) = segment
-            .strip_prefix('{')
-            .and_then(|value| value.strip_suffix('}'))
-        {
-            parts.push("by".to_owned());
-            parts.push(identifier_segment(name));
-        } else {
-            parts.push(identifier_segment(segment));
-        }
-    }
-    if parts.len() == 1 {
-        parts.push("root".to_owned());
-    }
-    parts.join("_")
-}
-
-fn identifier_segment(segment: &str) -> String {
-    let mut output = String::new();
-    let mut previous_was_separator = true;
-    for character in segment.chars() {
-        if character.is_ascii_alphanumeric() {
-            output.push(character.to_ascii_lowercase());
-            previous_was_separator = false;
-        } else if !previous_was_separator {
-            output.push('_');
-            previous_was_separator = true;
-        }
-    }
-    if output.ends_with('_') {
-        output.pop();
-    }
-    if output.is_empty() {
-        "value".to_owned()
-    } else {
-        output
     }
 }

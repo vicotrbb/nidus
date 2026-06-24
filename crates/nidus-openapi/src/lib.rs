@@ -2,6 +2,7 @@
 
 mod document;
 mod html;
+mod path;
 mod route;
 
 pub use document::{OpenApiDocument, OpenApiDocumentError};
