@@ -1,10 +1,13 @@
 use nidus::prelude::*;
 
+#[derive(utoipa::ToSchema)]
 #[controller("/users")]
 struct UsersController;
 struct AuthGuard;
 struct ValidationPipe;
+#[derive(utoipa::ToSchema)]
 struct CreateUserDto;
+#[derive(utoipa::ToSchema)]
 struct UserDto;
 
 #[async_trait::async_trait]
@@ -46,6 +49,24 @@ fn main() {
     assert_eq!(routes[0].guards(), ["AuthGuard"]);
     assert_eq!(routes[0].pipes(), ["ValidationPipe"]);
     assert!(!routes[0].validates());
+    assert!(routes[0].request_schema_registrar().is_some());
+    let mut route_request_schemas = Vec::<(String, serde_json::Value)>::new();
+    let Some(register_request_schema) = routes[0].request_schema_registrar() else {
+        panic!("expected request schema registrar for route");
+    };
+    register_request_schema(&mut route_request_schemas);
+    assert!(
+        route_request_schemas
+            .iter()
+            .any(|(name, _)| name.as_str() == "CreateUserDto")
+    );
+    assert!(routes[0].response_schema_registrar().is_some());
+    let mut route_response_schemas = Vec::<(String, serde_json::Value)>::new();
+    let Some(register_response_schema) = routes[0].response_schema_registrar() else {
+        panic!("expected response schema registrar for route");
+    };
+    register_response_schema(&mut route_response_schemas);
+    assert!(route_response_schemas.iter().any(|(name, _)| name.as_str() == "UserDto"));
     assert_eq!(routes[1].method(), "POST");
     assert_eq!(routes[1].path(), "/");
     assert_eq!(routes[1].summary(), None);

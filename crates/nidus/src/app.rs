@@ -147,7 +147,8 @@ where
                             .try_controller_routes(controller.prefix(), &routes)
                             .map_err(|error| NidusError::ApplicationBuild {
                                 message: error.to_string(),
-                            })?,
+                            })?
+                            .schemas_from_route_metadata(&routes),
                     );
                 }
 

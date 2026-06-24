@@ -62,8 +62,7 @@ fn document() -> OpenApiDocument {
         UsersController::controller_prefix(),
         &UsersController::routes(),
     )
-    .schema::<CreateUserDto>()
-    .schema::<UserDto>()
+    .schemas_from_route_metadata(&UsersController::routes())
 }
 
 fn app() -> Router {

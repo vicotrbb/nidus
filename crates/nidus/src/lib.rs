@@ -15,6 +15,35 @@ pub use nidus_macros::*;
 
 pub use app::{NidusApplicationBuilder, NidusApplicationExt};
 
+/// Registers an OpenAPI schema and nested schemas into the provided schema registry.
+#[doc(hidden)]
+pub fn register_openapi_schema<T>(schemas: &mut Vec<(String, serde_json::Value)>)
+where
+    T: utoipa::ToSchema,
+{
+    let mut openapi_schemas: Vec<(
+        String,
+        utoipa::openapi::RefOr<utoipa::openapi::schema::Schema>,
+    )> = vec![(
+        T::name().to_string(),
+        <T as utoipa::PartialSchema>::schema(),
+    )];
+    <T as utoipa::ToSchema>::schemas(&mut openapi_schemas);
+
+    schemas.extend(
+        openapi_schemas
+            .into_iter()
+            .map(|(name, schema)| {
+                (
+                    name,
+                    serde_json::to_value(schema)
+                        .expect("utoipa schema serialization should not fail"),
+                )
+            })
+            .collect::<Vec<_>>(),
+    );
+}
+
 #[cfg(feature = "auth")]
 pub use nidus_auth as auth;
 #[cfg(feature = "config")]

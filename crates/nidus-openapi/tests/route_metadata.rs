@@ -56,6 +56,102 @@ fn openapi_document_can_be_generated_from_route_metadata() {
 }
 
 #[test]
+fn openapi_document_registers_schemas_from_route_metadata() {
+    let routes = [RouteMetadata::with_openapi_annotations(
+        "POST",
+        "/users",
+        Some("Create user"),
+        &["users"],
+        &[],
+        &[],
+        true,
+    )
+    .with_openapi_schemas(Some("CreateUserDto"), Some("UserDto"))
+    .with_openapi_schema_registrars(
+        Some(register_schema::<CreateUserDto>),
+        Some(register_schema::<UserDto>),
+    )];
+
+    let document = OpenApiDocument::from_route_metadata("Nidus API", "0.1.0", &routes)
+        .schemas_from_route_metadata(&routes);
+
+    let json = document.to_json_value();
+    assert_eq!(
+        json["paths"]["/users"]["post"]["requestBody"]["content"]["application/json"]["schema"]["$ref"],
+        "#/components/schemas/CreateUserDto"
+    );
+    assert_eq!(
+        json["paths"]["/users"]["post"]["responses"]["200"]["content"]["application/json"]["schema"]
+            ["$ref"],
+        "#/components/schemas/UserDto"
+    );
+    assert!(json["components"]["schemas"]["CreateUserDto"].is_object());
+    assert!(json["components"]["schemas"]["UserDto"].is_object());
+}
+
+#[test]
+fn openapi_document_dedupes_route_schemas() {
+    let routes = [
+        RouteMetadata::with_openapi_annotations(
+            "GET",
+            "/users/:id",
+            Some("Find one"),
+            &["users"],
+            &[],
+            &[],
+            true,
+        )
+        .with_openapi_schemas(Some("UserDto"), Some("UserDto"))
+        .with_openapi_schema_registrars(
+            Some(register_schema::<UserDto>),
+            Some(register_schema::<UserDto>),
+        ),
+        RouteMetadata::with_openapi_annotations(
+            "POST",
+            "/users",
+            Some("Create one"),
+            &["users"],
+            &[],
+            &[],
+            true,
+        )
+        .with_openapi_schemas(None, Some("UserDto"))
+        .with_openapi_schema_registrars(None, Some(register_schema::<UserDto>)),
+    ];
+
+    let document = OpenApiDocument::from_route_metadata("Nidus API", "0.1.0", &routes)
+        .schema::<UserDto>()
+        .schemas_from_route_metadata(&routes);
+
+    let json = document.to_json_value();
+    let schemas = json["components"]["schemas"]
+        .as_object()
+        .expect("components.schemas should be an object");
+    assert_eq!(schemas.len(), 1);
+    assert!(schemas.contains_key("UserDto"));
+}
+
+fn register_schema<T: utoipa::ToSchema>(schemas: &mut Vec<(String, serde_json::Value)>) {
+    let mut entries = vec![(
+        T::name().to_string(),
+        <T as utoipa::PartialSchema>::schema(),
+    )];
+    <T as utoipa::ToSchema>::schemas(&mut entries);
+    schemas.extend(
+        entries
+            .into_iter()
+            .map(|(name, schema)| {
+                (
+                    name,
+                    serde_json::to_value(schema)
+                        .expect("utoipa schema serialization should not fail"),
+                )
+            })
+            .collect::<Vec<_>>(),
+    );
+}
+
+#[test]
 fn openapi_document_uses_schema_refs_from_route_metadata() {
     let routes = [RouteMetadata::with_openapi_annotations(
         "POST",

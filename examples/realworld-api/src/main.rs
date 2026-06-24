@@ -10,14 +10,7 @@ mod users;
 
 use nidus::prelude::{HttpApplication, Nidus, NidusApplicationExt};
 
-use crate::{
-    config::AppConfig,
-    health::HealthDto,
-    modules::AppModule,
-    projects::{CreateProjectDto, ProjectDto},
-    tasks::{CreateTaskDto, TaskDto},
-    users::{CreateUserDto, UserDto},
-};
+use crate::{config::AppConfig, modules::AppModule};
 
 #[nidus::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -34,13 +27,6 @@ async fn app(config: AppConfig) -> nidus::prelude::Result<HttpApplication> {
     Nidus::create::<AppModule>()
         .with_singleton(config)?
         .with_openapi("Nidus Real-World Team Tasks API", "0.1.0")
-        .with_schema::<HealthDto>()
-        .with_schema::<CreateUserDto>()
-        .with_schema::<UserDto>()
-        .with_schema::<CreateProjectDto>()
-        .with_schema::<ProjectDto>()
-        .with_schema::<CreateTaskDto>()
-        .with_schema::<TaskDto>()
         .with_tracing()
         .build()
         .await
@@ -326,6 +312,11 @@ mod tests {
             "#/components/schemas/CreateProjectDto"
         );
         assert!(body["components"]["schemas"]["TaskDto"].is_object());
+        assert!(body["components"]["schemas"]["CreateTaskDto"].is_object());
+        assert!(body["components"]["schemas"]["UserDto"].is_object());
+        assert!(body["components"]["schemas"]["CreateUserDto"].is_object());
+        assert!(body["components"]["schemas"]["ProjectDto"].is_object());
+        assert!(body["components"]["schemas"]["HealthDto"].is_object());
 
         let docs = app.get("/docs").send().await;
         docs.assert_status(StatusCode::OK);

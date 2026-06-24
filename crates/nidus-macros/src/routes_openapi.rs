@@ -11,8 +11,8 @@ pub(crate) struct OpenApiMetadata {
     pub(crate) summary: LitStr,
     pub(crate) tags: Vec<LitStr>,
     pub(crate) response_status: Option<u16>,
-    pub(crate) request_schema: Option<LitStr>,
-    pub(crate) response_schema: Option<LitStr>,
+    pub(crate) request_schema: Option<syn::Path>,
+    pub(crate) response_schema: Option<syn::Path>,
 }
 
 pub(crate) fn openapi_metadata(function: &ImplItemFn) -> syn::Result<Option<OpenApiMetadata>> {
@@ -51,9 +51,9 @@ pub(crate) fn parse_openapi_metadata(attr: &syn::Attribute) -> syn::Result<OpenA
         } else if arg.path.is_ident("tags") {
             tags = tag_literals(arg)?;
         } else if arg.path.is_ident("request") {
-            request_schema = Some(schema_name(&arg.value, "request")?);
+            request_schema = Some(schema_path(&arg.value, "request")?);
         } else if arg.path.is_ident("response") {
-            response_schema = Some(schema_name(&arg.value, "response")?);
+            response_schema = Some(schema_path(&arg.value, "response")?);
         } else if arg.path.is_ident("status") {
             response_status = Some(response_status_code(&arg.value)?);
         } else {
@@ -143,14 +143,8 @@ fn tag_literals(arg: MetaNameValue) -> syn::Result<Vec<LitStr>> {
     Ok(tags)
 }
 
-fn schema_name(value: &Expr, name: &str) -> syn::Result<LitStr> {
+fn schema_path(value: &Expr, name: &str) -> syn::Result<syn::Path> {
     let Expr::Path(expr_path) = value else {
-        return Err(syn::Error::new_spanned(
-            value,
-            format!("#[openapi] {name} must be a type path"),
-        ));
-    };
-    let Some(segment) = expr_path.path.segments.last() else {
         return Err(syn::Error::new_spanned(
             value,
             format!("#[openapi] {name} must be a type path"),
@@ -167,10 +161,7 @@ fn schema_name(value: &Expr, name: &str) -> syn::Result<LitStr> {
             format!("#[openapi] {name} must be a type path"),
         ));
     }
-    Ok(LitStr::new(
-        &segment.ident.to_string(),
-        segment.ident.span(),
-    ))
+    Ok(expr_path.path.clone())
 }
 
 fn response_status_code(value: &Expr) -> syn::Result<u16> {

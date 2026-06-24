@@ -1214,6 +1214,8 @@ dependencies = [
  "nidus-openapi",
  "nidus-testing",
  "nidus-validation",
+ "serde",
+ "serde_json",
  "sqlx",
  "tokio",
  "tower",

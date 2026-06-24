@@ -8,7 +8,7 @@ use http::Method;
 
 use crate::error::RoutePathError;
 
-pub use metadata::RouteMetadata;
+pub use metadata::{OpenApiSchemaRegistrar, RouteMetadata};
 pub(crate) use path::join_paths;
 use path::normalize_path;
 

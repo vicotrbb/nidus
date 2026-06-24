@@ -57,14 +57,10 @@ fn expand_routes_impl(item: ItemImpl) -> TokenStream {
             ),
             None => quote!(::std::option::Option::None),
         };
-        let request_schema = match &route.request_schema {
-            Some(schema) => quote!(::std::option::Option::Some(#schema)),
-            None => quote!(::std::option::Option::None),
-        };
-        let response_schema = match &route.response_schema {
-            Some(schema) => quote!(::std::option::Option::Some(#schema)),
-            None => quote!(::std::option::Option::None),
-        };
+        let request_schema = schema_name(&route.request_schema);
+        let response_schema = schema_name(&route.response_schema);
+        let request_schema_registrar = schema_registrar(&route.request_schema);
+        let response_schema_registrar = schema_registrar(&route.response_schema);
         let guards = &route.guards;
         let pipes = &route.pipes;
         let validates = route.validates;
@@ -81,6 +77,10 @@ fn expand_routes_impl(item: ItemImpl) -> TokenStream {
             )
             .with_openapi_status(#response_status)
             .with_openapi_schemas(#request_schema, #response_schema)
+            .with_openapi_schema_registrars(
+                #request_schema_registrar,
+                #response_schema_registrar,
+            )
         }
     });
     let route_definitions = metadata.iter().map(|route| {
@@ -289,6 +289,30 @@ fn expand_routes_impl(item: ItemImpl) -> TokenStream {
 
         #controller_registrant
     }
+}
+
+fn schema_name(schema: &Option<syn::Path>) -> proc_macro2::TokenStream {
+    let Some(schema) = schema else {
+        return quote!(::std::option::Option::None);
+    };
+    let Some(segment) = schema.segments.last() else {
+        return quote!(::std::option::Option::None);
+    };
+    let name = syn::LitStr::new(&segment.ident.to_string(), segment.ident.span());
+    quote!(::std::option::Option::Some(#name))
+}
+
+fn schema_registrar(schema: &Option<syn::Path>) -> proc_macro2::TokenStream {
+    let Some(schema) = schema else {
+        return quote!(::std::option::Option::None);
+    };
+    quote!(
+        ::std::option::Option::Some(
+            |schemas| {
+                ::nidus::register_openapi_schema::<#schema>(schemas);
+            }
+        )
+    )
 }
 
 pub(crate) fn expand_route(name: &str, attr: TokenStream, item: TokenStream) -> TokenStream {
