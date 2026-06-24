@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 
-use crate::Result;
+use crate::{NidusError, Result};
 
 /// Application lifecycle hook.
 #[async_trait]
@@ -41,8 +41,23 @@ impl LifecycleRunner {
 
     /// Runs startup hooks in registration order.
     pub async fn startup(&self) -> Result<()> {
-        for hook in &self.hooks {
-            hook.on_startup().await?;
+        let mut started: Vec<usize> = Vec::new();
+
+        for (index, hook) in self.hooks.iter().enumerate() {
+            if let Err(source) = hook.on_startup().await {
+                let mut rollback_errors = Vec::new();
+                for started_index in started.into_iter().rev() {
+                    if let Err(error) = self.hooks[started_index].on_shutdown().await {
+                        rollback_errors.push(error);
+                    }
+                }
+
+                return Err(NidusError::LifecycleStartup {
+                    source: Box::new(source),
+                    rollback_errors,
+                });
+            }
+            started.push(index);
         }
         Ok(())
     }

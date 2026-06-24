@@ -55,3 +55,8 @@ let app = Nidus::bootstrap_with_modules_and_lifecycle::<AppModule, _>(
 )
 .await?;
 ```
+
+Lifecycle startup runs hooks in registration order. If a startup hook fails,
+Nidus shuts down already-started hooks in reverse order before returning a
+`LifecycleStartup` error that preserves the original failure and any rollback
+shutdown failures.

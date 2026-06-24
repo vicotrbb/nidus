@@ -118,4 +118,14 @@ pub enum NidusError {
         /// Imports exporting the same provider.
         imports: Vec<String>,
     },
+
+    /// A lifecycle startup hook failed after one or more hooks may have started.
+    #[error("lifecycle startup failed: {source}")]
+    LifecycleStartup {
+        /// Original startup failure.
+        #[source]
+        source: Box<NidusError>,
+        /// Shutdown failures encountered while rolling back already-started hooks.
+        rollback_errors: Vec<NidusError>,
+    },
 }

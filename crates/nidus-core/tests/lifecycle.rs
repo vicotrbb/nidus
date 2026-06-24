@@ -9,6 +9,18 @@ struct RecordingHook {
     events: Arc<Mutex<Vec<String>>>,
 }
 
+#[derive(Clone)]
+struct FailingStartupHook {
+    name: &'static str,
+    events: Arc<Mutex<Vec<String>>>,
+}
+
+#[derive(Clone)]
+struct FailingShutdownHook {
+    name: &'static str,
+    events: Arc<Mutex<Vec<String>>>,
+}
+
 #[async_trait]
 impl LifecycleHook for RecordingHook {
     async fn on_startup(&self) -> nidus_core::Result<()> {
@@ -25,6 +37,40 @@ impl LifecycleHook for RecordingHook {
             .unwrap()
             .push(format!("{}:shutdown", self.name));
         Ok(())
+    }
+}
+
+#[async_trait]
+impl LifecycleHook for FailingStartupHook {
+    async fn on_startup(&self) -> nidus_core::Result<()> {
+        self.events
+            .lock()
+            .unwrap()
+            .push(format!("{}:startup", self.name));
+        Err(NidusError::MissingProvider {
+            type_name: self.name,
+        })
+    }
+}
+
+#[async_trait]
+impl LifecycleHook for FailingShutdownHook {
+    async fn on_startup(&self) -> nidus_core::Result<()> {
+        self.events
+            .lock()
+            .unwrap()
+            .push(format!("{}:startup", self.name));
+        Ok(())
+    }
+
+    async fn on_shutdown(&self) -> nidus_core::Result<()> {
+        self.events
+            .lock()
+            .unwrap()
+            .push(format!("{}:shutdown", self.name));
+        Err(NidusError::DuplicateProvider {
+            type_name: self.name,
+        })
     }
 }
 
@@ -79,6 +125,70 @@ async fn lifecycle_runner_starts_in_order_and_shuts_down_in_reverse_order() {
             "server:shutdown",
             "database:shutdown"
         ]
+    );
+}
+
+#[tokio::test]
+async fn lifecycle_runner_rolls_back_started_hooks_when_startup_fails() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let runner = LifecycleRunner::new()
+        .hook(RecordingHook {
+            name: "database",
+            events: Arc::clone(&events),
+        })
+        .hook(FailingStartupHook {
+            name: "server",
+            events: Arc::clone(&events),
+        });
+
+    let error = runner.startup().await.unwrap_err();
+
+    let NidusError::LifecycleStartup {
+        source,
+        rollback_errors,
+    } = error
+    else {
+        panic!("expected lifecycle startup error");
+    };
+    assert!(matches!(*source, NidusError::MissingProvider { .. }));
+    assert!(rollback_errors.is_empty());
+    assert_eq!(
+        *events.lock().unwrap(),
+        ["database:startup", "server:startup", "database:shutdown"]
+    );
+}
+
+#[tokio::test]
+async fn lifecycle_runner_reports_rollback_errors() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let runner = LifecycleRunner::new()
+        .hook(FailingShutdownHook {
+            name: "cache",
+            events: Arc::clone(&events),
+        })
+        .hook(FailingStartupHook {
+            name: "server",
+            events: Arc::clone(&events),
+        });
+
+    let error = runner.startup().await.unwrap_err();
+
+    let NidusError::LifecycleStartup {
+        source,
+        rollback_errors,
+    } = error
+    else {
+        panic!("expected lifecycle startup error");
+    };
+    assert!(matches!(*source, NidusError::MissingProvider { .. }));
+    assert_eq!(rollback_errors.len(), 1);
+    assert!(matches!(
+        rollback_errors[0],
+        NidusError::DuplicateProvider { .. }
+    ));
+    assert_eq!(
+        *events.lock().unwrap(),
+        ["cache:startup", "server:startup", "cache:shutdown"]
     );
 }
 
