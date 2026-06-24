@@ -278,6 +278,38 @@ fn request_scope_optional_reuses_request_scoped_instances() {
 }
 
 #[test]
+fn request_scoped_factories_resolve_dependencies_through_same_scope() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut container = Container::new();
+    container
+        .register_request::<Database, _>({
+            let calls = Arc::clone(&calls);
+            move |_container| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                Ok(Database("request"))
+            }
+        })
+        .unwrap();
+    container
+        .register_request_scoped::<UsersRepository, _>(|scope| {
+            Ok(UsersRepository {
+                database: scope.inject::<Database>()?,
+            })
+        })
+        .unwrap();
+
+    let scope = container.request_scope();
+    let repository = scope.resolve::<UsersRepository>().unwrap();
+    let database = scope.resolve::<Database>().unwrap();
+
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert!(Arc::ptr_eq(
+        &repository.database.clone().into_inner(),
+        &database
+    ));
+}
+
+#[test]
 fn request_factories_require_explicit_request_scope() {
     let mut container = Container::new();
     container

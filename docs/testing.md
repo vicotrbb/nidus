@@ -89,6 +89,18 @@ let scope = app.request_scope();
 let context = scope.resolve::<RequestContext>()?;
 ```
 
+Use `request_scoped_provider()` when a request-lifetime test provider depends on
+another request-lifetime provider:
+
+```rust
+let app = TestApp::builder(router)
+    .request_provider::<RequestId, _>(|_container| Ok(RequestId::new()))?
+    .request_scoped_provider::<RequestContext, _>(|scope| {
+        Ok(RequestContext::new(scope.inject::<RequestId>()?))
+    })?
+    .build();
+```
+
 Lifecycle hooks can be started and shut down inside tests:
 
 ```rust

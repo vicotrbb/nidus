@@ -64,15 +64,21 @@ providers are opt-in and must be resolved through an explicit request scope
 because they add request path overhead:
 
 ```rust
-container.register_transient::<RequestId, _>(|_container| Ok(RequestId::new()))?;
-container.register_request::<RequestState, _>(|container| {
-    Ok(RequestState::new(container.inject::<RequestId>()?))
+container.register_transient::<CorrelationId, _>(|_container| Ok(CorrelationId::new()))?;
+container.register_request::<RequestId, _>(|_container| Ok(RequestId::new()))?;
+container.register_request_scoped::<RequestState, _>(|scope| {
+    Ok(RequestState::new(scope.inject::<RequestId>()?))
 })?;
 
 let scope = container.request_scope();
 let request_state = scope.resolve::<RequestState>()?;
 let scoped_state = scope.scoped::<RequestState>()?;
 ```
+
+Use `register_request_scoped` when a request-lifetime provider depends on
+another request-lifetime provider. The factory receives the active
+`RequestScope`, so nested request dependencies reuse the same per-request
+instances.
 
 Resolving a request-scoped provider through the root container returns a
 `RequestScopeRequired` error instead of silently behaving like a transient

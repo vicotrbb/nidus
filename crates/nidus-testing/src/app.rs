@@ -150,6 +150,17 @@ impl TestAppBuilder {
         Ok(self)
     }
 
+    /// Registers a request-lifetime provider factory that resolves dependencies
+    /// through the active request scope.
+    pub fn request_scoped_provider<T, F>(mut self, factory: F) -> Result<Self>
+    where
+        T: Send + Sync + 'static,
+        F: for<'scope> Fn(&RequestScope<'scope>) -> Result<T> + Send + Sync + 'static,
+    {
+        self.container.register_request_scoped::<T, F>(factory)?;
+        Ok(self)
+    }
+
     /// Overrides a provider in the test container.
     pub fn override_provider<T>(mut self, value: T) -> Result<Self>
     where

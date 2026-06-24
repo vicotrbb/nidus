@@ -90,6 +90,23 @@ impl Container {
         self.register_factory::<T, F>(ProviderLifetime::Request, factory)
     }
 
+    /// Registers a request-lifetime provider factory that resolves dependencies
+    /// through the active request scope.
+    pub fn register_request_scoped<T, F>(&mut self, factory: F) -> Result<()>
+    where
+        T: Send + Sync + 'static,
+        F: for<'scope> Fn(&RequestScope<'scope>) -> Result<T> + Send + Sync + 'static,
+    {
+        self.insert_request_scoped::<T>(
+            |_container| {
+                Err(NidusError::RequestScopeRequired {
+                    type_name: type_name::<T>(),
+                })
+            },
+            move |scope| factory(scope).map(|value| Arc::new(value) as Arc<dyn Any + Send + Sync>),
+        )
+    }
+
     /// Resolves a typed dependency reference.
     pub fn inject<T>(&self) -> Result<Inject<T>>
     where
@@ -150,6 +167,37 @@ impl Container {
         Ok(())
     }
 
+    fn insert_request_scoped<T>(
+        &mut self,
+        factory: impl Fn(&Container) -> Result<Arc<dyn Any + Send + Sync>> + Send + Sync + 'static,
+        request_factory: impl for<'scope> Fn(
+            &RequestScope<'scope>,
+        ) -> Result<Arc<dyn Any + Send + Sync>>
+        + Send
+        + Sync
+        + 'static,
+    ) -> Result<()>
+    where
+        T: Send + Sync + 'static,
+    {
+        let type_id = TypeId::of::<T>();
+        if self.providers.contains_key(&type_id) {
+            return Err(NidusError::DuplicateProvider {
+                type_name: type_name::<T>(),
+            });
+        }
+
+        self.providers.insert(
+            type_id,
+            ProviderEntry::new_request_scoped(
+                type_name::<T>(),
+                Arc::new(factory),
+                Arc::new(request_factory),
+            ),
+        );
+        Ok(())
+    }
+
     fn entry<T>(&self) -> Result<&ProviderEntry>
     where
         T: Send + Sync + 'static,
@@ -169,6 +217,10 @@ pub struct RequestScope<'a> {
 }
 
 impl RequestScope<'_> {
+    pub(crate) fn container(&self) -> &Container {
+        self.container
+    }
+
     /// Resolves a dependency in this request scope.
     pub fn resolve<T>(&self) -> Result<Arc<T>>
     where
@@ -187,7 +239,7 @@ impl RequestScope<'_> {
                 {
                     existing
                 } else {
-                    let instance = entry.resolve_erased(self.container)?;
+                    let instance = entry.resolve_erased_in_scope(self)?;
                     self.request_instances
                         .lock()
                         .expect("request scope mutex poisoned")

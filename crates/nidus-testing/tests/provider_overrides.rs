@@ -1,5 +1,5 @@
 use axum::Router;
-use nidus_core::{Module, ModuleBuilder, ModuleDefinition, NidusError};
+use nidus_core::{Inject, Module, ModuleBuilder, ModuleDefinition, NidusError};
 use nidus_testing::TestApp;
 use std::sync::{
     Arc,
@@ -8,6 +8,14 @@ use std::sync::{
 
 #[derive(Debug, PartialEq, Eq)]
 struct UsersRepository(&'static str);
+
+#[derive(Debug)]
+struct RequestUsersRepository {
+    request_id: Inject<RequestId>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct RequestId(usize);
 
 struct AppModule;
 
@@ -107,9 +115,6 @@ fn test_app_bootstrap_with_modules_validates_explicit_module_graph() {
 
 #[test]
 fn test_app_resolves_transient_providers_as_fresh_instances() {
-    #[derive(Debug, PartialEq, Eq)]
-    struct RequestId(usize);
-
     let calls = Arc::new(AtomicUsize::new(0));
     let app = TestApp::builder(Router::new())
         .transient_provider::<RequestId, _>({
@@ -129,9 +134,6 @@ fn test_app_resolves_transient_providers_as_fresh_instances() {
 
 #[test]
 fn test_app_resolves_request_providers_through_request_scope() {
-    #[derive(Debug, PartialEq, Eq)]
-    struct RequestId(usize);
-
     let calls = Arc::new(AtomicUsize::new(0));
     let app = TestApp::builder(Router::new())
         .request_provider::<RequestId, _>({
@@ -156,4 +158,32 @@ fn test_app_resolves_request_providers_through_request_scope() {
     assert!(!Arc::ptr_eq(&first, &second));
     assert_eq!(first.0, 0);
     assert_eq!(second.0, 1);
+}
+
+#[test]
+fn test_app_request_scoped_providers_resolve_dependencies_through_request_scope() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let app = TestApp::builder(Router::new())
+        .request_provider::<RequestId, _>({
+            let calls = Arc::clone(&calls);
+            move |_container| Ok(RequestId(calls.fetch_add(1, Ordering::SeqCst)))
+        })
+        .unwrap()
+        .request_scoped_provider::<RequestUsersRepository, _>(|scope| {
+            Ok(RequestUsersRepository {
+                request_id: scope.inject::<RequestId>()?,
+            })
+        })
+        .unwrap()
+        .build();
+
+    let scope = app.request_scope();
+    let repository = scope.resolve::<RequestUsersRepository>().unwrap();
+    let request_id = scope.resolve::<RequestId>().unwrap();
+
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert!(Arc::ptr_eq(
+        &repository.request_id.clone().into_inner(),
+        &request_id
+    ));
 }
