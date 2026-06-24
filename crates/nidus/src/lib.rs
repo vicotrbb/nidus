@@ -2,6 +2,7 @@
 
 //! Public facade crate for the Nidus framework.
 
+pub mod app;
 pub mod prelude;
 pub mod runtime {
     //! Tokio runtime types used by Nidus application entrypoint macros.
@@ -11,6 +12,8 @@ pub mod runtime {
 
 pub use nidus_core::*;
 pub use nidus_macros::*;
+
+pub use app::{NidusApplicationBuilder, NidusApplicationExt};
 
 #[cfg(feature = "auth")]
 pub use nidus_auth as auth;

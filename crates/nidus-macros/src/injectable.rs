@@ -36,6 +36,14 @@ fn expand_struct(item: ItemStruct, lifetime: InjectableLifetime) -> TokenStream 
                         #register_provider
                     }
                 }
+
+                impl #impl_generics ::nidus::prelude::ProviderRegistrant for #name #type_generics #where_clause {
+                    fn register_provider(
+                        container: &mut ::nidus::prelude::Container,
+                    ) -> ::nidus::prelude::Result<()> {
+                        Self::register_provider(container)
+                    }
+                }
             };
         }
         Fields::Unnamed(_) => {
@@ -75,6 +83,14 @@ fn expand_struct(item: ItemStruct, lifetime: InjectableLifetime) -> TokenStream 
                 container: &mut ::nidus::prelude::Container,
             ) -> ::nidus::prelude::Result<()> {
                 #register_provider
+            }
+        }
+
+        impl #impl_generics ::nidus::prelude::ProviderRegistrant for #name #type_generics #where_clause {
+            fn register_provider(
+                container: &mut ::nidus::prelude::Container,
+            ) -> ::nidus::prelude::Result<()> {
+                Self::register_provider(container)
             }
         }
     }

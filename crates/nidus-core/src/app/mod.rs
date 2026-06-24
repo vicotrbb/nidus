@@ -54,7 +54,7 @@ pub struct Nidus;
 impl Nidus {
     /// Bootstraps a Nidus application from a root module definition.
     pub fn bootstrap<M: Module>() -> Result<Application> {
-        let graph = ModuleGraph::from_modules([M::definition()])?;
+        let graph = ModuleGraph::from_root::<M>()?;
         Ok(Application::new(Container::new(), graph))
     }
 
@@ -64,8 +64,7 @@ impl Nidus {
         M: Module,
         I: IntoIterator<Item = ModuleDefinition>,
     {
-        let definitions = std::iter::once(M::definition()).chain(modules);
-        let graph = ModuleGraph::from_modules(definitions)?;
+        let graph = ModuleGraph::from_root_and_modules::<M, I>(modules)?;
         Ok(Application::new(Container::new(), graph))
     }
 
@@ -73,7 +72,7 @@ impl Nidus {
     pub async fn bootstrap_with_lifecycle<M: Module>(
         lifecycle: LifecycleRunner,
     ) -> Result<Application> {
-        let graph = ModuleGraph::from_modules([M::definition()])?;
+        let graph = ModuleGraph::from_root::<M>()?;
         lifecycle.startup().await?;
         Ok(Application::with_lifecycle(
             Container::new(),
@@ -91,8 +90,7 @@ impl Nidus {
         M: Module,
         I: IntoIterator<Item = ModuleDefinition>,
     {
-        let definitions = std::iter::once(M::definition()).chain(modules);
-        let graph = ModuleGraph::from_modules(definitions)?;
+        let graph = ModuleGraph::from_root_and_modules::<M, I>(modules)?;
         lifecycle.startup().await?;
         Ok(Application::with_lifecycle(
             Container::new(),

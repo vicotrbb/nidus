@@ -20,6 +20,7 @@ members = [
   "examples/openapi",
   "examples/background-jobs",
   "examples/modular-monolith",
+  "examples/realworld-api",
 ]
 resolver = "2"
 

@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use quote::{ToTokens, quote};
+use quote::quote;
 use syn::{
     Attribute, Generics, Ident, Path, Token, Visibility, braced, bracketed, parenthesized,
     parse::Parse, parse::ParseStream, parse2,
@@ -23,10 +23,10 @@ pub(crate) fn expand(attr: TokenStream, item: TokenStream) -> TokenStream {
             metadata.extend(item.metadata);
             let name = &item.ident;
             let module_name = name.to_string();
-            let imports = metadata.imports.iter().map(path_to_string);
-            let providers = metadata.providers.iter().map(path_to_string);
-            let controllers = metadata.controllers.iter().map(path_to_string);
-            let exports = metadata.exports.iter().map(path_to_string);
+            let imports = &metadata.imports;
+            let providers = &metadata.providers;
+            let controllers = &metadata.controllers;
+            let exports = &metadata.exports;
             let attrs = &item.attrs;
             let visibility = &item.visibility;
             let generics = &item.generics;
@@ -39,10 +39,10 @@ pub(crate) fn expand(attr: TokenStream, item: TokenStream) -> TokenStream {
                 impl #impl_generics ::nidus::prelude::Module for #name #type_generics #where_clause {
                     fn definition() -> ::nidus::prelude::ModuleDefinition {
                         ::nidus::prelude::ModuleBuilder::new(#module_name)
-                            #(.import(#imports))*
-                            #(.provider(#providers))*
-                            #(.controller(#controllers))*
-                            #(.export(#exports))*
+                            #(.import_typed::<#imports>())*
+                            #(.provider_typed::<#providers>())*
+                            #(.controller_typed::<#controllers>())*
+                            #(.export_typed::<#exports>())*
                             .build()
                     }
                 }
@@ -186,13 +186,6 @@ impl Parse for ModuleMetadata {
 
         Ok(metadata)
     }
-}
-
-fn path_to_string(path: &Path) -> String {
-    path.segments
-        .last()
-        .map(|segment| segment.ident.to_token_stream().to_string())
-        .unwrap_or_else(|| path.to_token_stream().to_string())
 }
 
 #[cfg(test)]

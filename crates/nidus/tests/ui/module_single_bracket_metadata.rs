@@ -1,8 +1,19 @@
 use nidus::prelude::*;
 
+#[module]
 struct DatabaseModule;
+
+#[injectable]
 struct UsersService;
+
+#[controller("/users")]
 struct UsersController;
+
+#[routes]
+impl UsersController {
+    #[get("/")]
+    async fn index(&self) {}
+}
 
 #[module]
 pub struct UsersModule {

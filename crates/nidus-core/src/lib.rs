@@ -15,5 +15,8 @@ pub use container::{
 };
 pub use error::{NidusError, Result};
 pub use lifecycle::{LifecycleHook, LifecycleRunner};
-pub use module::{Module, ModuleBuilder, ModuleDefinition, ModuleGraph};
+pub use module::{
+    AsyncProviderInitializer, ControllerDescriptor, ControllerRegistrant, Module, ModuleBuilder,
+    ModuleDefinition, ModuleDefinitionFactory, ModuleGraph, ProviderRegistrant, ProviderRegistrar,
+};
 pub use provider::{Provider, ProviderEntry, ProviderLifetime};

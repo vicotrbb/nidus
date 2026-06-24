@@ -7,6 +7,12 @@ struct DatabasePool {
     dsn: &'static str,
 }
 
+impl ProviderRegistrant for DatabasePool {
+    fn register_provider(_container: &mut Container) -> Result<()> {
+        Ok(())
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 struct UserProfile {
     id: i64,
@@ -55,7 +61,17 @@ impl UsersService {
 }
 
 #[controller("/users")]
-struct UsersController;
+struct UsersController {
+    service: Inject<UsersService>,
+}
+
+#[routes]
+impl UsersController {
+    #[get("/:id")]
+    async fn profile(&self, Path(id): Path<i64>) -> String {
+        self.service.profile(id).email
+    }
+}
 
 #[module]
 struct InfrastructureModule {
@@ -103,7 +119,6 @@ fn build_container() -> Result<Container> {
 }
 
 fn main() {
-    let _controller = UsersController;
     let graph = build_graph().unwrap();
     let users = graph.get("UsersModule").unwrap();
     println!(

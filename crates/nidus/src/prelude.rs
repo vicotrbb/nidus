@@ -1,9 +1,12 @@
 //! Common imports for Nidus applications.
 
+pub use crate::{NidusApplicationBuilder, NidusApplicationExt};
+
 pub use nidus_core::{
-    Application, Container, Factory, Inject, Lazy, Module, ModuleBuilder, ModuleDefinition,
+    Application, AsyncProviderInitializer, Container, ControllerDescriptor, ControllerRegistrant,
+    Factory, Inject, Lazy, Module, ModuleBuilder, ModuleDefinition, ModuleDefinitionFactory,
     ModuleGraph, Nidus, NidusError, Optional, Provider, ProviderEntry, ProviderLifetime,
-    RequestScope, Result, Scoped, SharedRequestScope,
+    ProviderRegistrant, ProviderRegistrar, RequestScope, Result, Scoped, SharedRequestScope,
 };
 pub use nidus_macros::{
     controller, delete, get, guard, injectable, module, openapi, patch, pipe, post, put, routes,

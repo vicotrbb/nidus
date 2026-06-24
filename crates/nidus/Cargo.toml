@@ -33,8 +33,10 @@ nidus-jobs = { path = "../nidus-jobs", version = "0.1.0", optional = true }
 nidus-testing = { path = "../nidus-testing", version = "0.1.0", optional = true }
 sqlx = { workspace = true, optional = true }
 tokio.workspace = true
+utoipa.workspace = true
 
 [dev-dependencies]
+async-trait.workspace = true
 axum.workspace = true
 tower.workspace = true
 trybuild.workspace = true

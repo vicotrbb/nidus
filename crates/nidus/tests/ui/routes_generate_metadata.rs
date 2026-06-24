@@ -7,6 +7,13 @@ struct ValidationPipe;
 struct CreateUserDto;
 struct UserDto;
 
+#[async_trait::async_trait]
+impl Guard<()> for AuthGuard {
+    async fn check(&self, _ctx: GuardContext<()>) -> std::result::Result<(), GuardError> {
+        Ok(())
+    }
+}
+
 #[routes]
 impl UsersController {
     #[get("/:id")]

@@ -20,6 +20,24 @@ impl Module for UsersModule {
     }
 }
 
+struct TypedAppModule;
+
+impl Module for TypedAppModule {
+    fn definition() -> nidus_core::ModuleDefinition {
+        ModuleBuilder::new("TypedAppModule")
+            .import_typed::<UsersModule>()
+            .build()
+    }
+}
+
+#[test]
+fn bootstrap_recursively_follows_typed_module_imports() {
+    let app = Nidus::bootstrap::<TypedAppModule>().unwrap();
+
+    assert!(app.modules().get("TypedAppModule").is_some());
+    assert!(app.modules().get("UsersModule").is_some());
+}
+
 #[test]
 fn bootstrap_with_modules_validates_explicit_module_graph() {
     let app = Nidus::bootstrap_with_modules::<AppModule, _>([UsersModule::definition()]).unwrap();

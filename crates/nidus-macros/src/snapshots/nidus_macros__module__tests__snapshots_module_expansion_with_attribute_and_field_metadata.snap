@@ -2,4 +2,4 @@
 source: crates/nidus-macros/src/module.rs
 expression: expanded.to_string()
 ---
-pub struct UsersModule ; impl :: nidus :: prelude :: Module for UsersModule { fn definition () -> :: nidus :: prelude :: ModuleDefinition { :: nidus :: prelude :: ModuleBuilder :: new ("UsersModule") . import ("DatabaseModule") . provider ("UsersService") . provider ("UsersRepository") . controller ("UsersController") . export ("UsersService") . build () } }
+pub struct UsersModule ; impl :: nidus :: prelude :: Module for UsersModule { fn definition () -> :: nidus :: prelude :: ModuleDefinition { :: nidus :: prelude :: ModuleBuilder :: new ("UsersModule") . import_typed :: < crate :: database :: DatabaseModule > () . provider_typed :: < crate :: users :: UsersService > () . provider_typed :: < crate :: users :: UsersRepository > () . controller_typed :: < crate :: users :: UsersController > () . export_typed :: < crate :: users :: UsersService > () . build () } }

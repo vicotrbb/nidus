@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{NidusError, Result};
+use crate::{Module, NidusError, Result};
 
 use super::ModuleDefinition;
 
@@ -11,6 +11,25 @@ pub struct ModuleGraph {
 }
 
 impl ModuleGraph {
+    /// Builds and validates a module graph by recursively following typed imports.
+    pub fn from_root<M: Module>() -> Result<Self> {
+        Self::from_root_and_modules::<M, _>([])
+    }
+
+    /// Builds and validates a module graph from a root module plus explicit definitions.
+    pub fn from_root_and_modules<M, I>(modules: I) -> Result<Self>
+    where
+        M: Module,
+        I: IntoIterator<Item = ModuleDefinition>,
+    {
+        let mut definitions = Vec::new();
+        collect_recursive(M::definition(), &mut definitions, &mut BTreeSet::new());
+        for module in modules {
+            collect_recursive(module, &mut definitions, &mut BTreeSet::new());
+        }
+        Self::from_modules(definitions)
+    }
+
     /// Builds and validates a module graph.
     pub fn from_modules(modules: impl IntoIterator<Item = ModuleDefinition>) -> Result<Self> {
         let mut registered = BTreeMap::new();
@@ -251,4 +270,20 @@ impl ModuleGraph {
         visited.insert(name.to_owned());
         Ok(())
     }
+}
+
+fn collect_recursive(
+    module: ModuleDefinition,
+    definitions: &mut Vec<ModuleDefinition>,
+    seen: &mut BTreeSet<String>,
+) {
+    if !seen.insert(module.name().to_owned()) {
+        return;
+    }
+
+    for import in module.import_factories() {
+        collect_recursive(import(), definitions, seen);
+    }
+
+    definitions.push(module);
 }

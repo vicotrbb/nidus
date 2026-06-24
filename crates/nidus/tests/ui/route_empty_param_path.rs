@@ -1,5 +1,6 @@
 use nidus::prelude::*;
 
+#[controller("/users")]
 struct UsersController;
 
 #[routes]

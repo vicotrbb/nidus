@@ -109,6 +109,101 @@ fn expand_routes_impl(item: ItemImpl) -> TokenStream {
             }
         }
     });
+    let route_definitions_with_container = metadata.iter().map(|route| {
+        let function = &route.function;
+        let route_constructor = format_ident!("try_{}", route.method.to_ascii_lowercase());
+        let path = &route.path;
+        let handler_args = route
+            .handler_args
+            .iter()
+            .map(|argument| {
+                let ident = &argument.ident;
+                let ty = &argument.ty;
+                quote!(#ident: #ty)
+            })
+            .collect::<Vec<_>>();
+        let call_args = route.handler_args.iter().map(|argument| &argument.ident);
+        let guards = &route.guards;
+        let label = format!(
+            "{} {}::{}",
+            route.method.to_ascii_uppercase(),
+            path.value(),
+            function
+        );
+
+        if guards.is_empty() {
+            quote! {
+                {
+                    let __nidus_controller = ::std::sync::Arc::clone(&__nidus_controller);
+                    ::nidus::prelude::RouteDefinition::#route_constructor(
+                        #path,
+                        move |#(#handler_args),*| {
+                            let __nidus_controller = ::std::sync::Arc::clone(&__nidus_controller);
+                            async move {
+                                __nidus_controller.#function(#(#call_args),*).await
+                            }
+                        },
+                    )
+                    .map_err(|error| ::nidus::prelude::NidusError::ApplicationBuild {
+                        message: error.to_string(),
+                    })?
+                }
+            }
+        } else {
+            let guarded_handler_args = if handler_args.is_empty() {
+                quote!(__nidus_headers: ::nidus::prelude::HeaderMap)
+            } else {
+                quote!(__nidus_headers: ::nidus::prelude::HeaderMap, #(#handler_args),*)
+            };
+            let guard_bindings = guards.iter().enumerate().map(|(index, guard)| {
+                let ident = format_ident!("__nidus_guard_{index}");
+                quote! {
+                    let #ident = __nidus_container.resolve::<#guard>()?;
+                }
+            });
+            let guard_clones = guards.iter().enumerate().map(|(index, _guard)| {
+                let ident = format_ident!("__nidus_guard_{index}");
+                let clone_ident = format_ident!("__nidus_guard_{index}");
+                quote! {
+                    let #clone_ident = ::std::sync::Arc::clone(&#ident);
+                }
+            });
+            let guard_checks = guards.iter().enumerate().map(|(index, _guard)| {
+                let ident = format_ident!("__nidus_guard_{index}");
+                quote! {
+                    if let Err(__nidus_error) = ::nidus::prelude::Guard::check(
+                        #ident.as_ref(),
+                        ::nidus::prelude::GuardContext::new((), #label)
+                            .with_headers(__nidus_headers.clone()),
+                    ).await {
+                        return ::nidus::prelude::IntoResponse::into_response(__nidus_error);
+                    }
+                }
+            });
+            quote! {
+                {
+                    #(#guard_bindings)*
+                    let __nidus_controller = ::std::sync::Arc::clone(&__nidus_controller);
+                    ::nidus::prelude::RouteDefinition::#route_constructor(
+                        #path,
+                        move |#guarded_handler_args| {
+                            let __nidus_controller = ::std::sync::Arc::clone(&__nidus_controller);
+                            #(#guard_clones)*
+                            async move {
+                                #(#guard_checks)*
+                                ::nidus::prelude::IntoResponse::into_response(
+                                    __nidus_controller.#function(#(#call_args),*).await
+                                )
+                            }
+                        },
+                    )
+                    .map_err(|error| ::nidus::prelude::NidusError::ApplicationBuild {
+                        message: error.to_string(),
+                    })?
+                }
+            }
+        }
+    });
     let router_methods = if metadata.is_empty() {
         quote!()
     } else {
@@ -130,6 +225,52 @@ fn expand_routes_impl(item: ItemImpl) -> TokenStream {
                         #(.route(#route_definitions))*;
                 __nidus_controller_routes.try_into_router()
             }
+
+            pub fn try_into_router_with_container(
+                self,
+                __nidus_container: &::nidus::prelude::Container,
+            ) -> ::nidus::prelude::Result<::nidus::prelude::Router> {
+                let __nidus_controller = ::std::sync::Arc::new(self);
+                let __nidus_controller_routes =
+                    ::nidus::prelude::Controller::try_new(Self::controller_prefix())
+                        .map_err(|error| ::nidus::prelude::NidusError::ApplicationBuild {
+                            message: error.to_string(),
+                        })?
+                        #(.route(#route_definitions_with_container))*;
+                __nidus_controller_routes
+                    .try_into_router()
+                    .map_err(|error| ::nidus::prelude::NidusError::ApplicationBuild {
+                        message: error.to_string(),
+                    })
+            }
+        }
+    };
+    let controller_registrant = if metadata.is_empty() {
+        quote!()
+    } else {
+        quote! {
+            impl #impl_generics ::nidus::prelude::ControllerRegistrant for #self_ty #where_clause {
+                fn controller_name() -> &'static str {
+                    ::std::any::type_name::<Self>().rsplit("::").next().unwrap()
+                }
+
+                fn controller_prefix() -> &'static str {
+                    Self::controller_prefix()
+                }
+
+                fn build_router(
+                    container: &::nidus::prelude::Container,
+                ) -> ::nidus::prelude::Result<Box<dyn ::std::any::Any + Send + Sync>> {
+                    Ok(Box::new(
+                        Self::try_from_container(container)?
+                            .try_into_router_with_container(container)?,
+                    ))
+                }
+
+                fn route_metadata() -> Box<dyn ::std::any::Any + Send + Sync> {
+                    Box::new(Self::routes())
+                }
+            }
         }
     };
 
@@ -145,6 +286,8 @@ fn expand_routes_impl(item: ItemImpl) -> TokenStream {
 
             #router_methods
         }
+
+        #controller_registrant
     }
 }
 

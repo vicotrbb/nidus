@@ -150,4 +150,11 @@ pub enum NidusError {
         /// Shutdown failures encountered while rolling back already-started hooks.
         rollback_errors: Vec<NidusError>,
     },
+
+    /// Application composition failed during high-level bootstrap.
+    #[error("application build failed: {message}")]
+    ApplicationBuild {
+        /// Human-readable build failure.
+        message: String,
+    },
 }

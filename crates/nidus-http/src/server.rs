@@ -33,6 +33,16 @@ impl HttpApplication {
         &self.application
     }
 
+    /// Returns the composed Axum router.
+    pub const fn router(&self) -> &Router {
+        &self.router
+    }
+
+    /// Consumes this HTTP application and returns its composed router.
+    pub fn into_router(self) -> Router {
+        self.router
+    }
+
     /// Binds a TCP listener for this application without starting the server.
     pub async fn bind<A>(&self, address: A) -> io::Result<TcpListener>
     where

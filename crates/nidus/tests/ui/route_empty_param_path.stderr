@@ -1,7 +1,7 @@
 error: route path parameters must include a name after ':'
- --> tests/ui/route_empty_param_path.rs:7:5
+ --> tests/ui/route_empty_param_path.rs:8:5
   |
-7 |     #[get("/:")]
+8 |     #[get("/:")]
   |     ^^^^^^^^^^^^
   |
   = note: this error originates in the attribute macro `get` (in Nightly builds, run with -Z macro-backtrace for more info)

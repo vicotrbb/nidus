@@ -6,8 +6,9 @@ mod middleware;
 
 use async_trait::async_trait;
 use axum::{Json, response::IntoResponse};
-use http::StatusCode;
+use http::{HeaderMap, StatusCode};
 use serde::Serialize;
+use std::sync::Arc;
 
 pub use middleware::{GuardLayer, GuardService, guard_layer};
 
@@ -16,6 +17,17 @@ pub use middleware::{GuardLayer, GuardService, guard_layer};
 pub trait Guard<S>: Send + Sync + 'static {
     /// Checks whether the request context is authorized.
     async fn check(&self, ctx: GuardContext<S>) -> Result<(), GuardError>;
+}
+
+#[async_trait]
+impl<S, G> Guard<S> for Arc<G>
+where
+    S: Send + Sync + 'static,
+    G: Guard<S>,
+{
+    async fn check(&self, ctx: GuardContext<S>) -> Result<(), GuardError> {
+        self.as_ref().check(ctx).await
+    }
 }
 
 /// Extension methods for composing guards.
@@ -96,6 +108,7 @@ where
 pub struct GuardContext<S> {
     state: S,
     route_label: String,
+    headers: HeaderMap,
 }
 
 impl<S> GuardContext<S> {
@@ -104,6 +117,7 @@ impl<S> GuardContext<S> {
         Self {
             state,
             route_label: route_label.into(),
+            headers: HeaderMap::new(),
         }
     }
 
@@ -115,6 +129,17 @@ impl<S> GuardContext<S> {
     /// Returns the route label being authorized.
     pub fn route_label(&self) -> &str {
         &self.route_label
+    }
+
+    /// Returns request headers available to HTTP guards.
+    pub fn headers(&self) -> &HeaderMap {
+        &self.headers
+    }
+
+    /// Attaches request headers to this guard context.
+    pub fn with_headers(mut self, headers: HeaderMap) -> Self {
+        self.headers = headers;
+        self
     }
 
     /// Consumes the context and returns its state.
