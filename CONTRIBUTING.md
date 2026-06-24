@@ -11,10 +11,13 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --all-features
 cargo doc --workspace --all-features --no-deps
+cargo audit
+cargo deny check
 ```
 
 Run focused tests while iterating, then run the full gate before opening a
-pull request.
+pull request. `cargo miri test` is also useful for unsafe or low-level changes
+when the active Rust toolchain provides Miri.
 
 ## Change Guidelines
 
