@@ -2,6 +2,18 @@
 
 use validator::Validate;
 
+/// Typed request transformation or validation pipe.
+pub trait Pipe<Input>: Send + Sync + 'static {
+    /// Output produced by this pipe.
+    type Output;
+
+    /// Error emitted when transformation or validation fails.
+    type Error: std::error::Error + Send + Sync + 'static;
+
+    /// Transforms or validates the input value.
+    fn transform(&self, input: Input) -> std::result::Result<Self::Output, Self::Error>;
+}
+
 /// Request validation pipe backed by the `validator` crate.
 #[derive(Clone, Debug, Default)]
 pub struct ValidationPipe;
@@ -19,6 +31,18 @@ impl ValidationPipe {
     {
         input.validate().map_err(ValidationPipeError::Validation)?;
         Ok(input)
+    }
+}
+
+impl<T> Pipe<T> for ValidationPipe
+where
+    T: Validate,
+{
+    type Output = T;
+    type Error = ValidationPipeError;
+
+    fn transform(&self, input: T) -> std::result::Result<Self::Output, Self::Error> {
+        ValidationPipe::transform(self, input)
     }
 }
 

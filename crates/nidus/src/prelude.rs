@@ -32,6 +32,6 @@ pub use nidus_openapi::{OpenApiDocument, OpenApiRoute};
 #[cfg(feature = "testing")]
 pub use nidus_testing::{TestApp, TestAppBuilder, TestRequest, TestResponse};
 #[cfg(feature = "validation")]
-pub use nidus_validation::{FieldValidationError, ValidationPipe, ValidationPipeError};
+pub use nidus_validation::{FieldValidationError, Pipe, ValidationPipe, ValidationPipeError};
 #[cfg(feature = "sqlx-postgres")]
 pub use sqlx::{PgPool, postgres::PgPoolOptions};
