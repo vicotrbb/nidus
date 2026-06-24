@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use axum::{Router, body::Body, routing::get};
+use axum::{Extension, Router, body::Body, body::to_bytes, routing::get};
 use http::{
     HeaderValue, Method, Request, Response, StatusCode,
     header::{
@@ -12,9 +12,11 @@ use http::{
         CONTENT_ENCODING, HeaderName, ORIGIN,
     },
 };
+use nidus_core::{Container, Inject, SharedRequestScope};
 use nidus_http::middleware::{
     HttpMetricsHook, RouteMakeSpan, compression_layer, cors_layer, rate_limit_layer,
-    request_id_layer, route_metrics_layer, route_trace_layer, timeout_layer, trace_layer,
+    request_id_layer, request_scope_layer, route_metrics_layer, route_trace_layer, timeout_layer,
+    trace_layer,
 };
 use tokio::time::sleep;
 use tower::{Service, ServiceBuilder, ServiceExt, service_fn};
@@ -58,6 +60,14 @@ impl HttpMetricsHook for RecordingMetrics {
             .unwrap()
             .push(format!("error {method} {}", route.unwrap_or("<unknown>")));
     }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct RequestId(usize);
+
+#[derive(Debug)]
+struct RequestContext {
+    request_id: Inject<RequestId>,
 }
 
 #[tokio::test]
@@ -127,6 +137,84 @@ async fn request_id_layer_preserves_existing_response_id() {
     assert_eq!(
         response.headers().get("x-request-id"),
         Some(&HeaderValue::from_static("handler-456"))
+    );
+}
+
+#[tokio::test]
+async fn request_scope_layer_inserts_one_scope_per_http_request() {
+    async fn handler(Extension(scope): Extension<SharedRequestScope>) -> String {
+        let context = scope.resolve::<RequestContext>().unwrap();
+        let request_id = scope.resolve::<RequestId>().unwrap();
+
+        assert!(Arc::ptr_eq(
+            &context.request_id.clone().into_inner(),
+            &request_id
+        ));
+
+        request_id.0.to_string()
+    }
+
+    let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let mut container = Container::new();
+    container
+        .register_request::<RequestId, _>({
+            let calls = Arc::clone(&calls);
+            move |_container| {
+                Ok(RequestId(
+                    calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst),
+                ))
+            }
+        })
+        .unwrap();
+    container
+        .register_request_scoped::<RequestContext, _>(|scope| {
+            Ok(RequestContext {
+                request_id: scope.inject::<RequestId>()?,
+            })
+        })
+        .unwrap();
+
+    let app = Router::new()
+        .route("/scope", get(handler))
+        .layer(request_scope_layer(Arc::new(container)));
+
+    let first = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/scope")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let second = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/scope")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(first.status(), StatusCode::OK);
+    assert_eq!(second.status(), StatusCode::OK);
+    assert_eq!(
+        to_bytes(first.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .as_ref(),
+        b"0"
+    );
+    assert_eq!(
+        to_bytes(second.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .as_ref(),
+        b"1"
     );
 }
 

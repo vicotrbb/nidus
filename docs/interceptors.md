@@ -5,6 +5,7 @@ Nidus should use Tower layers for middleware and interception behavior wherever 
 Recommended interceptor concerns:
 
 - request IDs
+- request dependency scopes
 - tracing spans with stable route labels
 - timeouts
 - compression
@@ -19,6 +20,15 @@ let app = router.layer(route_trace_layer("/users/{id}"));
 `request_id_layer()` propagates an incoming `x-request-id` response header when
 present, preserves a handler-provided response ID, and generates one only when
 neither exists.
+
+`request_scope_layer(container)` creates one `RequestScope` per HTTP request and
+stores it in request extensions. Handlers can extract
+`Extension<SharedRequestScope>` and resolve request-lifetime providers without
+sharing them across requests:
+
+```rust
+let app = router.layer(request_scope_layer(container));
+```
 
 Rate limiting uses Tower's built-in rate limiter:
 

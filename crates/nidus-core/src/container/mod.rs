@@ -27,7 +27,7 @@ impl Container {
     /// Creates a request scope for request-lifetime providers.
     pub fn request_scope(&self) -> RequestScope<'_> {
         RequestScope {
-            container: self,
+            container: RequestScopeContainer::Borrowed(self),
             request_instances: Mutex::new(HashMap::new()),
         }
     }
@@ -212,13 +212,30 @@ impl Container {
 
 /// Per-request dependency scope.
 pub struct RequestScope<'a> {
-    container: &'a Container,
+    container: RequestScopeContainer<'a>,
     request_instances: Mutex<HashMap<TypeId, Arc<dyn Any + Send + Sync>>>,
+}
+
+/// Shared request scope handle suitable for HTTP request extensions.
+pub type SharedRequestScope = Arc<RequestScope<'static>>;
+
+enum RequestScopeContainer<'a> {
+    Borrowed(&'a Container),
+    Shared(Arc<Container>),
+}
+
+impl RequestScopeContainer<'_> {
+    fn as_ref(&self) -> &Container {
+        match self {
+            Self::Borrowed(container) => container,
+            Self::Shared(container) => container,
+        }
+    }
 }
 
 impl RequestScope<'_> {
     pub(crate) fn container(&self) -> &Container {
-        self.container
+        self.container.as_ref()
     }
 
     /// Resolves a dependency in this request scope.
@@ -226,7 +243,7 @@ impl RequestScope<'_> {
     where
         T: Send + Sync + 'static,
     {
-        let entry = self.container.entry::<T>()?;
+        let entry = self.container().entry::<T>()?;
         let erased = match entry.lifetime() {
             ProviderLifetime::Request => {
                 let type_id = TypeId::of::<T>();
@@ -248,7 +265,7 @@ impl RequestScope<'_> {
                 }
             }
             ProviderLifetime::Singleton | ProviderLifetime::Transient => {
-                entry.resolve_erased(self.container)?
+                entry.resolve_erased(self.container())?
             }
         };
 
@@ -284,6 +301,16 @@ impl RequestScope<'_> {
         T: Send + Sync + 'static,
     {
         self.inject::<T>().map(Scoped::new)
+    }
+}
+
+impl RequestScope<'static> {
+    /// Creates a request scope that owns a shared container handle.
+    pub fn from_shared_container(container: Arc<Container>) -> Self {
+        Self {
+            container: RequestScopeContainer::Shared(container),
+            request_instances: Mutex::new(HashMap::new()),
+        }
     }
 }
 

@@ -24,6 +24,13 @@ fn prelude_exports_optional_feature_crates() {
     let _headers = HeaderMap::new();
     let _body = Json("ok");
     let response: Response = StatusCode::OK.into_response();
+    let container = std::sync::Arc::new(Container::new());
+    let _scope = RequestScope::from_shared_container(std::sync::Arc::clone(&container));
+    let _shared_scope: SharedRequestScope = std::sync::Arc::new(
+        RequestScope::from_shared_container(std::sync::Arc::clone(&container)),
+    );
+    let _scope_layer: RequestScopeLayer = request_scope_layer(container);
+    let _scope_service: Option<RequestScopeService<()>> = None;
 
     jobs.run_all();
     events.subscribe();

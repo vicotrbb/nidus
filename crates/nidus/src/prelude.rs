@@ -2,8 +2,8 @@
 
 pub use nidus_core::{
     Application, Container, Factory, Inject, Lazy, Module, ModuleBuilder, ModuleDefinition,
-    ModuleGraph, Nidus, NidusError, Optional, Provider, ProviderEntry, ProviderLifetime, Result,
-    Scoped,
+    ModuleGraph, Nidus, NidusError, Optional, Provider, ProviderEntry, ProviderLifetime,
+    RequestScope, Result, Scoped, SharedRequestScope,
 };
 pub use nidus_macros::{
     controller, delete, get, guard, injectable, module, openapi, patch, pipe, post, put, routes,
@@ -15,6 +15,7 @@ pub use nidus_http::{
     HeaderMap, IntoResponse, Json, Path, Query, Response, State, StatusCode,
     controller::Controller,
     error::{HttpError, RoutePathError},
+    middleware::{RequestScopeLayer, RequestScopeService, request_scope_layer},
     router::{RouteDefinition, RouteMetadata},
     server::{ApplicationHttpExt, HttpApplication},
 };
