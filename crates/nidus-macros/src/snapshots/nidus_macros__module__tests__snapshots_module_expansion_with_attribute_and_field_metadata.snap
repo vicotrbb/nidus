@@ -1,0 +1,5 @@
+---
+source: crates/nidus-macros/src/module.rs
+expression: expanded.to_string()
+---
+pub struct UsersModule ; impl :: nidus :: prelude :: Module for UsersModule { fn definition () -> :: nidus :: prelude :: ModuleDefinition { :: nidus :: prelude :: ModuleBuilder :: new ("UsersModule") . import ("DatabaseModule") . provider ("UsersService") . provider ("UsersRepository") . controller ("UsersController") . export ("UsersService") . build () } }

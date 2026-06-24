@@ -194,3 +194,29 @@ fn path_to_string(path: &Path) -> String {
         .map(|segment| segment.ident.to_token_stream().to_string())
         .unwrap_or_else(|| path.to_token_stream().to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use quote::quote;
+
+    use super::expand;
+
+    #[test]
+    fn snapshots_module_expansion_with_attribute_and_field_metadata() {
+        let expanded = expand(
+            quote! {
+                imports(crate::database::DatabaseModule),
+                providers(crate::users::UsersService)
+            },
+            quote! {
+                pub struct UsersModule {
+                    providers: (crate::users::UsersRepository,),
+                    controllers: [crate::users::UsersController],
+                    exports: [crate::users::UsersService],
+                }
+            },
+        );
+
+        insta::assert_snapshot!(expanded.to_string());
+    }
+}
