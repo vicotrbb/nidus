@@ -1,7 +1,12 @@
 use std::{fs, path::Path};
 
 use anyhow::{Context, Result};
-use syn::{Attribute, Expr, Field, Fields, Item, Lit, Meta, Stmt, Type};
+use syn::{
+    Attribute, Expr, Field, Fields, Ident, Item, Lit, Meta, Path as SynPath, Stmt, Token, Type,
+    parenthesized,
+    parse::{Parse, ParseStream},
+    parse2,
+};
 
 pub(crate) fn inspect_graph(root: &Path) -> Result<()> {
     for module in discover_modules(root)? {
@@ -177,18 +182,14 @@ fn discover_module_macro_metadata(file: &syn::File) -> Vec<DiscoveredModule> {
 
 fn module_attr_metadata(attrs: &[Attribute]) -> Option<DiscoveredModule> {
     let attr = attrs.iter().find(|attr| attr.path().is_ident("module"))?;
-    let args = match &attr.meta {
+    let metadata = match &attr.meta {
         Meta::Path(_) => return Some(DiscoveredModule::default()),
-        Meta::List(list) => list.tokens.to_string(),
+        Meta::List(list) => {
+            parse2::<ModuleAttributeMetadata>(list.tokens.clone()).unwrap_or_default()
+        }
         Meta::NameValue(_) => return Some(DiscoveredModule::default()),
     };
-    Some(DiscoveredModule {
-        imports: extract_module_attr_values(&args, "imports").unwrap_or_default(),
-        providers: extract_module_attr_values(&args, "providers").unwrap_or_default(),
-        controllers: extract_module_attr_values(&args, "controllers").unwrap_or_default(),
-        exports: extract_module_attr_values(&args, "exports").unwrap_or_default(),
-        ..DiscoveredModule::default()
-    })
+    Some(metadata.into_discovered_module())
 }
 
 fn apply_module_field_metadata(module: &mut DiscoveredModule, fields: &Fields) {
@@ -241,37 +242,59 @@ fn extract_struct_names(file: &syn::File) -> Vec<String> {
         .collect()
 }
 
-fn extract_module_attr_values(args: &str, field: &str) -> Option<Vec<String>> {
-    let start = args.find(field)? + field.len();
-    extract_group_values(&args[start..])
+#[derive(Default)]
+struct ModuleAttributeMetadata {
+    imports: Vec<String>,
+    providers: Vec<String>,
+    controllers: Vec<String>,
+    exports: Vec<String>,
 }
 
-fn extract_group_values(rest: &str) -> Option<Vec<String>> {
-    let rest = rest.trim_start();
-    let (open, close) = match rest.chars().next()? {
-        '(' => ('(', ')'),
-        '[' => ('[', ']'),
-        _ => return None,
-    };
-    let values = rest.strip_prefix(open)?;
-    let end = values.find(close)?;
-    let values = &values[..end];
-    Some(
-        values
-            .split(',')
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(path_last_segment)
-            .collect(),
-    )
+impl ModuleAttributeMetadata {
+    fn extend_section(&mut self, section: &Ident, values: Vec<String>) {
+        match section.to_string().as_str() {
+            "imports" => self.imports.extend(values),
+            "providers" => self.providers.extend(values),
+            "controllers" => self.controllers.extend(values),
+            "exports" => self.exports.extend(values),
+            _ => {}
+        }
+    }
+
+    fn into_discovered_module(self) -> DiscoveredModule {
+        DiscoveredModule {
+            imports: self.imports,
+            providers: self.providers,
+            controllers: self.controllers,
+            exports: self.exports,
+            ..DiscoveredModule::default()
+        }
+    }
 }
 
-fn path_last_segment(path: &str) -> String {
-    path.split("::")
-        .last()
-        .map(str::trim)
-        .unwrap_or(path)
-        .to_owned()
+impl Parse for ModuleAttributeMetadata {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let mut metadata = ModuleAttributeMetadata::default();
+
+        while !input.is_empty() {
+            let section: Ident = input.parse()?;
+            let content;
+            parenthesized!(content in input);
+            let values = content
+                .parse_terminated(SynPath::parse_mod_style, Token![,])?
+                .into_iter()
+                .filter_map(|path| path_name(&path))
+                .collect();
+            metadata.extend_section(&section, values);
+
+            if input.is_empty() {
+                break;
+            }
+            input.parse::<Token![,]>()?;
+        }
+
+        Ok(metadata)
+    }
 }
 
 fn path_name(path: &syn::Path) -> Option<String> {

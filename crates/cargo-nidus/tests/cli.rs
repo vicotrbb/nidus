@@ -622,10 +622,10 @@ struct UsersRepository;
 struct UsersController;
 
 #[module(
-    imports(DatabaseModule),
-    providers(UsersService, UsersRepository),
-    controllers(UsersController),
-    exports(UsersService)
+    imports(crate::database::DatabaseModule),
+    providers(crate::users::UsersService, crate::users::UsersRepository),
+    controllers(crate::users::UsersController),
+    exports(crate::users::UsersService)
 )]
 pub struct UsersModule;
 "#,
