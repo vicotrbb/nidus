@@ -84,7 +84,8 @@ another request-lifetime provider. The factory receives the active
 instances.
 
 HTTP applications can attach `request_scope_layer(container)` to create a fresh
-scope for each request and expose it through Axum request extensions.
+scope for each request. Route handlers can then accept `RequestScoped<T>` to
+resolve a request-lifetime provider directly from that scope.
 
 Resolving a request-scoped provider through the root container returns a
 `RequestScopeRequired` error instead of silently behaving like a transient

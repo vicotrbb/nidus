@@ -22,12 +22,15 @@ present, preserves a handler-provided response ID, and generates one only when
 neither exists.
 
 `request_scope_layer(container)` creates one `RequestScope` per HTTP request and
-stores it in request extensions. Handlers can extract
-`Extension<SharedRequestScope>` and resolve request-lifetime providers without
-sharing them across requests:
+stores it in request extensions. Handlers can use `RequestScoped<T>` to resolve
+request-lifetime providers without sharing them across requests:
 
 ```rust
-let app = router.layer(request_scope_layer(container));
+async fn handler(context: RequestScoped<RequestContext>) -> &'static str {
+    "ok"
+}
+
+let app = router.route("/me", get(handler)).layer(request_scope_layer(container));
 ```
 
 Rate limiting uses Tower's built-in rate limiter:

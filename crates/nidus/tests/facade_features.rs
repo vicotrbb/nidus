@@ -31,6 +31,8 @@ fn prelude_exports_optional_feature_crates() {
     );
     let _scope_layer: RequestScopeLayer = request_scope_layer(container);
     let _scope_service: Option<RequestScopeService<()>> = None;
+    let _request_scoped: Option<RequestScoped<String>> = None;
+    let _request_scope_rejection: Option<RequestScopeRejection> = None;
 
     jobs.run_all();
     events.subscribe();

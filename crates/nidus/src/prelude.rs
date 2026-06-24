@@ -16,6 +16,7 @@ pub use nidus_http::{
     controller::Controller,
     error::{HttpError, RoutePathError},
     middleware::{RequestScopeLayer, RequestScopeService, request_scope_layer},
+    request::{RequestScopeRejection, RequestScoped},
     router::{RouteDefinition, RouteMetadata},
     server::{ApplicationHttpExt, HttpApplication},
 };

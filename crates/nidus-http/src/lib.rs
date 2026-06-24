@@ -6,6 +6,7 @@ pub use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
+pub use request::{RequestScopeRejection, RequestScoped};
 
 pub mod controller;
 pub mod error;
