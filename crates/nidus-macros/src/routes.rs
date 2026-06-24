@@ -21,6 +21,7 @@ pub(crate) fn expand_routes(attr: TokenStream, item: TokenStream) -> TokenStream
 
 fn expand_routes_impl(item: ItemImpl) -> TokenStream {
     let self_ty = &item.self_ty;
+    let (impl_generics, _type_generics, where_clause) = item.generics.split_for_impl();
     let mut metadata = Vec::new();
     let mut errors = Vec::new();
     for item in &item.items {
@@ -84,7 +85,7 @@ fn expand_routes_impl(item: ItemImpl) -> TokenStream {
     quote! {
         #item
 
-        impl #self_ty {
+        impl #impl_generics #self_ty #where_clause {
             pub fn routes() -> ::std::vec::Vec<::nidus::prelude::RouteMetadata> {
                 ::std::vec![
                     #(#route_entries,)*

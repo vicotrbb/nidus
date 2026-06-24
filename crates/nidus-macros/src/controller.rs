@@ -16,10 +16,11 @@ pub(crate) fn expand(attr: TokenStream, item: TokenStream) -> TokenStream {
     match parse2::<ItemStruct>(item.clone()) {
         Ok(item) => {
             let name = &item.ident;
+            let (impl_generics, type_generics, where_clause) = item.generics.split_for_impl();
             quote! {
                 #item
 
-                impl #name {
+                impl #impl_generics #name #type_generics #where_clause {
                     pub const fn controller_prefix() -> &'static str {
                         #prefix
                     }
