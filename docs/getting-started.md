@@ -40,4 +40,7 @@ cargo nidus check
 `cargo nidus routes` prints HTTP methods, normalized paths such as `/users/{id}`, OpenAPI summaries, and route annotations such as guards, pipes, and validation markers when metadata includes them.
 `cargo nidus graph` prints root and feature modules plus any explicit imports, providers, controllers, and exports discovered from `#[module]` field metadata or `ModuleBuilder` metadata.
 `cargo nidus expand --dry-run` prints the `cargo expand` invocation for inspecting generated macro code. Without `--dry-run`, it runs `cargo expand` against the project manifest.
-`cargo nidus check` validates required project files and catches stale generated `mod.rs` index entries.
+`cargo nidus check` validates required project files, accepts either
+`src/main.rs` or `src/lib.rs` as the crate root, catches stale generated
+`mod.rs` index entries, and verifies that generated feature directories are
+declared from a crate root.
