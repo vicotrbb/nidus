@@ -356,10 +356,12 @@ impl OpenApiRoute {
         responses.insert(self.response_status.as_u16().to_string(), success_response);
 
         let mut operation = json!({
-            "summary": self.summary,
             "responses": responses
         });
 
+        if let Some(summary) = &self.summary {
+            operation["summary"] = json!(summary);
+        }
         if !self.tags.is_empty() {
             operation["tags"] = json!(self.tags);
         }

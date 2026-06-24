@@ -166,6 +166,17 @@ fn openapi_route_records_operation_tags() {
 }
 
 #[test]
+fn openapi_route_omits_absent_optional_operation_metadata() {
+    let document = OpenApiDocument::new("Nidus API", "0.1.0").route(OpenApiRoute::get("/health"));
+
+    let json = document.to_json_value();
+    assert!(json["paths"]["/health"]["get"]["summary"].is_null());
+    assert!(json["paths"]["/health"]["get"]["tags"].is_null());
+    assert!(json["paths"]["/health"]["get"]["requestBody"].is_null());
+    assert!(json["paths"]["/health"]["get"]["parameters"].is_null());
+}
+
+#[test]
 fn openapi_document_can_be_generated_from_route_metadata() {
     let routes = [RouteMetadata::with_openapi_annotations(
         "GET",
