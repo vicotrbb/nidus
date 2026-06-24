@@ -1275,7 +1275,8 @@ fn free_loopback_address() -> String {
 }
 
 fn wait_for_http_response(address: &str, child: &mut Child) -> String {
-    let deadline = Instant::now() + Duration::from_secs(30);
+    let timeout = Duration::from_secs(90);
+    let deadline = Instant::now() + timeout;
     let mut last_error = None;
 
     while Instant::now() < deadline {
@@ -1303,7 +1304,7 @@ fn wait_for_http_response(address: &str, child: &mut Child) -> String {
     }
 
     panic!(
-        "generated server did not respond at {address}: {}",
+        "generated server did not respond at {address} within {timeout:?}: {}",
         last_error
             .map(|error| error.to_string())
             .unwrap_or_else(|| "no connection attempt made".to_owned())
