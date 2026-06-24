@@ -8,6 +8,16 @@ Current benchmark targets:
 cargo bench --workspace --all-features
 ```
 
+For a quick local validation pass with reduced Criterion sample sizes, run the
+bench targets directly so Criterion flags are not passed to workspace binary
+test harnesses:
+
+```bash
+cargo bench --bench dependency_resolution -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
+cargo bench --bench routing -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
+cargo bench --bench request_lifecycle -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
+```
+
 Benchmarks cover:
 
 - raw Axum baseline requests
