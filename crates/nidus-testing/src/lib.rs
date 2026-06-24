@@ -7,8 +7,8 @@ use axum::{
 use http::{HeaderMap, HeaderName, HeaderValue, Method, Request, StatusCode, header::CONTENT_TYPE};
 use nidus_config::Config;
 use nidus_core::{
-    Container, LifecycleHook, LifecycleRunner, Module, ModuleDefinition, Nidus, ProviderLifetime,
-    RequestScope, Result,
+    Container, LifecycleHook, LifecycleRunner, Module, ModuleDefinition, Nidus, RequestScope,
+    Result,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
@@ -131,14 +131,23 @@ impl TestAppBuilder {
         Ok(self)
     }
 
+    /// Registers a transient provider factory in the test container.
+    pub fn transient_provider<T, F>(mut self, factory: F) -> Result<Self>
+    where
+        T: Send + Sync + 'static,
+        F: Fn(&Container) -> Result<T> + Send + Sync + 'static,
+    {
+        self.container.register_transient::<T, F>(factory)?;
+        Ok(self)
+    }
+
     /// Registers a request-lifetime provider factory in the test container.
     pub fn request_provider<T, F>(mut self, factory: F) -> Result<Self>
     where
         T: Send + Sync + 'static,
         F: Fn(&Container) -> Result<T> + Send + Sync + 'static,
     {
-        self.container
-            .register_factory::<T, F>(ProviderLifetime::Request, factory)?;
+        self.container.register_request::<T, F>(factory)?;
         Ok(self)
     }
 

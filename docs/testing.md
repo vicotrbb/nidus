@@ -69,6 +69,7 @@ Provider and config overrides are configured through the builder:
 ```rust
 let app = TestApp::builder(router)
     .provider(UsersRepository::new())?
+    .transient_provider::<RequestId, _>(|_container| Ok(RequestId::new()))?
     .override_provider(MockUsersRepository::new())?
     .config(test_config)
     .build();

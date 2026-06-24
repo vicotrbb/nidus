@@ -106,6 +106,28 @@ fn test_app_bootstrap_with_modules_validates_explicit_module_graph() {
 }
 
 #[test]
+fn test_app_resolves_transient_providers_as_fresh_instances() {
+    #[derive(Debug, PartialEq, Eq)]
+    struct RequestId(usize);
+
+    let calls = Arc::new(AtomicUsize::new(0));
+    let app = TestApp::builder(Router::new())
+        .transient_provider::<RequestId, _>({
+            let calls = Arc::clone(&calls);
+            move |_container| Ok(RequestId(calls.fetch_add(1, Ordering::SeqCst)))
+        })
+        .unwrap()
+        .build();
+
+    let first = app.resolve::<RequestId>().unwrap();
+    let second = app.resolve::<RequestId>().unwrap();
+
+    assert!(!Arc::ptr_eq(&first, &second));
+    assert_eq!(first.0, 0);
+    assert_eq!(second.0, 1);
+}
+
+#[test]
 fn test_app_resolves_request_providers_through_request_scope() {
     #[derive(Debug, PartialEq, Eq)]
     struct RequestId(usize);
