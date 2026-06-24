@@ -8,7 +8,7 @@ use axum::{
 use http::{HeaderMap, StatusCode, header::HeaderName};
 use nidus_http::{controller::Controller, router::RouteDefinition};
 use nidus_testing::TestApp;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, ser};
 use serde_json::json;
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
@@ -21,6 +21,17 @@ struct UserDto {
 struct SearchQuery {
     name: String,
     page: u32,
+}
+
+struct BrokenJsonBody;
+
+impl Serialize for BrokenJsonBody {
+    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: ser::Serializer,
+    {
+        Err(ser::Error::custom("broken json body"))
+    }
 }
 
 #[tokio::test]
@@ -113,6 +124,21 @@ fn test_request_try_header_reports_invalid_headers() {
         .get("/health")
         .try_header("x-api-key", "bad\nvalue");
     assert!(invalid_value.is_err());
+}
+
+#[test]
+fn test_request_try_json_reports_serialization_errors() {
+    let router = Router::new();
+
+    let error = match TestApp::from_router(router)
+        .post("/users")
+        .try_json(&BrokenJsonBody)
+    {
+        Ok(_) => panic!("broken JSON body should fail to serialize"),
+        Err(error) => error,
+    };
+
+    assert_eq!(error.to_string(), "broken json body");
 }
 
 #[tokio::test]

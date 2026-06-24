@@ -45,6 +45,9 @@ let error = app
     .unwrap_err();
 ```
 
+Use `try_json()` when tests should assert JSON serialization failures without
+panicking.
+
 Responses expose `status()`, `headers()`, `header(name)`, fallible
 `header_str(name)`, `body()`, `text()`, typed `json()`, fallible `try_json()`,
 and assertion helpers for status, headers, text, and JSON.

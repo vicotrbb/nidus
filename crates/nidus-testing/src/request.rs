@@ -72,10 +72,18 @@ impl TestRequest {
     }
 
     /// Sets a JSON request body.
-    pub fn json<T: Serialize>(mut self, body: &T) -> Self {
-        self.body = Body::from(serde_json::to_vec(body).expect("test JSON serialization failed"));
+    pub fn json<T: Serialize>(self, body: &T) -> Self {
+        self.try_json(body).expect("test JSON serialization failed")
+    }
+
+    /// Tries to set a JSON request body.
+    pub fn try_json<T: Serialize>(
+        mut self,
+        body: &T,
+    ) -> std::result::Result<Self, serde_json::Error> {
+        self.body = Body::from(serde_json::to_vec(body)?);
         self.content_type = Some("application/json");
-        self
+        Ok(self)
     }
 
     /// Appends URL-encoded query parameters.
