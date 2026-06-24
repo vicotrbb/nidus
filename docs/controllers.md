@@ -16,6 +16,8 @@ Nidus accepts Nest-style `:id` route parameters and normalizes them to Axum-comp
 Use `try_get`, `try_post`, `try_put`, `try_patch`, `try_delete`, or `try_into_router`
 when route paths come from generated or external input and invalid paths should return
 a `RoutePathError` instead of panicking.
+Use `Controller::try_new(prefix)` when a generated or external controller prefix
+should be validated before routes are attached.
 Each route method must declare exactly one HTTP method attribute.
 Route metadata attributes such as `#[guard]`, `#[pipe]`, `#[validate]`, and `#[openapi]` must be attached to a method with an HTTP method attribute.
 

@@ -15,6 +15,26 @@ fn route_metadata_composes_root_route_without_duplicate_slash() {
 }
 
 #[test]
+fn controller_try_new_normalizes_prefix() {
+    let router = Controller::try_new("users")
+        .unwrap()
+        .route(RouteDefinition::get(":id", || async { "ok" }))
+        .try_into_router();
+
+    assert!(router.is_ok());
+}
+
+#[test]
+fn controller_try_new_rejects_invalid_prefix() {
+    let error = match Controller::try_new("/:") {
+        Ok(_) => panic!("empty route parameter should fail"),
+        Err(error) => error,
+    };
+
+    assert_eq!(error.path(), "/:");
+}
+
+#[test]
 fn route_definition_try_get_rejects_empty_parameter_name() {
     let error = match RouteDefinition::try_get("/:".to_owned(), || async { "ok" }) {
         Ok(_) => panic!("empty route parameter should fail"),

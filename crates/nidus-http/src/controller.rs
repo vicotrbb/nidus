@@ -20,6 +20,15 @@ impl Controller {
         }
     }
 
+    /// Tries to create an empty controller route group with a validated prefix.
+    pub fn try_new(prefix: impl Into<String>) -> Result<Self, RoutePathError> {
+        let prefix = prefix.into();
+        join_paths(&prefix, "/").map(|prefix| Self {
+            prefix,
+            routes: Vec::new(),
+        })
+    }
+
     /// Adds a route to this controller.
     pub fn route(mut self, route: RouteDefinition) -> Self {
         self.routes.push(route);
