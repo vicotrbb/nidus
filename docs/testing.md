@@ -10,7 +10,8 @@ response.assert_text("ok").await;
 ```
 
 Request helpers are available for `GET`, `POST`, `PUT`, `PATCH`, and `DELETE`.
-Requests can set JSON, text, or raw byte bodies and custom headers:
+Use `request(Method, path)` for other HTTP methods. Requests can set JSON, text,
+or raw byte bodies and custom headers:
 
 ```rust
 let response = app
@@ -19,6 +20,8 @@ let response = app
     .json(&CreateUser { name: "Ada".to_owned() })
     .send()
     .await;
+
+let head = app.request(http::Method::HEAD, "/health").send().await;
 ```
 
 Use `query()` to append URL-encoded query parameters from any serializable test

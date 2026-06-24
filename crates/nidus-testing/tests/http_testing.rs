@@ -3,7 +3,7 @@ use axum::{
     body::Bytes,
     extract::Query,
     response::IntoResponse,
-    routing::{delete, get, patch, post, put},
+    routing::{delete, get, head, patch, post, put},
 };
 use http::{HeaderMap, StatusCode, header::HeaderName};
 use nidus_http::{controller::Controller, router::RouteDefinition};
@@ -235,6 +235,19 @@ async fn test_app_can_wrap_plain_axum_router() {
 
     response.assert_status(http::StatusCode::OK);
     response.assert_text("ok").await;
+}
+
+#[tokio::test]
+async fn test_app_can_send_arbitrary_http_methods() {
+    let router = Router::new().route("/health", head(|| async { "" }));
+
+    let response = TestApp::from_router(router)
+        .request(http::Method::HEAD, "/health")
+        .send()
+        .await;
+
+    response.assert_status(StatusCode::OK);
+    assert!(response.body().is_empty());
 }
 
 #[tokio::test]

@@ -66,27 +66,32 @@ impl TestApp {
 
     /// Starts a GET request.
     pub fn get(&self, path: impl Into<String>) -> TestRequest {
-        TestRequest::new(self.router.clone(), Method::GET, path.into())
+        self.request(Method::GET, path)
     }
 
     /// Starts a POST request.
     pub fn post(&self, path: impl Into<String>) -> TestRequest {
-        TestRequest::new(self.router.clone(), Method::POST, path.into())
+        self.request(Method::POST, path)
     }
 
     /// Starts a PUT request.
     pub fn put(&self, path: impl Into<String>) -> TestRequest {
-        TestRequest::new(self.router.clone(), Method::PUT, path.into())
+        self.request(Method::PUT, path)
     }
 
     /// Starts a PATCH request.
     pub fn patch(&self, path: impl Into<String>) -> TestRequest {
-        TestRequest::new(self.router.clone(), Method::PATCH, path.into())
+        self.request(Method::PATCH, path)
     }
 
     /// Starts a DELETE request.
     pub fn delete(&self, path: impl Into<String>) -> TestRequest {
-        TestRequest::new(self.router.clone(), Method::DELETE, path.into())
+        self.request(Method::DELETE, path)
+    }
+
+    /// Starts a request with an arbitrary HTTP method.
+    pub fn request(&self, method: Method, path: impl Into<String>) -> TestRequest {
+        TestRequest::new(self.router.clone(), method, path.into())
     }
 
     /// Resolves a provider from the test container.
