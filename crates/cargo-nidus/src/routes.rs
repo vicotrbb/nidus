@@ -1,6 +1,7 @@
-use std::{fs, path::Path};
+use std::{collections::HashMap, fs, path::Path};
 
 use anyhow::{Context, Result, bail};
+use syn::{Attribute, ImplItem, Item, ItemImpl, ItemStruct, LitStr, Meta, PathArguments, Type};
 
 use crate::source_openapi::parse_openapi_args;
 
@@ -60,10 +61,12 @@ pub(crate) fn discover_routes(root: &Path) -> Result<Vec<DiscoveredRoute>> {
         }
         let contents =
             fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
-        let Some(prefix) = extract_attr_value(&contents, "controller") else {
-            continue;
-        };
-        routes.extend(discover_controller_routes(&prefix, &contents)?);
+        if has_unterminated_openapi_attr(&contents) {
+            bail!("unterminated #[openapi] metadata");
+        }
+        let file =
+            syn::parse_file(&contents).with_context(|| format!("parsing {}", path.display()))?;
+        routes.extend(discover_controller_routes(&file)?);
     }
     sort_discovered_routes(&mut routes);
     Ok(routes)
@@ -78,164 +81,145 @@ pub(crate) fn openapi_path_parameters(path: &str) -> Vec<String> {
         .collect()
 }
 
-fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<DiscoveredRoute>> {
+fn discover_controller_routes(file: &syn::File) -> Result<Vec<DiscoveredRoute>> {
+    let controller_prefixes = controller_prefixes(file);
     let mut routes = Vec::new();
-    let mut openapi_attr = None::<String>;
-    let mut pending_route = None;
-    let mut pending_summary = None;
-    let mut pending_tags = Vec::new();
-    let mut pending_response_status = None;
-    let mut pending_request_schema = None;
-    let mut pending_response_schema = None;
-    let mut pending_guards = Vec::new();
-    let mut pending_pipes = Vec::new();
-    let mut pending_validates = false;
 
-    for line in contents.lines() {
-        let trimmed = line.trim();
-        if let Some(attr) = openapi_attr.as_mut() {
-            attr.push(' ');
-            attr.push_str(trimmed);
-            if trimmed.ends_with(']') {
-                let args = extract_openapi_args_from_line(attr)
-                    .context("parsing multiline #[openapi] metadata")?;
-                apply_openapi_args(
-                    &args,
-                    &mut pending_summary,
-                    &mut pending_tags,
-                    &mut pending_response_status,
-                    &mut pending_request_schema,
-                    &mut pending_response_schema,
-                )?;
-                openapi_attr = None;
-            }
+    for item in &file.items {
+        let Item::Impl(implementation) = item else {
             continue;
-        }
+        };
+        let Some(controller_name) = impl_self_type_name(implementation) else {
+            continue;
+        };
+        let Some(prefix) = controller_prefixes.get(&controller_name) else {
+            continue;
+        };
 
-        if let Some((method, path)) = extract_route_attr_from_line(line) {
-            pending_route = Some((method, path));
+        for item in &implementation.items {
+            let ImplItem::Fn(function) = item else {
+                continue;
+            };
+            let Some((method, route_path)) = route_attr(&function.attrs) else {
+                continue;
+            };
+            let openapi = openapi_attr(&function.attrs)?;
+            routes.push(DiscoveredRoute {
+                method,
+                path: join_route(prefix, &route_path)?,
+                summary: openapi.as_ref().map(|metadata| metadata.summary.clone()),
+                tags: openapi
+                    .as_ref()
+                    .map(|metadata| metadata.tags.clone())
+                    .unwrap_or_default(),
+                response_status: openapi
+                    .as_ref()
+                    .and_then(|metadata| metadata.response_status),
+                request_schema: openapi
+                    .as_ref()
+                    .and_then(|metadata| metadata.request_schema.clone()),
+                response_schema: openapi
+                    .as_ref()
+                    .and_then(|metadata| metadata.response_schema.clone()),
+                guards: type_attrs(&function.attrs, "guard"),
+                pipes: type_attrs(&function.attrs, "pipe"),
+                validates: has_attr(&function.attrs, "validate"),
+            });
         }
-        if let Some(guard) = extract_type_attr_from_line(line, "guard") {
-            pending_guards.push(guard);
-        }
-        if let Some(pipe) = extract_type_attr_from_line(line, "pipe") {
-            pending_pipes.push(pipe);
-        }
-        if trimmed == "#[validate]" {
-            pending_validates = true;
-        }
-        if trimmed.starts_with("#[openapi(") {
-            if trimmed.ends_with(")]") {
-                if let Some(args) = extract_openapi_args_from_line(trimmed) {
-                    apply_openapi_args(
-                        &args,
-                        &mut pending_summary,
-                        &mut pending_tags,
-                        &mut pending_response_status,
-                        &mut pending_request_schema,
-                        &mut pending_response_schema,
-                    )?;
-                }
-            } else {
-                openapi_attr = Some(trimmed.to_owned());
-            }
-        }
-
-        if line.contains("fn ") {
-            if let Some((method, path)) = pending_route.take() {
-                routes.push(DiscoveredRoute {
-                    method,
-                    path: join_route(prefix, &path)?,
-                    summary: pending_summary.take(),
-                    tags: std::mem::take(&mut pending_tags),
-                    response_status: pending_response_status.take(),
-                    request_schema: pending_request_schema.take(),
-                    response_schema: pending_response_schema.take(),
-                    guards: std::mem::take(&mut pending_guards),
-                    pipes: std::mem::take(&mut pending_pipes),
-                    validates: pending_validates,
-                });
-                pending_validates = false;
-            } else {
-                pending_summary = None;
-                pending_tags.clear();
-                pending_response_status = None;
-                pending_request_schema = None;
-                pending_response_schema = None;
-                pending_guards.clear();
-                pending_pipes.clear();
-                pending_validates = false;
-            }
-        }
-    }
-
-    if openapi_attr.is_some() {
-        bail!("unterminated #[openapi] metadata");
     }
 
     Ok(routes)
 }
 
-fn apply_openapi_args(
-    args: &str,
-    pending_summary: &mut Option<String>,
-    pending_tags: &mut Vec<String>,
-    pending_response_status: &mut Option<u16>,
-    pending_request_schema: &mut Option<String>,
-    pending_response_schema: &mut Option<String>,
-) -> Result<()> {
-    let metadata = parse_openapi_args(args)?;
-    *pending_summary = Some(metadata.summary);
-    *pending_tags = metadata.tags;
-    *pending_response_status = metadata.response_status;
-    *pending_request_schema = metadata.request_schema;
-    *pending_response_schema = metadata.response_schema;
-    Ok(())
-}
-
-fn extract_attr_value(contents: &str, attr: &str) -> Option<String> {
-    extract_all_attr_values(contents, attr).into_iter().next()
-}
-
-fn extract_all_attr_values(contents: &str, attr: &str) -> Vec<String> {
-    contents
-        .lines()
-        .filter_map(|line| extract_attr_value_from_line(line, attr))
+fn controller_prefixes(file: &syn::File) -> HashMap<String, String> {
+    file.items
+        .iter()
+        .filter_map(|item| {
+            let Item::Struct(item) = item else {
+                return None;
+            };
+            controller_prefix(item).map(|prefix| (item.ident.to_string(), prefix))
+        })
         .collect()
 }
 
-fn extract_attr_value_from_line(line: &str, attr: &str) -> Option<String> {
-    let needle = format!("#[{attr}(\"");
-    let start = line.find(&needle)? + needle.len();
-    let rest = &line[start..];
-    let end = rest.find('"')?;
-    Some(rest[..end].to_owned())
+fn controller_prefix(item: &ItemStruct) -> Option<String> {
+    string_attr(&item.attrs, "controller")
 }
 
-fn extract_route_attr_from_line(line: &str) -> Option<(String, String)> {
+fn route_attr(attrs: &[Attribute]) -> Option<(String, String)> {
     for method in ["get", "post", "put", "patch", "delete"] {
-        if let Some(path) = extract_attr_value_from_line(line, method) {
+        if let Some(path) = string_attr(attrs, method) {
             return Some((method.to_owned(), path));
         }
     }
     None
 }
 
-fn extract_type_attr_from_line(line: &str, attr: &str) -> Option<String> {
-    let needle = format!("#[{attr}(");
-    let start = line.find(&needle)? + needle.len();
-    let rest = &line[start..];
-    let end = rest.find(")]")?;
-    let value = rest[..end].trim();
-    (!value.is_empty()).then(|| value.to_owned())
+fn string_attr(attrs: &[Attribute], name: &str) -> Option<String> {
+    attrs
+        .iter()
+        .find(|attr| attr.path().is_ident(name))?
+        .parse_args::<LitStr>()
+        .ok()
+        .map(|value| value.value())
 }
 
-fn extract_openapi_args_from_line(line: &str) -> Option<String> {
-    let needle = "#[openapi(";
-    let start = line.find(needle)? + needle.len();
-    let rest = &line[start..];
-    let end = rest.rfind(")]")?;
-    Some(rest[..end].to_owned())
+fn type_attrs(attrs: &[Attribute], name: &str) -> Vec<String> {
+    attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident(name))
+        .filter_map(|attr| attr.parse_args::<syn::Path>().ok())
+        .filter_map(|path| type_path_name(&path))
+        .collect()
+}
+
+fn openapi_attr(attrs: &[Attribute]) -> Result<Option<crate::source_openapi::OpenApiMetadata>> {
+    let Some(attr) = attrs.iter().find(|attr| attr.path().is_ident("openapi")) else {
+        return Ok(None);
+    };
+    let Meta::List(list) = &attr.meta else {
+        bail!("#[openapi] requires summary = \"...\" metadata");
+    };
+    parse_openapi_args(&list.tokens.to_string()).map(Some)
+}
+
+fn has_attr(attrs: &[Attribute], name: &str) -> bool {
+    attrs.iter().any(|attr| attr.path().is_ident(name))
+}
+
+fn impl_self_type_name(implementation: &ItemImpl) -> Option<String> {
+    let Type::Path(self_ty) = &*implementation.self_ty else {
+        return None;
+    };
+    self_ty
+        .path
+        .segments
+        .last()
+        .map(|segment| segment.ident.to_string())
+}
+
+fn type_path_name(path: &syn::Path) -> Option<String> {
+    let mut output = Vec::new();
+    for segment in &path.segments {
+        if !matches!(segment.arguments, PathArguments::None) {
+            return None;
+        }
+        output.push(segment.ident.to_string());
+    }
+    (!output.is_empty()).then(|| output.join("::"))
+}
+
+fn has_unterminated_openapi_attr(contents: &str) -> bool {
+    let mut remaining = contents;
+    while let Some(start) = remaining.find("#[openapi(") {
+        remaining = &remaining[start..];
+        let Some(end) = remaining.find(")]") else {
+            return true;
+        };
+        remaining = &remaining[end + 2..];
+    }
+    false
 }
 
 fn join_route(prefix: &str, route: &str) -> Result<String> {
@@ -302,7 +286,7 @@ fn method_rank(method: &str) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{DiscoveredRoute, sort_discovered_routes};
+    use super::{DiscoveredRoute, discover_controller_routes, sort_discovered_routes};
 
     #[test]
     fn discovered_routes_are_sorted_by_path_then_http_method() {
@@ -328,6 +312,52 @@ mod tests {
                 ("delete".to_owned(), "/users/{id}".to_owned()),
             ]
         );
+    }
+
+    #[test]
+    fn discovers_routes_from_syn_attributes_in_controller_impls() {
+        let file = syn::parse_file(
+            r#"
+use nidus::prelude::*;
+
+#[controller("/users")]
+pub struct UsersController;
+
+#[routes]
+impl UsersController {
+    #[guard(crate::auth::AuthGuard)]
+    #[pipe(ValidationPipe)]
+    #[validate]
+    #[openapi(
+        summary = "Find user",
+        tags = ["users", "read"],
+        status = 201,
+        request = CreateUserDto,
+        response = UserDto
+    )]
+    #[get(
+        "/:id"
+    )]
+    pub async fn find(&self) {}
+}
+"#,
+        )
+        .unwrap();
+
+        let routes = discover_controller_routes(&file).unwrap();
+
+        assert_eq!(routes.len(), 1);
+        let route = &routes[0];
+        assert_eq!(route.method, "get");
+        assert_eq!(route.path, "/users/{id}");
+        assert_eq!(route.summary.as_deref(), Some("Find user"));
+        assert_eq!(route.tags, ["users", "read"]);
+        assert_eq!(route.response_status, Some(201));
+        assert_eq!(route.request_schema.as_deref(), Some("CreateUserDto"));
+        assert_eq!(route.response_schema.as_deref(), Some("UserDto"));
+        assert_eq!(route.guards, ["crate::auth::AuthGuard"]);
+        assert_eq!(route.pipes, ["ValidationPipe"]);
+        assert!(route.validates);
     }
 
     fn route(method: &str, path: &str) -> DiscoveredRoute {
