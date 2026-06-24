@@ -6,10 +6,10 @@ publish = false
 
 [dependencies]
 axum.workspace = true
-nidus = { path = "../../crates/nidus" }
+nidus = { path = "../../crates/nidus", version = "0.1.0" }
 serde.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
-nidus-testing = { path = "../../crates/nidus-testing" }
+nidus-testing = { path = "../../crates/nidus-testing", version = "0.1.0" }
 serde_json.workspace = true

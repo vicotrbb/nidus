@@ -7,9 +7,9 @@ publish = false
 [dependencies]
 async-trait.workspace = true
 axum.workspace = true
-nidus = { path = "../../crates/nidus", features = ["auth"] }
+nidus = { path = "../../crates/nidus", version = "0.1.0", features = ["auth"] }
 tokio.workspace = true
 
 [dev-dependencies]
-nidus-testing = { path = "../../crates/nidus-testing" }
+nidus-testing = { path = "../../crates/nidus-testing", version = "0.1.0" }
 serde_json.workspace = true

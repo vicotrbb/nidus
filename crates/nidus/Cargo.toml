@@ -21,16 +21,16 @@ sqlx-postgres = ["dep:sqlx"]
 tracing = []
 
 [dependencies]
-nidus-core = { path = "../nidus-core" }
-nidus-macros = { path = "../nidus-macros" }
-nidus-http = { path = "../nidus-http", optional = true }
-nidus-config = { path = "../nidus-config", optional = true }
-nidus-openapi = { path = "../nidus-openapi", optional = true }
-nidus-validation = { path = "../nidus-validation", optional = true }
-nidus-auth = { path = "../nidus-auth", optional = true }
-nidus-events = { path = "../nidus-events", optional = true }
-nidus-jobs = { path = "../nidus-jobs", optional = true }
-nidus-testing = { path = "../nidus-testing", optional = true }
+nidus-core = { path = "../nidus-core", version = "0.1.0" }
+nidus-macros = { path = "../nidus-macros", version = "0.1.0" }
+nidus-http = { path = "../nidus-http", version = "0.1.0", optional = true }
+nidus-config = { path = "../nidus-config", version = "0.1.0", optional = true }
+nidus-openapi = { path = "../nidus-openapi", version = "0.1.0", optional = true }
+nidus-validation = { path = "../nidus-validation", version = "0.1.0", optional = true }
+nidus-auth = { path = "../nidus-auth", version = "0.1.0", optional = true }
+nidus-events = { path = "../nidus-events", version = "0.1.0", optional = true }
+nidus-jobs = { path = "../nidus-jobs", version = "0.1.0", optional = true }
+nidus-testing = { path = "../nidus-testing", version = "0.1.0", optional = true }
 sqlx = { workspace = true, optional = true }
 tokio.workspace = true
 

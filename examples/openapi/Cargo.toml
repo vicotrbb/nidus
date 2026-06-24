@@ -5,6 +5,6 @@ edition = "2024"
 publish = false
 
 [dependencies]
-nidus = { path = "../../crates/nidus" }
-nidus-openapi = { path = "../../crates/nidus-openapi" }
+nidus = { path = "../../crates/nidus", version = "0.1.0" }
+nidus-openapi = { path = "../../crates/nidus-openapi", version = "0.1.0" }
 utoipa.workspace = true
