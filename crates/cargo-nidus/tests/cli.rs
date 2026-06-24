@@ -671,11 +671,16 @@ pub struct UserDto {
     #[serde(rename = "user_id")]
     id: u64,
     email: String,
+    profile: UserProfile,
     #[serde(default)]
     display_name: String,
     #[serde(skip)]
     internal_notes: String,
     roles: Vec<String>,
+}
+
+pub struct UserProfile {
+    display_name: String,
 }"#,
         )
         .replace(
@@ -748,7 +753,7 @@ pub struct UserDto {
     assert!(json["components"]["schemas"]["UserDto"]["properties"]["internal_notes"].is_null());
     assert_eq!(
         json["components"]["schemas"]["UserDto"]["required"],
-        serde_json::json!(["user_id", "email", "roles"])
+        serde_json::json!(["user_id", "email", "profile", "roles"])
     );
     assert_eq!(
         json["components"]["schemas"]["UserDto"]["properties"]["roles"]["type"],
@@ -756,6 +761,14 @@ pub struct UserDto {
     );
     assert_eq!(
         json["components"]["schemas"]["UserDto"]["properties"]["roles"]["items"]["type"],
+        "string"
+    );
+    assert_eq!(
+        json["components"]["schemas"]["UserDto"]["properties"]["profile"]["$ref"],
+        "#/components/schemas/UserProfile"
+    );
+    assert_eq!(
+        json["components"]["schemas"]["UserProfile"]["properties"]["display_name"]["type"],
         "string"
     );
 }

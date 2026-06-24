@@ -12,14 +12,12 @@ pub(crate) fn discover_schemas(
     root: &Path,
     names: &BTreeSet<String>,
 ) -> Result<BTreeMap<String, Value>> {
-    let mut schemas = names
-        .iter()
-        .map(|name| (name.clone(), fallback_schema()))
-        .collect::<BTreeMap<_, _>>();
+    let mut schemas = BTreeMap::new();
     if names.is_empty() {
         return Ok(schemas);
     }
 
+    let mut local = BTreeMap::new();
     for path in rust_source_files(&root.join("src"))? {
         let source =
             fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
@@ -30,8 +28,24 @@ pub(crate) fn discover_schemas(
                 continue;
             };
             let name = item.ident.to_string();
-            if names.contains(&name) {
-                schemas.insert(name, schema_for_struct(&item.fields));
+            local.insert(name, schema_for_struct(&item.fields));
+        }
+    }
+
+    let mut pending = names.iter().cloned().collect::<BTreeSet<_>>();
+    while let Some(name) = pending.pop_first() {
+        if schemas.contains_key(&name) {
+            continue;
+        }
+        let Some(schema) = local.get(&name) else {
+            schemas.insert(name, fallback_schema());
+            continue;
+        };
+
+        schemas.insert(name, schema.value.clone());
+        for reference in &schema.references {
+            if !schemas.contains_key(reference) {
+                pending.insert(reference.clone());
             }
         }
     }
@@ -61,13 +75,29 @@ fn collect_rust_source_files(path: &Path, files: &mut Vec<std::path::PathBuf>) -
     Ok(())
 }
 
-fn schema_for_struct(fields: &Fields) -> Value {
+#[derive(Clone)]
+struct InferredSchema {
+    value: Value,
+    references: BTreeSet<String>,
+}
+
+impl InferredSchema {
+    fn new(value: Value) -> Self {
+        Self {
+            value,
+            references: BTreeSet::new(),
+        }
+    }
+}
+
+fn schema_for_struct(fields: &Fields) -> InferredSchema {
     let Fields::Named(fields) = fields else {
-        return fallback_schema();
+        return InferredSchema::new(fallback_schema());
     };
 
     let mut properties = serde_json::Map::new();
     let mut required = Vec::new();
+    let mut references = BTreeSet::new();
 
     for field in &fields.named {
         if has_serde_flag(field, "skip") {
@@ -79,7 +109,9 @@ fn schema_for_struct(fields: &Fields) -> Value {
         if field_is_required(field) {
             required.push(name.clone());
         }
-        properties.insert(name, schema_for_type(&field.ty));
+        let schema = schema_for_type(&field.ty);
+        references.extend(schema.references);
+        properties.insert(name, schema.value);
     }
 
     let mut schema = json!({
@@ -89,33 +121,55 @@ fn schema_for_struct(fields: &Fields) -> Value {
     if !required.is_empty() {
         schema["required"] = json!(required);
     }
-    schema
+    InferredSchema {
+        value: schema,
+        references,
+    }
 }
 
-fn schema_for_type(ty: &Type) -> Value {
+fn schema_for_type(ty: &Type) -> InferredSchema {
     if let Some(inner) = generic_inner_type(ty, "Option") {
         return schema_for_type(inner);
     }
     if let Some(inner) = generic_inner_type(ty, "Vec") {
-        return json!({
-            "type": "array",
-            "items": schema_for_type(inner),
-        });
+        let item_schema = schema_for_type(inner);
+        return InferredSchema {
+            value: json!({
+                "type": "array",
+                "items": item_schema.value,
+            }),
+            references: item_schema.references,
+        };
     }
     if let Type::Path(path) = ty
         && let Some(segment) = path.path.segments.last()
     {
         let name = segment.ident.to_string();
-        return match name.as_str() {
-            "String" | "str" => json!({ "type": "string" }),
-            "bool" => json!({ "type": "boolean" }),
-            "f32" | "f64" => json!({ "type": "number" }),
-            "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16" | "u32" | "u64"
-            | "u128" | "usize" => json!({ "type": "integer" }),
-            _ => json!({ "$ref": format!("#/components/schemas/{name}") }),
+        return match primitive_schema(&name) {
+            Some(schema) => InferredSchema::new(schema),
+            None => {
+                let mut references = BTreeSet::new();
+                references.insert(name.clone());
+                InferredSchema {
+                    value: json!({ "$ref": format!("#/components/schemas/{name}") }),
+                    references,
+                }
+            }
         };
     }
-    fallback_schema()
+    InferredSchema::new(fallback_schema())
+}
+
+fn primitive_schema(name: &str) -> Option<Value> {
+    let schema = match name {
+        "String" | "str" => json!({ "type": "string" }),
+        "bool" => json!({ "type": "boolean" }),
+        "f32" | "f64" => json!({ "type": "number" }),
+        "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16" | "u32" | "u64" | "u128"
+        | "usize" => json!({ "type": "integer" }),
+        _ => return None,
+    };
+    Some(schema)
 }
 
 fn generic_inner_type<'a>(ty: &'a Type, wrapper: &str) -> Option<&'a Type> {
