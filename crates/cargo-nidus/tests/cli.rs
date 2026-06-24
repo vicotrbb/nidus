@@ -680,7 +680,6 @@ fn cargo_nidus_check_validates_project_structure() {
     assert!(!invalid.status.success());
     let stderr = String::from_utf8(invalid.stderr).unwrap();
     assert!(stderr.contains("Cargo.toml"));
-    assert!(stderr.contains("src/main.rs"));
 }
 
 #[test]
@@ -768,6 +767,60 @@ fn cargo_nidus_check_accepts_generated_module_indexes() {
             .unwrap()
             .contains("Nidus project check passed")
     );
+}
+
+#[test]
+fn cargo_nidus_check_accepts_library_crate_roots() {
+    let root = temp_project_root("check_accepts_library_crate_roots");
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+    )
+    .unwrap();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(root.join("src/lib.rs"), "pub mod services;\n").unwrap();
+
+    let generate = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "generate", "service", "users", "--path"])
+        .arg(&root)
+        .status()
+        .unwrap();
+    assert!(generate.success());
+
+    let check = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "check", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+
+    assert!(check.status.success());
+    assert!(
+        String::from_utf8(check.stdout)
+            .unwrap()
+            .contains("Nidus project check passed")
+    );
+}
+
+#[test]
+fn cargo_nidus_check_rejects_projects_without_crate_roots() {
+    let root = temp_project_root("check_rejects_projects_without_crate_roots");
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+    )
+    .unwrap();
+    fs::create_dir_all(root.join("src")).unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "check", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("Missing required crate root"));
+    assert!(stderr.contains("src/main.rs or src/lib.rs"));
 }
 
 #[test]

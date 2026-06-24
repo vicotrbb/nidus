@@ -3,18 +3,18 @@ use std::{collections::BTreeSet, fs, path::Path};
 use anyhow::{Context, Result, bail};
 
 pub(crate) fn check_project(root: &Path) -> Result<()> {
-    let required = ["Cargo.toml", "src/main.rs"];
-    let missing = required
-        .iter()
-        .filter(|path| !root.join(path).exists())
-        .copied()
-        .collect::<Vec<_>>();
-
-    if !missing.is_empty() {
+    if !root.join("Cargo.toml").exists() {
         bail!(
             "Nidus project check failed for {}. Missing required files: {}",
             root.display(),
-            missing.join(", ")
+            "Cargo.toml"
+        );
+    }
+
+    if !root.join("src/main.rs").exists() && !root.join("src/lib.rs").exists() {
+        bail!(
+            "Nidus project check failed for {}. Missing required crate root: src/main.rs or src/lib.rs",
+            root.display()
         );
     }
 
