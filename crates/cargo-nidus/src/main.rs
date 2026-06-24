@@ -13,6 +13,7 @@ mod check;
 mod generate;
 mod generate_name;
 mod graph;
+mod graph_metadata;
 mod openapi_doc;
 mod route_order;
 mod route_path;
