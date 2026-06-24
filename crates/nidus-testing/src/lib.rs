@@ -5,5 +5,5 @@ mod request;
 mod response;
 
 pub use app::{TestApp, TestAppBuilder};
-pub use request::TestRequest;
+pub use request::{TestRequest, TestRequestError};
 pub use response::TestResponse;

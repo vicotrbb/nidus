@@ -7,7 +7,7 @@ use axum::{
 };
 use http::{HeaderMap, StatusCode, header::HeaderName};
 use nidus_http::{controller::Controller, router::RouteDefinition};
-use nidus_testing::TestApp;
+use nidus_testing::{TestApp, TestRequestError};
 use serde::{Deserialize, Serialize, ser};
 use serde_json::json;
 
@@ -139,6 +139,18 @@ fn test_request_try_json_reports_serialization_errors() {
     };
 
     assert_eq!(error.to_string(), "broken json body");
+}
+
+#[tokio::test]
+async fn test_request_try_send_reports_request_build_errors() {
+    let router = Router::new();
+
+    let error = match TestApp::from_router(router).get("bad uri").try_send().await {
+        Ok(_) => panic!("invalid request URI should fail"),
+        Err(error) => error,
+    };
+
+    assert!(matches!(error, TestRequestError::Request(_)));
 }
 
 #[tokio::test]

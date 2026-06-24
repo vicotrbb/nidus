@@ -4,6 +4,7 @@ use axum::{
 };
 use http::{HeaderMap, HeaderName, HeaderValue, Method, Request, header::CONTENT_TYPE};
 use serde::Serialize;
+use std::{error::Error, fmt};
 use tower::ServiceExt;
 
 use crate::response::TestResponse;
@@ -106,8 +107,13 @@ impl TestRequest {
         Ok(self)
     }
 
-    /// Sends the request against the in-memory app.
+    /// Sends the request against the in-memory app, panicking if request construction fails.
     pub async fn send(self) -> TestResponse {
+        self.try_send().await.expect("test request send failed")
+    }
+
+    /// Tries to send the request against the in-memory app.
+    pub async fn try_send(self) -> Result<TestResponse, TestRequestError> {
         let mut builder = Request::builder().method(self.method).uri(self.path);
         if let Some(content_type) = self.content_type {
             builder = builder.header(CONTENT_TYPE, content_type);
@@ -117,19 +123,45 @@ impl TestRequest {
                 builder = builder.header(name, value);
             }
         }
-        let request = builder.body(self.body).expect("test request build failed");
-        let response = self
-            .router
-            .oneshot(request)
-            .await
-            .expect("test router response failed");
+        let request = builder.body(self.body).map_err(TestRequestError::Request)?;
+        let response = match self.router.oneshot(request).await {
+            Ok(response) => response,
+            Err(error) => match error {},
+        };
         let status = response.status();
         let headers = response.headers().clone();
         let body = to_bytes(response.into_body(), usize::MAX)
             .await
-            .expect("test response body read failed");
+            .map_err(TestRequestError::Body)?;
 
-        TestResponse::new(status, headers, body)
+        Ok(TestResponse::new(status, headers, body))
+    }
+}
+
+/// Error returned by fallible in-memory request execution.
+#[derive(Debug)]
+pub enum TestRequestError {
+    /// The HTTP request could not be constructed.
+    Request(http::Error),
+    /// The response body could not be collected.
+    Body(axum::Error),
+}
+
+impl fmt::Display for TestRequestError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Request(error) => write!(formatter, "test request build failed: {error}"),
+            Self::Body(error) => write!(formatter, "test response body read failed: {error}"),
+        }
+    }
+}
+
+impl Error for TestRequestError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Request(error) => Some(error),
+            Self::Body(error) => Some(error),
+        }
     }
 }
 

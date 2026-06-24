@@ -47,6 +47,8 @@ let error = app
 
 Use `try_json()` when tests should assert JSON serialization failures without
 panicking.
+Use `try_send()` when tests should assert request construction failures without
+panicking.
 
 Responses expose `status()`, `headers()`, `header(name)`, fallible
 `header_str(name)`, `body()`, `text()`, typed `json()`, fallible `try_json()`,
