@@ -738,6 +738,36 @@ fn cargo_nidus_check_rejects_unindexed_generated_sources() {
 }
 
 #[test]
+fn cargo_nidus_check_rejects_undeclared_generated_directories() {
+    let root = temp_project_root("check_rejects_undeclared_generated_directories");
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+    )
+    .unwrap();
+    fs::create_dir_all(root.join("src/services")).unwrap();
+    fs::write(root.join("src/main.rs"), "fn main() {}\n").unwrap();
+    fs::write(
+        root.join("src/services/users.rs"),
+        "pub struct UsersService;\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/services/mod.rs"), "pub mod users;\n").unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "check", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("missing crate root module declaration"));
+    assert!(stderr.contains("src/services"));
+    assert!(stderr.contains("mod services;"));
+}
+
+#[test]
 fn cargo_nidus_check_accepts_generated_module_indexes() {
     let root = temp_project_root("check_accepts_generated_module_indexes");
     fs::write(

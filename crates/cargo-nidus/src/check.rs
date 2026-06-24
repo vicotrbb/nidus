@@ -19,6 +19,7 @@ pub(crate) fn check_project(root: &Path) -> Result<()> {
     }
 
     validate_module_indexes(root)?;
+    validate_crate_root_modules(root)?;
 
     println!("Nidus project check passed for {}", root.display());
     Ok(())
@@ -95,6 +96,51 @@ fn source_module_names(directory: &Path) -> Result<Vec<String>> {
     }
     modules.sort();
     Ok(modules)
+}
+
+fn validate_crate_root_modules(root: &Path) -> Result<()> {
+    let crate_roots = crate_root_contents(root)?;
+    for module in ["modules", "controllers", "services", "repositories"] {
+        let directory = root.join("src").join(module);
+        if !directory.exists() || source_module_names(&directory)?.is_empty() {
+            continue;
+        }
+
+        if !crate_roots
+            .iter()
+            .any(|contents| contains_module_declaration(contents, module))
+        {
+            bail!(
+                "missing crate root module declaration for {}: add mod {}; to src/main.rs or pub mod {}; to src/lib.rs",
+                directory.display(),
+                module,
+                module
+            );
+        }
+    }
+    Ok(())
+}
+
+fn crate_root_contents(root: &Path) -> Result<Vec<String>> {
+    let mut roots = Vec::new();
+    for path in [root.join("src/main.rs"), root.join("src/lib.rs")] {
+        if path.exists() {
+            roots.push(
+                fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?,
+            );
+        }
+    }
+    Ok(roots)
+}
+
+fn contains_module_declaration(contents: &str, module: &str) -> bool {
+    let private = format!("mod {module};");
+    let public = format!("pub mod {module};");
+    let crate_public = format!("pub(crate) mod {module};");
+    contents
+        .lines()
+        .map(str::trim)
+        .any(|line| line == private || line == public || line == crate_public)
 }
 
 fn extract_module_index_entry(line: &str) -> Option<String> {
