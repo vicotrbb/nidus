@@ -23,9 +23,10 @@ controller, and export metadata. Generating the module after those artifacts
 does the same discovery in the other direction. Hand-written module bodies are
 left untouched.
 
-The generated project starts as a small Nidus HTTP server with a composed route
-and a macro-defined root `AppModule`. It can add modules, providers,
-controllers, and route metadata as the application grows.
+The generated project starts as a small Nidus HTTP server with a macro-defined
+root `AppModule`. Applications can define controllers and executable routes with
+`#[controller]`, `#[routes]`, and HTTP method attributes, while still dropping
+down to explicit `Controller` and `RouteDefinition` builders when useful.
 
 Inspect generated controller metadata:
 

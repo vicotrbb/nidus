@@ -59,11 +59,11 @@ facade features are available for `openapi`, `validation`, `auth`, `events`,
 
 ## Status
 
-Nidus is under active implementation. The current repository is a working foundation, not a finished production release. Public APIs can change before the first published version.
+Nidus is under active implementation as a pre-1.0 framework. The repository contains the working framework surface described here, and public APIs can still change before the first published stable version.
 
 ## Roadmap
 
-- Expand macro code generation from validation-only attributes into explicit registration code.
+- Continue hardening route-level guard and pipe ergonomics while preserving the explicit Tower and extractor-based execution model.
 - Continue hardening SQLx, jobs, and modular monolith examples into production-shaped applications.
 - Keep benchmark result tables current as the raw Axum and Nidus overhead baselines evolve.
 - Keep broadening compile-fail and CLI regression coverage as the public API settles.

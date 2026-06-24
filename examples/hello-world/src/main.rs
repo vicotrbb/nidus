@@ -1,12 +1,20 @@
 //! Minimal Nidus HTTP server example.
 
-use axum::Router;
 use nidus::prelude::*;
 
 fn app() -> Router {
-    Controller::new("/")
-        .route(RouteDefinition::get("/", || async { "hello from nidus" }))
-        .into_router()
+    HelloController.into_router()
+}
+
+#[controller("/")]
+struct HelloController;
+
+#[routes]
+impl HelloController {
+    #[get("/")]
+    async fn hello(&self) -> &'static str {
+        "hello from nidus"
+    }
 }
 
 #[nidus::main]

@@ -5,10 +5,9 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-use axum::Router;
 use nidus::prelude::{
-    ApplicationHttpExt, Container, Controller, Inject, Json, Nidus, Path, RequestScoped,
-    RouteDefinition, injectable, module, request_scope_layer,
+    ApplicationHttpExt, Container, Inject, Json, Nidus, Path, RequestScoped, Router, controller,
+    get, injectable, module, request_scope_layer, routes,
 };
 use serde::Serialize;
 
@@ -39,18 +38,28 @@ fn app() -> Router {
         .expect("request id provider should register");
     RequestContext::register_provider(&mut container).expect("request context should register");
 
-    Controller::new("/users")
-        .route(RouteDefinition::get("/:id", find_user))
+    UsersController
         .into_router()
         .layer(request_scope_layer(Arc::new(container)))
 }
 
-async fn find_user(Path(id): Path<i64>, context: RequestScoped<RequestContext>) -> Json<UserDto> {
-    Json(UserDto {
-        id,
-        email: "user@nidus.dev",
-        request_id: context.request_id.0,
-    })
+#[controller("/users")]
+struct UsersController;
+
+#[routes]
+impl UsersController {
+    #[get("/:id")]
+    async fn find_user(
+        &self,
+        Path(id): Path<i64>,
+        context: RequestScoped<RequestContext>,
+    ) -> Json<UserDto> {
+        Json(UserDto {
+            id,
+            email: "user@nidus.dev",
+            request_id: context.request_id.0,
+        })
+    }
 }
 
 #[nidus::main]
