@@ -1,8 +1,15 @@
 use async_trait::async_trait;
-use axum::{body::to_bytes, response::IntoResponse};
-use http::StatusCode;
-use nidus_auth::{Guard, GuardContext, GuardError, GuardExt};
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
 
+use axum::{Router, body::to_bytes, response::IntoResponse, routing::get};
+use http::StatusCode;
+use nidus_auth::{Guard, GuardContext, GuardError, GuardExt, guard_layer};
+use tower::ServiceExt;
+
+#[derive(Clone)]
 struct RoleGuard(&'static str);
 
 #[async_trait]
@@ -16,6 +23,7 @@ impl Guard<()> for RoleGuard {
     }
 }
 
+#[derive(Clone)]
 struct AllowGuard;
 
 #[async_trait]
@@ -25,7 +33,27 @@ impl Guard<()> for AllowGuard {
     }
 }
 
+#[derive(Clone)]
 struct DenyGuard(&'static str);
+
+#[derive(Clone)]
+struct StateGuard;
+
+#[derive(Clone)]
+struct AppState {
+    allowed: bool,
+}
+
+#[async_trait]
+impl Guard<AppState> for StateGuard {
+    async fn check(&self, ctx: GuardContext<AppState>) -> Result<(), GuardError> {
+        if ctx.state().allowed {
+            Ok(())
+        } else {
+            Err(GuardError::unauthorized("state denied request"))
+        }
+    }
+}
 
 #[async_trait]
 impl Guard<()> for DenyGuard {
@@ -112,4 +140,69 @@ async fn guard_error_maps_to_stable_json_response() {
     assert_eq!(status, StatusCode::FORBIDDEN);
     assert_eq!(json["error"]["code"], "forbidden");
     assert_eq!(json["error"]["message"], "route role does not match");
+}
+
+#[tokio::test]
+async fn guard_layer_allows_authorized_requests() {
+    let app = Router::new()
+        .route("/admin", get(|| async { "ok" }))
+        .layer(guard_layer(
+            AppState { allowed: true },
+            "admin:index",
+            StateGuard,
+        ));
+
+    let response = app
+        .oneshot(
+            http::Request::builder()
+                .uri("/admin")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(&body[..], b"ok");
+}
+
+#[tokio::test]
+async fn guard_layer_returns_error_response_without_calling_inner_service() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let app = Router::new()
+        .route("/admin", {
+            let calls = Arc::clone(&calls);
+            get(move || {
+                let calls = Arc::clone(&calls);
+                async move {
+                    calls.fetch_add(1, Ordering::SeqCst);
+                    "ok"
+                }
+            })
+        })
+        .layer(guard_layer(
+            AppState { allowed: false },
+            "admin:index",
+            StateGuard,
+        ));
+
+    let response = app
+        .oneshot(
+            http::Request::builder()
+                .uri("/admin")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(json["error"]["code"], "unauthorized");
+    assert_eq!(json["error"]["message"], "state denied request");
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
 }

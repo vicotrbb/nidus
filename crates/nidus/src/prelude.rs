@@ -20,7 +20,10 @@ pub use nidus_http::{
 };
 
 #[cfg(feature = "auth")]
-pub use nidus_auth::{AndGuard, Guard, GuardContext, GuardError, GuardExt, OrGuard};
+pub use nidus_auth::{
+    AndGuard, Guard, GuardContext, GuardError, GuardExt, GuardLayer, GuardService, OrGuard,
+    guard_layer,
+};
 #[cfg(feature = "config")]
 pub use nidus_config::Config;
 #[cfg(feature = "events")]

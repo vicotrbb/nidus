@@ -13,6 +13,7 @@ axum.workspace = true
 http.workspace = true
 serde.workspace = true
 thiserror.workspace = true
+tower.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

@@ -1,9 +1,13 @@
 //! Authentication and guard support.
 
+mod middleware;
+
 use async_trait::async_trait;
 use axum::{Json, response::IntoResponse};
 use http::StatusCode;
 use serde::Serialize;
+
+pub use middleware::{GuardLayer, GuardService, guard_layer};
 
 /// Composable authorization guard.
 #[async_trait]
