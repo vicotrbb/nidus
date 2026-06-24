@@ -1,6 +1,8 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Fields, GenericArgument, Ident, ItemStruct, PathArguments, Type, parse2};
+use syn::{
+    Fields, GenericArgument, Ident, ItemStruct, PathArguments, Type, parse2, spanned::Spanned,
+};
 
 pub(crate) fn expand(attr: TokenStream, item: TokenStream) -> TokenStream {
     let lifetime = match injectable_lifetime(attr) {
@@ -45,7 +47,16 @@ fn expand_struct(item: ItemStruct, lifetime: InjectableLifetime) -> TokenStream 
     };
 
     let resolver = Ident::new("resolver", proc_macro2::Span::call_site());
-    let initializers = field_initializers(fields, &resolver);
+    let initializers = match field_initializers(fields, &resolver) {
+        Ok(initializers) => initializers,
+        Err(error) => {
+            let compile_error = error.to_compile_error();
+            return quote! {
+                #item
+                #compile_error
+            };
+        }
+    };
     let register_provider = named_register_provider(
         &lifetime,
         &resolver,
@@ -123,18 +134,25 @@ fn named_register_provider(
     }
 }
 
-fn field_initializers<'a>(
-    fields: &'a syn::FieldsNamed,
-    resolver: &'a Ident,
-) -> impl Iterator<Item = TokenStream> + 'a {
-    fields.named.iter().map(move |field| {
+fn field_initializers(
+    fields: &syn::FieldsNamed,
+    resolver: &Ident,
+) -> syn::Result<Vec<TokenStream>> {
+    fields
+        .named
+        .iter()
+        .map(|field| {
         let ident = field.ident.as_ref().expect("named field has ident");
         match dependency_wrapper(&field.ty) {
-            Some(DependencyWrapper::Inject) => quote!(#ident: #resolver.inject()?),
-            Some(DependencyWrapper::Optional) => quote!(#ident: #resolver.optional()?),
-            None => quote!(#ident: ::core::default::Default::default()),
+                Some(DependencyWrapper::Inject) => Ok(quote!(#ident: #resolver.inject()?)),
+                Some(DependencyWrapper::Optional) => Ok(quote!(#ident: #resolver.optional()?)),
+                None => Err(syn::Error::new(
+                    field.ty.span(),
+                    "#[injectable] fields must use Inject<T> or Optional<T>; use an explicit factory for literal or default state",
+                )),
         }
-    })
+        })
+        .collect()
 }
 
 fn injectable_lifetime(attr: TokenStream) -> Result<InjectableLifetime, &'static str> {

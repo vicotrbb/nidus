@@ -15,6 +15,7 @@ fn public_macros_report_useful_compile_errors() {
     tests.compile_fail("tests/ui/controller_empty_param_path.rs");
     tests.compile_fail("tests/ui/controller_missing_path.rs");
     tests.compile_fail("tests/ui/guard_missing_type.rs");
+    tests.compile_fail("tests/ui/injectable_plain_field.rs");
     tests.compile_fail("tests/ui/injectable_unsupported_lifetime.rs");
     tests.compile_fail("tests/ui/openapi_missing_summary.rs");
     tests.compile_fail("tests/ui/openapi_request_must_be_type.rs");

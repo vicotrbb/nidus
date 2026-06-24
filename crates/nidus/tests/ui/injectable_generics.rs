@@ -6,7 +6,7 @@ struct GenericRepository<T>
 where
     T: Default + Send + Sync + 'static,
 {
-    value: T,
+    dependency: Optional<T>,
 }
 
 fn main() {
@@ -14,5 +14,5 @@ fn main() {
     GenericRepository::<String>::register_provider(&mut container).unwrap();
 
     let repository = container.resolve::<GenericRepository<String>>().unwrap();
-    assert_eq!(repository.value, String::default());
+    assert!(repository.dependency.is_none());
 }

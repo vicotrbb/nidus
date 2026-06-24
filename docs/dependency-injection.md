@@ -35,6 +35,9 @@ still return their original construction error.
 `#[injectable]` registers a singleton provider by default and recognizes
 `Inject<T>` and `Optional<T>` fields. Required dependencies use
 `container.inject()?`; optional dependencies use `container.optional()?`.
+Other fields are rejected at compile time so provider construction stays
+explicit. Use a unit struct or a hand-written container factory when a provider
+needs literal configuration, defaults, or custom initialization logic.
 
 Use `#[injectable(transient)]` or `#[injectable(request)]` when a provider
 should not use the default singleton lifetime.

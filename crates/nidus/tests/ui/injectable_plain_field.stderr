@@ -1,0 +1,5 @@
+error: #[injectable] fields must use Inject<T> or Optional<T>; use an explicit factory for literal or default state
+ --> tests/ui/injectable_plain_field.rs:5:19
+  |
+5 |     database_url: String,
+  |                   ^^^^^^
