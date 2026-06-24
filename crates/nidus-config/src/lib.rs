@@ -1,5 +1,7 @@
 //! Typed configuration support.
 
+use std::{fs, path::Path};
+
 use serde::de::DeserializeOwned;
 use serde_json::{Map, Value};
 
@@ -40,6 +42,24 @@ impl Config {
     pub fn from_json_str(source: &str) -> Result<Self> {
         let value = serde_json::from_str(source).map_err(ConfigError::Parse)?;
         Self::from_value(value)
+    }
+
+    /// Creates configuration from a JSON object file.
+    pub fn from_json_file(path: impl AsRef<Path>) -> Result<Self> {
+        let path = path.as_ref();
+        let label = path.display().to_string();
+        let source = fs::read_to_string(path).map_err(|source| ConfigError::ReadFile {
+            path: label.clone(),
+            source,
+        })?;
+        let value = serde_json::from_str(&source).map_err(|source| ConfigError::ParseFile {
+            path: label.clone(),
+            source,
+        })?;
+        match value {
+            Value::Object(values) => Ok(Self { values }),
+            _ => Err(ConfigError::FileRootNotObject { path: label }),
+        }
     }
 
     /// Creates configuration from process environment variables with a prefix.
@@ -204,6 +224,33 @@ pub enum ConfigError {
     /// The configuration root was not a JSON object.
     #[error("configuration root must be a JSON object")]
     RootNotObject,
+
+    /// Reading a JSON configuration file failed.
+    #[error("configuration file `{path}` read error: {source}")]
+    ReadFile {
+        /// Configuration file path.
+        path: String,
+        /// Underlying IO error.
+        #[source]
+        source: std::io::Error,
+    },
+
+    /// Parsing a JSON configuration file failed.
+    #[error("configuration file `{path}` JSON parse error: {source}")]
+    ParseFile {
+        /// Configuration file path.
+        path: String,
+        /// Underlying serde error.
+        #[source]
+        source: serde_json::Error,
+    },
+
+    /// A JSON configuration file root was not an object.
+    #[error("configuration file `{path}` root must be a JSON object")]
+    FileRootNotObject {
+        /// Configuration file path.
+        path: String,
+    },
 
     /// Deserialization into the requested type failed.
     #[error("configuration deserialize error: {0}")]

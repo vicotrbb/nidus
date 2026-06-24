@@ -24,6 +24,12 @@ let config = Config::from_json_str(
 )?;
 ```
 
+The same JSON object format can be loaded from a file:
+
+```rust
+let config = Config::from_json_file("config/defaults.json")?;
+```
+
 Environment variables can be loaded through an explicit prefix. Double
 underscores create nested objects:
 

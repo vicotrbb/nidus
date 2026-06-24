@@ -1,6 +1,14 @@
+use std::{
+    fs,
+    path::PathBuf,
+    sync::atomic::{AtomicUsize, Ordering},
+};
+
 use serde::Deserialize;
 
 use nidus_config::Config;
+
+static NEXT_TEST_FILE_ID: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
 struct AppConfig {
@@ -69,6 +77,63 @@ fn config_deserializes_typed_settings_from_json_object() {
             },
         }
     );
+}
+
+#[test]
+fn config_deserializes_typed_settings_from_json_file() {
+    let path = write_temp_config(
+        "valid",
+        r#"{
+            "name": "nidus",
+            "port": 3000,
+            "debug": true
+        }"#,
+    );
+
+    let config = Config::from_json_file(&path).unwrap();
+    let settings = config.deserialize::<AppConfig>().unwrap();
+    fs::remove_file(&path).unwrap();
+
+    assert_eq!(
+        settings,
+        AppConfig {
+            name: "nidus".to_owned(),
+            port: 3000,
+            debug: true,
+        }
+    );
+}
+
+#[test]
+fn config_reports_missing_json_file_path() {
+    let path = temp_config_path("missing");
+
+    let error = Config::from_json_file(&path).unwrap_err();
+
+    assert!(error.to_string().contains(path.to_string_lossy().as_ref()));
+    assert!(error.to_string().contains("read error"));
+}
+
+#[test]
+fn config_reports_invalid_json_file_path() {
+    let path = write_temp_config("invalid-json", "{not-json");
+
+    let error = Config::from_json_file(&path).unwrap_err();
+    fs::remove_file(&path).unwrap();
+
+    assert!(error.to_string().contains(path.to_string_lossy().as_ref()));
+    assert!(error.to_string().contains("JSON parse error"));
+}
+
+#[test]
+fn config_rejects_non_object_json_file_roots() {
+    let path = write_temp_config("array-root", "[\"nidus\"]");
+
+    let error = Config::from_json_file(&path).unwrap_err();
+    fs::remove_file(&path).unwrap();
+
+    assert!(error.to_string().contains(path.to_string_lossy().as_ref()));
+    assert!(error.to_string().contains("root must be a JSON object"));
 }
 
 #[test]
@@ -313,4 +378,18 @@ fn config_merges_sources_with_later_values_taking_precedence() {
             },
         }
     );
+}
+
+fn write_temp_config(label: &str, contents: &str) -> PathBuf {
+    let path = temp_config_path(label);
+    fs::write(&path, contents).unwrap();
+    path
+}
+
+fn temp_config_path(label: &str) -> PathBuf {
+    std::env::temp_dir().join(format!(
+        "nidus-config-{label}-{}-{}.json",
+        std::process::id(),
+        NEXT_TEST_FILE_ID.fetch_add(1, Ordering::Relaxed)
+    ))
 }
