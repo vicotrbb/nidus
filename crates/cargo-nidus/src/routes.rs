@@ -133,8 +133,8 @@ fn discover_controller_routes(file: &syn::File) -> Result<Vec<DiscoveredRoute>> 
                 response_schema: openapi
                     .as_ref()
                     .and_then(|metadata| metadata.response_schema.clone()),
-                guards: type_attrs(&function.attrs, "guard"),
-                pipes: type_attrs(&function.attrs, "pipe"),
+                guards: type_attrs(&function.attrs, "guard")?,
+                pipes: type_attrs(&function.attrs, "pipe")?,
                 validates: has_attr(&function.attrs, "validate"),
             });
         }
@@ -202,13 +202,18 @@ fn route_method_attr<'a>(attrs: &'a [Attribute], method: &str) -> Option<&'a Att
     attrs.iter().find(|attr| attr.path().is_ident(method))
 }
 
-fn type_attrs(attrs: &[Attribute], name: &str) -> Vec<String> {
-    attrs
-        .iter()
-        .filter(|attr| attr.path().is_ident(name))
-        .filter_map(|attr| attr.parse_args::<syn::Path>().ok())
-        .filter_map(|path| type_path_name(&path))
-        .collect()
+fn type_attrs(attrs: &[Attribute], name: &str) -> Result<Vec<String>> {
+    let mut values = Vec::new();
+    for attr in attrs.iter().filter(|attr| attr.path().is_ident(name)) {
+        let path = attr.parse_args::<syn::Path>().with_context(|| {
+            format!("#[{name}] requires a type path like #[{name}(ValidationPipe)]")
+        })?;
+        let Some(name) = type_path_name(&path) else {
+            bail!("#[{name}] requires a simple type path without generic arguments");
+        };
+        values.push(name);
+    }
+    Ok(values)
 }
 
 fn openapi_attr(attrs: &[Attribute]) -> Result<Option<crate::source_openapi::OpenApiMetadata>> {
@@ -362,5 +367,29 @@ impl UsersController {
                 .to_string()
                 .contains("#[controller] requires a string literal path")
         );
+    }
+
+    #[test]
+    fn rejects_malformed_route_type_metadata() {
+        let file = syn::parse_file(
+            r#"
+use nidus::prelude::*;
+
+#[controller("/users")]
+pub struct UsersController;
+
+#[routes]
+impl UsersController {
+    #[guard]
+    #[get("/:id")]
+    pub async fn find(&self) {}
+}
+"#,
+        )
+        .unwrap();
+
+        let error = discover_controller_routes(&file).unwrap_err();
+
+        assert!(error.to_string().contains("#[guard] requires a type path"));
     }
 }

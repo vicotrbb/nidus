@@ -618,6 +618,37 @@ fn cargo_nidus_routes_and_openapi_reject_malformed_controller_metadata() {
 }
 
 #[test]
+fn cargo_nidus_routes_and_openapi_reject_malformed_route_type_metadata() {
+    let root = temp_project_root("routes_and_openapi_reject_malformed_route_type_metadata");
+    let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "generate", "controller", "users", "--path"])
+        .arg(&root)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    let controller_path = root.join("src/controllers/users.rs");
+    let controller = fs::read_to_string(&controller_path)
+        .unwrap()
+        .replace("#[get(\"/\")]", "#[guard]\n    #[get(\"/\")]");
+    fs::write(controller_path, controller).unwrap();
+
+    for command in ["routes", "openapi"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+            .args(["nidus", command, "--path"])
+            .arg(&root)
+            .output()
+            .unwrap();
+
+        assert!(
+            !output.status.success(),
+            "{command} should reject malformed route type metadata"
+        );
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(stderr.contains("#[guard] requires a type path"));
+    }
+}
+
+#[test]
 fn cargo_nidus_graph_prints_module_builder_metadata() {
     let root = temp_project_root("graph_prints_module_builder_metadata");
     let modules = root.join("src/modules");
