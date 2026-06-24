@@ -93,7 +93,7 @@ fn discover_controller_routes(file: &syn::File) -> Result<Vec<DiscoveredRoute>> 
             let ImplItem::Fn(function) = item else {
                 continue;
             };
-            let Some((method, route_path)) = route_attr(&function.attrs) else {
+            let Some((method, route_path)) = route_attr(&function.attrs)? else {
                 continue;
             };
             let openapi = openapi_attr(&function.attrs)?;
@@ -140,13 +140,27 @@ fn controller_prefix(item: &ItemStruct) -> Option<String> {
     string_attr(&item.attrs, "controller")
 }
 
-fn route_attr(attrs: &[Attribute]) -> Option<(String, String)> {
-    for method in ["get", "post", "put", "patch", "delete"] {
-        if let Some(path) = string_attr(attrs, method) {
-            return Some((method.to_owned(), path));
-        }
+fn route_attr(attrs: &[Attribute]) -> Result<Option<(String, String)>> {
+    let route_attrs = ["get", "post", "put", "patch", "delete"]
+        .into_iter()
+        .filter_map(|method| route_method_attr(attrs, method).map(|attr| (method, attr)))
+        .collect::<Vec<_>>();
+
+    if route_attrs.len() > 1 {
+        bail!("route methods must declare exactly one HTTP method attribute");
     }
-    None
+
+    let Some((method, attr)) = route_attrs.first() else {
+        return Ok(None);
+    };
+    let path = attr.parse_args::<LitStr>().with_context(|| {
+        format!("#[{method}] requires a string literal path like #[{method}(\"/:id\")]")
+    })?;
+    Ok(Some(((*method).to_owned(), path.value())))
+}
+
+fn route_method_attr<'a>(attrs: &'a [Attribute], method: &str) -> Option<&'a Attribute> {
+    attrs.iter().find(|attr| attr.path().is_ident(method))
 }
 
 fn string_attr(attrs: &[Attribute], name: &str) -> Option<String> {
@@ -263,5 +277,33 @@ impl UsersController {
         assert_eq!(route.guards, ["crate::auth::AuthGuard"]);
         assert_eq!(route.pipes, ["ValidationPipe"]);
         assert!(route.validates);
+    }
+
+    #[test]
+    fn rejects_duplicate_route_method_attributes() {
+        let file = syn::parse_file(
+            r#"
+use nidus::prelude::*;
+
+#[controller("/users")]
+pub struct UsersController;
+
+#[routes]
+impl UsersController {
+    #[get("/:id")]
+    #[post("/")]
+    pub async fn find(&self) {}
+}
+"#,
+        )
+        .unwrap();
+
+        let error = discover_controller_routes(&file).unwrap_err();
+
+        assert!(
+            error
+                .to_string()
+                .contains("route methods must declare exactly one HTTP method attribute")
+        );
     }
 }
