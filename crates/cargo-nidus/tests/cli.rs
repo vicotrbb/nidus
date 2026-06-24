@@ -656,9 +656,26 @@ fn cargo_nidus_openapi_generates_document_from_controllers() {
         .unwrap();
     assert!(status.success());
     let controller_path = root.join("src/controllers/users.rs");
-    let controller = fs::read_to_string(&controller_path).unwrap().replace(
-        "#[get(\"/\")]",
-        r#"#[get("/:id")]
+    let controller = fs::read_to_string(&controller_path)
+        .unwrap()
+        .replace(
+            "pub struct UsersController;",
+            r#"pub struct UsersController;
+
+pub struct CreateUserDto {
+    email: String,
+    age: Option<u16>,
+}
+
+pub struct UserDto {
+    id: u64,
+    email: String,
+    roles: Vec<String>,
+}"#,
+        )
+        .replace(
+            "#[get(\"/\")]",
+            r#"#[get("/:id")]
     #[openapi(
         summary = "Find user",
         tags = ["users", "read"],
@@ -666,7 +683,7 @@ fn cargo_nidus_openapi_generates_document_from_controllers() {
         request = CreateUserDto,
         response = UserDto
     )]"#,
-    );
+        );
     fs::write(controller_path, controller).unwrap();
 
     let openapi = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
@@ -708,10 +725,29 @@ fn cargo_nidus_openapi_generates_document_from_controllers() {
     );
     assert!(json["paths"]["/users/{id}"]["get"]["responses"]["200"].is_null());
     assert_eq!(
-        json["components"]["schemas"]["CreateUserDto"]["type"],
-        "object"
+        json["components"]["schemas"]["CreateUserDto"]["properties"]["email"]["type"],
+        "string"
     );
-    assert_eq!(json["components"]["schemas"]["UserDto"]["type"], "object");
+    assert_eq!(
+        json["components"]["schemas"]["CreateUserDto"]["properties"]["age"]["type"],
+        "integer"
+    );
+    assert_eq!(
+        json["components"]["schemas"]["CreateUserDto"]["required"],
+        serde_json::json!(["email"])
+    );
+    assert_eq!(
+        json["components"]["schemas"]["UserDto"]["properties"]["id"]["type"],
+        "integer"
+    );
+    assert_eq!(
+        json["components"]["schemas"]["UserDto"]["properties"]["roles"]["type"],
+        "array"
+    );
+    assert_eq!(
+        json["components"]["schemas"]["UserDto"]["properties"]["roles"]["items"]["type"],
+        "string"
+    );
 }
 
 #[test]

@@ -4,6 +4,7 @@ use anyhow::Result;
 use serde_json::{Value, json};
 
 use crate::routes::{discover_routes, openapi_path_parameters};
+use crate::schema::discover_schemas;
 
 pub(crate) fn generate_openapi(root: &Path) -> Result<()> {
     let mut paths = serde_json::Map::new();
@@ -93,16 +94,8 @@ pub(crate) fn generate_openapi(root: &Path) -> Result<()> {
     });
 
     if !schema_names.is_empty() {
-        let schemas = schema_names
+        let schemas = discover_schemas(root, &schema_names)?
             .into_iter()
-            .map(|name| {
-                (
-                    name,
-                    json!({
-                        "type": "object"
-                    }),
-                )
-            })
             .collect::<serde_json::Map<_, _>>();
         document["components"] = json!({
             "schemas": schemas,

@@ -13,6 +13,7 @@ mod generate;
 mod graph;
 mod openapi_doc;
 mod routes;
+mod schema;
 mod source_openapi;
 
 use check::check_project;
