@@ -1,9 +1,10 @@
 //! SQLx Postgres provider registration example without opening a database connection.
 
-use nidus::prelude::{Container, Inject, PgPoolOptions, ProviderLifetime};
+use nidus::prelude::{Container, Inject, PgPoolOptions, injectable};
 
 struct DatabaseOptions(PgPoolOptions);
 
+#[injectable]
 struct UsersRepository {
     #[allow(dead_code)]
     options: Inject<DatabaseOptions>,
@@ -14,13 +15,7 @@ fn container() -> Container {
     container
         .register_singleton(DatabaseOptions(PgPoolOptions::new()))
         .unwrap();
-    container
-        .register_factory(ProviderLifetime::Singleton, |container| {
-            Ok(UsersRepository {
-                options: container.inject::<DatabaseOptions>()?,
-            })
-        })
-        .unwrap();
+    UsersRepository::register_provider(&mut container).unwrap();
     container
 }
 
