@@ -1170,7 +1170,10 @@ name = "nidus-auth"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "axum",
  "http",
+ "serde",
+ "serde_json",
  "thiserror",
  "tokio",
 ]

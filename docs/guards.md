@@ -11,5 +11,6 @@ impl Guard<AppState> for AuthGuard {
 }
 ```
 
-Guard errors carry a typed `http::StatusCode` and a reason that can be mapped
-into framework responses.
+Guard errors carry a typed `http::StatusCode`, a stable code, and a reason.
+They implement Axum's `IntoResponse`, so route handlers can return
+`Result<T, GuardError>` directly when the default JSON error shape is enough.

@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use axum::{Router, http::StatusCode};
+use axum::Router;
 use nidus::prelude::{Controller, Guard, GuardContext, GuardError, RouteDefinition};
 
 struct ApiKeyGuard;
@@ -21,11 +21,8 @@ fn app() -> Router {
         .into_router()
 }
 
-async fn me() -> Result<&'static str, (StatusCode, String)> {
-    ApiKeyGuard
-        .check(GuardContext::new((), "profile"))
-        .await
-        .map_err(|error| (error.status_code(), error.reason().to_owned()))?;
+async fn me() -> Result<&'static str, GuardError> {
+    ApiKeyGuard.check(GuardContext::new((), "profile")).await?;
 
     Ok("authorized")
 }
@@ -58,7 +55,7 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert_eq!(error.status_code(), StatusCode::FORBIDDEN);
+        assert_eq!(error.status_code(), axum::http::StatusCode::FORBIDDEN);
         assert_eq!(error.reason(), "invalid route");
     }
 
@@ -66,7 +63,7 @@ mod tests {
     async fn auth_route_uses_guard() {
         let response = TestApp::from_router(app()).get("/me").send().await;
 
-        response.assert_status(StatusCode::OK);
+        response.assert_status(axum::http::StatusCode::OK);
         response.assert_text("authorized").await;
     }
 }

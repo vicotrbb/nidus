@@ -1,7 +1,9 @@
 //! Authentication and guard support.
 
 use async_trait::async_trait;
+use axum::{Json, response::IntoResponse};
 use http::StatusCode;
+use serde::Serialize;
 
 /// Composable authorization guard.
 #[async_trait]
@@ -79,4 +81,37 @@ impl GuardError {
     pub fn reason(&self) -> &str {
         &self.reason
     }
+
+    /// Returns the stable machine-readable error code.
+    pub fn code(&self) -> &'static str {
+        match self.status_code {
+            StatusCode::UNAUTHORIZED => "unauthorized",
+            StatusCode::FORBIDDEN => "forbidden",
+            _ => "authorization_failed",
+        }
+    }
+}
+
+impl IntoResponse for GuardError {
+    fn into_response(self) -> axum::response::Response {
+        let status = self.status_code;
+        let body = Json(GuardErrorBody {
+            error: GuardErrorDetails {
+                code: self.code(),
+                message: self.reason,
+            },
+        });
+        (status, body).into_response()
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct GuardErrorBody {
+    error: GuardErrorDetails,
+}
+
+#[derive(Debug, Serialize)]
+struct GuardErrorDetails {
+    code: &'static str,
+    message: String,
 }
