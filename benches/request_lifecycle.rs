@@ -1,16 +1,24 @@
 use axum::{
-    Router,
+    Extension, Router,
     body::Body,
     http::{Method, Request, header::CONTENT_TYPE},
     routing::{get, post},
 };
 use criterion::{Criterion, criterion_group, criterion_main};
 use nidus_auth::{Guard, GuardContext, GuardError, guard_layer};
-use nidus_core::{Container, Inject};
-use nidus_http::{controller::Controller, router::RouteDefinition};
+use nidus_core::{Container, Inject, SharedRequestScope};
+use nidus_http::{
+    controller::Controller, middleware::request_scope_layer, router::RouteDefinition,
+};
 use nidus_validation::ValidatedJson;
 use serde::Deserialize;
-use std::hint::black_box;
+use std::{
+    hint::black_box,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
+};
 use tower::ServiceExt;
 use validator::Validate;
 
@@ -40,6 +48,12 @@ impl UsersController {
         let _users = self.users.clone();
         RouteDefinition::get("/:id", || async { "user" })
     }
+}
+
+struct RequestId(usize);
+
+struct RequestContext {
+    request_id: Inject<RequestId>,
 }
 
 #[derive(Deserialize, Validate)]
@@ -73,6 +87,33 @@ fn request_lifecycle_setup(c: &mut Criterion) {
             },
         ),
     );
+    let request_id_calls = Arc::new(AtomicUsize::new(0));
+    let mut request_container = Container::new();
+    request_container
+        .register_request::<RequestId, _>({
+            let request_id_calls = Arc::clone(&request_id_calls);
+            move |_container| Ok(RequestId(request_id_calls.fetch_add(1, Ordering::Relaxed)))
+        })
+        .unwrap();
+    request_container
+        .register_request_scoped::<RequestContext, _>(|scope| {
+            Ok(RequestContext {
+                request_id: scope.inject::<RequestId>()?,
+            })
+        })
+        .unwrap();
+    let request_scope_router = Router::new()
+        .route(
+            "/scope",
+            get(
+                |Extension(scope): Extension<SharedRequestScope>| async move {
+                    let context = scope.resolve::<RequestContext>().unwrap();
+                    black_box(context.request_id.0);
+                    "scoped"
+                },
+            ),
+        )
+        .layer(request_scope_layer(Arc::new(request_container)));
 
     c.bench_function("raw axum baseline request", |b| {
         b.iter(|| {
@@ -122,6 +163,15 @@ fn request_lifecycle_setup(c: &mut Criterion) {
                         .clone()
                         .oneshot(json_request("/users", r#"{"email":"user@example.com"}"#)),
                 )
+                .unwrap();
+            black_box(response.status());
+        });
+    });
+
+    c.bench_function("nidus request-scoped route", |b| {
+        b.iter(|| {
+            let response = runtime
+                .block_on(request_scope_router.clone().oneshot(get_request("/scope")))
                 .unwrap();
             black_box(response.status());
         });

@@ -28,5 +28,6 @@ Benchmarks cover:
 - Nidus controller + service requests
 - guarded route checks
 - validation pipe route input checks
+- request-scoped provider route checks
 
 Published results must compare against equivalent raw Axum code and document overhead honestly.
