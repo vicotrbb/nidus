@@ -31,13 +31,14 @@ nidus = {nidus_dependency}
 
 #[nidus::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    let address = std::env::var("NIDUS_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".to_owned());
     let app = Controller::new("/")
         .route(RouteDefinition::get("/", || async { "hello from nidus" }))
         .into_router();
 
     Nidus::bootstrap::<AppModule>()?
         .with_router(app)
-        .listen("127.0.0.1:3000")
+        .listen(address)
         .await?;
     Ok(())
 }
@@ -57,6 +58,13 @@ Run:
 
 ```bash
 cargo run
+```
+
+The server listens on `127.0.0.1:3000` by default. Set `NIDUS_ADDR` to bind a
+different address:
+
+```bash
+NIDUS_ADDR=127.0.0.1:4000 cargo run
 ```
 "#
         ),
