@@ -11,7 +11,7 @@ let pool = container.resolve::<DatabasePool>()?;
 Factories can resolve dependencies through the same typed API:
 
 ```rust
-container.register_factory(ProviderLifetime::Singleton, |container| {
+container.register_singleton_factory(|container| {
     Ok(UsersRepository::new(container.inject::<DatabasePool>()?))
 })?;
 ```
@@ -57,6 +57,11 @@ providers are opt-in and must be resolved through an explicit request scope
 because they add request path overhead:
 
 ```rust
+container.register_transient::<RequestId, _>(|_container| Ok(RequestId::new()))?;
+container.register_request::<RequestState, _>(|container| {
+    Ok(RequestState::new(container.inject::<RequestId>()?))
+})?;
+
 let scope = container.request_scope();
 let request_state = scope.resolve::<RequestState>()?;
 let scoped_state = scope.scoped::<RequestState>()?;

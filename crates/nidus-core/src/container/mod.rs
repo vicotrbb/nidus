@@ -185,6 +185,33 @@ impl Container {
         })
     }
 
+    /// Registers a singleton provider factory.
+    pub fn register_singleton_factory<T, F>(&mut self, factory: F) -> Result<()>
+    where
+        T: Send + Sync + 'static,
+        F: Fn(&Container) -> Result<T> + Send + Sync + 'static,
+    {
+        self.register_factory::<T, F>(ProviderLifetime::Singleton, factory)
+    }
+
+    /// Registers a transient provider factory.
+    pub fn register_transient<T, F>(&mut self, factory: F) -> Result<()>
+    where
+        T: Send + Sync + 'static,
+        F: Fn(&Container) -> Result<T> + Send + Sync + 'static,
+    {
+        self.register_factory::<T, F>(ProviderLifetime::Transient, factory)
+    }
+
+    /// Registers a request-lifetime provider factory.
+    pub fn register_request<T, F>(&mut self, factory: F) -> Result<()>
+    where
+        T: Send + Sync + 'static,
+        F: Fn(&Container) -> Result<T> + Send + Sync + 'static,
+    {
+        self.register_factory::<T, F>(ProviderLifetime::Request, factory)
+    }
+
     /// Resolves a typed dependency reference.
     pub fn inject<T>(&self) -> Result<Inject<T>>
     where

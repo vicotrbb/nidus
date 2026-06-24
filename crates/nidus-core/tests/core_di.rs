@@ -178,7 +178,7 @@ fn singleton_factories_reuse_one_instance() {
     let calls = Arc::new(AtomicUsize::new(0));
     let mut container = Container::new();
     container
-        .register_factory::<Database, _>(ProviderLifetime::Singleton, {
+        .register_singleton_factory::<Database, _>({
             let calls = Arc::clone(&calls);
             move |_container| {
                 let call = calls.fetch_add(1, Ordering::SeqCst);
@@ -199,7 +199,7 @@ fn transient_factories_create_each_resolution() {
     let calls = Arc::new(AtomicUsize::new(0));
     let mut container = Container::new();
     container
-        .register_factory::<Database, _>(ProviderLifetime::Transient, {
+        .register_transient::<Database, _>({
             let calls = Arc::clone(&calls);
             move |_container| {
                 let call = calls.fetch_add(1, Ordering::SeqCst);
@@ -221,7 +221,7 @@ fn request_factories_reuse_within_scope_but_not_across_scopes() {
     let calls = Arc::new(AtomicUsize::new(0));
     let mut container = Container::new();
     container
-        .register_factory::<Database, _>(ProviderLifetime::Request, {
+        .register_request::<Database, _>({
             let calls = Arc::clone(&calls);
             move |_container| {
                 let call = calls.fetch_add(1, Ordering::SeqCst);
@@ -246,9 +246,7 @@ fn request_factories_reuse_within_scope_but_not_across_scopes() {
 fn request_scope_resolves_scoped_wrapper() {
     let mut container = Container::new();
     container
-        .register_factory::<Database, _>(ProviderLifetime::Request, |_container| {
-            Ok(Database("request"))
-        })
+        .register_request::<Database, _>(|_container| Ok(Database("request")))
         .unwrap();
     let scope = container.request_scope();
 
