@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Background job abstractions.
 
 use std::{error::Error, fmt};

@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Event bus abstractions.
 
 use std::sync::{Arc, Mutex, MutexGuard, Weak};

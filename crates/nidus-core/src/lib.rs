@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Core application, module, provider, and dependency injection primitives.
 
 pub mod app;

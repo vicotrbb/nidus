@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Test application helpers for Nidus applications.
 
 mod app;

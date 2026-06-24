@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! OpenAPI document generation and serving support.
 
 mod document;

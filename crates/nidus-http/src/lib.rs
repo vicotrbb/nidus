@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! HTTP routing, controllers, middleware, request, and response helpers.
 
 pub use axum::{

@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Authentication and guard support.
 
 mod middleware;

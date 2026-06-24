@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Typed configuration support.
 
 mod error;

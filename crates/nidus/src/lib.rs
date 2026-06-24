@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Public facade crate for the Nidus framework.
 
 pub mod prelude;

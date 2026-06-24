@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Validation pipe support.
 
 use std::ops::{Deref, DerefMut};

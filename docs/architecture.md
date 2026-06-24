@@ -16,6 +16,9 @@ The workspace is split into focused crates:
 - `cargo-nidus`: CLI tooling.
 
 Crates should depend inward on stable abstractions and avoid circular dependencies.
+Framework library crates deny missing public documentation at the crate root, so
+public API documentation is enforced by normal build and documentation checks
+rather than being only a release-time manual audit.
 
 Module graph construction emits `tracing` debug events for validation start,
 each graph node, and validation success. This keeps graph diagnostics available
