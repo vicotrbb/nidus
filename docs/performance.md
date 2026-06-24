@@ -43,18 +43,18 @@ machine and compare against equivalent raw Axum code.
 
 | Benchmark | Central estimate | Local comparison |
 | --- | ---: | --- |
-| raw Axum baseline request | 629.65 ns | baseline |
-| Nidus hello-world request | 601.68 ns | same shape as raw Axum in this run |
-| Nidus hello-world app | 2.8455 us | app construction microbenchmark |
-| Nidus controller + service request | 711.87 ns | about 1.13x raw Axum |
-| Nidus controller + service app | 3.6418 us | app construction with DI setup |
-| Nidus guarded route | 892.23 ns | about 1.42x raw Axum |
-| Nidus validation route | 1.9611 us | about 3.11x raw Axum |
-| Nidus request-scoped route | 1.1631 us | about 1.85x raw Axum |
-| Nidus controller setup | 262.46 ns | local setup microbenchmark |
-| raw Axum route composition | 1.7146 us | startup/composition baseline |
-| Nidus controller route composition | 5.4482 us | about 3.18x raw Axum composition |
-| Nidus singleton dependency resolution | 23.11 ns | direct container lookup |
+| raw Axum baseline request | 628.93 ns | baseline |
+| Nidus hello-world request | 608.36 ns | same shape as raw Axum in this run |
+| Nidus hello-world app | 2.8517 us | app construction microbenchmark |
+| Nidus controller + service request | 721.70 ns | about 1.15x raw Axum |
+| Nidus controller + service app | 3.6173 us | app construction with DI setup |
+| Nidus guarded route | 901.20 ns | about 1.43x raw Axum |
+| Nidus validation route | 1.9878 us | about 3.16x raw Axum |
+| Nidus request-scoped route | 1.1925 us | about 1.90x raw Axum |
+| Nidus controller setup | 264.63 ns | local setup microbenchmark |
+| raw Axum route composition | 1.7508 us | startup/composition baseline |
+| Nidus controller route composition | 6.0412 us | about 3.45x raw Axum composition |
+| Nidus singleton dependency resolution | 23.376 ns | direct container lookup |
 
 These results support the current design constraints: default request handling
 does not resolve the dependency graph per request, request-scoped providers are
