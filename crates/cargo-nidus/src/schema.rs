@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use serde_json::{Value, json};
-use syn::{Fields, GenericArgument, Item, PathArguments, Type};
+use syn::{Field, Fields, GenericArgument, Item, LitStr, PathArguments, Type};
 
 pub(crate) fn discover_schemas(
     root: &Path,
@@ -70,11 +70,13 @@ fn schema_for_struct(fields: &Fields) -> Value {
     let mut required = Vec::new();
 
     for field in &fields.named {
-        let Some(identifier) = &field.ident else {
+        if has_serde_flag(field, "skip") {
+            continue;
+        }
+        let Some(name) = field_name(field) else {
             continue;
         };
-        let name = identifier.to_string();
-        if !is_option_type(&field.ty) {
+        if field_is_required(field) {
             required.push(name.clone());
         }
         properties.insert(name, schema_for_type(&field.ty));
@@ -135,6 +137,45 @@ fn generic_inner_type<'a>(ty: &'a Type, wrapper: &str) -> Option<&'a Type> {
 
 fn is_option_type(ty: &Type) -> bool {
     generic_inner_type(ty, "Option").is_some()
+}
+
+fn field_is_required(field: &Field) -> bool {
+    !is_option_type(&field.ty) && !has_serde_flag(field, "default")
+}
+
+fn field_name(field: &Field) -> Option<String> {
+    let mut rename = None;
+    for attr in &field.attrs {
+        if !attr.path().is_ident("serde") {
+            continue;
+        }
+        let _ = attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident("rename") {
+                let value = meta.value()?;
+                let literal: LitStr = value.parse()?;
+                rename = Some(literal.value());
+            }
+            Ok(())
+        });
+    }
+
+    rename.or_else(|| field.ident.as_ref().map(ToString::to_string))
+}
+
+fn has_serde_flag(field: &Field, name: &str) -> bool {
+    let mut found = false;
+    for attr in &field.attrs {
+        if !attr.path().is_ident("serde") {
+            continue;
+        }
+        let _ = attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident(name) {
+                found = true;
+            }
+            Ok(())
+        });
+    }
+    found
 }
 
 fn fallback_schema() -> Value {

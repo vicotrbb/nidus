@@ -60,9 +60,10 @@ reports the same error when reading source files.
 When `cargo nidus openapi` discovers `request = Type` or `response = Type`, it
 emits matching `$ref` values and inspects local named DTO structs for simple
 field-level schemas. Primitive fields, `Option<T>`, and `Vec<T>` are handled
-directly; unsupported shapes fall back to object schemas. Use the runtime
-`OpenApiDocument::schema::<T>()` builder path when the output needs the full
-`utoipa::ToSchema` model.
+directly, and common `serde` field metadata such as `rename`, `default`, and
+`skip` is respected. Unsupported shapes fall back to object schemas. Use the
+runtime `OpenApiDocument::schema::<T>()` builder path when the output needs the
+full `utoipa::ToSchema` model.
 
 Generated route metadata can also seed a document directly:
 

@@ -668,8 +668,13 @@ pub struct CreateUserDto {
 }
 
 pub struct UserDto {
+    #[serde(rename = "user_id")]
     id: u64,
     email: String,
+    #[serde(default)]
+    display_name: String,
+    #[serde(skip)]
+    internal_notes: String,
     roles: Vec<String>,
 }"#,
         )
@@ -737,8 +742,13 @@ pub struct UserDto {
         serde_json::json!(["email"])
     );
     assert_eq!(
-        json["components"]["schemas"]["UserDto"]["properties"]["id"]["type"],
+        json["components"]["schemas"]["UserDto"]["properties"]["user_id"]["type"],
         "integer"
+    );
+    assert!(json["components"]["schemas"]["UserDto"]["properties"]["internal_notes"].is_null());
+    assert_eq!(
+        json["components"]["schemas"]["UserDto"]["required"],
+        serde_json::json!(["user_id", "email", "roles"])
     );
     assert_eq!(
         json["components"]["schemas"]["UserDto"]["properties"]["roles"]["type"],
