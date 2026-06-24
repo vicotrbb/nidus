@@ -57,6 +57,11 @@ fn http_error_common_helpers_use_stable_codes_and_statuses() {
             StatusCode::CONFLICT,
             "conflict",
         ),
+        (
+            HttpError::unprocessable_entity("validation failed"),
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "unprocessable_entity",
+        ),
     ];
 
     for (error, status, code) in errors {

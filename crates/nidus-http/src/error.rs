@@ -48,6 +48,15 @@ impl HttpError {
         Self::new(StatusCode::CONFLICT, "conflict", message)
     }
 
+    /// Creates a 422 unprocessable entity error.
+    pub fn unprocessable_entity(message: impl Into<String>) -> Self {
+        Self::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "unprocessable_entity",
+            message,
+        )
+    }
+
     /// Creates a sanitized 500 internal server error.
     pub fn internal_server_error() -> Self {
         Self::new(
