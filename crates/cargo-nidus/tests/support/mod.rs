@@ -11,6 +11,7 @@ pub(crate) fn temp_project_root(name: &str) -> PathBuf {
     root
 }
 
+#[allow(dead_code)]
 pub(crate) fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
