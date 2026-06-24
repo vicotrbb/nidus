@@ -26,6 +26,8 @@ cd /tmp/hello-nidus
 cargo check
 ```
 
+For the broader framework mental model, see [docs/](docs/README.md).
+
 ## Example
 
 ```rust
