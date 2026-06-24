@@ -1,6 +1,7 @@
 use std::{fs, path::Path};
 
 use anyhow::{Context, Result};
+use syn::{Attribute, Expr, Field, Fields, Item, Lit, Meta, Stmt, Type};
 
 pub(crate) fn inspect_graph(root: &Path) -> Result<()> {
     for module in discover_modules(root)? {
@@ -49,14 +50,17 @@ fn discover_modules(root: &Path) -> Result<Vec<DiscoveredModule>> {
             }
         }
     }
+    sources.sort();
 
     let mut discovered = Vec::new();
     for path in sources {
         let contents =
             fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
-        let modules = discover_modules_in_source(&contents);
+        let file =
+            syn::parse_file(&contents).with_context(|| format!("parsing {}", path.display()))?;
+        let modules = discover_modules_in_source(&file);
         if modules.is_empty() {
-            discovered.extend(extract_struct_names(&contents).into_iter().map(|name| {
+            discovered.extend(extract_struct_names(&file).into_iter().map(|name| {
                 DiscoveredModule {
                     name,
                     ..DiscoveredModule::default()
@@ -66,181 +70,180 @@ fn discover_modules(root: &Path) -> Result<Vec<DiscoveredModule>> {
             discovered.extend(modules);
         }
     }
+    discovered.sort_by(|left, right| left.name.cmp(&right.name));
     Ok(discovered)
 }
 
-fn discover_modules_in_source(contents: &str) -> Vec<DiscoveredModule> {
+fn discover_modules_in_source(file: &syn::File) -> Vec<DiscoveredModule> {
     let mut modules = Vec::new();
-    let mut current = None::<DiscoveredModule>;
-
-    for line in contents.lines() {
-        if let Some(name) = extract_call_arg(line, "ModuleBuilder::new") {
-            if let Some(module) = current.take() {
-                modules.push(module);
-            }
-            current = Some(DiscoveredModule {
-                name,
-                ..DiscoveredModule::default()
-            });
-        }
-
-        if let Some(module) = current.as_mut() {
-            if let Some(import) = extract_call_arg(line, ".import") {
-                module.imports.push(import);
-            }
-            if let Some(provider) = extract_call_arg(line, ".provider") {
-                module.providers.push(provider);
-            }
-            if let Some(controller) = extract_call_arg(line, ".controller") {
-                module.controllers.push(controller);
-            }
-            if let Some(export) = extract_call_arg(line, ".export") {
-                module.exports.push(export);
-            }
-        }
-
-        if line.contains(".build()")
-            && let Some(module) = current.take()
-        {
-            modules.push(module);
-        }
-    }
-
-    if let Some(module) = current {
-        modules.push(module);
-    }
-    modules.extend(discover_module_macro_metadata(contents));
+    modules.extend(discover_module_builder_metadata(file));
+    modules.extend(discover_module_macro_metadata(file));
     modules
 }
 
-fn discover_module_macro_metadata(contents: &str) -> Vec<DiscoveredModule> {
+fn discover_module_builder_metadata(file: &syn::File) -> Vec<DiscoveredModule> {
     let mut modules = Vec::new();
-    let mut module_attr = None::<String>;
-    let mut pending_module_attr = None::<DiscoveredModule>;
-    let mut current = None::<DiscoveredModule>;
-
-    for line in contents.lines() {
-        let trimmed = line.trim();
-        if let Some(attr) = module_attr.as_mut() {
-            attr.push(' ');
-            attr.push_str(trimmed);
-            if trimmed.ends_with(']') {
-                pending_module_attr = Some(discover_module_attr_metadata(attr));
-                module_attr = None;
-            }
+    for item in &file.items {
+        let Item::Impl(implementation) = item else {
             continue;
-        }
-
-        if trimmed.starts_with("#[module") {
-            if trimmed.ends_with(']') {
-                pending_module_attr = Some(discover_module_attr_metadata(trimmed));
-            } else {
-                module_attr = Some(trimmed.to_owned());
-            }
-            continue;
-        }
-
-        if pending_module_attr.is_some()
-            && let Some(name) = extract_module_struct_name(trimmed)
-        {
-            let has_body = trimmed.contains('{');
-            let is_unit = trimmed.contains(';');
-            let mut module = pending_module_attr.take().unwrap_or_default();
-            module.name = name;
-            current = Some(module);
-
-            if is_unit {
-                if let Some(module) = current.take() {
+        };
+        for item in &implementation.items {
+            let syn::ImplItem::Fn(function) = item else {
+                continue;
+            };
+            for statement in &function.block.stmts {
+                if let Some(module) = module_from_statement(statement) {
                     modules.push(module);
                 }
-            } else if !has_body {
-                current = None;
             }
-            continue;
-        }
-
-        if let Some(module) = current.as_mut() {
-            if let Some(values) = extract_module_field_values(trimmed, "imports") {
-                module.imports.extend(values);
-            }
-            if let Some(values) = extract_module_field_values(trimmed, "providers") {
-                module.providers.extend(values);
-            }
-            if let Some(values) = extract_module_field_values(trimmed, "controllers") {
-                module.controllers.extend(values);
-            }
-            if let Some(values) = extract_module_field_values(trimmed, "exports") {
-                module.exports.extend(values);
-            }
-        }
-
-        if trimmed.starts_with('}')
-            && let Some(module) = current.take()
-        {
-            modules.push(module);
         }
     }
-
     modules
 }
 
-fn discover_module_attr_metadata(line: &str) -> DiscoveredModule {
-    let Some(args) = extract_module_attr_args(line) else {
-        return DiscoveredModule::default();
-    };
-
-    DiscoveredModule {
-        imports: extract_module_attr_values(args, "imports").unwrap_or_default(),
-        providers: extract_module_attr_values(args, "providers").unwrap_or_default(),
-        controllers: extract_module_attr_values(args, "controllers").unwrap_or_default(),
-        exports: extract_module_attr_values(args, "exports").unwrap_or_default(),
-        ..DiscoveredModule::default()
+fn module_from_statement(statement: &Stmt) -> Option<DiscoveredModule> {
+    match statement {
+        Stmt::Expr(expr, _) => module_from_expr(expr),
+        _ => None,
     }
 }
 
-fn extract_call_arg(line: &str, call: &str) -> Option<String> {
-    let start = line.find(call)? + call.len();
-    let rest = line[start..].trim_start();
-    let rest = rest.strip_prefix("(\"")?;
-    let end = rest.find('"')?;
-    Some(rest[..end].to_owned())
+fn module_from_expr(expr: &Expr) -> Option<DiscoveredModule> {
+    let Expr::MethodCall(call) = expr else {
+        return None;
+    };
+    (call.method == "build")
+        .then(|| module_from_builder_chain(&call.receiver))
+        .flatten()
 }
 
-fn extract_struct_names(contents: &str) -> Vec<String> {
-    contents
-        .lines()
-        .filter_map(|line| line.trim().strip_prefix("pub struct "))
-        .filter_map(|rest| rest.split([';', '{', '(']).next())
-        .map(str::trim)
-        .filter(|name| !name.is_empty())
-        .map(str::to_owned)
+fn module_from_builder_chain(expr: &Expr) -> Option<DiscoveredModule> {
+    match expr {
+        Expr::Call(call) => {
+            let Expr::Path(path) = &*call.func else {
+                return None;
+            };
+            let is_module_builder_new = path
+                .path
+                .segments
+                .iter()
+                .map(|segment| segment.ident.to_string())
+                .collect::<Vec<_>>()
+                .ends_with(&["ModuleBuilder".to_owned(), "new".to_owned()]);
+            if !is_module_builder_new {
+                return None;
+            }
+            call.args
+                .first()
+                .and_then(string_literal)
+                .map(|name| DiscoveredModule {
+                    name,
+                    ..DiscoveredModule::default()
+                })
+        }
+        Expr::MethodCall(call) => {
+            let mut module = module_from_builder_chain(&call.receiver)?;
+            let Some(value) = call.args.first().and_then(string_literal) else {
+                return Some(module);
+            };
+            match call.method.to_string().as_str() {
+                "import" => module.imports.push(value),
+                "provider" => module.providers.push(value),
+                "controller" => module.controllers.push(value),
+                "export" => module.exports.push(value),
+                _ => {}
+            }
+            Some(module)
+        }
+        _ => None,
+    }
+}
+
+fn discover_module_macro_metadata(file: &syn::File) -> Vec<DiscoveredModule> {
+    let mut modules = Vec::new();
+    for item in &file.items {
+        let Item::Struct(item) = item else {
+            continue;
+        };
+        let Some(mut module) = module_attr_metadata(&item.attrs) else {
+            continue;
+        };
+        module.name = item.ident.to_string();
+        apply_module_field_metadata(&mut module, &item.fields);
+        modules.push(module);
+    }
+    modules
+}
+
+fn module_attr_metadata(attrs: &[Attribute]) -> Option<DiscoveredModule> {
+    let attr = attrs.iter().find(|attr| attr.path().is_ident("module"))?;
+    let args = match &attr.meta {
+        Meta::Path(_) => return Some(DiscoveredModule::default()),
+        Meta::List(list) => list.tokens.to_string(),
+        Meta::NameValue(_) => return Some(DiscoveredModule::default()),
+    };
+    Some(DiscoveredModule {
+        imports: extract_module_attr_values(&args, "imports").unwrap_or_default(),
+        providers: extract_module_attr_values(&args, "providers").unwrap_or_default(),
+        controllers: extract_module_attr_values(&args, "controllers").unwrap_or_default(),
+        exports: extract_module_attr_values(&args, "exports").unwrap_or_default(),
+        ..DiscoveredModule::default()
+    })
+}
+
+fn apply_module_field_metadata(module: &mut DiscoveredModule, fields: &Fields) {
+    let Fields::Named(fields) = fields else {
+        return;
+    };
+    for field in &fields.named {
+        let Some(name) = field.ident.as_ref().map(ToString::to_string) else {
+            continue;
+        };
+        let values = type_values(field);
+        match name.as_str() {
+            "imports" => module.imports.extend(values),
+            "providers" => module.providers.extend(values),
+            "controllers" => module.controllers.extend(values),
+            "exports" => module.exports.extend(values),
+            _ => {}
+        }
+    }
+}
+
+fn type_values(field: &Field) -> Vec<String> {
+    type_paths(&field.ty)
+        .into_iter()
+        .filter_map(path_name)
         .collect()
 }
 
-fn extract_module_struct_name(line: &str) -> Option<String> {
-    let start = line.find("struct ")? + "struct ".len();
-    let rest = line[start..].trim_start();
-    let name = rest
-        .split([' ', '{', ';', '(', '<'])
-        .next()
-        .map(str::trim)
-        .filter(|name| !name.is_empty())?;
-    Some(name.to_owned())
+fn type_paths(ty: &Type) -> Vec<&syn::Path> {
+    match ty {
+        Type::Array(array) => type_paths(&array.elem),
+        Type::Group(group) => type_paths(&group.elem),
+        Type::Paren(paren) => type_paths(&paren.elem),
+        Type::Path(path) => vec![&path.path],
+        Type::Slice(slice) => type_paths(&slice.elem),
+        Type::Tuple(tuple) => tuple.elems.iter().flat_map(type_paths).collect(),
+        _ => Vec::new(),
+    }
 }
 
-fn extract_module_attr_args(line: &str) -> Option<&str> {
-    line.strip_prefix("#[module(")?.strip_suffix(")]")
+fn extract_struct_names(file: &syn::File) -> Vec<String> {
+    file.items
+        .iter()
+        .filter_map(|item| {
+            let Item::Struct(item) = item else {
+                return None;
+            };
+            matches!(item.vis, syn::Visibility::Public(_)).then(|| item.ident.to_string())
+        })
+        .collect()
 }
 
 fn extract_module_attr_values(args: &str, field: &str) -> Option<Vec<String>> {
     let start = args.find(field)? + field.len();
     extract_group_values(&args[start..])
-}
-
-fn extract_module_field_values(line: &str, field: &str) -> Option<Vec<String>> {
-    let start = line.find(field)? + field.len();
-    let rest = line[start..].trim_start().strip_prefix(':')?.trim_start();
-    extract_group_values(rest)
 }
 
 fn extract_group_values(rest: &str) -> Option<Vec<String>> {
@@ -269,4 +272,20 @@ fn path_last_segment(path: &str) -> String {
         .map(str::trim)
         .unwrap_or(path)
         .to_owned()
+}
+
+fn path_name(path: &syn::Path) -> Option<String> {
+    path.segments
+        .last()
+        .map(|segment| segment.ident.to_string())
+}
+
+fn string_literal(expr: &Expr) -> Option<String> {
+    let Expr::Lit(lit) = expr else {
+        return None;
+    };
+    let Lit::Str(value) = &lit.lit else {
+        return None;
+    };
+    Some(value.value())
 }
