@@ -25,8 +25,10 @@ Benchmarks cover:
 - routing composition
 - singleton dependency resolution
 - Nidus hello-world requests
+- Nidus hello-world app construction
 - Nidus controller setup
 - Nidus controller + service requests
+- Nidus controller + service app construction
 - guarded route checks
 - validation pipe route input checks
 - request-scoped provider route checks
@@ -41,16 +43,18 @@ machine and compare against equivalent raw Axum code.
 
 | Benchmark | Central estimate | Local comparison |
 | --- | ---: | --- |
-| raw Axum baseline request | 688.24 ns | baseline |
-| Nidus hello-world request | 658.03 ns | same shape as raw Axum in this run |
-| Nidus controller + service request | 776.67 ns | about 1.13x raw Axum |
-| Nidus guarded route | 959.56 ns | about 1.39x raw Axum |
-| Nidus validation route | 2.0739 us | about 3.01x raw Axum |
-| Nidus request-scoped route | 1.2117 us | about 1.76x raw Axum |
-| Nidus controller setup | 283.25 ns | local setup microbenchmark |
-| raw Axum route composition | 1.7466 us | startup/composition baseline |
-| Nidus controller route composition | 5.5737 us | about 3.19x raw Axum composition |
-| Nidus singleton dependency resolution | 23.15 ns | direct container lookup |
+| raw Axum baseline request | 643.35 ns | baseline |
+| Nidus hello-world request | 632.14 ns | same shape as raw Axum in this run |
+| Nidus hello-world app | 2.8447 us | app construction microbenchmark |
+| Nidus controller + service request | 723.65 ns | about 1.12x raw Axum |
+| Nidus controller + service app | 3.6757 us | app construction with DI setup |
+| Nidus guarded route | 925.92 ns | about 1.44x raw Axum |
+| Nidus validation route | 1.9955 us | about 3.10x raw Axum |
+| Nidus request-scoped route | 1.1723 us | about 1.82x raw Axum |
+| Nidus controller setup | 264.46 ns | local setup microbenchmark |
+| raw Axum route composition | 1.7817 us | startup/composition baseline |
+| Nidus controller route composition | 5.5704 us | about 3.13x raw Axum composition |
+| Nidus singleton dependency resolution | 22.93 ns | direct container lookup |
 
 These results support the current design constraints: default request handling
 does not resolve the dependency graph per request, request-scoped providers are

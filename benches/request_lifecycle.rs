@@ -133,12 +133,31 @@ fn request_lifecycle_setup(c: &mut Criterion) {
         });
     });
 
+    c.bench_function("nidus hello-world app", |b| {
+        b.iter(|| {
+            Controller::new("/")
+                .route(RouteDefinition::get("/", || async { "hello" }))
+                .into_router()
+        });
+    });
+
     c.bench_function("nidus controller + service request", |b| {
         b.iter(|| {
             let response = runtime
                 .block_on(service_router.clone().oneshot(get_request("/users/42")))
                 .unwrap();
             black_box(response.status());
+        });
+    });
+
+    c.bench_function("nidus controller + service app", |b| {
+        b.iter(|| {
+            let mut container = Container::new();
+            container.register_singleton(UsersService).unwrap();
+            let controller = UsersController::new(container.inject::<UsersService>().unwrap());
+            Controller::new("/users")
+                .route(controller.route())
+                .into_router()
         });
     });
 
