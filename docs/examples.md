@@ -12,6 +12,7 @@ requiring external services by default.
 | `openapi` | Controller metadata converted into an OpenAPI JSON document plus `/openapi.json` and `/docs` routes. |
 | `background-jobs` | In-memory job queue execution with success and failure reporting. |
 | `modular-monolith` | Macro-defined module graph imports, providers, controllers, and exports. |
+| `production-api` | Production API preset with health, metrics, request context extraction, validated request IDs, error envelopes, and route-local rate limiting. |
 
 Run an example with Cargo's package selector:
 

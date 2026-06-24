@@ -36,6 +36,8 @@ fn cargo_nidus_new_generates_compilable_nidus_project() {
     assert!(main_rs.contains("#[routes]"));
     assert!(main_rs.contains("#[get(\"/\")]"));
     assert!(main_rs.contains("HelloController.into_router()"));
+    assert!(main_rs.contains("ApiDefaults::production(\"hello-nidus\")"));
+    assert!(main_rs.contains(".without_metrics()"));
     assert!(main_rs.contains("Nidus::bootstrap::<AppModule>()"));
     assert!(main_rs.contains("NIDUS_ADDR"));
     assert!(main_rs.contains("#[module]"));

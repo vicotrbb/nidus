@@ -30,3 +30,26 @@ Common helpers cover default API failures including `bad_request`,
 `unauthorized`, `forbidden`, `not_found`, `conflict`,
 `too_many_requests`, `unprocessable_entity`, and sanitized
 `internal_server_error` responses.
+
+## Production Envelopes
+
+`ErrorEnvelopeLayer` can wrap error responses at the HTTP boundary with a
+production client-facing shape:
+
+```json
+{
+  "error": {
+    "statusCode": 404,
+    "code": "not_found",
+    "message": "user not found",
+    "details": null,
+    "timestamp": "2026-06-24T12:00:00Z",
+    "path": "/users/42",
+    "requestId": "018f4ad7-56ce-4f6a-a759-29f4438d8d78"
+  }
+}
+```
+
+The layer reads `RequestContext` from request extensions when present, masks
+server-error messages, and preserves the ability for applications to return
+custom Axum responses by simply not applying the layer.

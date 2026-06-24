@@ -10,6 +10,7 @@ rust-version.workspace = true
 [features]
 default = ["http", "config", "tracing"]
 http = ["dep:nidus-http"]
+otel = ["http", "nidus-http/otel"]
 config = ["dep:nidus-config"]
 openapi = ["dep:nidus-openapi"]
 validation = ["dep:nidus-validation"]

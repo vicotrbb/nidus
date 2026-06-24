@@ -48,7 +48,7 @@ impl UsersController {
 - Typed dependency injection primitives with `Inject<T>`, `Optional<T>`, `Lazy<T>`, `Factory<T>`, and `Scoped<T>`.
 - Explicit module definitions and circular import detection.
 - Axum-backed controller route composition.
-- Guard, validation, config, OpenAPI, events, jobs, request-scope, and testing support crates.
+- Guard, validation, config, OpenAPI, events, jobs, request-scope, production API defaults, health, metrics, structured logging, OTel helpers, security boundary layers, request context, and testing support crates.
 - `cargo-nidus` project generation.
 - Compile-fail tests for invalid macro usage.
 - Criterion benchmark targets for routing, dependency resolution, and request lifecycle setup.
@@ -64,7 +64,7 @@ Nidus is under active implementation as a pre-1.0 framework. The repository cont
 ## Roadmap
 
 - Continue hardening route-level guard and pipe ergonomics while preserving the explicit Tower and extractor-based execution model.
-- Continue hardening SQLx, jobs, and modular monolith examples into production-shaped applications.
+- Continue hardening SQLx, jobs, events, and production API examples into production-shaped applications.
 - Keep benchmark result tables current as the raw Axum and Nidus overhead baselines evolve.
 - Keep broadening compile-fail and CLI regression coverage as the public API settles.
 

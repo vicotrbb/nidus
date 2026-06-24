@@ -2,22 +2,45 @@
 
 use std::{borrow::Cow, time::Duration};
 
-use http::{Method, Request};
-use tower::{limit::RateLimitLayer, timeout::TimeoutLayer};
+use http::{HeaderValue, Method, Request};
+use tower::{limit::RateLimitLayer as TowerRateLimitLayer, timeout::TimeoutLayer};
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::{HttpMakeClassifier, MakeSpan, TraceLayer};
 use tracing::{Level, Span};
 
+mod api_defaults;
 mod metrics;
+mod rate_limit;
+mod request_context;
 mod request_id;
 mod request_scope;
+mod security;
 
-pub use metrics::{
-    HttpMetricsHook, MetricsLayer, MetricsService, metrics_layer, route_metrics_layer,
+pub use crate::context::{
+    ClientKind, IdentityExtractor, RequestContext, RequestIdentity, api_key_identity,
+    client_ip_identity, context_identity,
 };
-pub use request_id::{RequestIdLayer, RequestIdService};
+pub use api_defaults::ApiDefaults;
+pub use metrics::{
+    HttpMetricsHook, MetricsLayer, MetricsService, PrometheusMetrics, metrics_layer,
+    route_metrics_layer,
+};
+pub use rate_limit::{
+    InMemoryRateLimitStore, RateLimitConfig, RateLimitDecision, RateLimitError, RateLimitLayer,
+    RateLimitService, RateLimitStore,
+};
+pub use request_context::{RequestContextLayer, RequestContextService, request_context_layer};
+pub use request_id::{
+    RequestIdConfig, RequestIdLayer, RequestIdMode, RequestIdPolicy, RequestIdService,
+    ValidatedRequestIdLayer, ValidatedRequestIdService, validated_request_id_layer,
+};
 pub use request_scope::{RequestScopeLayer, RequestScopeService, request_scope_layer};
+pub use security::{
+    BodyLimitLayer, BodyLimitService, SecurityHeadersLayer, SecurityHeadersService,
+    TimeoutResponseLayer, TimeoutResponseService, body_limit_layer, security_headers_layer,
+    timeout_response_layer, webhook_body_limit_layer,
+};
 
 /// Creates a Tower timeout layer.
 pub fn timeout_layer(timeout: Duration) -> TimeoutLayer {
@@ -25,8 +48,8 @@ pub fn timeout_layer(timeout: Duration) -> TimeoutLayer {
 }
 
 /// Creates a Tower rate limit layer.
-pub fn rate_limit_layer(num: u64, per: Duration) -> RateLimitLayer {
-    RateLimitLayer::new(num, per)
+pub fn rate_limit_layer(num: u64, per: Duration) -> TowerRateLimitLayer {
+    TowerRateLimitLayer::new(num, per)
 }
 
 /// Creates a response request-id layer.
@@ -38,6 +61,21 @@ pub fn request_id_layer() -> RequestIdLayer {
 pub fn cors_layer() -> CorsLayer {
     CorsLayer::new()
         .allow_origin(Any)
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::PATCH,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
+        .allow_headers(Any)
+}
+
+/// Creates a CORS layer for a single explicit API origin.
+pub fn cors_origin_layer(origin: HeaderValue) -> CorsLayer {
+    CorsLayer::new()
+        .allow_origin(origin)
         .allow_methods([
             Method::GET,
             Method::POST,

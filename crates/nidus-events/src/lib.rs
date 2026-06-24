@@ -2,7 +2,10 @@
 
 //! Event bus abstractions.
 
-use std::sync::{Arc, Mutex, MutexGuard, Weak};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex, MutexGuard, Weak},
+};
 
 type SubscriberQueue<T> = Arc<Mutex<Vec<T>>>;
 type SubscriberHandle<T> = Weak<Mutex<Vec<T>>>;
@@ -12,6 +15,128 @@ type SubscriberList<T> = Arc<Mutex<Vec<SubscriberHandle<T>>>>;
 #[derive(Clone, Debug)]
 pub struct EventBus<T> {
     subscribers: SubscriberList<T>,
+}
+
+/// Context emitted when an event is observed.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ObservedEventContext {
+    operation_id: String,
+    event_name: String,
+    attributes: BTreeMap<String, String>,
+}
+
+impl ObservedEventContext {
+    /// Creates observed event context.
+    pub fn new(operation_id: impl Into<String>, event_name: impl Into<String>) -> Self {
+        Self {
+            operation_id: operation_id.into(),
+            event_name: event_name.into(),
+            attributes: BTreeMap::new(),
+        }
+    }
+
+    /// Adds a context attribute.
+    pub fn with_attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.attributes.insert(key.into(), value.into());
+        self
+    }
+
+    /// Returns the operation id.
+    pub fn operation_id(&self) -> &str {
+        &self.operation_id
+    }
+
+    /// Returns the event name.
+    pub fn event_name(&self) -> &str {
+        &self.event_name
+    }
+
+    /// Returns context attributes.
+    pub fn attributes(&self) -> &BTreeMap<String, String> {
+        &self.attributes
+    }
+}
+
+/// Observer hook for event publication.
+pub trait EventObserver<T>: Clone + Send + Sync + 'static
+where
+    T: Clone + Send + Sync + 'static,
+{
+    /// Called after an event is published.
+    fn on_event_published(&self, context: &ObservedEventContext);
+}
+
+impl<T> EventObserver<T> for ()
+where
+    T: Clone + Send + Sync + 'static,
+{
+    fn on_event_published(&self, _context: &ObservedEventContext) {}
+}
+
+/// Event bus wrapper that records publication context.
+#[derive(Clone)]
+pub struct ObservedEventBus<T, O = ()>
+where
+    T: Clone + Send + Sync + 'static,
+    O: EventObserver<T>,
+{
+    bus: EventBus<T>,
+    observer: O,
+    attributes: BTreeMap<String, String>,
+    operation_id_generator: Arc<dyn Fn() -> String + Send + Sync>,
+}
+
+impl<T, O> ObservedEventBus<T, O>
+where
+    T: Clone + Send + Sync + 'static,
+    O: EventObserver<T>,
+{
+    /// Creates an observed wrapper around an event bus.
+    pub fn new(bus: EventBus<T>, observer: O) -> Self {
+        Self {
+            bus,
+            observer,
+            attributes: BTreeMap::new(),
+            operation_id_generator: Arc::new(|| uuid::Uuid::new_v4().to_string()),
+        }
+    }
+
+    /// Adds a context attribute propagated to future observed publications.
+    pub fn context(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.attributes.insert(key.into(), value.into());
+        self
+    }
+
+    /// Replaces the operation id generator.
+    pub fn operation_id_generator(
+        mut self,
+        generator: impl Fn() -> String + Send + Sync + 'static,
+    ) -> Self {
+        self.operation_id_generator = Arc::new(generator);
+        self
+    }
+
+    /// Publishes an event with an explicit stable event name.
+    pub fn publish_named(&self, event_name: impl Into<String>, event: T) {
+        let event_name = event_name.into();
+        let mut context = ObservedEventContext::new((self.operation_id_generator)(), &event_name);
+        for (key, value) in &self.attributes {
+            context = context.with_attribute(key.clone(), value.clone());
+        }
+        let span = tracing::info_span!(
+            "event.publish",
+            event.name = %context.event_name(),
+            event.operation_id = %context.operation_id()
+        );
+        let _entered = span.enter();
+        self.bus.publish(event);
+        self.observer.on_event_published(&context);
+    }
+
+    /// Returns the wrapped event bus.
+    pub fn bus(&self) -> &EventBus<T> {
+        &self.bus
+    }
 }
 
 impl<T> EventBus<T>

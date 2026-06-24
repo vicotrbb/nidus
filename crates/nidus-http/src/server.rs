@@ -38,6 +38,14 @@ impl HttpApplication {
         &self.router
     }
 
+    /// Transforms the composed Axum router while preserving the bootstrapped application.
+    pub fn map_router(self, map: impl FnOnce(Router) -> Router) -> Self {
+        Self {
+            application: self.application,
+            router: map(self.router),
+        }
+    }
+
     /// Consumes this HTTP application and returns its composed router.
     pub fn into_router(self) -> Router {
         self.router

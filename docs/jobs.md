@@ -51,3 +51,37 @@ queue.push(SendDigest);
 let report = queue.run_all().await;
 assert!(report.is_success());
 ```
+
+## Observed Jobs
+
+`ObservedJobRunner` wraps individual `Job` and `AsyncJob` runs with operation
+spans, generated run IDs, duration capture, status reporting, and context
+attributes. It does not replace `JobQueue`; use it where workers execute jobs.
+
+```rust
+#[derive(Clone)]
+struct MetricsObserver;
+
+impl JobObserver for MetricsObserver {
+    fn on_job_started(&self, context: &ObservedJobContext) {
+        tracing::info!(job.name = context.job_name(), job.run_id = context.run_id());
+    }
+
+    fn on_job_finished(&self, context: &ObservedJobContext, status: JobResultStatus) {
+        tracing::info!(
+            job.name = context.job_name(),
+            job.run_id = context.run_id(),
+            ?status,
+            duration_ms = context.duration().map(|duration| duration.as_millis())
+        );
+    }
+}
+
+let runner = ObservedJobRunner::new(MetricsObserver)
+    .context("request_id", "req-123");
+runner.run(&SendDigest)?;
+```
+
+Observers are replaceable, so applications can record Prometheus metrics, emit
+events, or forward data to an external worker system without changing the job
+trait.

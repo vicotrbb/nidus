@@ -10,8 +10,8 @@ use http::{
 };
 use nidus_core::{Container, Inject, SharedRequestScope};
 use nidus_http::middleware::{
-    compression_layer, cors_layer, rate_limit_layer, request_id_layer, request_scope_layer,
-    timeout_layer, trace_layer,
+    compression_layer, cors_layer, cors_origin_layer, rate_limit_layer, request_id_layer,
+    request_scope_layer, timeout_layer, trace_layer,
 };
 use tokio::time::sleep;
 use tower::{Service, ServiceBuilder, ServiceExt, service_fn};
@@ -240,6 +240,34 @@ async fn cors_layer_allows_preflight_requests() {
     assert_eq!(
         response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(),
         "*"
+    );
+}
+
+#[tokio::test]
+async fn cors_origin_layer_allows_one_explicit_origin() {
+    let app = Router::new()
+        .route("/", get(|| async { "ok" }))
+        .layer(cors_origin_layer(HeaderValue::from_static(
+            "https://api.example.com",
+        )));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::OPTIONS)
+                .uri("/")
+                .header(ORIGIN, "https://api.example.com")
+                .header(ACCESS_CONTROL_REQUEST_METHOD, "GET")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(),
+        "https://api.example.com"
     );
 }
 

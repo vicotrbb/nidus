@@ -21,6 +21,7 @@ members = [
   "examples/background-jobs",
   "examples/modular-monolith",
   "examples/realworld-api",
+  "examples/production-api",
 ]
 resolver = "2"
 
@@ -88,12 +89,14 @@ serde_urlencoded = "0.7"
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "postgres"] }
 syn = { version = "2", features = ["full"] }
 thiserror = "2"
+time = { version = "0.3", features = ["formatting"] }
 tokio = { version = "1", features = ["macros", "net", "rt-multi-thread"] }
 tower = { version = "0.5", features = ["limit", "timeout", "util"] }
 tower-http = { version = "0.6", features = ["compression-gzip", "cors", "trace"] }
 tracing = "0.1"
 tracing-core = "0.1"
-tracing-subscriber = { version = "0.3", features = ["fmt"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 trybuild = "1"
 utoipa = "5"
+uuid = { version = "1", features = ["v4"] }
 validator = { version = "0.20", features = ["derive"] }

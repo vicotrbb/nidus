@@ -53,11 +53,94 @@ Nidus builds on Axum and Tower, so standard Rust deployment patterns apply:
 - Use Tower middleware or upstream infrastructure for compression, CORS, timeout, and rate limiting.
 - Emit structured tracing events through a subscriber configured by the app.
 
+`ApiDefaults::production(service_name)` provides a higher-level starting point
+for common API boundary concerns while still returning a normal Axum `Router`.
+It composes middleware and routes; it does not replace Axum routing or prevent
+additional Tower layers.
+
+```rust
+use nidus::prelude::*;
+
+let metrics = PrometheusMetrics::new();
+let app = ApiDefaults::production("users-api")
+    .metrics(metrics.clone())
+    .request_ids(RequestIdConfig::production().mode(RequestIdMode::Strict))
+    .body_limit(1024 * 1024)
+    .timeout(std::time::Duration::from_secs(30))
+    .apply(router.merge(metrics.routes()));
+```
+
+Every preset concern has an opt-out or replacement hook:
+
+- `without_request_ids()` or `request_ids(RequestIdConfig::...)`
+- `without_request_context()`
+- `without_error_envelope()`
+- `without_health()` or `health(HealthRegistry::...)`
+- `without_metrics()` or `metrics(PrometheusMetrics::new())`
+- `without_rate_limit()` or `rate_limit(RateLimitConfig::...)`
+- `without_body_limit()` or `body_limit(max_bytes)`
+- `without_security_headers()` or `security_headers()`
+- `without_timeout()` or `timeout(duration)`
+
+Use the lower-level helpers directly when an application needs a different
+composition order.
+
+## Logging And Tracing
+
+`LoggingConfig::production(service)` builds a JSON `tracing-subscriber`
+configuration for production log pipelines. `LoggingConfig::development(service)`
+uses pretty local output. Subscriber setup is explicit and optional:
+
+```rust
+let _ = LoggingConfig::production("users-api")
+    .version("1.2.3")
+    .environment("prod")
+    .redact_header("x-api-key")
+    .init();
+```
+
+`StructuredMakeSpan` records service, environment, request ID, method, route,
+target, and trace fields on HTTP spans. Header redaction is exposed as config so
+applications can use the same policy in their own logs.
+
+## OpenTelemetry
+
+OpenTelemetry helpers are behind the `otel` feature. They provide
+backend-optional building blocks: OTLP endpoint config, resource attributes,
+W3C `traceparent` extraction/injection, observed span helpers, exception
+recording, and shutdown hooks.
+
+```toml
+nidus = { version = "0.1", features = ["otel"] }
+```
+
+```rust
+let otel = OtelConfig::new("users-api")
+    .version("1.2.3")
+    .environment("prod")
+    .with_otlp_endpoint("http://collector:4317");
+```
+
+The helpers do not force a specific exporter. Applications can map
+`OtelConfig::resource_attributes()` into the OpenTelemetry SDK they choose.
+
 ## Health And Shutdown
 
-Expose a simple health route for the platform's readiness checks. Keep startup
-validation strict so a bad config, missing provider, invalid module graph, or
-failed lifecycle hook prevents serving traffic.
+Expose health routes for the platform's readiness checks. `HealthRegistry`
+ships `/health/live` and `/health/ready` helpers, supports named async checks,
+applies per-check timeouts, runs readiness checks in parallel, and can hide
+diagnostic messages from production responses.
+
+```rust
+let health = HealthRegistry::new()
+    .live_check_sync("process", HealthStatus::up)
+    .ready_check("database", || async { HealthStatus::up() })
+    .hide_details();
+let app = router.merge(health.routes());
+```
+
+Keep startup validation strict so a bad config, missing provider, invalid module
+graph, or failed lifecycle hook prevents serving traffic.
 
 When lifecycle hooks manage external resources, register them with clear startup
 and shutdown behavior so tests and production shutdown paths exercise the same
