@@ -2,7 +2,7 @@
 
 use std::{
     any::Any,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard},
 };
 
 use crate::{Container, NidusError, RequestScope, Result};
@@ -81,17 +81,12 @@ impl ProviderEntry {
     pub(crate) fn resolve_erased(&self, container: &Container) -> Result<Arc<ErasedProvider>> {
         match self.lifetime {
             ProviderLifetime::Singleton => {
-                if let Some(instance) = self
-                    .singleton
-                    .lock()
-                    .expect("singleton mutex poisoned")
-                    .clone()
-                {
+                if let Some(instance) = lock_unpoisoned(&self.singleton).clone() {
                     return Ok(instance);
                 }
 
                 let instance = self.create_erased(container)?;
-                let mut singleton = self.singleton.lock().expect("singleton mutex poisoned");
+                let mut singleton = lock_unpoisoned(&self.singleton);
                 Ok(singleton.get_or_insert_with(|| instance).clone())
             }
             ProviderLifetime::Transient | ProviderLifetime::Request => {
@@ -128,5 +123,46 @@ impl ProviderEntry {
         } else {
             self.create_erased(scope.container())
         }
+    }
+}
+
+fn lock_unpoisoned<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        any::{Any, type_name},
+        sync::Arc,
+        thread,
+    };
+
+    use super::{ProviderEntry, ProviderLifetime};
+    use crate::Container;
+
+    #[test]
+    fn singleton_provider_recovers_from_poisoned_cache() {
+        let provider = Arc::new(ProviderEntry::new(
+            type_name::<String>(),
+            ProviderLifetime::Singleton,
+            Arc::new(|_container| Ok(Arc::new("ready".to_owned()) as Arc<dyn Any + Send + Sync>)),
+        ));
+        let poisoned_provider = Arc::clone(&provider);
+
+        let panic = thread::spawn(move || {
+            let _singleton = poisoned_provider.singleton.lock().unwrap();
+            panic!("poison singleton cache");
+        });
+        assert!(panic.join().is_err());
+
+        let value = provider
+            .resolve_erased(&Container::new())
+            .unwrap()
+            .downcast::<String>()
+            .unwrap();
+        assert_eq!(&*value, "ready");
     }
 }

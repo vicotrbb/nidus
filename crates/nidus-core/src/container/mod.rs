@@ -5,7 +5,7 @@ mod dependency;
 use std::{
     any::{Any, TypeId, type_name},
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard},
 };
 
 use crate::{NidusError, ProviderEntry, ProviderLifetime, Result};
@@ -247,20 +247,14 @@ impl RequestScope<'_> {
         let erased = match entry.lifetime() {
             ProviderLifetime::Request => {
                 let type_id = TypeId::of::<T>();
-                if let Some(existing) = self
-                    .request_instances
-                    .lock()
-                    .expect("request scope mutex poisoned")
+                if let Some(existing) = lock_unpoisoned(&self.request_instances)
                     .get(&type_id)
                     .cloned()
                 {
                     existing
                 } else {
                     let instance = entry.resolve_erased_in_scope(self)?;
-                    self.request_instances
-                        .lock()
-                        .expect("request scope mutex poisoned")
-                        .insert(type_id, Arc::clone(&instance));
+                    lock_unpoisoned(&self.request_instances).insert(type_id, Arc::clone(&instance));
                     instance
                 }
             }
@@ -323,4 +317,38 @@ where
         .map_err(|_| NidusError::MissingProvider {
             type_name: type_name::<T>(),
         })
+}
+
+fn lock_unpoisoned<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{sync::Arc, thread};
+
+    use super::{Container, RequestScope};
+
+    #[derive(Debug, Eq, PartialEq)]
+    struct RequestValue(u64);
+
+    #[test]
+    fn request_scope_recovers_from_poisoned_instance_cache() {
+        let mut container = Container::new();
+        container
+            .register_request_scoped::<RequestValue, _>(|_scope| Ok(RequestValue(42)))
+            .unwrap();
+        let scope = Arc::new(RequestScope::from_shared_container(Arc::new(container)));
+        let poisoned_scope = Arc::clone(&scope);
+
+        let panic = thread::spawn(move || {
+            let _instances = poisoned_scope.request_instances.lock().unwrap();
+            panic!("poison request scope cache");
+        });
+        assert!(panic.join().is_err());
+
+        assert_eq!(*scope.resolve::<RequestValue>().unwrap(), RequestValue(42));
+    }
 }
