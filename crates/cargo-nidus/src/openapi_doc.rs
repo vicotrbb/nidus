@@ -34,6 +34,15 @@ pub(crate) fn generate_openapi(root: &Path) -> Result<()> {
             if !route.tags.is_empty() {
                 operation.insert("tags".to_owned(), json!(route.tags));
             }
+            if !route.guards.is_empty() {
+                operation.insert("x-nidus-guards".to_owned(), json!(route.guards));
+            }
+            if !route.pipes.is_empty() {
+                operation.insert("x-nidus-pipes".to_owned(), json!(route.pipes));
+            }
+            if route.validates {
+                operation.insert("x-nidus-validates".to_owned(), json!(true));
+            }
             if let Some(schema) = route.request_schema {
                 schema_names.insert(schema.clone());
                 operation.insert(

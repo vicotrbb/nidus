@@ -893,6 +893,9 @@ pub struct UserProfile {
         .replace(
             "#[get(\"/\")]",
             r#"#[get("/:id")]
+    #[guard(AuthGuard)]
+    #[pipe(ValidationPipe)]
+    #[validate]
     #[openapi(
         summary = "Find user",
         tags = ["users", "read"],
@@ -920,6 +923,18 @@ pub struct UserProfile {
     assert_eq!(
         json["paths"]["/users/{id}"]["get"]["tags"],
         serde_json::json!(["users", "read"])
+    );
+    assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["x-nidus-guards"],
+        serde_json::json!(["AuthGuard"])
+    );
+    assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["x-nidus-pipes"],
+        serde_json::json!(["ValidationPipe"])
+    );
+    assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["x-nidus-validates"],
+        true
     );
     assert_eq!(
         json["paths"]["/users/{id}"]["get"]["parameters"],
