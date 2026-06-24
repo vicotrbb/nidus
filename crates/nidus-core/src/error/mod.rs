@@ -52,6 +52,15 @@ pub enum NidusError {
         controller: String,
     },
 
+    /// A module declares the same type name as both a provider and a controller.
+    #[error("module `{module}` declares `{type_name}` as both provider and controller")]
+    ModuleProviderControllerConflict {
+        /// Module declaring the conflicting metadata.
+        module: String,
+        /// Type name declared in both metadata sections.
+        type_name: String,
+    },
+
     /// A module imports the same module more than once.
     #[error("module `{module}` imports `{import}` more than once")]
     DuplicateModuleImport {

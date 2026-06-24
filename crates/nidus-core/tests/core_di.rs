@@ -443,6 +443,23 @@ fn module_graph_rejects_duplicate_local_controllers() {
 }
 
 #[test]
+fn module_graph_rejects_provider_controller_name_conflicts() {
+    let users = ModuleBuilder::new("UsersModule")
+        .provider("UsersController")
+        .controller("UsersController")
+        .build();
+
+    let error = ModuleGraph::from_modules([users]).unwrap_err();
+
+    assert!(matches!(
+        error,
+        NidusError::ModuleProviderControllerConflict { .. }
+    ));
+    assert!(error.to_string().contains("UsersModule"));
+    assert!(error.to_string().contains("UsersController"));
+}
+
+#[test]
 fn module_graph_rejects_duplicate_imports() {
     let database = ModuleBuilder::new("DatabaseModule")
         .provider("DatabasePool")

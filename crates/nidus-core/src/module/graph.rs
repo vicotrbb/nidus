@@ -42,6 +42,7 @@ impl ModuleGraph {
         graph.validate_acyclic()?;
         graph.validate_local_providers_unique()?;
         graph.validate_local_controllers_unique()?;
+        graph.validate_providers_and_controllers_disjoint()?;
         graph.validate_exports_unique()?;
         graph.validate_exports_are_local()?;
         graph.validate_local_providers_do_not_conflict_with_imports()?;
@@ -118,6 +119,21 @@ impl ModuleGraph {
                     return Err(NidusError::DuplicateModuleController {
                         module: module.name.clone(),
                         controller: controller.clone(),
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_providers_and_controllers_disjoint(&self) -> Result<()> {
+        for module in self.modules.values() {
+            let providers = module.providers.iter().collect::<HashSet<_>>();
+            for controller in &module.controllers {
+                if providers.contains(controller) {
+                    return Err(NidusError::ModuleProviderControllerConflict {
+                        module: module.name.clone(),
+                        type_name: controller.clone(),
                     });
                 }
             }
