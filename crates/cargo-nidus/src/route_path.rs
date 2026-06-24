@@ -3,10 +3,11 @@ use anyhow::{Result, bail};
 pub(crate) fn join_route(prefix: &str, route: &str) -> Result<String> {
     let prefix = normalize_path(prefix)?;
     let route = normalize_path(route)?;
+    let prefix = trim_mount_suffix(&prefix);
     let joined = if prefix == "/" {
         route
     } else if route == "/" {
-        format!("{prefix}/")
+        prefix.to_owned()
     } else {
         format!("{prefix}{route}")
     };
@@ -55,6 +56,11 @@ fn convert_nest_params(path: &str) -> String {
         .join("/")
 }
 
+fn trim_mount_suffix(prefix: &str) -> &str {
+    let trimmed = prefix.trim_end_matches('/');
+    if trimmed.is_empty() { "/" } else { trimmed }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{join_route, openapi_path_parameters};
@@ -63,7 +69,8 @@ mod tests {
     fn join_route_normalizes_prefix_and_route_paths() {
         assert_eq!(join_route("users", ":id").unwrap(), "/users/{id}");
         assert_eq!(join_route("/", "health").unwrap(), "/health");
-        assert_eq!(join_route("health", "/").unwrap(), "/health/");
+        assert_eq!(join_route("health", "/").unwrap(), "/health");
+        assert_eq!(join_route("/users/", "/:id").unwrap(), "/users/{id}");
     }
 
     #[test]

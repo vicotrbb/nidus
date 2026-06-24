@@ -3,10 +3,11 @@ use crate::error::RoutePathError;
 pub(crate) fn join_paths(prefix: &str, path: &str) -> Result<String, RoutePathError> {
     let prefix = normalize_path(prefix)?;
     let path = normalize_path(path)?;
+    let prefix = trim_mount_suffix(&prefix);
     let full_path = if prefix == "/" {
         path
     } else if path == "/" {
-        prefix
+        prefix.to_owned()
     } else {
         format!("{prefix}{path}")
     };
@@ -44,4 +45,9 @@ fn convert_nest_params(path: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join("/")
+}
+
+fn trim_mount_suffix(prefix: &str) -> &str {
+    let trimmed = prefix.trim_end_matches('/');
+    if trimmed.is_empty() { "/" } else { trimmed }
 }
