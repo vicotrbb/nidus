@@ -786,6 +786,10 @@ pub struct UserProfile {
     assert_eq!(json["openapi"], "3.1.0");
     assert_eq!(json["paths"]["/users/{id}"]["get"]["summary"], "Find user");
     assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["operationId"],
+        "get_users_by_id"
+    );
+    assert_eq!(
         json["paths"]["/users/{id}"]["get"]["tags"],
         serde_json::json!(["users", "read"])
     );

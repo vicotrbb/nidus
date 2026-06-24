@@ -162,6 +162,7 @@ impl OpenApiRoute {
         responses.insert(self.response_status.as_u16().to_string(), success_response);
 
         let mut operation = json!({
+            "operationId": operation_id(&self.method, &self.path),
             "responses": responses
         });
 
@@ -261,4 +262,48 @@ fn openapi_path_parameters(path: &str) -> Vec<String> {
             (!name.is_empty()).then(|| name.to_owned())
         })
         .collect()
+}
+
+fn operation_id(method: &str, path: &str) -> String {
+    let mut parts = vec![method.to_owned()];
+    for segment in path.split('/') {
+        if segment.is_empty() {
+            continue;
+        }
+        if let Some(name) = segment
+            .strip_prefix('{')
+            .and_then(|value| value.strip_suffix('}'))
+        {
+            parts.push("by".to_owned());
+            parts.push(identifier_segment(name));
+        } else {
+            parts.push(identifier_segment(segment));
+        }
+    }
+    if parts.len() == 1 {
+        parts.push("root".to_owned());
+    }
+    parts.join("_")
+}
+
+fn identifier_segment(segment: &str) -> String {
+    let mut output = String::new();
+    let mut previous_was_separator = true;
+    for character in segment.chars() {
+        if character.is_ascii_alphanumeric() {
+            output.push(character.to_ascii_lowercase());
+            previous_was_separator = false;
+        } else if !previous_was_separator {
+            output.push('_');
+            previous_was_separator = true;
+        }
+    }
+    if output.ends_with('_') {
+        output.pop();
+    }
+    if output.is_empty() {
+        "value".to_owned()
+    } else {
+        output
+    }
 }

@@ -28,6 +28,10 @@ fn openapi_document_records_routes_and_serves_json() {
         "Find user by ID"
     );
     assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["operationId"],
+        "get_users_by_id"
+    );
+    assert_eq!(
         json["paths"]["/users/{id}"]["get"]["parameters"],
         serde_json::json!([
             {
@@ -51,6 +55,10 @@ fn openapi_route_builders_normalize_nidus_params() {
     assert_eq!(
         json["paths"]["/users/{id}"]["get"]["summary"],
         "Find user by ID"
+    );
+    assert_eq!(
+        json["paths"]["/users/{id}"]["get"]["operationId"],
+        "get_users_by_id"
     );
 }
 
@@ -190,6 +198,7 @@ fn openapi_route_omits_absent_optional_operation_metadata() {
 
     let json = document.to_json_value();
     assert!(json["paths"]["/health"]["get"]["summary"].is_null());
+    assert_eq!(json["paths"]["/health"]["get"]["operationId"], "get_health");
     assert!(json["paths"]["/health"]["get"]["tags"].is_null());
     assert!(json["paths"]["/health"]["get"]["requestBody"].is_null());
     assert!(json["paths"]["/health"]["get"]["parameters"].is_null());
@@ -415,6 +424,7 @@ async fn openapi_document_serves_json_and_docs_routes() {
                             "description": "Success"
                         }
                     },
+                    "operationId": "get_users_by_id",
                     "parameters": [
                         {
                             "name": "id",
