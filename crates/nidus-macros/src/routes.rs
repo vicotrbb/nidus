@@ -115,10 +115,7 @@ fn route_metadata(item: &ImplItem) -> syn::Result<Option<RouteMacroMetadata>> {
         return Ok(None);
     };
 
-    let openapi = match openapi_metadata(function) {
-        Ok(openapi) => openapi,
-        Err(_) => return Ok(None),
-    };
+    let openapi = openapi_metadata(function)?;
     let summary = openapi.as_ref().map(|metadata| metadata.summary.clone());
     let (tags, response_status, request_schema, response_schema) = openapi
         .map(|metadata| {

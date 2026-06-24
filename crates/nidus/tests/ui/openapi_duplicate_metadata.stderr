@@ -1,0 +1,5 @@
+error: route methods can declare at most one #[openapi] attribute
+  --> tests/ui/openapi_duplicate_metadata.rs:11:14
+   |
+11 |     async fn find_one(&self) {}
+   |              ^^^^^^^^

@@ -16,15 +16,25 @@ pub(crate) struct OpenApiMetadata {
 }
 
 pub(crate) fn openapi_metadata(function: &ImplItemFn) -> syn::Result<Option<OpenApiMetadata>> {
-    let Some(attr) = function
+    let attrs = function
         .attrs
         .iter()
-        .find(|attr| attr.path().is_ident("openapi"))
-    else {
+        .filter(|attr| attr.path().is_ident("openapi"))
+        .collect::<Vec<_>>();
+    if attrs.is_empty() {
         return Ok(None);
-    };
+    }
+    if attrs.len() > 1 {
+        return Err(syn::Error::new_spanned(
+            function.sig.ident.clone(),
+            "route methods can declare at most one #[openapi] attribute",
+        ));
+    }
 
-    parse_openapi_metadata(attr).map(Some)
+    match parse_openapi_metadata(attrs[0]) {
+        Ok(metadata) => Ok(Some(metadata)),
+        Err(_) => Ok(None),
+    }
 }
 
 pub(crate) fn parse_openapi_metadata(attr: &syn::Attribute) -> syn::Result<OpenApiMetadata> {
