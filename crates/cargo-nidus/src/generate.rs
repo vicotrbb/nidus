@@ -35,15 +35,24 @@ nidus = {nidus_dependency}
 #[nidus::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let address = std::env::var("NIDUS_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".to_owned());
-    let app = Controller::new("/")
-        .route(RouteDefinition::get("/", || async { "hello from nidus" }))
-        .into_router();
+    let app = HelloController.into_router();
 
     Nidus::bootstrap::<AppModule>()?
         .with_router(app)
         .listen(address)
         .await?;
     Ok(())
+}
+
+#[controller("/")]
+struct HelloController;
+
+#[routes]
+impl HelloController {
+    #[get("/")]
+    async fn hello(&self) -> &'static str {
+        "hello from nidus"
+    }
 }
 
 #[module]

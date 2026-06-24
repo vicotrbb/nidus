@@ -32,8 +32,10 @@ fn cargo_nidus_new_generates_compilable_nidus_project() {
     let main_rs = fs::read_to_string(project.join("src/main.rs")).unwrap();
     assert!(main_rs.contains("#[nidus::main]"));
     assert!(!main_rs.contains("#[tokio::main]"));
-    assert!(main_rs.contains("Controller::new(\"/\")"));
-    assert!(main_rs.contains("RouteDefinition::get(\"/\""));
+    assert!(main_rs.contains("#[controller(\"/\")]"));
+    assert!(main_rs.contains("#[routes]"));
+    assert!(main_rs.contains("#[get(\"/\")]"));
+    assert!(main_rs.contains("HelloController.into_router()"));
     assert!(main_rs.contains("Nidus::bootstrap::<AppModule>()"));
     assert!(main_rs.contains("NIDUS_ADDR"));
     assert!(main_rs.contains("#[module]"));
