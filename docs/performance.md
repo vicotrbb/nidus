@@ -21,6 +21,7 @@ cargo bench --bench request_lifecycle -- --warm-up-time 0.1 --measurement-time 0
 Benchmarks cover:
 
 - raw Axum baseline requests
+- raw Axum route composition
 - routing composition
 - singleton dependency resolution
 - Nidus hello-world requests
