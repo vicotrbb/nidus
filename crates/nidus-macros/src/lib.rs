@@ -8,6 +8,7 @@ mod injectable;
 mod module;
 mod pipe;
 mod routes;
+mod routes_openapi;
 mod utils;
 
 use proc_macro::TokenStream;
@@ -75,7 +76,7 @@ pub fn delete(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// Declares OpenAPI metadata for a route.
 #[proc_macro_attribute]
 pub fn openapi(attr: TokenStream, item: TokenStream) -> TokenStream {
-    routes::expand_openapi(attr.into(), item.into()).into()
+    routes_openapi::expand_openapi(attr.into(), item.into()).into()
 }
 
 /// Declares a route guard.

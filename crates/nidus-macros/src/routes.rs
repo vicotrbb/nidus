@@ -1,10 +1,8 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{
-    Expr, ImplItem, ImplItemFn, ItemImpl, Lit, LitInt, LitStr, MetaNameValue, Path, PathArguments,
-    Token, parse2, punctuated::Punctuated,
-};
+use syn::{ImplItem, ImplItemFn, ItemImpl, LitStr, Path, parse2};
 
+use crate::routes_openapi::openapi_metadata;
 use crate::utils::{require_empty_attr, require_path_attr, validate_route_path};
 
 pub(crate) fn expand_routes(attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -207,158 +205,6 @@ fn type_attributes(function: &ImplItemFn, name: &str) -> Vec<Path> {
         .collect()
 }
 
-struct OpenApiMetadata {
-    summary: LitStr,
-    tags: Vec<LitStr>,
-    response_status: Option<u16>,
-    request_schema: Option<LitStr>,
-    response_schema: Option<LitStr>,
-}
-
-fn openapi_metadata(function: &ImplItemFn) -> syn::Result<Option<OpenApiMetadata>> {
-    let Some(attr) = function
-        .attrs
-        .iter()
-        .find(|attr| attr.path().is_ident("openapi"))
-    else {
-        return Ok(None);
-    };
-
-    parse_openapi_metadata(attr).map(Some)
-}
-
-fn parse_openapi_metadata(attr: &syn::Attribute) -> syn::Result<OpenApiMetadata> {
-    let args = attr.parse_args_with(Punctuated::<MetaNameValue, Token![,]>::parse_terminated)?;
-    let mut summary = None;
-    let mut tags = Vec::new();
-    let mut response_status = None;
-    let mut request_schema = None;
-    let mut response_schema = None;
-
-    for arg in args {
-        if arg.path.is_ident("summary") {
-            let Expr::Lit(expr_lit) = arg.value else {
-                return Err(syn::Error::new_spanned(
-                    arg,
-                    "#[openapi] summary must be a string literal",
-                ));
-            };
-            let Lit::Str(value) = expr_lit.lit else {
-                return Err(syn::Error::new_spanned(
-                    expr_lit,
-                    "#[openapi] summary must be a string literal",
-                ));
-            };
-            summary = Some(value);
-        } else if arg.path.is_ident("tags") {
-            let Expr::Array(array) = arg.value else {
-                return Err(syn::Error::new_spanned(
-                    arg,
-                    "#[openapi] tags must be an array of string literals",
-                ));
-            };
-            for element in array.elems {
-                let Expr::Lit(expr_lit) = element else {
-                    return Err(syn::Error::new_spanned(
-                        element,
-                        "#[openapi] tags must be string literals",
-                    ));
-                };
-                let Lit::Str(tag) = expr_lit.lit else {
-                    return Err(syn::Error::new_spanned(
-                        expr_lit,
-                        "#[openapi] tags must be string literals",
-                    ));
-                };
-                tags.push(tag);
-            }
-        } else if arg.path.is_ident("request") {
-            request_schema = Some(schema_name(&arg.value, "request")?);
-        } else if arg.path.is_ident("response") {
-            response_schema = Some(schema_name(&arg.value, "response")?);
-        } else if arg.path.is_ident("status") {
-            response_status = Some(response_status_code(&arg.value)?);
-        } else {
-            return Err(syn::Error::new_spanned(
-                arg.path,
-                "#[openapi] supports only summary = \"...\", tags = [\"...\"], status = 201, request = Type, and response = Type metadata",
-            ));
-        }
-    }
-
-    let Some(summary) = summary else {
-        return Err(syn::Error::new_spanned(
-            attr,
-            "#[openapi] requires summary = \"...\" metadata",
-        ));
-    };
-
-    Ok(OpenApiMetadata {
-        summary,
-        tags,
-        response_status,
-        request_schema,
-        response_schema,
-    })
-}
-
-fn schema_name(value: &Expr, name: &str) -> syn::Result<LitStr> {
-    let Expr::Path(expr_path) = value else {
-        return Err(syn::Error::new_spanned(
-            value,
-            format!("#[openapi] {name} must be a type path"),
-        ));
-    };
-    let Some(segment) = expr_path.path.segments.last() else {
-        return Err(syn::Error::new_spanned(
-            value,
-            format!("#[openapi] {name} must be a type path"),
-        ));
-    };
-    if expr_path
-        .path
-        .segments
-        .iter()
-        .any(|segment| !matches!(segment.arguments, PathArguments::None))
-    {
-        return Err(syn::Error::new_spanned(
-            value,
-            format!("#[openapi] {name} must be a type path"),
-        ));
-    }
-    Ok(LitStr::new(
-        &segment.ident.to_string(),
-        segment.ident.span(),
-    ))
-}
-
-fn response_status_code(value: &Expr) -> syn::Result<u16> {
-    let Expr::Lit(expr_lit) = value else {
-        return Err(syn::Error::new_spanned(
-            value,
-            "#[openapi] status must be an HTTP status code integer literal",
-        ));
-    };
-    let Lit::Int(status) = &expr_lit.lit else {
-        return Err(syn::Error::new_spanned(
-            expr_lit,
-            "#[openapi] status must be an HTTP status code integer literal",
-        ));
-    };
-    parse_status_literal(status)
-}
-
-fn parse_status_literal(status: &LitInt) -> syn::Result<u16> {
-    let value = status.base10_parse::<u16>()?;
-    if !(100..=599).contains(&value) {
-        return Err(syn::Error::new_spanned(
-            status,
-            "#[openapi] status must be in the HTTP status code range 100..=599",
-        ));
-    }
-    Ok(value)
-}
-
 pub(crate) fn expand_route(name: &str, attr: TokenStream, item: TokenStream) -> TokenStream {
     let path = match require_path_attr(attr, name) {
         Ok(path) => path,
@@ -380,21 +226,4 @@ pub(crate) fn expand_route(name: &str, attr: TokenStream, item: TokenStream) -> 
             item,
         ),
     }
-}
-
-pub(crate) fn expand_openapi(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let parsed = parse2::<ImplItemFn>(item.clone());
-    let Ok(function) = parsed else {
-        return crate::diagnostics::compile_error_with_item(
-            "#[openapi] can only be used on route methods",
-            item,
-        );
-    };
-
-    let attribute = syn::parse_quote!(#[openapi(#attr)]);
-    if let Err(error) = parse_openapi_metadata(&attribute) {
-        return crate::diagnostics::compile_error_with_item(error.to_string(), quote!(#function));
-    }
-
-    quote!(#function)
 }
