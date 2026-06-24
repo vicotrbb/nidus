@@ -94,7 +94,7 @@ fn reject_duplicate_routes(routes: &[DiscoveredRoute]) -> Result<()> {
 }
 
 fn discover_controller_routes(file: &syn::File) -> Result<Vec<DiscoveredRoute>> {
-    let controller_prefixes = controller_prefixes(file);
+    let controller_prefixes = controller_prefixes(file)?;
     let mut routes = Vec::new();
 
     for item in &file.items {
@@ -143,20 +143,40 @@ fn discover_controller_routes(file: &syn::File) -> Result<Vec<DiscoveredRoute>> 
     Ok(routes)
 }
 
-fn controller_prefixes(file: &syn::File) -> HashMap<String, String> {
-    file.items
-        .iter()
-        .filter_map(|item| {
-            let Item::Struct(item) = item else {
-                return None;
-            };
-            controller_prefix(item).map(|prefix| (item.ident.to_string(), prefix))
-        })
-        .collect()
+fn controller_prefixes(file: &syn::File) -> Result<HashMap<String, String>> {
+    let mut prefixes = HashMap::new();
+    for item in &file.items {
+        let Item::Struct(item) = item else {
+            continue;
+        };
+        if let Some(prefix) = controller_prefix(item)? {
+            prefixes.insert(item.ident.to_string(), prefix);
+        }
+    }
+    Ok(prefixes)
 }
 
-fn controller_prefix(item: &ItemStruct) -> Option<String> {
-    string_attr(&item.attrs, "controller")
+fn controller_prefix(item: &ItemStruct) -> Result<Option<String>> {
+    let attrs = item
+        .attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("controller"))
+        .collect::<Vec<_>>();
+    if attrs.is_empty() {
+        return Ok(None);
+    }
+    if attrs.len() > 1 {
+        bail!("controller structs can declare at most one #[controller] attribute");
+    }
+
+    let prefix = attrs[0]
+        .parse_args::<LitStr>()
+        .with_context(
+            || "#[controller] requires a string literal path like #[controller(\"/users\")]",
+        )?
+        .value();
+    join_route(&prefix, "/")?;
+    Ok(Some(prefix))
 }
 
 fn route_attr(attrs: &[Attribute]) -> Result<Option<(String, String)>> {
@@ -180,15 +200,6 @@ fn route_attr(attrs: &[Attribute]) -> Result<Option<(String, String)>> {
 
 fn route_method_attr<'a>(attrs: &'a [Attribute], method: &str) -> Option<&'a Attribute> {
     attrs.iter().find(|attr| attr.path().is_ident(method))
-}
-
-fn string_attr(attrs: &[Attribute], name: &str) -> Option<String> {
-    attrs
-        .iter()
-        .find(|attr| attr.path().is_ident(name))?
-        .parse_args::<LitStr>()
-        .ok()
-        .map(|value| value.value())
 }
 
 fn type_attrs(attrs: &[Attribute], name: &str) -> Vec<String> {
@@ -323,6 +334,33 @@ impl UsersController {
             error
                 .to_string()
                 .contains("route methods must declare exactly one HTTP method attribute")
+        );
+    }
+
+    #[test]
+    fn rejects_malformed_controller_metadata() {
+        let file = syn::parse_file(
+            r#"
+use nidus::prelude::*;
+
+#[controller]
+pub struct UsersController;
+
+#[routes]
+impl UsersController {
+    #[get("/:id")]
+    pub async fn find(&self) {}
+}
+"#,
+        )
+        .unwrap();
+
+        let error = discover_controller_routes(&file).unwrap_err();
+
+        assert!(
+            error
+                .to_string()
+                .contains("#[controller] requires a string literal path")
         );
     }
 }
