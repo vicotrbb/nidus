@@ -131,6 +131,19 @@ fn guard_error_carries_typed_unauthorized_status() {
 }
 
 #[tokio::test]
+async fn guard_error_supports_custom_statuses() {
+    let response =
+        GuardError::new(StatusCode::PRECONDITION_FAILED, "terms must be accepted").into_response();
+    let status = response.status();
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(status, StatusCode::PRECONDITION_FAILED);
+    assert_eq!(json["error"]["code"], "authorization_failed");
+    assert_eq!(json["error"]["message"], "terms must be accepted");
+}
+
+#[tokio::test]
 async fn guard_error_maps_to_stable_json_response() {
     let response = GuardError::forbidden("route role does not match").into_response();
     let status = response.status();

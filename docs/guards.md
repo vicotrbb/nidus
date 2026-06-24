@@ -14,6 +14,8 @@ impl Guard<AppState> for AuthGuard {
 Guard errors carry a typed `http::StatusCode`, a stable code, and a reason.
 They implement Axum's `IntoResponse`, so route handlers can return
 `Result<T, GuardError>` directly when the default JSON error shape is enough.
+Use `GuardError::unauthorized(...)`, `GuardError::forbidden(...)`, or
+`GuardError::new(status, reason)` for a custom authorization failure status.
 
 Use `GuardExt` to compose guards when multiple checks should be reusable:
 

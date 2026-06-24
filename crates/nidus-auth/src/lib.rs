@@ -133,20 +133,22 @@ pub struct GuardError {
 }
 
 impl GuardError {
-    /// Creates a 401 authorization error.
-    pub fn unauthorized(reason: impl Into<String>) -> Self {
+    /// Creates a guard error with an explicit HTTP status and reason.
+    pub fn new(status_code: StatusCode, reason: impl Into<String>) -> Self {
         Self {
-            status_code: StatusCode::UNAUTHORIZED,
+            status_code,
             reason: reason.into(),
         }
     }
 
+    /// Creates a 401 authorization error.
+    pub fn unauthorized(reason: impl Into<String>) -> Self {
+        Self::new(StatusCode::UNAUTHORIZED, reason)
+    }
+
     /// Creates a 403 authorization error.
     pub fn forbidden(reason: impl Into<String>) -> Self {
-        Self {
-            status_code: StatusCode::FORBIDDEN,
-            reason: reason.into(),
-        }
+        Self::new(StatusCode::FORBIDDEN, reason)
     }
 
     /// Returns the HTTP status code corresponding to this guard failure.
