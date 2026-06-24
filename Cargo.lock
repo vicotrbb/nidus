@@ -1157,6 +1157,7 @@ dependencies = [
  "nidus-validation",
  "sqlx",
  "tokio",
+ "tower",
  "trybuild",
 ]
 

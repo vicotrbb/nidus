@@ -3,7 +3,7 @@
 //! HTTP routing, controllers, middleware, request, and response helpers.
 
 pub use axum::{
-    Json,
+    Json, Router,
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},

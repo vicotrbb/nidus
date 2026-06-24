@@ -12,7 +12,7 @@ pub use nidus_macros::{
 
 #[cfg(feature = "http")]
 pub use nidus_http::{
-    HeaderMap, IntoResponse, Json, Path, Query, Response, State, StatusCode,
+    HeaderMap, IntoResponse, Json, Path, Query, Response, Router, State, StatusCode,
     controller::Controller,
     error::{HttpError, RoutePathError},
     middleware::{

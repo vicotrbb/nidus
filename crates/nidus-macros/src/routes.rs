@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
-use quote::quote;
-use syn::{ImplItem, ImplItemFn, ItemImpl, LitStr, Path, parse2};
+use quote::{format_ident, quote};
+use syn::{FnArg, Ident, ImplItem, ImplItemFn, ItemImpl, LitStr, Path, Type, parse2};
 
 use crate::routes_openapi::openapi_metadata;
 use crate::utils::{
@@ -83,6 +83,55 @@ fn expand_routes_impl(item: ItemImpl) -> TokenStream {
             .with_openapi_schemas(#request_schema, #response_schema)
         }
     });
+    let route_definitions = metadata.iter().map(|route| {
+        let function = &route.function;
+        let route_constructor = format_ident!("try_{}", route.method.to_ascii_lowercase());
+        let path = &route.path;
+        let handler_args = route.handler_args.iter().map(|argument| {
+            let ident = &argument.ident;
+            let ty = &argument.ty;
+            quote!(#ident: #ty)
+        });
+        let call_args = route.handler_args.iter().map(|argument| &argument.ident);
+
+        quote! {
+            {
+                let __nidus_controller = ::std::sync::Arc::clone(&__nidus_controller);
+                ::nidus::prelude::RouteDefinition::#route_constructor(
+                    #path,
+                    move |#(#handler_args),*| {
+                        let __nidus_controller = ::std::sync::Arc::clone(&__nidus_controller);
+                        async move {
+                            __nidus_controller.#function(#(#call_args),*).await
+                        }
+                    },
+                )?
+            }
+        }
+    });
+    let router_methods = if metadata.is_empty() {
+        quote!()
+    } else {
+        quote! {
+            pub fn into_router(self) -> ::nidus::prelude::Router {
+                self.try_into_router()
+                    .unwrap_or_else(|error| panic!("{error}"))
+            }
+
+            pub fn try_into_router(
+                self,
+            ) -> ::std::result::Result<
+                ::nidus::prelude::Router,
+                ::nidus::prelude::RoutePathError,
+            > {
+                let __nidus_controller = ::std::sync::Arc::new(self);
+                let __nidus_controller_routes =
+                    ::nidus::prelude::Controller::try_new(Self::controller_prefix())?
+                        #(.route(#route_definitions))*;
+                __nidus_controller_routes.try_into_router()
+            }
+        }
+    };
 
     quote! {
         #item
@@ -93,13 +142,17 @@ fn expand_routes_impl(item: ItemImpl) -> TokenStream {
                     #(#route_entries,)*
                 ]
             }
+
+            #router_methods
         }
     }
 }
 
 struct RouteMacroMetadata {
+    function: Ident,
     method: String,
     path: LitStr,
+    handler_args: Vec<HandlerArgument>,
     summary: Option<LitStr>,
     tags: Vec<LitStr>,
     response_status: Option<u16>,
@@ -108,6 +161,11 @@ struct RouteMacroMetadata {
     guards: Vec<Path>,
     pipes: Vec<Path>,
     validates: bool,
+}
+
+struct HandlerArgument {
+    ident: Ident,
+    ty: Box<Type>,
 }
 
 fn route_metadata(item: &ImplItem) -> syn::Result<Option<RouteMacroMetadata>> {
@@ -173,9 +231,13 @@ fn route_metadata(item: &ImplItem) -> syn::Result<Option<RouteMacroMetadata>> {
     if validate_route_path(&path).is_err() {
         return Ok(None);
     }
+    validate_route_receiver(function)?;
+    let handler_args = handler_arguments(function)?;
     Ok(Some(RouteMacroMetadata {
+        function: function.sig.ident.clone(),
         method: (*method).to_owned(),
         path,
+        handler_args,
         summary,
         tags,
         response_status,
@@ -194,6 +256,44 @@ fn has_route_metadata_attributes(function: &ImplItemFn) -> bool {
             || attr.path().is_ident("validate")
             || attr.path().is_ident("openapi")
     })
+}
+
+fn validate_route_receiver(function: &ImplItemFn) -> syn::Result<()> {
+    let Some(receiver) = function.sig.receiver() else {
+        return Err(syn::Error::new_spanned(
+            function.sig.ident.clone(),
+            "route methods must take &self as their first argument",
+        ));
+    };
+
+    if receiver.reference.is_none() || receiver.mutability.is_some() {
+        return Err(syn::Error::new_spanned(
+            receiver,
+            "route methods must take &self; use interior shared state for mutation",
+        ));
+    }
+
+    Ok(())
+}
+
+fn handler_arguments(function: &ImplItemFn) -> syn::Result<Vec<HandlerArgument>> {
+    function
+        .sig
+        .inputs
+        .iter()
+        .skip(1)
+        .enumerate()
+        .map(|(index, argument)| match argument {
+            FnArg::Typed(argument) => Ok(HandlerArgument {
+                ident: format_ident!("__nidus_arg_{index}"),
+                ty: argument.ty.clone(),
+            }),
+            FnArg::Receiver(receiver) => Err(syn::Error::new_spanned(
+                receiver,
+                "route methods must declare only one &self receiver",
+            )),
+        })
+        .collect()
 }
 
 fn type_attributes(function: &ImplItemFn, name: &str) -> Vec<Path> {

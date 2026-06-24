@@ -36,4 +36,5 @@ tokio.workspace = true
 
 [dev-dependencies]
 axum.workspace = true
+tower.workspace = true
 trybuild.workspace = true
