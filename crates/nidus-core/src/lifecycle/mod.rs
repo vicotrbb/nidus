@@ -43,12 +43,33 @@ impl LifecycleRunner {
     pub async fn startup(&self) -> Result<()> {
         let mut started: Vec<usize> = Vec::new();
 
+        tracing::debug!(hook_count = self.hooks.len(), "lifecycle startup begin");
         for (index, hook) in self.hooks.iter().enumerate() {
+            tracing::debug!(hook_index = index, "lifecycle startup hook begin");
             if let Err(source) = hook.on_startup().await {
+                tracing::error!(
+                    hook_index = index,
+                    error = %source,
+                    "lifecycle startup hook failed"
+                );
                 let mut rollback_errors = Vec::new();
                 for started_index in started.into_iter().rev() {
+                    tracing::debug!(
+                        hook_index = started_index,
+                        "lifecycle startup rollback hook begin"
+                    );
                     if let Err(error) = self.hooks[started_index].on_shutdown().await {
+                        tracing::error!(
+                            hook_index = started_index,
+                            error = %error,
+                            "lifecycle startup rollback hook failed"
+                        );
                         rollback_errors.push(error);
+                    } else {
+                        tracing::debug!(
+                            hook_index = started_index,
+                            "lifecycle startup rollback hook complete"
+                        );
                     }
                 }
 
@@ -57,16 +78,22 @@ impl LifecycleRunner {
                     rollback_errors,
                 });
             }
+            tracing::debug!(hook_index = index, "lifecycle startup hook complete");
             started.push(index);
         }
+        tracing::debug!(hook_count = self.hooks.len(), "lifecycle startup complete");
         Ok(())
     }
 
     /// Runs shutdown hooks in reverse registration order.
     pub async fn shutdown(&self) -> Result<()> {
-        for hook in self.hooks.iter().rev() {
+        tracing::debug!(hook_count = self.hooks.len(), "lifecycle shutdown begin");
+        for (index, hook) in self.hooks.iter().enumerate().rev() {
+            tracing::debug!(hook_index = index, "lifecycle shutdown hook begin");
             hook.on_shutdown().await?;
+            tracing::debug!(hook_index = index, "lifecycle shutdown hook complete");
         }
+        tracing::debug!(hook_count = self.hooks.len(), "lifecycle shutdown complete");
         Ok(())
     }
 

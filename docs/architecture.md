@@ -20,3 +20,7 @@ Crates should depend inward on stable abstractions and avoid circular dependenci
 Module graph construction emits `tracing` debug events for validation start,
 each graph node, and validation success. This keeps graph diagnostics available
 without coupling Nidus to a specific logging or metrics backend.
+
+Lifecycle startup and shutdown also emit `tracing` events for hook execution,
+failures, and rollback. Hook logs use stable indexes rather than runtime
+reflection so diagnostics stay explicit without adding hidden registries.

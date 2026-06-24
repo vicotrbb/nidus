@@ -60,3 +60,7 @@ Lifecycle startup runs hooks in registration order. If a startup hook fails,
 Nidus shuts down already-started hooks in reverse order before returning a
 `LifecycleStartup` error that preserves the original failure and any rollback
 shutdown failures.
+
+Lifecycle startup, shutdown, and rollback emit `tracing` events with hook
+indexes and hook counts. Applications can collect those events with any
+`tracing` subscriber without coupling Nidus to a specific logging backend.
