@@ -5,6 +5,8 @@ use syn::{
     punctuated::Punctuated,
 };
 
+use crate::utils::require_method_receiver;
+
 pub(crate) struct OpenApiMetadata {
     pub(crate) summary: LitStr,
     pub(crate) tags: Vec<LitStr>,
@@ -76,6 +78,9 @@ pub(crate) fn expand_openapi(attr: TokenStream, item: TokenStream) -> TokenStrea
             item,
         );
     };
+    if let Err(error) = require_method_receiver(&function, "openapi") {
+        return crate::diagnostics::compile_error_with_item(error.to_string(), item);
+    }
 
     let attribute = syn::parse_quote!(#[openapi(#attr)]);
     if let Err(error) = parse_openapi_metadata(&attribute) {

@@ -20,6 +20,7 @@ fn public_macros_report_useful_compile_errors() {
     tests.compile_fail("tests/ui/injectable_tuple_struct.rs");
     tests.compile_fail("tests/ui/injectable_unsupported_lifetime.rs");
     tests.compile_fail("tests/ui/openapi_missing_summary.rs");
+    tests.compile_fail("tests/ui/openapi_outside_route_method.rs");
     tests.compile_fail("tests/ui/openapi_request_must_be_type.rs");
     tests.compile_fail("tests/ui/openapi_status_must_be_code.rs");
     tests.compile_fail("tests/ui/openapi_unsupported_key.rs");
