@@ -117,6 +117,27 @@ fn config_deserializes_top_level_values_by_key() {
 }
 
 #[test]
+fn config_deserializes_required_top_level_values_by_key() {
+    let config = Config::from_pairs([("port", "3000")]);
+
+    assert_eq!(config.get_required_typed::<u16>("port").unwrap(), 3000);
+}
+
+#[test]
+fn config_reports_missing_required_top_level_values() {
+    let config = Config::new();
+
+    let error = config
+        .get_required_typed::<String>("database_url")
+        .unwrap_err();
+
+    assert_eq!(
+        error.to_string(),
+        "missing required configuration value `database_url`"
+    );
+}
+
+#[test]
 fn config_reports_typed_key_deserialization_path() {
     let config = Config::from_pairs([("port", "70000")]);
 
@@ -215,6 +236,33 @@ fn config_deserializes_nested_values_by_path() {
             .get_path_typed::<_, _, String>(["database", "missing"])
             .unwrap(),
         None
+    );
+}
+
+#[test]
+fn config_deserializes_required_nested_values_by_path() {
+    let config =
+        Config::from_prefixed_vars("APP", [("APP_DATABASE__URL", "postgres://localhost/nidus")]);
+
+    assert_eq!(
+        config
+            .get_required_path_typed::<_, _, String>(["database", "url"])
+            .unwrap(),
+        "postgres://localhost/nidus"
+    );
+}
+
+#[test]
+fn config_reports_missing_required_nested_values() {
+    let config = Config::from_prefixed_vars("APP", [("APP_DATABASE__URL", "postgres")]);
+
+    let error = config
+        .get_required_path_typed::<_, _, u16>(["database", "pool_size"])
+        .unwrap_err();
+
+    assert_eq!(
+        error.to_string(),
+        "missing required configuration value `database.pool_size`"
     );
 }
 

@@ -105,6 +105,17 @@ impl Config {
             .transpose()
     }
 
+    /// Deserializes a required top-level configuration value into a typed value.
+    pub fn get_required_typed<T>(&self, key: &str) -> Result<T>
+    where
+        T: DeserializeOwned,
+    {
+        self.get_typed(key)?
+            .ok_or_else(|| ConfigError::MissingValue {
+                path: key.to_owned(),
+            })
+    }
+
     /// Returns a nested raw configuration value by path.
     pub fn get_path<I, S>(&self, path: I) -> Option<&Value>
     where
@@ -138,6 +149,22 @@ impl Config {
             .cloned()
             .map(|value| deserialize_value(label, value))
             .transpose()
+    }
+
+    /// Deserializes a required nested configuration value into a typed value.
+    pub fn get_required_path_typed<I, S, T>(&self, path: I) -> Result<T>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+        T: DeserializeOwned,
+    {
+        let path = path
+            .into_iter()
+            .map(|segment| segment.as_ref().to_owned())
+            .collect::<Vec<_>>();
+        let label = path.join(".");
+        self.get_path_typed(path.iter().map(String::as_str))?
+            .ok_or(ConfigError::MissingValue { path: label })
     }
 
     /// Merges another configuration source into this one.
@@ -190,6 +217,13 @@ pub enum ConfigError {
         /// Underlying serde error.
         #[source]
         source: serde_json::Error,
+    },
+
+    /// A required configuration value was missing.
+    #[error("missing required configuration value `{path}`")]
+    MissingValue {
+        /// Missing configuration key or dot-separated path.
+        path: String,
     },
 }
 
