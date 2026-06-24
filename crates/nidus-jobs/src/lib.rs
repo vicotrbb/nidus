@@ -72,6 +72,16 @@ impl JobQueue {
         self.jobs.push(Box::new(job));
     }
 
+    /// Returns the number of queued jobs.
+    pub fn len(&self) -> usize {
+        self.jobs.len()
+    }
+
+    /// Returns whether the queue has no jobs.
+    pub fn is_empty(&self) -> bool {
+        self.jobs.is_empty()
+    }
+
     /// Runs all queued jobs in insertion order.
     pub fn run_all(&self) -> JobReport {
         let mut completed = Vec::with_capacity(self.jobs.len());
@@ -107,6 +117,16 @@ impl AsyncJobQueue {
         J: AsyncJob,
     {
         self.jobs.push(Box::new(job));
+    }
+
+    /// Returns the number of queued asynchronous jobs.
+    pub fn len(&self) -> usize {
+        self.jobs.len()
+    }
+
+    /// Returns whether the queue has no asynchronous jobs.
+    pub fn is_empty(&self) -> bool {
+        self.jobs.is_empty()
     }
 
     /// Runs all queued asynchronous jobs in insertion order.

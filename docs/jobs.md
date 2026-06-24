@@ -17,7 +17,9 @@ impl Job for SendDigest {
 }
 
 let mut queue = JobQueue::new();
+assert!(queue.is_empty());
 queue.push(SendDigest);
+assert_eq!(queue.len(), 1);
 
 let report = queue.run_all();
 assert!(report.is_success());

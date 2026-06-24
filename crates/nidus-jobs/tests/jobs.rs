@@ -57,7 +57,12 @@ impl AsyncJob for AsyncFailingJob {
 fn job_queue_runs_registered_jobs_in_order() {
     let records = Arc::new(Mutex::new(Vec::new()));
     let mut queue = JobQueue::new();
+    assert!(queue.is_empty());
+    assert_eq!(queue.len(), 0);
+
     queue.push(RecordJob(Arc::clone(&records)));
+    assert!(!queue.is_empty());
+    assert_eq!(queue.len(), 1);
 
     let report = queue.run_all();
 
@@ -88,7 +93,12 @@ fn job_queue_reports_failures_and_continues_running() {
 async fn async_job_queue_runs_registered_jobs_in_order() {
     let records = Arc::new(Mutex::new(Vec::new()));
     let mut queue = AsyncJobQueue::new();
+    assert!(queue.is_empty());
+    assert_eq!(queue.len(), 0);
+
     queue.push(AsyncRecordJob(Arc::clone(&records)));
+    assert!(!queue.is_empty());
+    assert_eq!(queue.len(), 1);
 
     let report = queue.run_all().await;
 
