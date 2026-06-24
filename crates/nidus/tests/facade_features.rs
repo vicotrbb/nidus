@@ -5,6 +5,7 @@ fn prelude_exports_optional_feature_crates() {
     let _config = Config::new();
     let _error = HttpError::bad_request("invalid request");
     let _document = OpenApiDocument::new("Nidus API", "0.1.0");
+    let _document_error: Option<OpenApiDocumentError> = None;
     let _validation = ValidationPipe::new();
     let _validated_json = ValidatedJson("ok");
     let _validated_json_rejection: Option<ValidatedJsonRejection> = None;

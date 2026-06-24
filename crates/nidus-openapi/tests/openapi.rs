@@ -1,5 +1,5 @@
 use nidus_http::router::RouteMetadata;
-use nidus_openapi::{OpenApiDocument, OpenApiRoute};
+use nidus_openapi::{OpenApiDocument, OpenApiDocumentError, OpenApiRoute};
 use nidus_testing::TestApp;
 
 #[derive(utoipa::ToSchema)]
@@ -62,6 +62,25 @@ fn openapi_route_try_builder_rejects_empty_parameter_name() {
     };
 
     assert_eq!(error.path(), "/:");
+}
+
+#[test]
+fn openapi_document_rejects_duplicate_operations() {
+    let document = OpenApiDocument::new("Nidus API", "0.1.0")
+        .try_route(OpenApiRoute::get("/users/:id"))
+        .unwrap();
+
+    let error = document
+        .try_route(OpenApiRoute::get("/users/{id}"))
+        .unwrap_err();
+
+    assert_eq!(
+        error,
+        OpenApiDocumentError::DuplicateOperation {
+            method: "get".to_owned(),
+            path: "/users/{id}".to_owned()
+        }
+    );
 }
 
 #[test]
@@ -270,7 +289,29 @@ fn openapi_document_try_from_route_metadata_rejects_invalid_route_path() {
         Err(error) => error,
     };
 
+    let OpenApiDocumentError::RoutePath(error) = error else {
+        panic!("expected route path error");
+    };
     assert_eq!(error.path(), "/:");
+}
+
+#[test]
+fn openapi_document_try_from_route_metadata_rejects_duplicate_operations() {
+    let routes = [
+        RouteMetadata::with_summary("GET", "/users/:id", "Find user"),
+        RouteMetadata::with_summary("GET", "/users/{id}", "Find same user"),
+    ];
+
+    let error =
+        OpenApiDocument::try_from_route_metadata("Nidus API", "0.1.0", &routes).unwrap_err();
+
+    assert_eq!(
+        error,
+        OpenApiDocumentError::DuplicateOperation {
+            method: "get".to_owned(),
+            path: "/users/{id}".to_owned()
+        }
+    );
 }
 
 #[test]
@@ -325,6 +366,9 @@ fn openapi_document_try_controller_routes_rejects_invalid_prefix() {
             Err(error) => error,
         };
 
+    let OpenApiDocumentError::RoutePath(error) = error else {
+        panic!("expected route path error");
+    };
     assert_eq!(error.path(), "/:");
 }
 
@@ -342,6 +386,9 @@ fn openapi_document_try_from_controller_routes_rejects_invalid_route_path() {
         Err(error) => error,
     };
 
+    let OpenApiDocumentError::RoutePath(error) = error else {
+        panic!("expected route path error");
+    };
     assert_eq!(error.path(), "/:");
 }
 

@@ -31,7 +31,7 @@ pub use nidus_events::{EventBus, EventSubscriber};
 #[cfg(feature = "jobs")]
 pub use nidus_jobs::{AsyncJob, AsyncJobQueue, Job, JobError, JobFailure, JobQueue, JobReport};
 #[cfg(feature = "openapi")]
-pub use nidus_openapi::{OpenApiDocument, OpenApiRoute};
+pub use nidus_openapi::{OpenApiDocument, OpenApiDocumentError, OpenApiRoute};
 #[cfg(feature = "testing")]
 pub use nidus_testing::{TestApp, TestAppBuilder, TestRequest, TestResponse};
 #[cfg(feature = "validation")]

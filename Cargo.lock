@@ -1318,6 +1318,7 @@ dependencies = [
  "nidus-testing",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "utoipa",
 ]

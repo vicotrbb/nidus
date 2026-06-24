@@ -7,6 +7,22 @@ use utoipa::{PartialSchema, ToSchema};
 use crate::html::docs_html;
 use crate::route::OpenApiRoute;
 
+/// Errors emitted while building an OpenAPI document.
+#[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
+pub enum OpenApiDocumentError {
+    /// Two routes attempted to register the same path and HTTP method.
+    #[error("duplicate OpenAPI operation `{method}` `{path}`")]
+    DuplicateOperation {
+        /// Lowercase OpenAPI operation method.
+        method: String,
+        /// Normalized OpenAPI path.
+        path: String,
+    },
+    /// Route path normalization failed.
+    #[error(transparent)]
+    RoutePath(#[from] RoutePathError),
+}
+
 /// Minimal OpenAPI document metadata builder.
 #[derive(Clone, Debug)]
 pub struct OpenApiDocument {
@@ -29,8 +45,26 @@ impl OpenApiDocument {
 
     /// Adds route metadata to the document.
     pub fn route(mut self, route: OpenApiRoute) -> Self {
-        self.routes.push(route);
+        self = self
+            .try_route(route)
+            .unwrap_or_else(|error| panic!("{error}"));
         self
+    }
+
+    /// Tries to add route metadata to the document.
+    pub fn try_route(mut self, route: OpenApiRoute) -> Result<Self, OpenApiDocumentError> {
+        if self
+            .routes
+            .iter()
+            .any(|existing| existing.path() == route.path() && existing.method() == route.method())
+        {
+            return Err(OpenApiDocumentError::DuplicateOperation {
+                method: route.method().to_owned(),
+                path: route.path().to_owned(),
+            });
+        }
+        self.routes.push(route);
+        Ok(self)
     }
 
     /// Adds generated route metadata under a controller prefix.
@@ -44,12 +78,12 @@ impl OpenApiDocument {
         mut self,
         controller_prefix: &str,
         routes: &[RouteMetadata],
-    ) -> Result<Self, RoutePathError> {
+    ) -> Result<Self, OpenApiDocumentError> {
         for route in routes {
-            self = self.route(OpenApiRoute::try_from_route_metadata_at_path(
+            self = self.try_route(OpenApiRoute::try_from_route_metadata_at_path(
                 route,
                 route.try_full_path(controller_prefix)?,
-            )?);
+            )?)?;
         }
         Ok(self)
     }
@@ -87,10 +121,10 @@ impl OpenApiDocument {
         title: impl Into<String>,
         version: impl Into<String>,
         routes: &[RouteMetadata],
-    ) -> Result<Self, RoutePathError> {
+    ) -> Result<Self, OpenApiDocumentError> {
         let mut document = Self::new(title, version);
         for route in routes {
-            document = document.route(OpenApiRoute::try_from_route_metadata(route)?);
+            document = document.try_route(OpenApiRoute::try_from_route_metadata(route)?)?;
         }
         Ok(document)
     }
@@ -112,7 +146,7 @@ impl OpenApiDocument {
         version: impl Into<String>,
         controller_prefix: &str,
         routes: &[RouteMetadata],
-    ) -> Result<Self, RoutePathError> {
+    ) -> Result<Self, OpenApiDocumentError> {
         Self::new(title, version).try_controller_routes(controller_prefix, routes)
     }
 
