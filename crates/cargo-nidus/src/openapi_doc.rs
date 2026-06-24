@@ -3,8 +3,8 @@ use std::{collections::BTreeSet, path::Path};
 use anyhow::Result;
 use serde_json::{Value, json};
 
-use crate::routes::{discover_routes, openapi_path_parameters};
 use crate::schema::discover_schemas;
+use crate::{route_path::openapi_path_parameters, routes::discover_routes};
 
 pub(crate) fn generate_openapi(root: &Path) -> Result<()> {
     let mut paths = serde_json::Map::new();

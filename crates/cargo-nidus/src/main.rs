@@ -12,6 +12,8 @@ mod check;
 mod generate;
 mod graph;
 mod openapi_doc;
+mod route_order;
+mod route_path;
 mod routes;
 mod schema;
 mod source_openapi;
