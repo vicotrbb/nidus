@@ -1,8 +1,8 @@
 //! OpenAPI document generation and serving support.
 
 use axum::{Json, Router, response::Html, routing::get};
-use nidus_http::error::RoutePathError;
 use nidus_http::router::RouteMetadata;
+use nidus_http::{StatusCode, error::RoutePathError};
 use serde_json::{Value, json};
 use utoipa::{PartialSchema, ToSchema};
 
@@ -181,6 +181,7 @@ pub struct OpenApiRoute {
     path_parameters: Vec<String>,
     summary: Option<String>,
     tags: Vec<String>,
+    response_status: StatusCode,
     request_schema: Option<String>,
     response_schema: Option<String>,
 }
@@ -248,6 +249,12 @@ impl OpenApiRoute {
         self
     }
 
+    /// Sets the successful response status for this operation.
+    pub fn response_status(mut self, status: StatusCode) -> Self {
+        self.response_status = status;
+        self
+    }
+
     /// Sets the JSON request body schema reference.
     pub fn request_schema<T>(self) -> Self
     where
@@ -285,6 +292,7 @@ impl OpenApiRoute {
             path_parameters,
             summary: None,
             tags: Vec::new(),
+            response_status: StatusCode::OK,
             request_schema: None,
             response_schema: None,
         }
@@ -318,6 +326,9 @@ impl OpenApiRoute {
         for tag in metadata.tags() {
             route = route.tag(*tag);
         }
+        if let Some(status) = metadata.response_status() {
+            route = route.response_status(status);
+        }
         if let Some(schema) = metadata.request_schema() {
             route = route.request_schema_ref(schema);
         }
@@ -341,11 +352,12 @@ impl OpenApiRoute {
             });
         }
 
+        let mut responses = serde_json::Map::new();
+        responses.insert(self.response_status.as_u16().to_string(), success_response);
+
         let mut operation = json!({
             "summary": self.summary,
-            "responses": {
-                "200": success_response
-            }
+            "responses": responses
         });
 
         if !self.tags.is_empty() {

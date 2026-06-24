@@ -15,6 +15,7 @@ impl UsersController {
     #[openapi(
         summary = "Find user by ID",
         tags = ["users", "read"],
+        status = 201,
         request = CreateUserDto,
         response = UserDto
     )]
@@ -32,6 +33,7 @@ fn main() {
     assert_eq!(routes[0].path(), "/:id");
     assert_eq!(routes[0].summary(), Some("Find user by ID"));
     assert_eq!(routes[0].tags(), ["users", "read"]);
+    assert_eq!(routes[0].response_status(), Some(StatusCode::CREATED));
     assert_eq!(routes[0].request_schema(), Some("CreateUserDto"));
     assert_eq!(routes[0].response_schema(), Some("UserDto"));
     assert_eq!(routes[0].guards(), ["AuthGuard"]);
@@ -41,6 +43,7 @@ fn main() {
     assert_eq!(routes[1].path(), "/");
     assert_eq!(routes[1].summary(), None);
     assert!(routes[1].tags().is_empty());
+    assert_eq!(routes[1].response_status(), None);
     assert_eq!(routes[1].request_schema(), None);
     assert_eq!(routes[1].response_schema(), None);
     assert!(routes[1].guards().is_empty());

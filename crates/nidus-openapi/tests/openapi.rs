@@ -113,6 +113,25 @@ fn openapi_route_can_reference_registered_response_schema() {
 }
 
 #[test]
+fn openapi_route_can_set_success_response_status() {
+    let document = OpenApiDocument::new("Nidus API", "0.1.0")
+        .schema::<UserDto>()
+        .route(
+            OpenApiRoute::post("/users")
+                .response_status(http::StatusCode::CREATED)
+                .response_schema::<UserDto>(),
+        );
+
+    let json = document.to_json_value();
+    assert_eq!(
+        json["paths"]["/users"]["post"]["responses"]["201"]["content"]["application/json"]["schema"]
+            ["$ref"],
+        "#/components/schemas/UserDto"
+    );
+    assert!(json["paths"]["/users"]["post"]["responses"]["200"].is_null());
+}
+
+#[test]
 fn openapi_route_can_reference_registered_request_schema() {
     let document = OpenApiDocument::new("Nidus API", "0.1.0")
         .schema::<CreateUserDto>()
@@ -202,6 +221,33 @@ fn openapi_document_uses_schema_refs_from_route_metadata() {
             ["$ref"],
         "#/components/schemas/UserDto"
     );
+}
+
+#[test]
+fn openapi_document_uses_response_status_from_route_metadata() {
+    let routes = [RouteMetadata::with_openapi_annotations(
+        "POST",
+        "/users",
+        Some("Create user"),
+        &["users"],
+        &[],
+        &[],
+        true,
+    )
+    .with_openapi_status(Some(http::StatusCode::CREATED))
+    .with_openapi_schemas(Some("CreateUserDto"), Some("UserDto"))];
+
+    let document = OpenApiDocument::from_route_metadata("Nidus API", "0.1.0", &routes)
+        .schema::<CreateUserDto>()
+        .schema::<UserDto>();
+
+    let json = document.to_json_value();
+    assert_eq!(
+        json["paths"]["/users"]["post"]["responses"]["201"]["content"]["application/json"]["schema"]
+            ["$ref"],
+        "#/components/schemas/UserDto"
+    );
+    assert!(json["paths"]["/users"]["post"]["responses"]["200"].is_null());
 }
 
 #[test]

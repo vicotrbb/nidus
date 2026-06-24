@@ -1,0 +1,7 @@
+error: #[openapi] status must be in the HTTP status code range 100..=599
+ --> tests/ui/openapi_status_must_be_code.rs:9:5
+  |
+9 |     #[openapi(summary = "Find user", status = 99)]
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `openapi` (in Nightly builds, run with -Z macro-backtrace for more info)

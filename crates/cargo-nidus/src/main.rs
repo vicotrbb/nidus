@@ -226,6 +226,7 @@ struct DiscoveredRoute {
     path: String,
     summary: Option<String>,
     tags: Vec<String>,
+    response_status: Option<u16>,
     request_schema: Option<String>,
     response_schema: Option<String>,
     guards: Vec<String>,
@@ -263,6 +264,7 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<Discov
     let mut pending_route = None;
     let mut pending_summary = None;
     let mut pending_tags = Vec::new();
+    let mut pending_response_status = None;
     let mut pending_request_schema = None;
     let mut pending_response_schema = None;
     let mut pending_guards = Vec::new();
@@ -281,6 +283,7 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<Discov
                     &args,
                     &mut pending_summary,
                     &mut pending_tags,
+                    &mut pending_response_status,
                     &mut pending_request_schema,
                     &mut pending_response_schema,
                 )?;
@@ -308,6 +311,7 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<Discov
                         &args,
                         &mut pending_summary,
                         &mut pending_tags,
+                        &mut pending_response_status,
                         &mut pending_request_schema,
                         &mut pending_response_schema,
                     )?;
@@ -324,6 +328,7 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<Discov
                     path: join_route(prefix, &path)?,
                     summary: pending_summary.take(),
                     tags: std::mem::take(&mut pending_tags),
+                    response_status: pending_response_status.take(),
                     request_schema: pending_request_schema.take(),
                     response_schema: pending_response_schema.take(),
                     guards: std::mem::take(&mut pending_guards),
@@ -334,6 +339,7 @@ fn discover_controller_routes(prefix: &str, contents: &str) -> Result<Vec<Discov
             } else {
                 pending_summary = None;
                 pending_tags.clear();
+                pending_response_status = None;
                 pending_request_schema = None;
                 pending_response_schema = None;
                 pending_guards.clear();
@@ -354,6 +360,7 @@ fn apply_openapi_args(
     args: &str,
     pending_summary: &mut Option<String>,
     pending_tags: &mut Vec<String>,
+    pending_response_status: &mut Option<u16>,
     pending_request_schema: &mut Option<String>,
     pending_response_schema: &mut Option<String>,
 ) -> Result<()> {
@@ -363,6 +370,7 @@ fn apply_openapi_args(
     };
     *pending_summary = Some(summary);
     *pending_tags = extract_openapi_tags(args)?;
+    *pending_response_status = extract_openapi_status(args)?;
     *pending_request_schema = extract_openapi_schema(args, "request")?;
     *pending_response_schema = extract_openapi_schema(args, "response")?;
     Ok(())
@@ -690,6 +698,7 @@ fn generate_openapi(root: &Path) -> Result<()> {
     let mut schema_names = BTreeSet::new();
     for route in discover_routes(root)? {
         let parameters = openapi_path_parameters(&route.path);
+        let response_status = route.response_status.unwrap_or(200).to_string();
         let entry = paths
             .entry(route.path)
             .or_insert_with(|| Value::Object(serde_json::Map::new()));
@@ -697,7 +706,7 @@ fn generate_openapi(root: &Path) -> Result<()> {
             let mut operation = serde_json::Map::from_iter([(
                 "responses".to_owned(),
                 json!({
-                    "200": {
+                    response_status.clone(): {
                         "description": "Success"
                     }
                 }),
@@ -727,7 +736,7 @@ fn generate_openapi(root: &Path) -> Result<()> {
                 operation.insert(
                     "responses".to_owned(),
                     json!({
-                        "200": {
+                        response_status: {
                             "description": "Success",
                             "content": {
                                 "application/json": {
@@ -986,9 +995,9 @@ fn validate_openapi_args(args: &str) -> Result<()> {
             continue;
         };
         let key = key.trim();
-        if !matches!(key, "summary" | "tags" | "request" | "response") {
+        if !matches!(key, "summary" | "tags" | "status" | "request" | "response") {
             bail!(
-                "#[openapi] supports only summary = \"...\", tags = [\"...\"], request = Type, and response = Type metadata"
+                "#[openapi] supports only summary = \"...\", tags = [\"...\"], status = 201, request = Type, and response = Type metadata"
             );
         }
     }
@@ -1059,6 +1068,26 @@ fn extract_openapi_tags(args: &str) -> Result<Vec<String>> {
         return Ok(values);
     }
     Ok(Vec::new())
+}
+
+fn extract_openapi_status(args: &str) -> Result<Option<u16>> {
+    for arg in split_openapi_args(args) {
+        let Some((key, value)) = arg.split_once('=') else {
+            continue;
+        };
+        if key.trim() != "status" {
+            continue;
+        }
+        let value = value.trim();
+        let status = value
+            .parse::<u16>()
+            .with_context(|| "#[openapi] status must be an HTTP status code integer literal")?;
+        if !(100..=599).contains(&status) {
+            bail!("#[openapi] status must be in the HTTP status code range 100..=599");
+        }
+        return Ok(Some(status));
+    }
+    Ok(None)
 }
 
 fn extract_openapi_schema(args: &str, key: &str) -> Result<Option<String>> {

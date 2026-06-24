@@ -12,6 +12,7 @@ pub struct RouteMetadata {
     path: &'static str,
     summary: Option<&'static str>,
     tags: &'static [&'static str],
+    response_status: Option<http::StatusCode>,
     request_schema: Option<&'static str>,
     response_schema: Option<&'static str>,
     guards: &'static [&'static str],
@@ -27,6 +28,7 @@ impl RouteMetadata {
             path,
             summary: None,
             tags: &[],
+            response_status: None,
             request_schema: None,
             response_schema: None,
             guards: &[],
@@ -46,6 +48,7 @@ impl RouteMetadata {
             path,
             summary: Some(summary),
             tags: &[],
+            response_status: None,
             request_schema: None,
             response_schema: None,
             guards: &[],
@@ -68,6 +71,7 @@ impl RouteMetadata {
             path,
             summary,
             tags: &[],
+            response_status: None,
             request_schema: None,
             response_schema: None,
             guards,
@@ -91,6 +95,7 @@ impl RouteMetadata {
             path,
             summary,
             tags,
+            response_status: None,
             request_schema: None,
             response_schema: None,
             guards,
@@ -107,6 +112,12 @@ impl RouteMetadata {
     ) -> Self {
         self.request_schema = request_schema;
         self.response_schema = response_schema;
+        self
+    }
+
+    /// Adds an OpenAPI success response status to route metadata.
+    pub const fn with_openapi_status(mut self, response_status: Option<http::StatusCode>) -> Self {
+        self.response_status = response_status;
         self
     }
 
@@ -128,6 +139,11 @@ impl RouteMetadata {
     /// Returns OpenAPI tags declared on the route.
     pub const fn tags(&self) -> &'static [&'static str] {
         self.tags
+    }
+
+    /// Returns the OpenAPI success response status, when declared.
+    pub const fn response_status(&self) -> Option<http::StatusCode> {
+        self.response_status
     }
 
     /// Returns the OpenAPI request schema reference name, when declared.
