@@ -9,7 +9,7 @@ use axum::{
 };
 use http::StatusCode;
 use serde::{Serialize, de::DeserializeOwned};
-use validator::Validate;
+use validator::{Validate, ValidationError, ValidationErrors, ValidationErrorsKind};
 
 /// Typed request transformation or validation pipe.
 pub trait Pipe<Input>: Send + Sync + 'static {
@@ -148,17 +148,8 @@ impl ValidationPipeError {
     pub fn field_errors(&self) -> Vec<FieldValidationError> {
         match self {
             Self::Validation(errors) => {
-                let mut field_errors = errors
-                    .field_errors()
-                    .into_iter()
-                    .flat_map(|(field, errors)| {
-                        errors.iter().map(move |error| FieldValidationError {
-                            field: field.to_string(),
-                            code: error.code.to_string(),
-                            message: error.message.as_ref().map(ToString::to_string),
-                        })
-                    })
-                    .collect::<Vec<_>>();
+                let mut field_errors = Vec::new();
+                collect_field_errors("", errors, &mut field_errors);
                 field_errors.sort_by(|left, right| {
                     left.field
                         .cmp(&right.field)
@@ -167,6 +158,45 @@ impl ValidationPipeError {
                 field_errors
             }
         }
+    }
+}
+
+fn collect_field_errors(
+    prefix: &str,
+    errors: &ValidationErrors,
+    field_errors: &mut Vec<FieldValidationError>,
+) {
+    for (field, kind) in errors.errors() {
+        let path = join_field_path(prefix, field);
+        match kind {
+            ValidationErrorsKind::Field(errors) => {
+                field_errors.extend(errors.iter().map(|error| field_error(&path, error)));
+            }
+            ValidationErrorsKind::Struct(errors) => {
+                collect_field_errors(&path, errors, field_errors);
+            }
+            ValidationErrorsKind::List(errors) => {
+                for (index, errors) in errors {
+                    collect_field_errors(&format!("{path}[{index}]"), errors, field_errors);
+                }
+            }
+        }
+    }
+}
+
+fn join_field_path(prefix: &str, field: &str) -> String {
+    if prefix.is_empty() {
+        field.to_owned()
+    } else {
+        format!("{prefix}.{field}")
+    }
+}
+
+fn field_error(field: &str, error: &ValidationError) -> FieldValidationError {
+    FieldValidationError {
+        field: field.to_owned(),
+        code: error.code.to_string(),
+        message: error.message.as_ref().map(ToString::to_string),
     }
 }
 

@@ -32,6 +32,9 @@ for field in error.field_errors() {
 }
 ```
 
+Nested validation errors are flattened into deterministic field paths such as
+`profile.display_name` or `members[0].email`.
+
 `ValidationPipeError` implements Axum's `IntoResponse`. The default response is
 HTTP 422 with a stable `validation_failed` code and deterministic field-level
 error details, so route handlers can return `Result<T, ValidationPipeError>`

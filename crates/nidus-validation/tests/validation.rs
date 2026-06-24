@@ -13,6 +13,20 @@ struct CreateUser {
     email: String,
 }
 
+#[derive(Debug, Deserialize, Validate)]
+struct UserProfile {
+    #[validate(length(min = 2, message = "display name is too short"))]
+    display_name: String,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+struct CreateTeam {
+    #[validate(nested)]
+    owner: UserProfile,
+    #[validate(nested)]
+    members: Vec<UserProfile>,
+}
+
 struct TrimEmailPipe;
 
 impl Pipe<CreateUser> for TrimEmailPipe {
@@ -60,6 +74,29 @@ fn validation_errors_expose_field_level_details() {
     assert_eq!(fields[0].field(), "email");
     assert_eq!(fields[0].code(), "email");
     assert_eq!(fields[0].message(), None);
+}
+
+#[test]
+fn validation_errors_flatten_nested_field_paths() {
+    let input = CreateTeam {
+        owner: UserProfile {
+            display_name: "A".to_owned(),
+        },
+        members: vec![UserProfile {
+            display_name: "B".to_owned(),
+        }],
+    };
+
+    let error = ValidationPipe::new().transform(input).unwrap_err();
+    let fields = error.field_errors();
+
+    assert_eq!(fields.len(), 2);
+    assert_eq!(fields[0].field(), "members[0].display_name");
+    assert_eq!(fields[0].code(), "length");
+    assert_eq!(fields[0].message(), Some("display name is too short"));
+    assert_eq!(fields[1].field(), "owner.display_name");
+    assert_eq!(fields[1].code(), "length");
+    assert_eq!(fields[1].message(), Some("display name is too short"));
 }
 
 #[tokio::test]
