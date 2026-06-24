@@ -10,7 +10,7 @@ requiring external services by default.
 | `auth-api` | Guard trait implementation with explicit guard failure mapping in a Nidus-composed route. |
 | `sqlx-postgres` | Facade `sqlx-postgres` feature plus macro-registered repository injection around Postgres pool options without opening a database connection. |
 | `openapi` | Controller metadata converted into an OpenAPI JSON document. |
-| `background-jobs` | In-memory job queue execution and reporting. |
+| `background-jobs` | In-memory job queue execution with success and failure reporting. |
 | `modular-monolith` | Macro-defined module graph imports, providers, controllers, and exports. |
 
 Run an example with Cargo's package selector:
