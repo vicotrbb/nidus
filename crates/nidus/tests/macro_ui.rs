@@ -3,6 +3,7 @@ fn public_macros_report_useful_compile_errors() {
     let tests = trybuild::TestCases::new();
     tests.pass("tests/ui/application_listen_chain.rs");
     tests.pass("tests/ui/controller_valid.rs");
+    tests.pass("tests/ui/injectable_generics.rs");
     tests.pass("tests/ui/module_field_metadata.rs");
     tests.pass("tests/ui/module_single_bracket_metadata.rs");
     tests.pass("tests/ui/injectable_lifetimes.rs");

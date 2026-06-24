@@ -19,6 +19,7 @@ pub(crate) fn expand(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 fn expand_struct(item: ItemStruct, lifetime: InjectableLifetime) -> TokenStream {
     let name = &item.ident;
+    let (impl_generics, type_generics, where_clause) = item.generics.split_for_impl();
     let fields = match &item.fields {
         Fields::Named(fields) => fields,
         Fields::Unit => {
@@ -26,7 +27,7 @@ fn expand_struct(item: ItemStruct, lifetime: InjectableLifetime) -> TokenStream 
             return quote! {
                 #item
 
-                impl #name {
+                impl #impl_generics #name #type_generics #where_clause {
                     pub fn register_provider(
                         container: &mut ::nidus::prelude::Container,
                     ) -> ::nidus::prelude::Result<()> {
@@ -58,7 +59,7 @@ fn expand_struct(item: ItemStruct, lifetime: InjectableLifetime) -> TokenStream 
     quote! {
         #item
 
-        impl #name {
+        impl #impl_generics #name #type_generics #where_clause {
             pub fn register_provider(
                 container: &mut ::nidus::prelude::Container,
             ) -> ::nidus::prelude::Result<()> {
