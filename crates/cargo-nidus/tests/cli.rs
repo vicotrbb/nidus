@@ -1104,6 +1104,23 @@ fn cargo_nidus_expand_prints_cargo_expand_command_in_dry_run_mode() {
     assert!(stdout.contains("Cargo.toml"));
 }
 
+#[test]
+fn cargo_nidus_expand_rejects_missing_manifest() {
+    let root = temp_project_root("expand_rejects_missing_manifest");
+
+    let expand = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "expand", "--path"])
+        .arg(&root)
+        .arg("--dry-run")
+        .output()
+        .unwrap();
+
+    assert!(!expand.status.success());
+    let stderr = String::from_utf8(expand.stderr).unwrap();
+    assert!(stderr.contains("Nidus expand failed"));
+    assert!(stderr.contains("Cargo.toml"));
+}
+
 fn temp_project_root(name: &str) -> PathBuf {
     let root = std::env::temp_dir()
         .join("nidus-cli-tests")
