@@ -1,9 +1,16 @@
 //! Typed configuration support.
 
+mod error;
+mod value;
+
 use std::{fs, path::Path};
 
 use serde::de::DeserializeOwned;
 use serde_json::{Map, Value};
+
+use error::deserialize_value;
+pub use error::{ConfigError, Result};
+use value::{insert_path, merge_maps, parse_scalar, prefixed_key_start};
 
 /// Typed configuration document assembled from explicit sources.
 #[derive(Clone, Debug, Default)]
@@ -208,126 +215,5 @@ impl Config {
         T: DeserializeOwned,
     {
         serde_json::from_value(Value::Object(self.values.clone())).map_err(ConfigError::Deserialize)
-    }
-}
-
-/// Result type for configuration operations.
-pub type Result<T> = std::result::Result<T, ConfigError>;
-
-/// Errors emitted by typed configuration loading.
-#[derive(Debug, thiserror::Error)]
-pub enum ConfigError {
-    /// Parsing a JSON configuration source failed.
-    #[error("configuration JSON parse error: {0}")]
-    Parse(#[source] serde_json::Error),
-
-    /// The configuration root was not a JSON object.
-    #[error("configuration root must be a JSON object")]
-    RootNotObject,
-
-    /// Reading a JSON configuration file failed.
-    #[error("configuration file `{path}` read error: {source}")]
-    ReadFile {
-        /// Configuration file path.
-        path: String,
-        /// Underlying IO error.
-        #[source]
-        source: std::io::Error,
-    },
-
-    /// Parsing a JSON configuration file failed.
-    #[error("configuration file `{path}` JSON parse error: {source}")]
-    ParseFile {
-        /// Configuration file path.
-        path: String,
-        /// Underlying serde error.
-        #[source]
-        source: serde_json::Error,
-    },
-
-    /// A JSON configuration file root was not an object.
-    #[error("configuration file `{path}` root must be a JSON object")]
-    FileRootNotObject {
-        /// Configuration file path.
-        path: String,
-    },
-
-    /// Deserialization into the requested type failed.
-    #[error("configuration deserialize error: {0}")]
-    Deserialize(#[from] serde_json::Error),
-
-    /// Deserialization of one configuration value failed.
-    #[error("configuration deserialize error at `{path}`: {source}")]
-    ValueDeserialize {
-        /// Configuration key or dot-separated path that failed.
-        path: String,
-        /// Underlying serde error.
-        #[source]
-        source: serde_json::Error,
-    },
-
-    /// A required configuration value was missing.
-    #[error("missing required configuration value `{path}`")]
-    MissingValue {
-        /// Missing configuration key or dot-separated path.
-        path: String,
-    },
-}
-
-fn deserialize_value<T>(path: String, value: Value) -> Result<T>
-where
-    T: DeserializeOwned,
-{
-    serde_json::from_value(value).map_err(|source| ConfigError::ValueDeserialize { path, source })
-}
-
-fn parse_scalar(value: &str) -> Value {
-    match value {
-        "true" => Value::Bool(true),
-        "false" => Value::Bool(false),
-        _ => value
-            .parse::<i64>()
-            .map(Value::from)
-            .or_else(|_| value.parse::<f64>().map(Value::from))
-            .unwrap_or_else(|_| Value::String(value.to_owned())),
-    }
-}
-
-fn prefixed_key_start(prefix: &str) -> String {
-    if prefix.is_empty() || prefix.ends_with('_') {
-        prefix.to_owned()
-    } else {
-        format!("{prefix}_")
-    }
-}
-
-fn insert_path(values: &mut Map<String, Value>, path: &[String], value: Value) {
-    if let Some((head, tail)) = path.split_first() {
-        if tail.is_empty() {
-            values.insert(head.clone(), value);
-        } else {
-            let child = values
-                .entry(head.clone())
-                .or_insert_with(|| Value::Object(Map::new()));
-            if !child.is_object() {
-                *child = Value::Object(Map::new());
-            }
-            if let Value::Object(child_values) = child {
-                insert_path(child_values, tail, value);
-            }
-        }
-    }
-}
-
-fn merge_maps(target: &mut Map<String, Value>, source: Map<String, Value>) {
-    for (key, source_value) in source {
-        match (target.get_mut(&key), source_value) {
-            (Some(Value::Object(target_child)), Value::Object(source_child)) => {
-                merge_maps(target_child, source_child);
-            }
-            (_, source_value) => {
-                target.insert(key, source_value);
-            }
-        }
     }
 }
