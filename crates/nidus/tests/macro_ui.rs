@@ -15,6 +15,7 @@ fn public_macros_report_useful_compile_errors() {
     tests.compile_fail("tests/ui/controller_empty_param_path.rs");
     tests.compile_fail("tests/ui/controller_missing_path.rs");
     tests.compile_fail("tests/ui/guard_missing_type.rs");
+    tests.compile_fail("tests/ui/guard_outside_route_method.rs");
     tests.compile_fail("tests/ui/injectable_plain_field.rs");
     tests.compile_fail("tests/ui/injectable_tuple_struct.rs");
     tests.compile_fail("tests/ui/injectable_unsupported_lifetime.rs");
@@ -24,8 +25,11 @@ fn public_macros_report_useful_compile_errors() {
     tests.compile_fail("tests/ui/openapi_unsupported_key.rs");
     tests.compile_fail("tests/ui/openapi_tags_must_be_strings.rs");
     tests.compile_fail("tests/ui/pipe_missing_type.rs");
+    tests.compile_fail("tests/ui/pipe_outside_route_method.rs");
     tests.compile_fail("tests/ui/route_duplicate_method.rs");
     tests.compile_fail("tests/ui/route_empty_param_path.rs");
+    tests.compile_fail("tests/ui/route_outside_route_method.rs");
     tests.compile_fail("tests/ui/route_metadata_without_method.rs");
     tests.compile_fail("tests/ui/route_missing_path.rs");
+    tests.compile_fail("tests/ui/validate_outside_route_method.rs");
 }

@@ -3,7 +3,9 @@ use quote::quote;
 use syn::{ImplItem, ImplItemFn, ItemImpl, LitStr, Path, parse2};
 
 use crate::routes_openapi::openapi_metadata;
-use crate::utils::{require_empty_attr, require_path_attr, validate_route_path};
+use crate::utils::{
+    require_empty_attr, require_method_receiver, require_path_attr, validate_route_path,
+};
 
 pub(crate) fn expand_routes(attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Err(error) = require_empty_attr(attr, "routes") {
@@ -221,7 +223,10 @@ pub(crate) fn expand_route(name: &str, attr: TokenStream, item: TokenStream) -> 
     }
 
     match parse2::<ImplItemFn>(item.clone()) {
-        Ok(item) => quote!(#item),
+        Ok(function) => match require_method_receiver(&function, name) {
+            Ok(()) => quote!(#function),
+            Err(error) => crate::diagnostics::compile_error_with_item(error.to_string(), item),
+        },
         Err(error) => crate::diagnostics::compile_error_with_item(
             format!("#[{name}] can only be used on methods inside #[routes] impl blocks: {error}"),
             item,

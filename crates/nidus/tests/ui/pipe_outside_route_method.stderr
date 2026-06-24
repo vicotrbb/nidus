@@ -1,0 +1,7 @@
+error: #[pipe] can only be used on route methods
+ --> tests/ui/pipe_outside_route_method.rs:5:1
+  |
+5 | #[pipe(ValidationPipe)]
+  | ^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `pipe` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use syn::{LitStr, parse2};
+use syn::{ImplItemFn, LitStr, parse2};
 
 pub(crate) fn require_empty_attr(attr: TokenStream, macro_name: &str) -> Result<(), TokenStream> {
     if attr.is_empty() {
@@ -32,4 +32,15 @@ pub(crate) fn validate_route_path(path: &LitStr) -> syn::Result<()> {
         }
     }
     Ok(())
+}
+
+pub(crate) fn require_method_receiver(function: &ImplItemFn, macro_name: &str) -> syn::Result<()> {
+    if function.sig.receiver().is_some() {
+        Ok(())
+    } else {
+        Err(syn::Error::new_spanned(
+            function.sig.ident.clone(),
+            format!("#[{macro_name}] can only be used on route methods"),
+        ))
+    }
 }

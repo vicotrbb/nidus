@@ -1,0 +1,7 @@
+error: #[guard] can only be used on route methods
+ --> tests/ui/guard_outside_route_method.rs:5:1
+  |
+5 | #[guard(AuthGuard)]
+  | ^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `guard` (in Nightly builds, run with -Z macro-backtrace for more info)

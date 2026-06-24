@@ -1,0 +1,7 @@
+error: #[validate] can only be used on route methods
+ --> tests/ui/validate_outside_route_method.rs:3:1
+  |
+3 | #[validate]
+  | ^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `validate` (in Nightly builds, run with -Z macro-backtrace for more info)
