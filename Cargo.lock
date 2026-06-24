@@ -1248,6 +1248,10 @@ version = "0.1.0"
 dependencies = [
  "nidus",
  "nidus-openapi",
+ "nidus-testing",
+ "serde",
+ "serde_json",
+ "tokio",
  "utoipa",
 ]
 

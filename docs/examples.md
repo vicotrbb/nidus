@@ -9,7 +9,7 @@ requiring external services by default.
 | `rest-api` | Macro-defined Nidus controller route with an Axum JSON response and request-scoped provider extraction. |
 | `auth-api` | Guard trait implementation with explicit guard failure mapping in a Nidus-composed route. |
 | `sqlx-postgres` | Facade `sqlx-postgres` feature plus macro-registered repository injection around Postgres pool options without opening a database connection. |
-| `openapi` | Controller metadata converted into an OpenAPI JSON document. |
+| `openapi` | Controller metadata converted into an OpenAPI JSON document plus `/openapi.json` and `/docs` routes. |
 | `background-jobs` | In-memory job queue execution with success and failure reporting. |
 | `modular-monolith` | Macro-defined module graph imports, providers, controllers, and exports. |
 
