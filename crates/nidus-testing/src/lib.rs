@@ -253,6 +253,26 @@ impl TestRequest {
         self
     }
 
+    /// Appends URL-encoded query parameters.
+    pub fn query<T: Serialize>(mut self, query: &T) -> Self {
+        self = self
+            .try_query(query)
+            .expect("test query serialization failed");
+        self
+    }
+
+    /// Tries to append URL-encoded query parameters.
+    pub fn try_query<T: Serialize>(
+        mut self,
+        query: &T,
+    ) -> std::result::Result<Self, serde_urlencoded::ser::Error> {
+        let query = serde_urlencoded::to_string(query)?;
+        if !query.is_empty() {
+            self.path = append_query(&self.path, &query);
+        }
+        Ok(self)
+    }
+
     /// Sends the request against the in-memory app.
     pub async fn send(self) -> TestResponse {
         let mut builder = Request::builder().method(self.method).uri(self.path);
@@ -282,6 +302,17 @@ impl TestRequest {
             body,
         }
     }
+}
+
+fn append_query(path: &str, query: &str) -> String {
+    let separator = if path.contains('?') && !path.ends_with('?') && !path.ends_with('&') {
+        "&"
+    } else if path.contains('?') {
+        ""
+    } else {
+        "?"
+    };
+    format!("{path}{separator}{query}")
 }
 
 /// Captured in-memory HTTP response.

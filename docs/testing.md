@@ -21,6 +21,17 @@ let response = app
     .await;
 ```
 
+Use `query()` to append URL-encoded query parameters from any serializable test
+value:
+
+```rust
+let response = app
+    .get("/users")
+    .query(&ListUsers { page: 2 })
+    .send()
+    .await;
+```
+
 Use `try_header()` when tests should assert invalid header names or values
 without panicking:
 

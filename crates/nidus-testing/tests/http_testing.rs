@@ -1,19 +1,26 @@
 use axum::{
     Json, Router,
     body::Bytes,
+    extract::Query,
     response::IntoResponse,
     routing::{delete, get, patch, post, put},
 };
 use http::{HeaderMap, StatusCode, header::HeaderName};
 use nidus_http::{controller::Controller, router::RouteDefinition};
 use nidus_testing::TestApp;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
 struct UserDto {
     id: u64,
     name: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct SearchQuery {
+    name: String,
+    page: u32,
 }
 
 #[tokio::test]
@@ -146,6 +153,28 @@ async fn test_request_sends_raw_body() {
         .await;
 
     response.assert_text("5").await;
+}
+
+#[tokio::test]
+async fn test_request_appends_typed_query_params() {
+    let router =
+        Router::new().route(
+            "/users",
+            get(|Query(query): Query<SearchQuery>| async move {
+                format!("{}:{}", query.name, query.page)
+            }),
+        );
+
+    let response = TestApp::from_router(router)
+        .get("/users")
+        .query(&SearchQuery {
+            name: "Ada Lovelace".to_owned(),
+            page: 2,
+        })
+        .send()
+        .await;
+
+    response.assert_text("Ada Lovelace:2").await;
 }
 
 #[tokio::test]
