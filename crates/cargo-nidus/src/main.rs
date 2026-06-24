@@ -8,8 +8,10 @@ use std::{
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 
+mod artifact_template;
 mod check;
 mod generate;
+mod generate_name;
 mod graph;
 mod openapi_doc;
 mod route_order;
