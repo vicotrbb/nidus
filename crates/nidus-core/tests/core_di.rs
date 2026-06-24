@@ -412,6 +412,39 @@ fn module_graph_rejects_duplicate_module_names() {
 }
 
 #[test]
+fn module_graph_iterates_modules_in_name_order() {
+    let users = ModuleBuilder::new("UsersModule").build();
+    let auth = ModuleBuilder::new("AuthModule").build();
+    let billing = ModuleBuilder::new("BillingModule").build();
+
+    let graph = ModuleGraph::from_modules([users, auth, billing]).unwrap();
+    let module_names = graph
+        .modules()
+        .map(|module| module.name())
+        .collect::<Vec<_>>();
+
+    assert_eq!(module_names, ["AuthModule", "BillingModule", "UsersModule"]);
+}
+
+#[test]
+fn module_graph_reports_validation_errors_in_module_name_order() {
+    let users = ModuleBuilder::new("UsersModule")
+        .provider("UsersService")
+        .provider("UsersService")
+        .build();
+    let auth = ModuleBuilder::new("AuthModule")
+        .provider("AuthService")
+        .provider("AuthService")
+        .build();
+
+    let error = ModuleGraph::from_modules([users, auth]).unwrap_err();
+
+    assert!(matches!(error, NidusError::DuplicateModuleProvider { .. }));
+    assert!(error.to_string().contains("AuthModule"));
+    assert!(error.to_string().contains("AuthService"));
+}
+
+#[test]
 fn module_graph_rejects_duplicate_local_providers() {
     let users = ModuleBuilder::new("UsersModule")
         .provider("UsersService")

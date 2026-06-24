@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{NidusError, Result};
 
@@ -7,13 +7,13 @@ use super::ModuleDefinition;
 /// Validated graph of module definitions.
 #[derive(Debug)]
 pub struct ModuleGraph {
-    modules: HashMap<String, ModuleDefinition>,
+    modules: BTreeMap<String, ModuleDefinition>,
 }
 
 impl ModuleGraph {
     /// Builds and validates a module graph.
     pub fn from_modules(modules: impl IntoIterator<Item = ModuleDefinition>) -> Result<Self> {
-        let mut registered = HashMap::new();
+        let mut registered = BTreeMap::new();
         for module in modules {
             let name = module.name.clone();
             if registered.insert(name.clone(), module).is_some() {
@@ -56,9 +56,14 @@ impl ModuleGraph {
         self.modules.get(name)
     }
 
+    /// Returns validated module definitions in deterministic name order.
+    pub fn modules(&self) -> impl Iterator<Item = &ModuleDefinition> {
+        self.modules.values()
+    }
+
     fn validate_local_imports_unique(&self) -> Result<()> {
         for module in self.modules.values() {
-            let mut seen = HashSet::new();
+            let mut seen = BTreeSet::new();
             for import in &module.imports {
                 if !seen.insert(import) {
                     return Err(NidusError::DuplicateModuleImport {
@@ -86,8 +91,8 @@ impl ModuleGraph {
     }
 
     fn validate_acyclic(&self) -> Result<()> {
-        let mut visiting = HashSet::new();
-        let mut visited = HashSet::new();
+        let mut visiting = BTreeSet::new();
+        let mut visited = BTreeSet::new();
         let mut stack = Vec::new();
 
         for name in self.modules.keys() {
@@ -98,7 +103,7 @@ impl ModuleGraph {
 
     fn validate_local_providers_unique(&self) -> Result<()> {
         for module in self.modules.values() {
-            let mut seen = HashSet::new();
+            let mut seen = BTreeSet::new();
             for provider in &module.providers {
                 if !seen.insert(provider) {
                     return Err(NidusError::DuplicateModuleProvider {
@@ -113,7 +118,7 @@ impl ModuleGraph {
 
     fn validate_local_controllers_unique(&self) -> Result<()> {
         for module in self.modules.values() {
-            let mut seen = HashSet::new();
+            let mut seen = BTreeSet::new();
             for controller in &module.controllers {
                 if !seen.insert(controller) {
                     return Err(NidusError::DuplicateModuleController {
@@ -128,7 +133,7 @@ impl ModuleGraph {
 
     fn validate_providers_and_controllers_disjoint(&self) -> Result<()> {
         for module in self.modules.values() {
-            let providers = module.providers.iter().collect::<HashSet<_>>();
+            let providers = module.providers.iter().collect::<BTreeSet<_>>();
             for controller in &module.controllers {
                 if providers.contains(controller) {
                     return Err(NidusError::ModuleProviderControllerConflict {
@@ -143,7 +148,7 @@ impl ModuleGraph {
 
     fn validate_exports_unique(&self) -> Result<()> {
         for module in self.modules.values() {
-            let mut seen = HashSet::new();
+            let mut seen = BTreeSet::new();
             for export in &module.exports {
                 if !seen.insert(export) {
                     return Err(NidusError::DuplicateModuleExport {
@@ -158,7 +163,7 @@ impl ModuleGraph {
 
     fn validate_exports_are_local(&self) -> Result<()> {
         for module in self.modules.values() {
-            let providers = module.providers.iter().collect::<HashSet<_>>();
+            let providers = module.providers.iter().collect::<BTreeSet<_>>();
             for export in &module.exports {
                 if !providers.contains(export) {
                     return Err(NidusError::MissingProviderExport {
@@ -173,7 +178,7 @@ impl ModuleGraph {
 
     fn validate_local_providers_do_not_conflict_with_imports(&self) -> Result<()> {
         for module in self.modules.values() {
-            let local_providers = module.providers.iter().collect::<HashSet<_>>();
+            let local_providers = module.providers.iter().collect::<BTreeSet<_>>();
             for import in &module.imports {
                 let imported = self.modules.get(import).expect("imports were validated");
                 for export in &imported.exports {
@@ -192,7 +197,7 @@ impl ModuleGraph {
 
     fn validate_visible_providers_unambiguous(&self) -> Result<()> {
         for module in self.modules.values() {
-            let mut visible_exports = HashMap::<&str, Vec<&str>>::new();
+            let mut visible_exports = BTreeMap::<&str, Vec<&str>>::new();
             for import in &module.imports {
                 let imported = self.modules.get(import).expect("imports were validated");
                 for export in &imported.exports {
@@ -219,8 +224,8 @@ impl ModuleGraph {
     fn visit(
         &self,
         name: &str,
-        visiting: &mut HashSet<String>,
-        visited: &mut HashSet<String>,
+        visiting: &mut BTreeSet<String>,
+        visited: &mut BTreeSet<String>,
         stack: &mut Vec<String>,
     ) -> Result<()> {
         if visited.contains(name) {
