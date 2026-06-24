@@ -10,11 +10,22 @@ use http::{HeaderValue, Response, StatusCode, header};
 use tower::{Layer, Service};
 
 /// Creates a layer that applies conservative API security headers.
+///
+/// Responses receive:
+/// - `x-content-type-options: nosniff`
+/// - `x-frame-options: DENY`
+/// - `referrer-policy: no-referrer`
+///
+/// Existing values for those headers are replaced.
 pub fn security_headers_layer() -> SecurityHeadersLayer {
     SecurityHeadersLayer
 }
 
 /// Tower layer that adds conservative API security headers to responses.
+///
+/// This layer only mutates response headers after the inner service returns. It
+/// does not perform authentication, CORS, CSRF, or content-security-policy
+/// enforcement.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SecurityHeadersLayer;
 
@@ -65,7 +76,16 @@ where
     }
 }
 
-/// Creates a request body limit layer using the `Content-Length` boundary.
+/// Creates a request body limit layer using the declared `Content-Length`.
+///
+/// The layer rejects requests when `Content-Length` parses as `u64` and is
+/// greater than `max_bytes`. The rejection is `413 Payload Too Large` with a
+/// plain-text `payload too large` body.
+///
+/// If `Content-Length` is absent, not UTF-8, or not a valid integer, the layer
+/// lets the request through. It does not count streamed bytes as the body is
+/// read; pair it with extractor/server limits when you need hard streaming
+/// enforcement.
 pub fn body_limit_layer(max_bytes: u64) -> BodyLimitLayer {
     BodyLimitLayer {
         max_bytes,
@@ -74,6 +94,12 @@ pub fn body_limit_layer(max_bytes: u64) -> BodyLimitLayer {
 }
 
 /// Creates a request body limit layer for webhook/raw-body routes.
+///
+/// This has the same declared `Content-Length` behavior as
+/// [`body_limit_layer`], but `413` responses include
+/// `x-nidus-body-limit: webhook-raw-body`. Use it at raw-body/webhook
+/// boundaries where callers or tests need to distinguish this limit from a
+/// generic API body limit.
 pub fn webhook_body_limit_layer(max_bytes: u64) -> BodyLimitLayer {
     BodyLimitLayer {
         max_bytes,
@@ -82,6 +108,10 @@ pub fn webhook_body_limit_layer(max_bytes: u64) -> BodyLimitLayer {
 }
 
 /// Tower layer that rejects requests with a declared oversized body.
+///
+/// Enforcement is header-based: only a parseable `Content-Length` value above
+/// `max_bytes` is rejected. Missing or invalid `Content-Length` values are
+/// passed to the inner service unchanged.
 #[derive(Clone, Copy, Debug)]
 pub struct BodyLimitLayer {
     max_bytes: u64,
@@ -151,12 +181,20 @@ fn body_too_large_response(webhook_boundary: bool) -> Response<Body> {
     response
 }
 
-/// Creates a timeout layer that maps elapsed work to `408 Request Timeout`.
+/// Creates a timeout layer that maps elapsed inner work to `408 Request Timeout`.
+///
+/// If the inner service completes before `timeout`, its response is returned
+/// unchanged. If the timeout elapses first, the response is `408 Request
+/// Timeout` with a plain-text `request timed out` body.
 pub fn timeout_response_layer(timeout: Duration) -> TimeoutResponseLayer {
     TimeoutResponseLayer { timeout }
 }
 
 /// Tower layer that maps elapsed inner work to an HTTP timeout response.
+///
+/// This is an HTTP response-mapping layer, not Tower's error-returning timeout
+/// layer. It keeps the service error type unchanged and turns elapsed requests
+/// into a concrete `408` response.
 #[derive(Clone, Copy, Debug)]
 pub struct TimeoutResponseLayer {
     timeout: Duration,

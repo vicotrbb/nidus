@@ -6,6 +6,10 @@ use http::{HeaderMap, HeaderValue};
 use tracing::Instrument;
 
 /// OpenTelemetry configuration for service resources and OTLP export settings.
+///
+/// This type is available with the `otel` feature. It stores resource
+/// attributes and exporter endpoint settings for integrations that install a
+/// concrete OpenTelemetry backend; it does not start an exporter by itself.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OtelConfig {
     service_name: String,
@@ -69,6 +73,25 @@ impl OtelConfig {
 }
 
 /// W3C trace context extracted from or injected into `traceparent`.
+///
+/// The parser accepts version, trace ID, span ID, and flags in the W3C
+/// `traceparent` shape `00-<32 lower-hex trace id>-<16 lower-hex span id>-<2
+/// lower-hex flags>`. All-zero trace IDs or span IDs are rejected.
+///
+/// ```ignore
+/// use http::HeaderMap;
+/// use nidus_http::otel::{TraceContext, extract_trace_context, inject_trace_context};
+///
+/// let context = TraceContext::new(
+///     "4bf92f3577b34da6a3ce929d0e0e4736",
+///     "00f067aa0ba902b7",
+///     true,
+/// );
+///
+/// let mut headers = HeaderMap::new();
+/// inject_trace_context(&mut headers, &context);
+/// assert_eq!(extract_trace_context(&headers), Some(context));
+/// ```
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TraceContext {
     trace_id: String,
@@ -78,6 +101,9 @@ pub struct TraceContext {
 
 impl TraceContext {
     /// Creates trace context from validated parts.
+    ///
+    /// This constructor does not validate lengths or hex encoding; use
+    /// [`Self::parse`] for inbound header values.
     pub fn new(trace_id: impl Into<String>, span_id: impl Into<String>, sampled: bool) -> Self {
         Self {
             trace_id: trace_id.into(),
@@ -87,6 +113,9 @@ impl TraceContext {
     }
 
     /// Parses a W3C `traceparent` header.
+    ///
+    /// Returns `None` for malformed headers, uppercase hex, extra segments,
+    /// invalid flag bytes, or all-zero trace/span IDs.
     pub fn parse(value: &str) -> Option<Self> {
         let mut parts = value.split('-');
         let version = parts.next()?;
@@ -138,6 +167,9 @@ impl TraceContext {
 }
 
 /// Extracts W3C trace context from HTTP headers.
+///
+/// Invalid or non-UTF-8 `traceparent` values return `None`; this helper does
+/// not reject the request.
 pub fn extract_trace_context(headers: &HeaderMap) -> Option<TraceContext> {
     headers
         .get("traceparent")
@@ -146,6 +178,9 @@ pub fn extract_trace_context(headers: &HeaderMap) -> Option<TraceContext> {
 }
 
 /// Injects W3C trace context into HTTP headers.
+///
+/// The header is inserted only if the formatted value is a valid HTTP header
+/// value.
 pub fn inject_trace_context(headers: &mut HeaderMap, context: &TraceContext) {
     if let Ok(value) = HeaderValue::from_str(&context.to_traceparent()) {
         headers.insert("traceparent", value);
@@ -153,6 +188,9 @@ pub fn inject_trace_context(headers: &mut HeaderMap, context: &TraceContext) {
 }
 
 /// Runs a future inside an observed tracing span.
+///
+/// This records a tracing span named `operation` with `otel.name = operation`.
+/// Export requires a subscriber/exporter configured elsewhere.
 pub async fn with_observed_span<Fut, T>(operation: &'static str, future: Fut) -> T
 where
     Fut: Future<Output = T>,

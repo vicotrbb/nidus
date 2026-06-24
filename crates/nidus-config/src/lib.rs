@@ -15,6 +15,41 @@ pub use error::{ConfigError, Result};
 use value::{insert_path, merge_maps, parse_scalar, prefixed_key_start};
 
 /// Typed configuration document assembled from explicit sources.
+///
+/// Sources are explicit and merge in the order you choose. Later sources
+/// override earlier values, while nested objects merge recursively.
+///
+/// ```ignore
+/// use nidus_config::Config;
+/// use serde::Deserialize;
+///
+/// #[derive(Deserialize)]
+/// struct Settings {
+///     port: u16,
+///     database: DatabaseSettings,
+/// }
+///
+/// #[derive(Deserialize)]
+/// struct DatabaseSettings {
+///     url: String,
+///     pool_size: u32,
+/// }
+///
+/// let file = Config::from_json_str(r#"{
+///     "port": 3000,
+///     "database": { "url": "postgres://localhost/app", "pool_size": 5 }
+/// }"#)?;
+///
+/// let env = Config::from_prefixed_vars("APP", [
+///     ("APP_PORT", "8080"),
+///     ("APP_DATABASE__POOL_SIZE", "10"),
+/// ]);
+///
+/// let settings: Settings = file.merge(env).deserialize()?;
+/// assert_eq!(settings.port, 8080);
+/// assert_eq!(settings.database.pool_size, 10);
+/// # Ok::<(), nidus_config::ConfigError>(())
+/// ```
 #[derive(Clone, Debug, Default)]
 pub struct Config {
     values: Map<String, Value>,
@@ -27,6 +62,9 @@ impl Config {
     }
 
     /// Creates configuration from key/value pairs.
+    ///
+    /// Values are parsed as JSON-like scalars, so strings such as `"true"`,
+    /// `"42"`, and `"null"` become boolean, number, and null values.
     pub fn from_pairs<K, V>(pairs: impl IntoIterator<Item = (K, V)>) -> Self
     where
         K: Into<String>,
@@ -83,7 +121,8 @@ impl Config {
     ///
     /// This is useful for deterministic tests and for loading from custom
     /// environment sources. Prefix matching is case-sensitive; keys are
-    /// normalized to lowercase after the prefix is removed.
+    /// normalized to lowercase after the prefix is removed. Double underscores
+    /// create nested paths; empty path segments are ignored.
     pub fn from_prefixed_vars<K, V>(prefix: &str, vars: impl IntoIterator<Item = (K, V)>) -> Self
     where
         K: AsRef<str>,

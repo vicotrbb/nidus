@@ -10,6 +10,24 @@ use tower::ServiceExt;
 use crate::response::TestResponse;
 
 /// In-memory HTTP request builder.
+///
+/// Build requests through [`crate::TestApp`] helpers such as
+/// [`crate::TestApp::get`] and [`crate::TestApp::post`]. `send` panics on
+/// request-construction failures; use [`Self::try_send`] when testing invalid
+/// headers or URIs.
+///
+/// ```ignore
+/// use nidus_testing::TestApp;
+/// use serde_json::json;
+///
+/// let response = app
+///     .post("/users")
+///     .header("x-request-id", "550e8400-e29b-41d4-a716-446655440000")
+///     .query(&[("dry_run", "true")])
+///     .json(&json!({ "name": "Ada" }))
+///     .send()
+///     .await;
+/// ```
 pub struct TestRequest {
     router: Router,
     method: Method,
@@ -32,6 +50,9 @@ impl TestRequest {
     }
 
     /// Sets a request header.
+    ///
+    /// Panics if the name or value cannot be converted into an HTTP header. Use
+    /// [`Self::try_header`] for fallible construction.
     pub fn header<N, V>(mut self, name: N, value: V) -> Self
     where
         N: TryInto<HeaderName>,
@@ -60,6 +81,8 @@ impl TestRequest {
     }
 
     /// Sets a UTF-8 text request body.
+    ///
+    /// Also sets `content-type: text/plain; charset=utf-8`.
     pub fn text(mut self, body: impl Into<String>) -> Self {
         self.body = Body::from(body.into());
         self.content_type = Some("text/plain; charset=utf-8");
@@ -67,12 +90,16 @@ impl TestRequest {
     }
 
     /// Sets a raw request body.
+    ///
+    /// This does not set `content-type`.
     pub fn body(mut self, body: impl Into<Bytes>) -> Self {
         self.body = Body::from(body.into());
         self
     }
 
     /// Sets a JSON request body.
+    ///
+    /// Also sets `content-type: application/json`.
     pub fn json<T: Serialize>(self, body: &T) -> Self {
         self.try_json(body).expect("test JSON serialization failed")
     }
@@ -88,6 +115,9 @@ impl TestRequest {
     }
 
     /// Appends URL-encoded query parameters.
+    ///
+    /// Existing query strings are preserved and new pairs are appended with the
+    /// correct `?` or `&` separator.
     pub fn query<T: Serialize>(mut self, query: &T) -> Self {
         self = self
             .try_query(query)

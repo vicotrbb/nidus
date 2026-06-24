@@ -13,6 +13,9 @@ use http::{Method, Request, Response, StatusCode};
 use tower::{Layer, Service};
 
 /// Creates a metrics hook layer without a stable route label.
+///
+/// The layer will use Axum's [`axum::extract::MatchedPath`] extension when it is
+/// available, otherwise metrics are recorded with route `"<unknown>"`.
 pub fn metrics_layer<H>(hook: H) -> MetricsLayer<H>
 where
     H: HttpMetricsHook,
@@ -21,6 +24,9 @@ where
 }
 
 /// Creates a metrics hook layer that records a stable route label.
+///
+/// Use this for route-specific layers when you want stable labels independent
+/// of Axum extension timing.
 pub fn route_metrics_layer<H>(route: impl Into<Cow<'static, str>>, hook: H) -> MetricsLayer<H>
 where
     H: HttpMetricsHook,
@@ -29,6 +35,11 @@ where
 }
 
 /// Backend-neutral hook for recording HTTP request metrics.
+///
+/// Implement this trait to bridge Nidus' middleware lifecycle into a concrete
+/// metrics backend. Hooks are called in-process: one `on_request` before the
+/// inner service, one `on_response` after a response, or `on_error` if the inner
+/// service returns an error before producing a response.
 pub trait HttpMetricsHook: Clone + Send + Sync + 'static {
     /// Records that a request entered the service.
     fn on_request(&self, method: &Method, route: Option<&str>);
@@ -47,6 +58,23 @@ pub trait HttpMetricsHook: Clone + Send + Sync + 'static {
 }
 
 /// In-memory Prometheus-format HTTP metrics collector.
+///
+/// This collector stores counters and duration samples in process memory and
+/// renders Prometheus text exposition. It is useful for small services,
+/// examples, and tests; it is not a durable metrics store and values reset on
+/// process restart. The default exclusions are `/health/live`, `/health/ready`,
+/// and `/metrics`.
+///
+/// ```ignore
+/// use axum::{Router, routing::get};
+/// use nidus_http::middleware::{PrometheusMetrics, route_metrics_layer};
+///
+/// let metrics = PrometheusMetrics::new();
+/// let app = Router::new()
+///     .route("/users/:id", get(show_user))
+///     .route_layer(route_metrics_layer("/users/:id", metrics.clone()))
+///     .merge(metrics.routes());
+/// ```
 #[derive(Clone, Debug)]
 pub struct PrometheusMetrics {
     state: Arc<Mutex<PrometheusState>>,
@@ -67,12 +95,19 @@ impl PrometheusMetrics {
     }
 
     /// Adds a route pattern to exclude from recording.
+    ///
+    /// Match the exact route label emitted by the metrics layer, such as a
+    /// static route supplied to [`route_metrics_layer`] or an Axum matched path.
     pub fn exclude_route(mut self, route: impl Into<String>) -> Self {
         Arc::make_mut(&mut self.excluded_routes).insert(route.into());
         self
     }
 
     /// Creates a metrics layer backed by this collector.
+    ///
+    /// The layer records request totals, errors, in-flight counts, and duration
+    /// sums/counts. It does not expose a scrape endpoint; use [`Self::routes`]
+    /// or [`Self::routes_at`] for that.
     pub fn layer(&self) -> MetricsLayer<Self> {
         MetricsLayer::new(self.clone())
     }
@@ -89,6 +124,11 @@ impl PrometheusMetrics {
     }
 
     /// Renders metrics in Prometheus text exposition format.
+    ///
+    /// The output includes `nidus_http_requests_total`,
+    /// `nidus_http_request_duration_seconds_count`,
+    /// `nidus_http_request_duration_seconds_sum`,
+    /// `nidus_http_in_flight_requests`, and `nidus_http_errors_total`.
     pub fn render(&self) -> String {
         let state = self
             .state
@@ -246,6 +286,9 @@ struct PrometheusState {
 }
 
 /// Tower layer that invokes [`HttpMetricsHook`] for request lifecycle metrics.
+///
+/// Route labels come from [`Self::route`] when set, then from Axum
+/// [`axum::extract::MatchedPath`], and finally `"<unknown>"`.
 #[derive(Clone, Debug)]
 pub struct MetricsLayer<H> {
     hook: H,
@@ -262,6 +305,9 @@ where
     }
 
     /// Adds a stable route label to emitted metrics.
+    ///
+    /// Prefer route patterns such as `"/users/:id"` over concrete paths to keep
+    /// label cardinality bounded.
     pub fn route(mut self, route: impl Into<Cow<'static, str>>) -> Self {
         self.route = Some(route.into());
         self

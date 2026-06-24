@@ -52,7 +52,12 @@ pub fn rate_limit_layer(num: u64, per: Duration) -> TowerRateLimitLayer {
     TowerRateLimitLayer::new(num, per)
 }
 
-/// Creates a response request-id layer.
+/// Creates the legacy response-only request-id layer.
+///
+/// This helper mirrors any inbound `x-request-id` to the response or generates
+/// a `nidus-<timestamp>` value when absent. It does not validate IDs or insert
+/// [`RequestContext`]. Use [`validated_request_id_layer`] for production UUID
+/// v4 request IDs and request context population.
 pub fn request_id_layer() -> RequestIdLayer {
     RequestIdLayer
 }

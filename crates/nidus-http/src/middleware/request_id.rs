@@ -14,10 +14,16 @@ use uuid::{Uuid, Version};
 
 use crate::context::RequestContext;
 
-/// Tower layer that adds an `x-request-id` response header when absent.
+/// Legacy Tower layer that adds an `x-request-id` response header when absent.
 ///
 /// Incoming request IDs are propagated to the response unless the inner service
-/// already set a response ID. Requests without an ID receive a generated one.
+/// already set a response ID. Requests without an ID receive a generated
+/// `nidus-<timestamp>` value.
+///
+/// This layer does not validate inbound IDs and does not populate
+/// [`RequestContext`]. Prefer [`validated_request_id_layer`] for production API
+/// defaults, UUID v4 generation, strict/permissive validation, request
+/// extension insertion, and consistent error responses.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct RequestIdLayer;
 
@@ -78,12 +84,25 @@ fn new_request_id() -> HeaderValue {
         .expect("generated request id contains only valid header characters")
 }
 
-/// Request ID validation behavior.
+/// Request ID validation behavior for inbound `x-request-id` values.
+///
+/// Valid inbound IDs must parse as UUID v4 values. Invalid header syntax,
+/// non-UUID strings, and UUIDs from other versions are treated as malformed.
+/// Missing IDs are never rejected; the configured generator is used instead.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RequestIdMode {
-    /// Accept any non-empty incoming request ID.
+    /// Propagate valid UUID v4 IDs and replace malformed incoming IDs.
+    ///
+    /// This mode is useful in development and at integration boundaries where
+    /// clients may still send legacy IDs. A malformed inbound value is not
+    /// exposed to handlers; it is replaced with a generated ID before the
+    /// request reaches the inner service.
     Permissive,
-    /// Reject malformed incoming request IDs.
+    /// Propagate valid UUID v4 IDs and reject malformed incoming IDs.
+    ///
+    /// A malformed inbound value returns `400 Bad Request` with an
+    /// `invalid_request_id` JSON error body. The rejection response still
+    /// receives a generated request ID in the configured response header.
     Strict,
 }
 
@@ -91,6 +110,11 @@ pub enum RequestIdMode {
 pub type RequestIdPolicy = RequestIdMode;
 
 /// Typed configuration for validated request ID propagation.
+///
+/// The default production config uses the `x-request-id` header, strict inbound
+/// validation, and UUID v4 generation. Custom generators are accepted, but their
+/// output must be a valid HTTP header value because generated IDs are inserted
+/// into request headers, request extensions, and response headers.
 #[derive(Clone)]
 pub struct RequestIdConfig {
     header_name: HeaderName,
@@ -109,7 +133,15 @@ impl std::fmt::Debug for RequestIdConfig {
 }
 
 impl RequestIdConfig {
-    /// Creates a production request ID policy with UUID v4 generation and strict validation.
+    /// Creates a production request ID policy.
+    ///
+    /// Defaults:
+    /// - header: `x-request-id`
+    /// - inbound validation: [`RequestIdMode::Strict`]
+    /// - generated IDs: UUID v4 strings
+    ///
+    /// In strict mode, a present but malformed inbound ID is rejected with
+    /// `400 Bad Request`. Missing IDs are generated and accepted.
     pub fn production() -> Self {
         Self {
             header_name: HeaderName::from_static("x-request-id"),
@@ -118,7 +150,12 @@ impl RequestIdConfig {
         }
     }
 
-    /// Creates a development request ID policy that accepts existing IDs permissively.
+    /// Creates a development request ID policy.
+    ///
+    /// Development uses the same `x-request-id` header and UUID v4 generator as
+    /// production, but switches to [`RequestIdMode::Permissive`]. Valid inbound
+    /// UUID v4 IDs are propagated; malformed inbound IDs are replaced with
+    /// generated UUID v4 IDs instead of returning `400`.
     pub fn development() -> Self {
         Self::production().mode(RequestIdMode::Permissive)
     }
@@ -129,13 +166,18 @@ impl RequestIdConfig {
         self
     }
 
-    /// Sets request ID validation behavior.
+    /// Sets request ID validation behavior for present inbound IDs.
     pub fn mode(mut self, mode: RequestIdMode) -> Self {
         self.mode = mode;
         self
     }
 
     /// Replaces the request ID generator.
+    ///
+    /// [`RequestIdConfig::production`] and [`RequestIdConfig::development`] use
+    /// UUID v4 strings. If you provide a custom generator, keep it deterministic
+    /// enough for your tests and ensure it returns values that can be stored in
+    /// an HTTP header.
     pub fn generator(mut self, generator: impl Fn() -> String + Send + Sync + 'static) -> Self {
         self.generator = Arc::new(generator);
         self
@@ -163,11 +205,40 @@ impl Default for RequestIdConfig {
 }
 
 /// Creates a validated request ID layer.
+///
+/// The layer validates or generates a request ID before the inner service runs,
+/// inserts that value into the configured request header, stores a
+/// [`RequestContext`] in request extensions, and mirrors the same header onto
+/// the response when the inner service has not already set it.
+///
+/// ```ignore
+/// use axum::{Router, routing::get};
+/// use nidus_http::middleware::{
+///     RequestIdConfig, RequestIdMode, validated_request_id_layer,
+/// };
+///
+/// let app = Router::new()
+///     .route("/users/:id", get(handler))
+///     .layer(validated_request_id_layer(
+///         RequestIdConfig::production().mode(RequestIdMode::Strict),
+///     ));
+/// ```
 pub fn validated_request_id_layer(config: RequestIdConfig) -> ValidatedRequestIdLayer {
     ValidatedRequestIdLayer::new(config)
 }
 
 /// Tower layer that validates, generates, stores, and propagates request IDs.
+///
+/// Valid inbound request IDs are UUID v4 strings. With
+/// [`RequestIdMode::Strict`], malformed inbound IDs receive `400 Bad Request`.
+/// With [`RequestIdMode::Permissive`], malformed inbound IDs are replaced with a
+/// generated ID. Generated IDs are UUID v4 by default.
+///
+/// On accepted requests, the final ID is inserted into the configured request
+/// header, added to request extensions through [`RequestContext`], and copied to
+/// the response header if the inner service did not set one. Use
+/// [`crate::middleware::request_context_layer`] after this layer when you want
+/// the context enriched with route and correlation fields before handlers run.
 #[derive(Clone, Debug)]
 pub struct ValidatedRequestIdLayer {
     config: RequestIdConfig,

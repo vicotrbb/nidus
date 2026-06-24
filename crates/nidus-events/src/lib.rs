@@ -1,6 +1,10 @@
 #![deny(missing_docs)]
 
 //! Event bus abstractions.
+//!
+//! The built-in bus is in-process and in-memory. It is useful for local domain
+//! events, tests, and adapters that bridge to a real broker, but it is not a
+//! durable queue and does not deliver events across processes.
 
 use std::{
     collections::BTreeMap,
@@ -12,12 +16,34 @@ type SubscriberHandle<T> = Weak<Mutex<Vec<T>>>;
 type SubscriberList<T> = Arc<Mutex<Vec<SubscriberHandle<T>>>>;
 
 /// In-process typed event bus.
+///
+/// Subscribers receive events published after they subscribe. Events are cloned
+/// into each active subscriber queue and remain there until that subscriber
+/// calls [`EventSubscriber::drain`]. Dropped subscribers are pruned on the next
+/// publish or subscriber-count check.
+///
+/// ```ignore
+/// use nidus_events::EventBus;
+///
+/// #[derive(Clone, Debug, PartialEq, Eq)]
+/// struct UserCreated { id: u64 }
+///
+/// let bus = EventBus::<UserCreated>::new();
+/// let subscriber = bus.subscribe();
+///
+/// bus.publish(UserCreated { id: 42 });
+/// assert_eq!(subscriber.drain(), vec![UserCreated { id: 42 }]);
+/// ```
 #[derive(Clone, Debug)]
 pub struct EventBus<T> {
     subscribers: SubscriberList<T>,
 }
 
 /// Context emitted when an event is observed.
+///
+/// Observed publications receive a generated operation ID, a stable event name
+/// supplied by the caller, and any attributes configured on the
+/// [`ObservedEventBus`].
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ObservedEventContext {
     operation_id: String,
@@ -58,6 +84,10 @@ impl ObservedEventContext {
 }
 
 /// Observer hook for event publication.
+///
+/// The hook runs synchronously after the event has been published to in-memory
+/// subscribers. Keep implementations fast and non-blocking, or forward to your
+/// own async/export pipeline.
 pub trait EventObserver<T>: Clone + Send + Sync + 'static
 where
     T: Clone + Send + Sync + 'static,
@@ -74,6 +104,31 @@ where
 }
 
 /// Event bus wrapper that records publication context.
+///
+/// `ObservedEventBus` adds a tracing span and observer callback around
+/// [`EventBus::publish`]. It does not change delivery semantics: publication is
+/// still in-process, non-durable fan-out to current subscribers.
+///
+/// ```ignore
+/// use nidus_events::{EventBus, EventObserver, ObservedEventBus, ObservedEventContext};
+///
+/// #[derive(Clone)]
+/// struct UserCreated;
+///
+/// #[derive(Clone)]
+/// struct Observer;
+///
+/// impl EventObserver<UserCreated> for Observer {
+///     fn on_event_published(&self, context: &ObservedEventContext) {
+///         tracing::info!(event = context.event_name(), operation_id = context.operation_id());
+///     }
+/// }
+///
+/// let observed = ObservedEventBus::new(EventBus::new(), Observer)
+///     .context("service", "users-api");
+///
+/// observed.publish_named("user.created", UserCreated);
+/// ```
 #[derive(Clone)]
 pub struct ObservedEventBus<T, O = ()>
 where
@@ -117,6 +172,9 @@ where
     }
 
     /// Publishes an event with an explicit stable event name.
+    ///
+    /// The event is first published to current subscribers, then the observer is
+    /// called with the generated [`ObservedEventContext`].
     pub fn publish_named(&self, event_name: impl Into<String>, event: T) {
         let event_name = event_name.into();
         let mut context = ObservedEventContext::new((self.operation_id_generator)(), &event_name);
@@ -151,6 +209,9 @@ where
     }
 
     /// Subscribes to future events.
+    ///
+    /// The returned subscriber does not replay events published before this
+    /// call.
     pub fn subscribe(&self) -> EventSubscriber<T> {
         let queue = Arc::new(Mutex::new(Vec::new()));
         lock_unpoisoned(&self.subscribers).push(Arc::downgrade(&queue));
@@ -158,6 +219,8 @@ where
     }
 
     /// Publishes an event to current subscribers.
+    ///
+    /// The event is cloned once per active subscriber.
     pub fn publish(&self, event: T) {
         for subscriber in self.live_subscribers() {
             lock_unpoisoned(&subscriber).push(event.clone());

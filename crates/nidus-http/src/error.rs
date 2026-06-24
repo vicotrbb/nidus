@@ -14,6 +14,17 @@ use tower::{Layer, Service};
 use crate::context::RequestContext;
 
 /// HTTP error response with stable client-facing JSON shape.
+///
+/// `HttpError` constructors produce the legacy/simple body
+/// `{ "error": { "code": "...", "message": "..." } }`. When
+/// [`ErrorEnvelopeLayer`] is installed, that body is wrapped into the
+/// production envelope with status, timestamp, path, and request ID fields.
+///
+/// Client-error constructors such as [`Self::bad_request`] and
+/// [`Self::not_found`] expose the message you provide. Use
+/// [`Self::internal_server_error`] for 500 responses that must not leak
+/// implementation details; the production envelope also masks any 5xx response
+/// message to `"internal server error"` and clears `details`.
 #[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
 #[error("{message}")]
 pub struct HttpError {
@@ -24,6 +35,10 @@ pub struct HttpError {
 
 impl HttpError {
     /// Creates an HTTP error with an explicit status, code, and message.
+    ///
+    /// For non-5xx statuses, the message is client-facing. For 5xx statuses,
+    /// prefer [`Self::internal_server_error`] unless the response is guaranteed
+    /// to be safe; [`ErrorEnvelopeLayer`] will still mask 5xx messages.
     pub fn new(status: StatusCode, code: &'static str, message: impl Into<String>) -> Self {
         Self {
             status,
@@ -32,37 +47,37 @@ impl HttpError {
         }
     }
 
-    /// Creates a 400 bad request error.
+    /// Creates a 400 bad request error with a client-facing message.
     pub fn bad_request(message: impl Into<String>) -> Self {
         Self::new(StatusCode::BAD_REQUEST, "bad_request", message)
     }
 
-    /// Creates a 401 unauthorized error.
+    /// Creates a 401 unauthorized error with a client-facing message.
     pub fn unauthorized(message: impl Into<String>) -> Self {
         Self::new(StatusCode::UNAUTHORIZED, "unauthorized", message)
     }
 
-    /// Creates a 403 forbidden error.
+    /// Creates a 403 forbidden error with a client-facing message.
     pub fn forbidden(message: impl Into<String>) -> Self {
         Self::new(StatusCode::FORBIDDEN, "forbidden", message)
     }
 
-    /// Creates a 404 not found error.
+    /// Creates a 404 not found error with a client-facing message.
     pub fn not_found(message: impl Into<String>) -> Self {
         Self::new(StatusCode::NOT_FOUND, "not_found", message)
     }
 
-    /// Creates a 409 conflict error.
+    /// Creates a 409 conflict error with a client-facing message.
     pub fn conflict(message: impl Into<String>) -> Self {
         Self::new(StatusCode::CONFLICT, "conflict", message)
     }
 
-    /// Creates a 429 too many requests error.
+    /// Creates a 429 too many requests error with a client-facing message.
     pub fn too_many_requests(message: impl Into<String>) -> Self {
         Self::new(StatusCode::TOO_MANY_REQUESTS, "too_many_requests", message)
     }
 
-    /// Creates a 422 unprocessable entity error.
+    /// Creates a 422 unprocessable entity error with a client-facing message.
     pub fn unprocessable_entity(message: impl Into<String>) -> Self {
         Self::new(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -72,6 +87,9 @@ impl HttpError {
     }
 
     /// Creates a sanitized 500 internal server error.
+    ///
+    /// The message is always `"internal server error"` so callers do not
+    /// accidentally expose database errors, stack traces, or upstream payloads.
     pub fn internal_server_error() -> Self {
         Self::new(
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -137,6 +155,35 @@ struct ErrorDetails {
 }
 
 /// Tower layer that converts error responses into a production error envelope.
+///
+/// Non-error responses pass through unchanged. `4xx` and `5xx` responses are
+/// converted to:
+///
+/// ```json
+/// {
+///   "error": {
+///     "statusCode": 400,
+///     "code": "bad_request",
+///     "message": "invalid input",
+///     "details": null,
+///     "timestamp": "2026-01-01T00:00:00Z",
+///     "path": "/users",
+///     "requestId": "..."
+///   }
+/// }
+/// ```
+///
+/// Legacy/simple Nidus bodies shaped like
+/// `{ "error": { "code": "...", "message": "...", ... } }` are parsed and
+/// wrapped. Extra fields under `error` are preserved as `details` for non-5xx
+/// responses. For all 5xx responses, the client-facing message is masked to
+/// `"internal server error"` and `details` is set to `null`.
+///
+/// When [`crate::context::RequestContext`] is present, its request ID is copied
+/// into `error.requestId`; otherwise that field is an empty string. Install the
+/// validated request ID and request context layers, or use
+/// [`crate::middleware::ApiDefaults::production`], when clients need stable
+/// request IDs in error responses.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ErrorEnvelopeLayer;
 

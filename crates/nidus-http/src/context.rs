@@ -30,6 +30,32 @@ impl ClientKind {
 }
 
 /// Request/correlation context attached to request extensions.
+///
+/// `RequestContext` is available to handlers when the router uses
+/// [`crate::middleware::validated_request_id_layer`] plus
+/// [`crate::middleware::request_context_layer`], or when it is wrapped by
+/// [`crate::middleware::ApiDefaults::production`]. Extracting it without those
+/// extensions rejects the request with `500 Internal Server Error`.
+///
+/// Fields are inferred from request headers and Axum extensions:
+/// - `request_id`: the final validated/generated `x-request-id`
+/// - `correlation_id`: `x-correlation-id`, falling back to the request ID
+/// - `trace_id`: the trace-id segment from `traceparent`
+/// - `client_kind`: `x-api-key` means API key, otherwise `Authorization` means
+///   authenticated, otherwise anonymous
+/// - `route`: Axum's [`axum::extract::MatchedPath`] when it is available at the
+///   point the context layer runs
+///
+/// ```ignore
+/// use nidus_http::{Json, middleware::RequestContext};
+///
+/// async fn handler(context: RequestContext) -> Json<serde_json::Value> {
+///     Json(serde_json::json!({
+///         "requestId": context.request_id(),
+///         "correlationId": context.correlation_id(),
+///     }))
+/// }
+/// ```
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RequestContext {
     request_id: String,
@@ -47,6 +73,10 @@ pub struct RequestContext {
 
 impl RequestContext {
     /// Creates a context for the current request boundary.
+    ///
+    /// This constructor is useful in tests or custom middleware. It does not
+    /// inspect headers, so optional correlation, trace, route, and client fields
+    /// remain empty/default until set explicitly or built via [`Self::from_parts`].
     pub fn new(request_id: impl Into<String>, method: Method, path: impl Into<String>) -> Self {
         Self {
             request_id: request_id.into(),
@@ -64,6 +94,11 @@ impl RequestContext {
     }
 
     /// Creates a context from request parts.
+    ///
+    /// This reads `x-correlation-id`, `traceparent`, `x-api-key`,
+    /// `Authorization`, and [`axum::extract::MatchedPath`] from the request
+    /// boundary. The supplied `request_id` is expected to be the final ID chosen
+    /// by request ID middleware.
     pub fn from_parts(parts: &Parts, request_id: impl Into<String>) -> Self {
         let request_id = request_id.into();
         let mut context = Self::new(request_id.clone(), parts.method.clone(), parts.uri.path());
@@ -80,11 +115,17 @@ impl RequestContext {
     }
 
     /// Returns the final request id.
+    ///
+    /// With [`crate::middleware::validated_request_id_layer`], this is either a
+    /// valid inbound UUID v4 or a generated ID.
     pub fn request_id(&self) -> &str {
         &self.request_id
     }
 
     /// Returns the correlation id when available.
+    ///
+    /// [`Self::from_parts`] prefers `x-correlation-id` and falls back to the
+    /// request ID when no correlation header is present.
     pub fn correlation_id(&self) -> Option<&str> {
         self.correlation_id.as_deref()
     }
@@ -95,6 +136,10 @@ impl RequestContext {
     }
 
     /// Returns the stable matched route pattern when available.
+    ///
+    /// This depends on Axum's [`axum::extract::MatchedPath`] extension being
+    /// present before the context is built. Layer placement can affect whether
+    /// this is available for a given router shape.
     pub fn route(&self) -> Option<&str> {
         self.route.as_deref()
     }
@@ -105,6 +150,10 @@ impl RequestContext {
     }
 
     /// Returns the trace id when available.
+    ///
+    /// The value is extracted from the second segment of the W3C `traceparent`
+    /// header. Use [`crate::otel::extract_trace_context`] when the `otel`
+    /// feature is enabled and you need full trace/span validation.
     pub fn trace_id(&self) -> Option<&str> {
         self.trace_id.as_deref()
     }
@@ -115,6 +164,9 @@ impl RequestContext {
     }
 
     /// Returns the inferred client kind.
+    ///
+    /// `x-api-key` takes precedence over `Authorization`; otherwise the request
+    /// is classified as anonymous.
     pub const fn client_kind(&self) -> ClientKind {
         self.client_kind
     }

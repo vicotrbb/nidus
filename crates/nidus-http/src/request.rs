@@ -9,8 +9,42 @@ use serde::Serialize;
 
 /// Axum extractor for a provider resolved from the active Nidus request scope.
 ///
-/// Attach `request_scope_layer(container)` to the router before using this
-/// extractor in handlers.
+/// Attach [`crate::middleware::request_scope_layer`] with the application
+/// [`nidus_core::Container`] before using this extractor. The requested type
+/// must be registered in the container, commonly with
+/// `Container::register_request` or `Container::register_request_scoped`.
+///
+/// Missing middleware rejects with `500 Internal Server Error` and
+/// `request_scope_unavailable`. A provider resolution failure also returns
+/// `500`, with `request_scope_resolution_failed`.
+///
+/// `RequestScoped<T>` dereferences to `T` for handler reads. Use
+/// [`Self::into_inner`] when you need the shared [`Arc<T>`], or
+/// [`Self::into_inject`] when passing the value to APIs that expect Nidus'
+/// [`Inject<T>`] wrapper.
+///
+/// ```ignore
+/// use std::sync::Arc;
+/// use axum::{Router, routing::get};
+/// use nidus_core::Container;
+/// use nidus_http::{RequestScoped, middleware::request_scope_layer};
+///
+/// struct CurrentTenant(String);
+///
+/// async fn handler(tenant: RequestScoped<CurrentTenant>) -> String {
+///     tenant.0.clone()
+/// }
+///
+/// let mut container = Container::new();
+/// container.register_request::<CurrentTenant, _>(|_container| {
+///     Ok(CurrentTenant("demo".to_owned()))
+/// })?;
+///
+/// let app = Router::new()
+///     .route("/tenant", get(handler))
+///     .layer(request_scope_layer(Arc::new(container)));
+/// # Ok::<(), nidus_core::NidusError>(())
+/// ```
 #[derive(Clone, Debug)]
 pub struct RequestScoped<T: Send + Sync + 'static>(Inject<T>);
 
@@ -19,16 +53,25 @@ where
     T: Send + Sync + 'static,
 {
     /// Creates a request-scoped extractor value from an injected dependency.
+    ///
+    /// Most application code receives this from Axum extraction rather than
+    /// constructing it manually.
     pub fn new(value: Inject<T>) -> Self {
         Self(value)
     }
 
     /// Returns the underlying injected dependency wrapper.
+    ///
+    /// Use this when downstream Nidus APIs need the injection wrapper rather
+    /// than a borrowed `T` or shared [`Arc<T>`].
     pub fn into_inject(self) -> Inject<T> {
         self.0
     }
 
     /// Returns a cloned shared pointer to the resolved dependency.
+    ///
+    /// This is useful when spawning work that must own the provider beyond the
+    /// handler's borrow.
     pub fn into_inner(self) -> Arc<T> {
         self.0.into_inner()
     }

@@ -24,6 +24,27 @@ pub enum LoggingFormat {
 }
 
 /// Typed configuration for Nidus logging helpers.
+///
+/// `LoggingConfig` builds `tracing-subscriber` subscribers and structured
+/// service/request spans. It does not install HTTP middleware by itself; pair it
+/// with `tower_http::trace::TraceLayer` and [`StructuredMakeSpan`] for request
+/// spans.
+///
+/// ```ignore
+/// use nidus_http::logging::{LoggingConfig, StructuredMakeSpan};
+/// use tower_http::trace::TraceLayer;
+///
+/// let logging = LoggingConfig::production("users-api")
+///     .version("1.2.3")
+///     .environment("production")
+///     .level_filter("info,tower_http=debug")
+///     .redact_header("authorization");
+///
+/// logging.init()?;
+/// let trace_layer = TraceLayer::new_for_http()
+///     .make_span_with(StructuredMakeSpan::new(logging));
+/// # Ok::<(), tracing_subscriber::util::TryInitError>(())
+/// ```
 #[derive(Clone, Debug)]
 pub struct LoggingConfig {
     service_name: String,
@@ -36,6 +57,8 @@ pub struct LoggingConfig {
 
 impl LoggingConfig {
     /// Creates production JSON logging config for a service.
+    ///
+    /// Defaults to JSON output, `info` filtering, and no redacted headers.
     pub fn production(service_name: impl Into<String>) -> Self {
         Self {
             service_name: service_name.into(),
@@ -48,6 +71,9 @@ impl LoggingConfig {
     }
 
     /// Creates development pretty logging config for a service.
+    ///
+    /// This keeps the same service metadata defaults as production but uses
+    /// pretty text formatting.
     pub fn development(service_name: impl Into<String>) -> Self {
         Self::production(service_name).with_format(LoggingFormat::Pretty)
     }
@@ -58,12 +84,18 @@ impl LoggingConfig {
     }
 
     /// Sets the service version.
+    ///
+    /// The version is included in [`Self::service_span`] and
+    /// [`StructuredMakeSpan`] fields.
     pub fn version(mut self, version: impl Into<String>) -> Self {
         self.version = Some(version.into());
         self
     }
 
     /// Sets the deployment environment.
+    ///
+    /// The environment is included in [`Self::service_span`] and
+    /// [`StructuredMakeSpan`] fields.
     pub fn environment(mut self, environment: impl Into<String>) -> Self {
         self.environment = Some(environment.into());
         self
@@ -82,6 +114,10 @@ impl LoggingConfig {
     }
 
     /// Marks a header as redacted for application log code.
+    ///
+    /// This stores redaction policy for callers via [`Self::redacts_header`].
+    /// The built-in [`StructuredMakeSpan`] does not log arbitrary request
+    /// headers, so there is no automatic header scrubber to install.
     pub fn redact_header(mut self, header: impl AsRef<str>) -> Self {
         self.redacted_headers
             .insert(header.as_ref().to_ascii_lowercase());
@@ -115,6 +151,10 @@ impl LoggingConfig {
     }
 
     /// Installs this config as the process-global tracing subscriber.
+    ///
+    /// Like other `tracing-subscriber` global installs, this usually succeeds
+    /// once per process. Tests often prefer [`Self::subscriber_with_writer`] to
+    /// avoid global state.
     pub fn init(&self) -> Result<(), tracing_subscriber::util::TryInitError> {
         match self.format {
             LoggingFormat::Json => self.subscriber_with_writer(std::io::stderr).try_init(),
@@ -167,6 +207,12 @@ impl LoggingConfig {
 }
 
 /// Span maker that records service, request, route, and trace context fields.
+///
+/// The span includes `service.name`, `service.version`,
+/// `deployment.environment`, `request.id`, `trace.id`, `http.method`,
+/// `http.route`, and `http.target`. Request ID and trace ID are read from
+/// `x-request-id` and `traceparent` headers respectively; use the request ID
+/// middleware before tracing when you need every request span to have an ID.
 #[derive(Clone, Debug)]
 pub struct StructuredMakeSpan {
     config: LoggingConfig,
@@ -183,6 +229,9 @@ impl StructuredMakeSpan {
     }
 
     /// Sets the stable route pattern for spans made by this value.
+    ///
+    /// When unset, the span maker falls back to Axum's
+    /// [`axum::extract::MatchedPath`] extension and then `"<unknown>"`.
     pub fn route(mut self, route: impl Into<Cow<'static, str>>) -> Self {
         self.route = Some(route.into());
         self

@@ -1,6 +1,10 @@
 #![deny(missing_docs)]
 
 //! Background job abstractions.
+//!
+//! These primitives are intentionally local and in-memory. `JobQueue` and
+//! `AsyncJobQueue` run jobs stored in the current process; they do not persist,
+//! schedule, retry, distribute, or reserve jobs across workers.
 
 use std::{
     collections::BTreeMap,
@@ -11,6 +15,9 @@ use std::{
 };
 
 /// Synchronous job abstraction for lightweight background work.
+///
+/// Implement this for short local jobs that can run on the calling thread. Use
+/// [`AsyncJob`] for Tokio-backed work.
 pub trait Job: Send + Sync + 'static {
     /// Stable job name.
     fn name(&self) -> &'static str;
@@ -20,6 +27,9 @@ pub trait Job: Send + Sync + 'static {
 }
 
 /// Asynchronous job abstraction for Tokio-backed background work.
+///
+/// Implement this for jobs that need `.await`. The built-in async queue still
+/// runs jobs sequentially in the current process.
 #[async_trait::async_trait]
 pub trait AsyncJob: Send + Sync + 'static {
     /// Stable job name.
@@ -92,6 +102,9 @@ impl ObservedJobContext {
 }
 
 /// Observer hook for job execution.
+///
+/// Hooks run synchronously around the job execution path. Keep them lightweight
+/// or forward to your own telemetry/export queue.
 pub trait JobObserver: Clone + Send + Sync + 'static {
     /// Called immediately before a job is run.
     fn on_job_started(&self, context: &ObservedJobContext);
@@ -107,6 +120,40 @@ impl JobObserver for () {
 }
 
 /// Runner that observes synchronous and asynchronous jobs without owning a queue.
+///
+/// The runner creates a tracing span and calls a [`JobObserver`] before and
+/// after a single job run. It does not enqueue, retry, or schedule jobs.
+///
+/// ```ignore
+/// use nidus_jobs::{
+///     Job, JobObserver, JobResultStatus, ObservedJobContext, ObservedJobRunner,
+/// };
+///
+/// struct ReindexUsers;
+///
+/// impl Job for ReindexUsers {
+///     fn name(&self) -> &'static str { "reindex_users" }
+///     fn run(&self) -> nidus_jobs::Result<()> { Ok(()) }
+/// }
+///
+/// #[derive(Clone)]
+/// struct Observer;
+///
+/// impl JobObserver for Observer {
+///     fn on_job_started(&self, context: &ObservedJobContext) {
+///         tracing::info!(job = context.job_name(), run_id = context.run_id());
+///     }
+///
+///     fn on_job_finished(&self, context: &ObservedJobContext, status: JobResultStatus) {
+///         tracing::info!(job = context.job_name(), ?status);
+///     }
+/// }
+///
+/// ObservedJobRunner::new(Observer)
+///     .context("service", "users-api")
+///     .run(&ReindexUsers)?;
+/// # Ok::<(), nidus_jobs::JobError>(())
+/// ```
 #[derive(Clone)]
 pub struct ObservedJobRunner<O = ()> {
     observer: O,
@@ -233,6 +280,27 @@ impl fmt::Display for JobError {
 impl Error for JobError {}
 
 /// In-memory job queue.
+///
+/// Jobs are retained after [`Self::run_all`], so calling `run_all` again runs
+/// the same jobs again. Execution is sequential and in insertion order.
+///
+/// ```ignore
+/// use nidus_jobs::{Job, JobQueue};
+///
+/// struct SendDigest;
+///
+/// impl Job for SendDigest {
+///     fn name(&self) -> &'static str { "send_digest" }
+///     fn run(&self) -> nidus_jobs::Result<()> { Ok(()) }
+/// }
+///
+/// let mut queue = JobQueue::new();
+/// queue.push(SendDigest);
+///
+/// let report = queue.run_all();
+/// assert!(report.is_success());
+/// assert_eq!(report.completed(), &["send_digest"]);
+/// ```
 #[derive(Default)]
 pub struct JobQueue {
     jobs: Vec<Box<dyn Job>>,
@@ -245,6 +313,8 @@ impl JobQueue {
     }
 
     /// Pushes a job into the queue.
+    ///
+    /// The job is boxed and kept in memory until the queue is dropped.
     pub fn push<J>(&mut self, job: J)
     where
         J: Job,
@@ -263,6 +333,9 @@ impl JobQueue {
     }
 
     /// Runs all queued jobs in insertion order.
+    ///
+    /// Every job is attempted. Failures are collected in the returned
+    /// [`JobReport`] and do not stop later jobs from running.
     pub fn run_all(&self) -> JobReport {
         let mut completed = Vec::with_capacity(self.jobs.len());
         let mut failed = Vec::new();
@@ -280,6 +353,10 @@ impl JobQueue {
 }
 
 /// In-memory asynchronous job queue.
+///
+/// Jobs are retained after [`Self::run_all`], so calling `run_all` again awaits
+/// the same jobs again. Execution is sequential and in insertion order on the
+/// current Tokio task.
 #[derive(Default)]
 pub struct AsyncJobQueue {
     jobs: Vec<Box<dyn AsyncJob>>,
@@ -310,6 +387,9 @@ impl AsyncJobQueue {
     }
 
     /// Runs all queued asynchronous jobs in insertion order.
+    ///
+    /// Every job is attempted. Failures are collected in the returned
+    /// [`JobReport`] and do not stop later jobs from running.
     pub async fn run_all(&self) -> JobReport {
         let mut completed = Vec::with_capacity(self.jobs.len());
         let mut failed = Vec::new();

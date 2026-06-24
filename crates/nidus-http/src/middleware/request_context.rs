@@ -10,11 +10,28 @@ use tower::{Layer, Service};
 use crate::context::{RequestContext, header_to_string};
 
 /// Creates a Tower layer that enriches [`RequestContext`] request extensions.
+///
+/// Use this with [`crate::middleware::validated_request_id_layer`] so handlers
+/// can extract [`RequestContext`]. The request ID layer chooses and stores the
+/// final ID; this layer rebuilds the context from request parts so correlation,
+/// trace, route, and client-kind fields reflect the current request boundary.
+/// [`crate::middleware::ApiDefaults::production`] installs both layers.
+///
+/// If no prior context or `x-request-id` header exists, the context uses
+/// `"unknown"` as the request ID. Prefer validated request IDs for production
+/// APIs.
 pub fn request_context_layer() -> RequestContextLayer {
     RequestContextLayer
 }
 
 /// Tower layer that inserts request/correlation context into request extensions.
+///
+/// The inserted context reads:
+/// - `x-request-id` from the existing [`RequestContext`] or request header
+/// - `x-correlation-id`, falling back to the request ID
+/// - `traceparent` trace ID
+/// - `x-api-key` / `Authorization` for client classification
+/// - Axum [`axum::extract::MatchedPath`] when available at this layer
 #[derive(Clone, Copy, Debug, Default)]
 pub struct RequestContextLayer;
 

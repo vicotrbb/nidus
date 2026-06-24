@@ -10,6 +10,32 @@ use std::sync::Arc;
 use crate::request::TestRequest;
 
 /// In-memory test application backed by an Axum router.
+///
+/// `TestApp` drives requests through the router with Tower's in-memory service
+/// path, so no TCP listener is started. Use it for handler, middleware, module,
+/// and provider integration tests.
+///
+/// ```ignore
+/// use axum::{Json, Router, routing::get};
+/// use http::StatusCode;
+/// use nidus_testing::TestApp;
+/// use serde_json::json;
+///
+/// async fn health() -> Json<serde_json::Value> {
+///     Json(json!({ "ok": true }))
+/// }
+///
+/// #[tokio::test]
+/// async fn health_returns_json() {
+///     let app = TestApp::from_router(
+///         Router::new().route("/health", get(health)),
+///     );
+///
+///     let response = app.get("/health").send().await;
+///     response.assert_status(StatusCode::OK);
+///     response.assert_json(json!({ "ok": true })).await;
+/// }
+/// ```
 #[derive(Clone)]
 pub struct TestApp {
     router: Router,
@@ -59,6 +85,10 @@ impl TestApp {
     }
 
     /// Creates a test application from an Axum router.
+    ///
+    /// This is the shortest path for HTTP-only tests. It installs an empty
+    /// Nidus container extension so handlers that need the container can still
+    /// extract it.
     pub fn from_router(router: Router) -> Self {
         let container = Arc::new(Container::new());
         Self {
@@ -105,6 +135,10 @@ impl TestApp {
     }
 
     /// Starts a request with an arbitrary HTTP method.
+    ///
+    /// The returned [`TestRequest`] can set headers, query parameters, and body
+    /// content before [`TestRequest::send`] executes it against the in-memory
+    /// router.
     pub fn request(&self, method: Method, path: impl Into<String>) -> TestRequest {
         TestRequest::new(self.router.clone(), method, path.into())
     }
@@ -134,6 +168,10 @@ impl TestApp {
 }
 
 /// Builder for in-memory test applications.
+///
+/// Use the builder when tests need provider overrides, request-scoped
+/// providers, config overrides, or lifecycle hooks in addition to an Axum
+/// router.
 pub struct TestAppBuilder {
     router: Router,
     container: Container,
@@ -173,6 +211,10 @@ impl TestAppBuilder {
 
     /// Registers a request-lifetime provider factory that resolves dependencies
     /// through the active request scope.
+    ///
+    /// This matches production request-scoped resolution. Handler extraction
+    /// still requires the HTTP request scope middleware when using
+    /// `RequestScoped<T>`.
     pub fn request_scoped_provider<T, F>(mut self, factory: F) -> Result<Self>
     where
         T: Send + Sync + 'static,

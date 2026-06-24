@@ -11,6 +11,11 @@ type HealthFuture = Pin<Box<dyn Future<Output = HealthStatus> + Send>>;
 type HealthCheck = Arc<dyn Fn() -> HealthFuture + Send + Sync>;
 
 /// Result of a liveness or readiness check.
+///
+/// Return [`HealthStatus::up`] for healthy dependencies and
+/// [`HealthStatus::down`] with a safe diagnostic message for unhealthy ones.
+/// Messages are included in health JSON by default and can be suppressed with
+/// [`HealthRegistry::hide_details`].
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HealthStatus {
     status: HealthState,
@@ -27,6 +32,9 @@ impl HealthStatus {
     }
 
     /// Creates a down health status with a safe diagnostic message.
+    ///
+    /// Keep the message operational and non-sensitive because it is exposed in
+    /// response bodies unless the registry uses [`HealthRegistry::hide_details`].
     pub fn down(message: impl Into<String>) -> Self {
         Self {
             status: HealthState::Down,
@@ -51,6 +59,26 @@ pub enum HealthState {
 }
 
 /// Registry for liveness and readiness checks.
+///
+/// The registry produces two routes: `/health/live` and `/health/ready`.
+/// With no registered checks, each route returns `200 OK` and
+/// `{ "status": "up", "checks": {} }`. When any check returns down or times
+/// out, the route returns `503 Service Unavailable`.
+///
+/// Checks are in-process async closures; this helper does not provide service
+/// discovery or external health storage.
+///
+/// ```ignore
+/// use std::time::Duration;
+/// use nidus_http::health::{HealthRegistry, HealthStatus};
+///
+/// let health = HealthRegistry::new()
+///     .ready_check_sync("database", || HealthStatus::up())
+///     .live_check("worker", || async { HealthStatus::up() })
+///     .timeout(Duration::from_secs(1));
+///
+/// let routes = health.routes();
+/// ```
 #[derive(Clone)]
 pub struct HealthRegistry {
     live_checks: Vec<NamedHealthCheck>,
@@ -60,7 +88,10 @@ pub struct HealthRegistry {
 }
 
 impl HealthRegistry {
-    /// Creates a registry with an always-up liveness route and no readiness dependencies.
+    /// Creates a registry with always-up live/ready routes and no dependencies.
+    ///
+    /// The default per-check timeout is two seconds and diagnostic messages are
+    /// exposed in responses.
     pub fn new() -> Self {
         Self {
             live_checks: Vec::new(),
@@ -71,6 +102,9 @@ impl HealthRegistry {
     }
 
     /// Adds a liveness check.
+    ///
+    /// Liveness checks should answer "should this process be restarted?" and
+    /// usually avoid dependencies that can recover independently.
     pub fn live_check<F, Fut>(mut self, name: impl Into<String>, check: F) -> Self
     where
         F: Fn() -> Fut + Send + Sync + 'static,
@@ -92,6 +126,9 @@ impl HealthRegistry {
     }
 
     /// Adds a readiness check.
+    ///
+    /// Readiness checks should answer "can this process serve traffic now?" and
+    /// commonly include database, queue, or cache dependencies.
     pub fn ready_check<F, Fut>(mut self, name: impl Into<String>, check: F) -> Self
     where
         F: Fn() -> Fut + Send + Sync + 'static,
@@ -113,12 +150,17 @@ impl HealthRegistry {
     }
 
     /// Sets the timeout for each health check.
+    ///
+    /// A timed-out check is reported as down with `check timed out`.
     pub fn timeout(mut self, timeout_duration: Duration) -> Self {
         self.timeout = timeout_duration;
         self
     }
 
     /// Hides diagnostic messages from health response bodies.
+    ///
+    /// Status values and check names remain visible; only per-check messages are
+    /// omitted.
     pub fn hide_details(mut self) -> Self {
         self.expose_details = false;
         self

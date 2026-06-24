@@ -149,9 +149,9 @@ pub fn controller(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///     async fn show(
 ///         &self,
 ///         nidus::prelude::Path(id): nidus::prelude::Path<String>,
-///         scoped: nidus::prelude::RequestScoped<RequestContext>,
+///         scoped: nidus::prelude::RequestScoped<nidus::prelude::RequestContext>,
 ///     ) -> nidus::prelude::Json<UserDto> {
-///         nidus::prelude::Json(UserDto::from_id(id, scoped.value()))
+///         nidus::prelude::Json(UserDto::from_id(id, scoped.request_id().to_owned()))
 ///     }
 /// }
 /// ```

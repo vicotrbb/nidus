@@ -5,6 +5,22 @@ use serde_json::Value;
 use std::str;
 
 /// Captured in-memory HTTP response.
+///
+/// `TestResponse` owns the status, headers, and collected body returned by
+/// [`crate::TestRequest::send`]. Assertion helpers panic with ordinary test
+/// assertion failures, while `try_json`, `text`, and `header_str` expose
+/// fallible parsing.
+///
+/// ```ignore
+/// use http::StatusCode;
+/// use serde_json::json;
+///
+/// let response = app.get("/health").send().await;
+/// response.assert_status(StatusCode::OK);
+/// assert_eq!(response.header_str("content-type")?.unwrap(), "application/json");
+/// response.assert_json(json!({ "ok": true })).await;
+/// # Ok::<(), http::header::ToStrError>(())
+/// ```
 pub struct TestResponse {
     status: StatusCode,
     headers: HeaderMap,
@@ -65,6 +81,9 @@ impl TestResponse {
     }
 
     /// Decodes the response body as JSON.
+    ///
+    /// Panics when the body is not valid JSON for `T`. Use [`Self::try_json`]
+    /// when asserting malformed responses.
     pub fn json<T>(&self) -> T
     where
         T: DeserializeOwned,
@@ -86,12 +105,17 @@ impl TestResponse {
     }
 
     /// Asserts the response body as UTF-8 text.
+    ///
+    /// This consumes the response so tests cannot accidentally assert against a
+    /// body after moving it into another helper.
     pub async fn assert_text(self, expected: &str) {
         let text = self.text().expect("test response was not UTF-8");
         assert_eq!(text, expected);
     }
 
     /// Asserts the response body as JSON.
+    ///
+    /// This consumes the response and compares against a `serde_json::Value`.
     pub async fn assert_json(self, expected: Value) {
         let actual: Value = self.json();
         assert_eq!(actual, expected);

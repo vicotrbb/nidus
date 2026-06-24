@@ -13,6 +13,37 @@ use crate::{
 };
 
 /// High-level configurable API defaults built from explicit Axum/Tower primitives.
+///
+/// `ApiDefaults` is a convenience builder for production-oriented middleware,
+/// not a hidden application runtime. [`ApiDefaults::production`] starts with
+/// request IDs, request context, production error envelopes, health routes,
+/// security headers, a `Content-Length` body limit, and a timeout enabled.
+/// Prometheus metrics and rate limiting are opt-in and only run when configured.
+///
+/// `version` and `environment` are stored as labels on this builder for callers
+/// that want to keep one deployment metadata object, but [`ApiDefaults::apply`]
+/// does not currently emit those labels to logs, metrics, headers, or health
+/// responses.
+///
+/// ```ignore
+/// use axum::{Router, routing::get};
+/// use nidus_http::{
+///     health::{HealthRegistry, HealthStatus},
+///     middleware::{ApiDefaults, PrometheusMetrics, RequestIdConfig},
+/// };
+///
+/// let metrics = PrometheusMetrics::new();
+/// let health = HealthRegistry::new()
+///     .ready_check_sync("database", || HealthStatus::up());
+///
+/// let router = Router::new().route("/users", get(list_users));
+/// let app = ApiDefaults::production("users-api")
+///     .metrics(metrics.clone())
+///     .health(health)
+///     .request_ids(RequestIdConfig::production())
+///     .apply(router)
+///     .merge(metrics.routes());
+/// ```
 #[derive(Clone)]
 pub struct ApiDefaults {
     service_name: String,
@@ -31,6 +62,22 @@ pub struct ApiDefaults {
 
 impl ApiDefaults {
     /// Creates production defaults for a service.
+    ///
+    /// Enabled by default:
+    /// - request IDs: [`RequestIdConfig::production`], which requires inbound
+    ///   IDs to be UUID v4 and generates UUID v4 IDs when absent
+    /// - request context: [`request_context_layer`]
+    /// - error responses: [`ErrorEnvelopeLayer`]
+    /// - health routes: [`HealthRegistry::new`] at `/health/live` and
+    ///   `/health/ready`
+    /// - security headers: [`security_headers_layer`]
+    /// - body limit: [`body_limit_layer`] with `1 MiB`
+    /// - timeout: [`timeout_response_layer`] with `30s`
+    ///
+    /// Metrics and rate limiting are disabled unless [`Self::metrics`] or
+    /// [`Self::rate_limit`] is called. The metrics middleware records requests,
+    /// but `apply` does not merge the `/metrics` route; merge
+    /// [`PrometheusMetrics::routes`] yourself when you want it exposed.
     pub fn production(service_name: impl Into<String>) -> Self {
         Self {
             service_name: service_name.into(),
@@ -49,23 +96,38 @@ impl ApiDefaults {
     }
 
     /// Returns the service name attached to these defaults.
+    ///
+    /// The current [`Self::apply`] implementation keeps this as builder metadata
+    /// only; it is not emitted by any default middleware.
     pub fn service_name(&self) -> &str {
         &self.service_name
     }
 
     /// Sets a service version label.
+    ///
+    /// This is metadata on the builder. [`Self::apply`] does not currently
+    /// attach the version to metrics, health responses, logs, or response
+    /// headers.
     pub fn version(mut self, version: impl Into<String>) -> Self {
         self.version = Some(version.into());
         self
     }
 
     /// Sets an environment label.
+    ///
+    /// This is metadata on the builder. [`Self::apply`] does not currently
+    /// attach the environment to metrics, health responses, logs, or response
+    /// headers.
     pub fn environment(mut self, environment: impl Into<String>) -> Self {
         self.environment = Some(environment.into());
         self
     }
 
     /// Replaces request ID behavior.
+    ///
+    /// Pass [`RequestIdConfig::development`] for permissive inbound validation
+    /// during local development, or a custom config when you need a different
+    /// header name or generator.
     pub fn request_ids(mut self, config: RequestIdConfig) -> Self {
         self.request_ids = Some(config);
         self
@@ -90,6 +152,10 @@ impl ApiDefaults {
     }
 
     /// Adds a Prometheus metrics collector.
+    ///
+    /// This installs request lifecycle recording. It does not expose the
+    /// collector's `/metrics` route; merge [`PrometheusMetrics::routes`] into
+    /// the router when you want scrape output.
     pub fn metrics(mut self, metrics: PrometheusMetrics) -> Self {
         self.metrics = Some(metrics);
         self
@@ -102,6 +168,10 @@ impl ApiDefaults {
     }
 
     /// Replaces health routes.
+    ///
+    /// The registry contributes `/health/live` and `/health/ready` routes before
+    /// middleware layers are applied, so the same default security, timeout, and
+    /// body/header handling applies to health responses too.
     pub fn health(mut self, health: HealthRegistry) -> Self {
         self.health = Some(health);
         self
@@ -126,6 +196,10 @@ impl ApiDefaults {
     }
 
     /// Enables or replaces the request body size limit.
+    ///
+    /// The built-in layer checks the declared `Content-Length` header only. It
+    /// rejects declared oversized bodies with `413 Payload Too Large`; it does
+    /// not count streamed bytes when the header is absent or invalid.
     pub fn body_limit(mut self, max_bytes: u64) -> Self {
         self.body_limit = Some(max_bytes);
         self
@@ -150,6 +224,9 @@ impl ApiDefaults {
     }
 
     /// Sets a default request timeout.
+    ///
+    /// Requests whose inner service does not finish before this duration receive
+    /// `408 Request Timeout` with a plain-text `request timed out` body.
     pub fn timeout(mut self, timeout: Duration) -> Self {
         self.timeout = Some(timeout);
         self
@@ -162,6 +239,24 @@ impl ApiDefaults {
     }
 
     /// Applies the configured defaults to an existing router.
+    ///
+    /// Health routes are merged first. The effective inbound request order for
+    /// the default production stack is:
+    ///
+    /// 1. [`security_headers_layer`] response wrapper
+    /// 2. [`body_limit_layer`] `Content-Length` boundary
+    /// 3. [`validated_request_id_layer`]
+    /// 4. [`request_context_layer`]
+    /// 5. metrics, when configured
+    /// 6. [`ErrorEnvelopeLayer`]
+    /// 7. [`timeout_response_layer`]
+    /// 8. rate limiting, when configured
+    /// 9. route handlers
+    ///
+    /// Order matters when adding route-specific layers. Layers installed on a
+    /// route before calling `apply` run inside these defaults, so they can see
+    /// the validated request ID and enriched [`crate::context::RequestContext`],
+    /// and their error responses can be wrapped by the production envelope.
     pub fn apply(self, mut router: Router) -> Router {
         if let Some(health) = self.health {
             router = router.merge(health.routes());
