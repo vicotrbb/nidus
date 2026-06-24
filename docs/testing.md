@@ -58,6 +58,15 @@ let app = TestApp::bootstrap::<AppModule>()?
     .build();
 ```
 
+Use `bootstrap_with_router()` when the same test should validate the module graph
+and exercise HTTP routes:
+
+```rust
+let app = TestApp::bootstrap_with_router::<AppModule>(router)?
+    .override_provider(MockUsersRepository::new())?
+    .build();
+```
+
 For modular apps with imports, pass the imported module definitions explicitly:
 
 ```rust
@@ -66,6 +75,9 @@ let app = TestApp::bootstrap_with_modules::<AppModule, _>([
 ])?
 .build();
 ```
+
+Use `bootstrap_with_modules_and_router()` for imported module graphs that also
+need HTTP route coverage.
 
 Provider and config overrides are configured through the builder:
 
@@ -77,6 +89,10 @@ let app = TestApp::builder(router)
     .config(test_config)
     .build();
 ```
+
+Built test apps attach the test `Container` as an Axum `Extension<Arc<Container>>`,
+so route handlers can resolve overridden providers from the same container used
+by `app.resolve::<T>()`.
 
 Request-lifetime providers can be registered with a factory and resolved through an explicit request scope:
 

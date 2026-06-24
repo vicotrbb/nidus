@@ -1,6 +1,7 @@
-use axum::Router;
-use nidus_core::{Inject, Module, ModuleBuilder, ModuleDefinition, NidusError};
+use axum::{Extension, Json, Router, routing::get};
+use nidus_core::{Container, Inject, Module, ModuleBuilder, ModuleDefinition, NidusError};
 use nidus_testing::TestApp;
+use serde::Serialize;
 use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
@@ -8,6 +9,11 @@ use std::sync::{
 
 #[derive(Debug, PartialEq, Eq)]
 struct UsersRepository(&'static str);
+
+#[derive(Serialize)]
+struct UsersResponse {
+    source: &'static str,
+}
 
 #[derive(Debug)]
 struct RequestUsersRepository {
@@ -84,6 +90,25 @@ fn test_app_bootstrap_validates_module_and_supports_provider_overrides() {
     assert_eq!(repository.0, "mock");
 }
 
+#[tokio::test]
+async fn test_app_bootstrap_with_router_validates_module_and_exercises_routes() {
+    let app = TestApp::bootstrap_with_router::<AppModule>(users_router())
+        .unwrap()
+        .provider(UsersRepository("real"))
+        .unwrap()
+        .override_provider(UsersRepository("mock"))
+        .unwrap()
+        .build();
+
+    let response = app.get("/users").send().await;
+
+    response
+        .assert_json(serde_json::json!({
+            "source": "mock",
+        }))
+        .await;
+}
+
 #[test]
 fn test_app_bootstrap_reports_invalid_module_graphs() {
     let error = match TestApp::bootstrap::<BrokenModule>() {
@@ -98,6 +123,26 @@ fn test_app_bootstrap_reports_invalid_module_graphs() {
             import
         } if module == "BrokenModule" && import == "MissingModule"
     ));
+}
+
+#[tokio::test]
+async fn test_app_bootstrap_with_modules_and_router_validates_explicit_module_graph() {
+    let app = TestApp::bootstrap_with_modules_and_router::<ModularAppModule, _>(
+        [UsersModule::definition()],
+        users_router(),
+    )
+    .unwrap()
+    .provider(UsersRepository("real"))
+    .unwrap()
+    .build();
+
+    let response = app.get("/users").send().await;
+
+    response
+        .assert_json(serde_json::json!({
+            "source": "real",
+        }))
+        .await;
 }
 
 #[test]
@@ -186,4 +231,15 @@ fn test_app_request_scoped_providers_resolve_dependencies_through_request_scope(
         &repository.request_id.clone().into_inner(),
         &request_id
     ));
+}
+
+fn users_router() -> Router {
+    Router::new().route("/users", get(list_users))
+}
+
+async fn list_users(Extension(container): Extension<Arc<Container>>) -> Json<UsersResponse> {
+    let repository = container.resolve::<UsersRepository>().unwrap();
+    Json(UsersResponse {
+        source: repository.0,
+    })
 }

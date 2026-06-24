@@ -1,4 +1,4 @@
-use axum::Router;
+use axum::{Extension, Router};
 use http::Method;
 use nidus_config::Config;
 use nidus_core::{
@@ -24,8 +24,16 @@ impl TestApp {
     where
         M: Module,
     {
+        Self::bootstrap_with_router::<M>(Router::new())
+    }
+
+    /// Creates a test application builder with a router after validating a root Nidus module.
+    pub fn bootstrap_with_router<M>(router: Router) -> Result<TestAppBuilder>
+    where
+        M: Module,
+    {
         Nidus::bootstrap::<M>()?;
-        Ok(Self::builder(Router::new()))
+        Ok(Self::builder(router))
     }
 
     /// Creates a test application builder after validating an explicit module graph.
@@ -34,15 +42,28 @@ impl TestApp {
         M: Module,
         I: IntoIterator<Item = ModuleDefinition>,
     {
+        Self::bootstrap_with_modules_and_router::<M, I>(modules, Router::new())
+    }
+
+    /// Creates a test application builder with a router after validating an explicit module graph.
+    pub fn bootstrap_with_modules_and_router<M, I>(
+        modules: I,
+        router: Router,
+    ) -> Result<TestAppBuilder>
+    where
+        M: Module,
+        I: IntoIterator<Item = ModuleDefinition>,
+    {
         Nidus::bootstrap_with_modules::<M, I>(modules)?;
-        Ok(Self::builder(Router::new()))
+        Ok(Self::builder(router))
     }
 
     /// Creates a test application from an Axum router.
     pub fn from_router(router: Router) -> Self {
+        let container = Arc::new(Container::new());
         Self {
-            router,
-            container: Arc::new(Container::new()),
+            router: router.layer(Extension(Arc::clone(&container))),
+            container,
             config: Config::new(),
             lifecycle: Arc::new(LifecycleRunner::new()),
         }
@@ -187,9 +208,10 @@ impl TestAppBuilder {
 
     /// Builds the test application.
     pub fn build(self) -> TestApp {
+        let container = Arc::new(self.container);
         TestApp {
-            router: self.router,
-            container: Arc::new(self.container),
+            router: self.router.layer(Extension(Arc::clone(&container))),
+            container,
             config: self.config,
             lifecycle: Arc::new(self.lifecycle),
         }
