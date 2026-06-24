@@ -12,6 +12,79 @@ pub trait Guard<S>: Send + Sync + 'static {
     async fn check(&self, ctx: GuardContext<S>) -> Result<(), GuardError>;
 }
 
+/// Extension methods for composing guards.
+pub trait GuardExt<S>: Guard<S> + Sized {
+    /// Requires both guards to authorize the request.
+    fn and<G>(self, other: G) -> AndGuard<Self, G>
+    where
+        G: Guard<S>,
+    {
+        AndGuard {
+            first: self,
+            second: other,
+        }
+    }
+
+    /// Requires at least one guard to authorize the request.
+    fn or<G>(self, other: G) -> OrGuard<Self, G>
+    where
+        G: Guard<S>,
+    {
+        OrGuard {
+            first: self,
+            second: other,
+        }
+    }
+}
+
+impl<S, G> GuardExt<S> for G where G: Guard<S> + Sized {}
+
+/// Guard that succeeds only when both inner guards succeed.
+#[derive(Clone, Debug)]
+pub struct AndGuard<A, B> {
+    first: A,
+    second: B,
+}
+
+#[async_trait]
+impl<S, A, B> Guard<S> for AndGuard<A, B>
+where
+    S: Clone + Send + Sync + 'static,
+    A: Guard<S>,
+    B: Guard<S>,
+{
+    async fn check(&self, ctx: GuardContext<S>) -> Result<(), GuardError> {
+        self.first.check(ctx.clone()).await?;
+        self.second.check(ctx).await
+    }
+}
+
+/// Guard that succeeds when either inner guard succeeds.
+#[derive(Clone, Debug)]
+pub struct OrGuard<A, B> {
+    first: A,
+    second: B,
+}
+
+#[async_trait]
+impl<S, A, B> Guard<S> for OrGuard<A, B>
+where
+    S: Clone + Send + Sync + 'static,
+    A: Guard<S>,
+    B: Guard<S>,
+{
+    async fn check(&self, ctx: GuardContext<S>) -> Result<(), GuardError> {
+        let first_error = match self.first.check(ctx.clone()).await {
+            Ok(()) => return Ok(()),
+            Err(error) => error,
+        };
+        match self.second.check(ctx).await {
+            Ok(()) => Ok(()),
+            Err(_) => Err(first_error),
+        }
+    }
+}
+
 /// Typed guard context.
 #[derive(Clone, Debug)]
 pub struct GuardContext<S> {

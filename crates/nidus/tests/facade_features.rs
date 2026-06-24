@@ -7,6 +7,8 @@ fn prelude_exports_optional_feature_crates() {
     let _document = OpenApiDocument::new("Nidus API", "0.1.0");
     let _validation = ValidationPipe::new();
     let _context = GuardContext::new((), "/health");
+    let _and_guard: Option<AndGuard<(), ()>> = None;
+    let _or_guard: Option<OrGuard<(), ()>> = None;
     let _pool: Option<PgPool> = None;
     let _pool_options = PgPoolOptions::new();
     let jobs = JobQueue::new();
@@ -24,6 +26,9 @@ fn prelude_exports_optional_feature_crates() {
     events.subscribe();
     assert_eq!(response.status(), StatusCode::OK);
 }
+
+#[allow(dead_code)]
+fn prelude_exports_guard_extension_trait<G: GuardExt<()>>() {}
 
 #[test]
 fn facade_exports_optional_feature_modules() {
