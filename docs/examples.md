@@ -6,7 +6,7 @@ requiring external services by default.
 | Example | Purpose |
 | --- | --- |
 | `hello-world` | Minimal Nidus HTTP server with a composed route on `127.0.0.1:3000`. |
-| `rest-api` | Nidus controller route composition with an Axum JSON handler served on `127.0.0.1:3000`. |
+| `rest-api` | Nidus controller route composition with an Axum JSON handler and request-scoped provider extraction. |
 | `auth-api` | Guard trait implementation with explicit guard failure mapping in a Nidus-composed route. |
 | `sqlx-postgres` | Facade `sqlx-postgres` feature plus typed provider registration around Postgres pool options without opening a database connection. |
 | `openapi` | Controller metadata converted into an OpenAPI JSON document. |
