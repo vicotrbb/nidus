@@ -362,6 +362,18 @@ fn request_lifecycle_setup(c: &mut Criterion) {
         });
     });
 
+    let error_metrics = PrometheusMetrics::new();
+    c.bench_function("nidus metrics record inner error", |b| {
+        b.iter(|| {
+            error_metrics.on_request(&Method::GET, Some("/metrics-bench/{id}"));
+            error_metrics.on_error(
+                &Method::GET,
+                Some("/metrics-bench/{id}"),
+                Duration::from_millis(12),
+            );
+        });
+    });
+
     let render_metrics = PrometheusMetrics::new();
     for route in [
         "/metrics-bench/0",

@@ -440,6 +440,37 @@ fn prometheus_metrics_renders_bounded_duration_histogram_buckets() {
     );
 }
 
+#[test]
+fn prometheus_metrics_counts_inner_service_errors_as_requests() {
+    let metrics = PrometheusMetrics::new();
+
+    metrics.on_request(&Method::GET, Some("/fallible"));
+    metrics.on_error(&Method::GET, Some("/fallible"), Duration::from_millis(25));
+
+    let text = metrics.render();
+
+    assert!(
+        text.contains(
+            r#"nidus_http_requests_total{method="GET",route="/fallible",status="500"} 1"#
+        ),
+        "{text}"
+    );
+    assert!(
+        text.contains(
+            r#"nidus_http_request_duration_seconds_count{method="GET",route="/fallible",status="500"} 1"#
+        ),
+        "{text}"
+    );
+    assert!(
+        text.contains(r#"nidus_http_errors_total{method="GET",route="/fallible",status="500"} 1"#),
+        "{text}"
+    );
+    assert!(
+        text.contains(r#"nidus_http_in_flight_requests{method="GET",route="/fallible"} 0"#),
+        "{text}"
+    );
+}
+
 #[tokio::test]
 async fn production_api_defaults_composes_routes_layers_and_overrides() {
     async fn matched_path(path: MatchedPath) -> String {

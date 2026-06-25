@@ -664,3 +664,65 @@ Tradeoff:
 - Larger middleware wins likely require addressing boxed futures or deeper
   request ID/context construction costs, which would need more careful API and
   compatibility analysis.
+
+## Round 12 - Metrics Inner Error Accounting
+
+Hypothesis:
+
+- `MetricsService` calls `HttpMetricsHook::on_error` when an inner service
+  fails before producing a response.
+- `PrometheusMetrics::on_error` recorded `errors_total` and decremented
+  in-flight counts, but it did not record the failed request in
+  `requests_total` or the duration histogram.
+- Treating the failure as a 500 request makes the collector's totals,
+  histogram, and error counters internally consistent without changing the
+  backend-neutral hook API.
+
+Test added before implementation:
+
+- `prometheus_metrics_counts_inner_service_errors_as_requests`
+
+Red evidence:
+
+- `cargo test -p nidus-http --test production_api prometheus_metrics_counts_inner_service_errors_as_requests -- --nocapture`
+  failed as expected. The rendered output included the 500 `errors_total` and a
+  zero in-flight gauge, but no 500 `requests_total` or duration count.
+
+Implementation:
+
+- Changed `PrometheusMetrics::on_error` to record a 500 request total and
+  observe the supplied latency in the bounded duration histogram before
+  incrementing the existing error counter.
+- Added `nidus metrics record inner error` to `benches/request_lifecycle.rs` so
+  the changed error path has a dedicated Criterion benchmark.
+
+Focused verification:
+
+| Command | Result | Notes |
+| --- | --- | --- |
+| `cargo test -p nidus-http --test production_api prometheus_metrics_counts_inner_service_errors_as_requests -- --nocapture` | FAIL, then PASS | RED failed for missing request total and duration count; GREEN passed after the fix. |
+| `cargo test -p nidus-http` | PASS | All `nidus-http` tests and doc tests passed after the fix. |
+| `cargo clippy -p nidus-http --all-targets --all-features -- -D warnings` | PASS | Focused clippy gate passed. |
+| `cargo fmt --all --check` | FAIL, then PASS | Initial failure was rustfmt wrapping in the new test; passed after `cargo fmt --all`. |
+| `cargo bench --bench request_lifecycle` | PASS | Full request lifecycle benchmark completed, but showed broad mixed movement in unrelated paths. |
+| `cargo bench --bench request_lifecycle -- "nidus metrics record inner error"` | PASS | Dedicated new benchmark completed. |
+
+Relevant benchmarks after the change:
+
+| Benchmark | Before | After Round 12 | Criterion comparison |
+| --- | ---: | ---: | --- |
+| `nidus metrics record inner error` | n/a | `295.35 ns` | New benchmark for the changed error path. |
+| `nidus metrics record response` | `244.05 ns` | `284.94 ns` | Criterion reported a regression, but this success path was not changed and the full run also showed unrelated regressions/improvements. |
+| `nidus metrics render text` | `45.266 us` | `54.496 us` | Criterion reported a regression; output shape changed for inner-service errors, but the render benchmark fixture still records only success responses. |
+| `nidus api defaults production with metrics request` | `4.1260 us` | `5.0019 us` | Criterion reported a regression on a success-path benchmark not directly changed by this fix. |
+
+Tradeoff:
+
+- Inner-service failures now cost the same class of accounting work as normal
+  responses: one request counter update, one histogram observation, one error
+  counter update, and one in-flight decrement under the same mutex.
+- The correctness improvement increases recorded series for inner-service
+  failures by design. Existing success-path regressions in the full Criterion
+  run look dominated by local noise because unrelated benchmarks moved in both
+  directions, but the slower post-change measurements are recorded here rather
+  than discarded.

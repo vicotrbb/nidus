@@ -273,7 +273,7 @@ impl HttpMetricsHook for PrometheusMetrics {
         }
     }
 
-    fn on_error(&self, method: &Method, route: Option<&str>, _latency: Duration) {
+    fn on_error(&self, method: &Method, route: Option<&str>, latency: Duration) {
         if !self.should_record(route) {
             return;
         }
@@ -284,6 +284,15 @@ impl HttpMetricsHook for PrometheusMetrics {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let status = StatusCode::INTERNAL_SERVER_ERROR.as_u16();
+        *state
+            .requests_total
+            .entry((method.clone(), route.clone(), status))
+            .or_default() += 1;
+        state
+            .durations
+            .entry((method.clone(), route.clone(), status))
+            .or_default()
+            .observe(latency);
         *state
             .errors_total
             .entry((method.clone(), route.clone(), status))
