@@ -116,3 +116,67 @@ because it is central to framework correctness and has a clear missing proof:
 write concurrent first-resolution tests, verify the current behavior, then only
 change provider caching if the test exposes duplicate factory execution or
 another correctness issue.
+
+## Round 1 - Dependency Injection Concurrent First Resolution
+
+Hypothesis:
+
+- Singleton and request-scoped provider caches may run factories more than once
+  when multiple threads resolve the same provider for the first time.
+- A small per-provider/per-scope initialization state should preserve factory
+  error behavior while making contenders wait for the first initializer.
+
+Tests added before implementation:
+
+- `singleton_factory_runs_once_under_concurrent_first_resolution`
+- `request_factory_runs_once_under_concurrent_first_resolution_in_scope`
+
+Red evidence:
+
+- `cargo test -p nidus-core concurrent_first_resolution` failed as expected for
+  the singleton test: the factory ran `8` times instead of `1`.
+- `cargo test -p nidus-core --test request_scope_di request_factory_runs_once_under_concurrent_first_resolution_in_scope`
+  failed as expected because concurrent request-scope resolutions received
+  different instances.
+
+Implementation:
+
+- `ProviderEntry` now tracks singleton cache state as `Empty`, `Initializing`,
+  or `Ready` and uses a condition variable so waiters observe the first
+  initializer's result.
+- `RequestScope` now tracks request instance state as `Initializing` or `Ready`
+  and uses a condition variable so concurrent contenders within the same request
+  scope share the first initialized instance.
+- Failed factories reset the cache state and notify waiters, preserving retry
+  behavior and existing provider error wrapping.
+
+Focused verification:
+
+| Command | Result | Notes |
+| --- | --- | --- |
+| `cargo test -p nidus-core concurrent_first_resolution` | PASS | Both new concurrency tests passed after implementation. |
+| `cargo test -p nidus-core` | PASS | All `nidus-core` unit, integration, and doc tests passed. |
+| `cargo fmt --all --check` | PASS | Passed after applying `cargo fmt --all`. |
+| `cargo clippy -p nidus-core --all-targets --all-features -- -D warnings` | PASS | Focused clippy gate passed. |
+
+Relevant benchmarks after the change:
+
+| Benchmark | Baseline | After Round 1 | Criterion comparison |
+| --- | ---: | ---: | --- |
+| `nidus singleton dependency resolution` | `23.922 ns` | `27.867 ns` | No statistically significant change detected in Criterion's stored comparison. |
+| `raw axum baseline request` | `640.55 ns` | `763.19 ns` | Regressed in this run; not caused by Nidus code path, evidence of noisy environment. |
+| `nidus hello-world request` | `603.69 ns` | `607.78 ns` | No change detected. |
+| `nidus hello-world app` | `2.8308 us` | `2.8780 us` | No change detected. |
+| `nidus controller + service request` | `735.04 ns` | `718.32 ns` | No change detected. |
+| `nidus controller + service app` | `3.6480 us` | `3.5968 us` | Improved in Criterion comparison. |
+| `nidus controller setup` | `268.43 ns` | `274.22 ns` | No change detected. |
+| `nidus guarded route` | `917.87 ns` | `906.44 ns` | Within noise threshold. |
+| `nidus validation route` | `1.8485 us` | `1.8509 us` | No change detected. |
+| `nidus request-scoped route` | `1.1714 us` | `1.2299 us` | Regressed by about `5.16%` in Criterion comparison. |
+
+Tradeoff:
+
+- The change improves DI correctness under concurrent first resolution.
+- The request-scoped route benchmark shows a measured regression for the
+  request-scoped initialization path. This is an accepted correctness tradeoff
+  for this round, but it should stay visible as a future optimization target.

@@ -1,7 +1,8 @@
 use std::sync::{
-    Arc,
+    Arc, Barrier,
     atomic::{AtomicUsize, Ordering},
 };
+use std::{thread, time::Duration};
 
 use nidus_core::{Container, Factory, Inject, Lazy, NidusError, ProviderLifetime};
 
@@ -147,6 +148,45 @@ fn singleton_factories_reuse_one_instance() {
     let second = container.resolve::<Database>().unwrap();
 
     assert!(Arc::ptr_eq(&first, &second));
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn singleton_factory_runs_once_under_concurrent_first_resolution() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut container = Container::new();
+    container
+        .register_singleton_factory::<Database, _>({
+            let calls = Arc::clone(&calls);
+            move |_container| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                thread::sleep(Duration::from_millis(25));
+                Ok(Database("primary"))
+            }
+        })
+        .unwrap();
+    let container = Arc::new(container);
+    let ready = Arc::new(Barrier::new(8));
+
+    let handles = (0..8)
+        .map(|_| {
+            let container = Arc::clone(&container);
+            let ready = Arc::clone(&ready);
+            thread::spawn(move || {
+                ready.wait();
+                container.resolve::<Database>().unwrap()
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let instances = handles
+        .into_iter()
+        .map(|handle| handle.join().unwrap())
+        .collect::<Vec<_>>();
+
+    for instance in &instances[1..] {
+        assert!(Arc::ptr_eq(&instances[0], instance));
+    }
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
 

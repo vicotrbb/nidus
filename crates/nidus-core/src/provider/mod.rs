@@ -2,7 +2,7 @@
 
 use std::{
     any::Any,
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{Arc, Condvar, Mutex, MutexGuard},
 };
 
 use crate::{Container, NidusError, RequestScope, Result};
@@ -34,7 +34,14 @@ pub struct ProviderEntry {
     lifetime: ProviderLifetime,
     factory: Arc<ProviderFactory>,
     request_factory: Option<Arc<RequestProviderFactory>>,
-    singleton: Mutex<Option<Arc<ErasedProvider>>>,
+    singleton: Mutex<SingletonState>,
+    singleton_ready: Condvar,
+}
+
+enum SingletonState {
+    Empty,
+    Initializing,
+    Ready(Arc<ErasedProvider>),
 }
 
 impl ProviderEntry {
@@ -49,7 +56,8 @@ impl ProviderEntry {
             lifetime,
             factory,
             request_factory: None,
-            singleton: Mutex::new(None),
+            singleton: Mutex::new(SingletonState::Empty),
+            singleton_ready: Condvar::new(),
         }
     }
 
@@ -64,7 +72,8 @@ impl ProviderEntry {
             lifetime: ProviderLifetime::Request,
             factory,
             request_factory: Some(request_factory),
-            singleton: Mutex::new(None),
+            singleton: Mutex::new(SingletonState::Empty),
+            singleton_ready: Condvar::new(),
         }
     }
 
@@ -80,15 +89,7 @@ impl ProviderEntry {
 
     pub(crate) fn resolve_erased(&self, container: &Container) -> Result<Arc<ErasedProvider>> {
         match self.lifetime {
-            ProviderLifetime::Singleton => {
-                if let Some(instance) = lock_unpoisoned(&self.singleton).clone() {
-                    return Ok(instance);
-                }
-
-                let instance = self.create_erased(container)?;
-                let mut singleton = lock_unpoisoned(&self.singleton);
-                Ok(singleton.get_or_insert_with(|| instance).clone())
-            }
+            ProviderLifetime::Singleton => self.resolve_singleton(container),
             ProviderLifetime::Transient | ProviderLifetime::Request => {
                 self.create_erased(container)
             }
@@ -114,6 +115,37 @@ impl ProviderEntry {
         })
     }
 
+    fn resolve_singleton(&self, container: &Container) -> Result<Arc<ErasedProvider>> {
+        loop {
+            let mut singleton = lock_unpoisoned(&self.singleton);
+            match &*singleton {
+                SingletonState::Ready(instance) => return Ok(Arc::clone(instance)),
+                SingletonState::Initializing => {
+                    drop(wait_unpoisoned(&self.singleton_ready, singleton));
+                }
+                SingletonState::Empty => {
+                    *singleton = SingletonState::Initializing;
+                    drop(singleton);
+
+                    let instance = self.create_erased(container);
+                    let mut singleton = lock_unpoisoned(&self.singleton);
+                    match instance {
+                        Ok(instance) => {
+                            *singleton = SingletonState::Ready(Arc::clone(&instance));
+                            self.singleton_ready.notify_all();
+                            return Ok(instance);
+                        }
+                        Err(error) => {
+                            *singleton = SingletonState::Empty;
+                            self.singleton_ready.notify_all();
+                            return Err(error);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fn create_erased_in_scope(&self, scope: &RequestScope<'_>) -> Result<Arc<ErasedProvider>> {
         if let Some(factory) = &self.request_factory {
             factory(scope).map_err(|source| NidusError::ProviderFactory {
@@ -129,6 +161,12 @@ impl ProviderEntry {
 fn lock_unpoisoned<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex
         .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+fn wait_unpoisoned<'a, T>(condvar: &Condvar, guard: MutexGuard<'a, T>) -> MutexGuard<'a, T> {
+    condvar
+        .wait(guard)
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 

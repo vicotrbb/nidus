@@ -1,7 +1,7 @@
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{Arc, Condvar, Mutex, MutexGuard},
 };
 
 use crate::{Container, Inject, NidusError, Optional, ProviderLifetime, Result, Scoped};
@@ -11,7 +11,13 @@ use super::downcast;
 /// Per-request dependency scope.
 pub struct RequestScope<'a> {
     container: RequestScopeContainer<'a>,
-    request_instances: Mutex<HashMap<TypeId, Arc<dyn Any + Send + Sync>>>,
+    request_instances: Mutex<HashMap<TypeId, RequestInstanceState>>,
+    request_instance_ready: Condvar,
+}
+
+enum RequestInstanceState {
+    Initializing,
+    Ready(Arc<dyn Any + Send + Sync>),
 }
 
 /// Shared request scope handle suitable for HTTP request extensions.
@@ -36,6 +42,7 @@ impl<'a> RequestScope<'a> {
         Self {
             container: RequestScopeContainer::Borrowed(container),
             request_instances: Mutex::new(HashMap::new()),
+            request_instance_ready: Condvar::new(),
         }
     }
 }
@@ -54,16 +61,7 @@ impl RequestScope<'_> {
         let erased = match entry.lifetime() {
             ProviderLifetime::Request => {
                 let type_id = TypeId::of::<T>();
-                if let Some(existing) = lock_unpoisoned(&self.request_instances)
-                    .get(&type_id)
-                    .cloned()
-                {
-                    existing
-                } else {
-                    let instance = entry.resolve_erased_in_scope(self)?;
-                    lock_unpoisoned(&self.request_instances).insert(type_id, Arc::clone(&instance));
-                    instance
-                }
+                self.resolve_request_instance(type_id, || entry.resolve_erased_in_scope(self))?
             }
             ProviderLifetime::Singleton | ProviderLifetime::Transient => {
                 entry.resolve_erased(self.container())?
@@ -103,6 +101,48 @@ impl RequestScope<'_> {
     {
         self.inject::<T>().map(Scoped::new)
     }
+
+    fn resolve_request_instance(
+        &self,
+        type_id: TypeId,
+        create: impl FnOnce() -> Result<Arc<dyn Any + Send + Sync>>,
+    ) -> Result<Arc<dyn Any + Send + Sync>> {
+        let mut create = Some(create);
+        loop {
+            let mut instances = lock_unpoisoned(&self.request_instances);
+            match instances.get(&type_id) {
+                Some(RequestInstanceState::Ready(instance)) => return Ok(Arc::clone(instance)),
+                Some(RequestInstanceState::Initializing) => {
+                    drop(wait_unpoisoned(&self.request_instance_ready, instances));
+                }
+                None => {
+                    instances.insert(type_id, RequestInstanceState::Initializing);
+                    drop(instances);
+
+                    let initializer = create
+                        .take()
+                        .expect("request instance factory can only be used by initializer");
+                    let instance = initializer();
+                    let mut instances = lock_unpoisoned(&self.request_instances);
+                    match instance {
+                        Ok(instance) => {
+                            instances.insert(
+                                type_id,
+                                RequestInstanceState::Ready(Arc::clone(&instance)),
+                            );
+                            self.request_instance_ready.notify_all();
+                            return Ok(instance);
+                        }
+                        Err(error) => {
+                            instances.remove(&type_id);
+                            self.request_instance_ready.notify_all();
+                            return Err(error);
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl RequestScope<'static> {
@@ -111,6 +151,7 @@ impl RequestScope<'static> {
         Self {
             container: RequestScopeContainer::Shared(container),
             request_instances: Mutex::new(HashMap::new()),
+            request_instance_ready: Condvar::new(),
         }
     }
 }
@@ -118,6 +159,12 @@ impl RequestScope<'static> {
 fn lock_unpoisoned<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex
         .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+fn wait_unpoisoned<'a, T>(condvar: &Condvar, guard: MutexGuard<'a, T>) -> MutexGuard<'a, T> {
+    condvar
+        .wait(guard)
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 

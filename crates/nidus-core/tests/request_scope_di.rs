@@ -1,7 +1,8 @@
 use std::sync::{
-    Arc,
+    Arc, Barrier,
     atomic::{AtomicUsize, Ordering},
 };
+use std::{thread, time::Duration};
 
 use nidus_core::{Container, Inject, NidusError, ProviderLifetime};
 
@@ -37,6 +38,47 @@ fn request_factories_reuse_within_scope_but_not_across_scopes() {
     assert!(!Arc::ptr_eq(&first, &second));
     assert_eq!(first.0, "first");
     assert_eq!(second.0, "second");
+}
+
+#[test]
+fn request_factory_runs_once_under_concurrent_first_resolution_in_scope() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut container = Container::new();
+    container
+        .register_request::<Database, _>({
+            let calls = Arc::clone(&calls);
+            move |_container| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                thread::sleep(Duration::from_millis(25));
+                Ok(Database("request"))
+            }
+        })
+        .unwrap();
+    let scope = Arc::new(nidus_core::RequestScope::from_shared_container(Arc::new(
+        container,
+    )));
+    let ready = Arc::new(Barrier::new(8));
+
+    let handles = (0..8)
+        .map(|_| {
+            let scope = Arc::clone(&scope);
+            let ready = Arc::clone(&ready);
+            thread::spawn(move || {
+                ready.wait();
+                scope.resolve::<Database>().unwrap()
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let instances = handles
+        .into_iter()
+        .map(|handle| handle.join().unwrap())
+        .collect::<Vec<_>>();
+
+    for instance in &instances[1..] {
+        assert!(Arc::ptr_eq(&instances[0], instance));
+    }
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
 
 #[test]
