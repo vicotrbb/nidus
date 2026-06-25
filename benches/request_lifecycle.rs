@@ -9,7 +9,7 @@ use nidus_auth::{Guard, GuardContext, GuardError, guard_layer};
 use nidus_core::{Container, Inject, SharedRequestScope};
 use nidus_http::{
     controller::Controller,
-    middleware::{HttpMetricsHook, PrometheusMetrics, request_scope_layer},
+    middleware::{ApiDefaults, HttpMetricsHook, PrometheusMetrics, request_scope_layer},
     router::RouteDefinition,
 };
 use nidus_validation::ValidatedJson;
@@ -117,6 +117,28 @@ fn request_lifecycle_setup(c: &mut Criterion) {
             ),
         )
         .layer(request_scope_layer(Arc::new(request_container)));
+    let production_defaults_router =
+        ApiDefaults::production("bench-api").apply(Router::new().route(
+            "/production",
+            get(
+                |context: nidus_http::middleware::RequestContext| async move {
+                    black_box(context.request_id().len());
+                    "production"
+                },
+            ),
+        ));
+    let production_metrics = PrometheusMetrics::new();
+    let production_with_metrics_router = ApiDefaults::production("bench-api")
+        .metrics(production_metrics.clone())
+        .apply(Router::new().route(
+            "/production",
+            get(
+                |context: nidus_http::middleware::RequestContext| async move {
+                    black_box(context.request_id().len());
+                    "production"
+                },
+            ),
+        ));
 
     c.bench_function("raw axum baseline request", |b| {
         b.iter(|| {
@@ -199,6 +221,32 @@ fn request_lifecycle_setup(c: &mut Criterion) {
         });
     });
 
+    c.bench_function("nidus api defaults production request", |b| {
+        b.iter(|| {
+            let response = runtime
+                .block_on(
+                    production_defaults_router
+                        .clone()
+                        .oneshot(get_request_with_id("/production")),
+                )
+                .unwrap();
+            black_box(response.status());
+        });
+    });
+
+    c.bench_function("nidus api defaults production with metrics request", |b| {
+        b.iter(|| {
+            let response = runtime
+                .block_on(
+                    production_with_metrics_router
+                        .clone()
+                        .oneshot(get_request_with_id("/production")),
+                )
+                .unwrap();
+            black_box(response.status());
+        });
+    });
+
     let metrics = PrometheusMetrics::new();
     c.bench_function("nidus metrics record response", |b| {
         b.iter(|| {
@@ -243,6 +291,14 @@ fn request_lifecycle_setup(c: &mut Criterion) {
 fn get_request(path: &'static str) -> Request<Body> {
     Request::builder()
         .uri(path)
+        .body(Body::empty())
+        .expect("benchmark request should be valid")
+}
+
+fn get_request_with_id(path: &'static str) -> Request<Body> {
+    Request::builder()
+        .uri(path)
+        .header("x-request-id", "018f4ad7-56ce-4f6a-a759-29f4438d8d78")
         .body(Body::empty())
         .expect("benchmark request should be valid")
 }

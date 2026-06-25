@@ -454,3 +454,57 @@ Tradeoff:
   already present transitively in the workspace lockfile.
 - Panic payload details remain intentionally hidden behind stable `JobError`
   text.
+
+## Round 8 - Production Middleware Stack Benchmarks
+
+Hypothesis:
+
+- The existing request lifecycle benchmark covers raw Axum, controllers, guards,
+  validation, request scope, and metrics primitives, but not the
+  `ApiDefaults::production` stack requested for middleware overhead analysis.
+- Adding representative production-default request benchmarks gives future
+  optimization rounds a concrete baseline instead of relying on code inspection
+  alone.
+
+Implementation:
+
+- Added `nidus api defaults production request` to
+  `benches/request_lifecycle.rs`.
+- Added `nidus api defaults production with metrics request` to isolate the
+  cost of opting into `PrometheusMetrics` on top of the default production
+  stack.
+- The benchmarked handler extracts `RequestContext`, and requests provide a
+  valid `x-request-id` so the strict production path validates and propagates a
+  realistic inbound ID without random UUID generation noise.
+- No production code or public behavior changed in this round.
+
+Focused verification:
+
+| Command | Result | Notes |
+| --- | --- | --- |
+| `cargo fmt --all --check` | PASS | Passed after applying rustfmt to the new benchmark code. |
+| `cargo clippy --bench request_lifecycle --all-features -- -D warnings` | PASS | Benchmark target compiles cleanly. |
+| `cargo bench --bench request_lifecycle` | PASS | Criterion completed with the new middleware stack benchmarks. |
+
+Relevant benchmarks after the change:
+
+| Benchmark | Estimate | Notes |
+| --- | ---: | --- |
+| `raw axum baseline request` | `654.08 ns` | Reference run in the same benchmark invocation. |
+| `nidus hello-world request` | `636.65 ns` | Reference run in the same benchmark invocation. |
+| `nidus controller + service request` | `743.31 ns` | Reference run in the same benchmark invocation. |
+| `nidus guarded route` | `943.76 ns` | Reference run in the same benchmark invocation. |
+| `nidus validation route` | `1.8923 us` | Reference run; wider interval and 9 outliers. |
+| `nidus request-scoped route` | `1.2587 us` | Still reflects Round 1 correctness overhead. |
+| `nidus api defaults production request` | `3.2466 us` | New benchmark; strict request ID, request context extraction, body-limit check, security headers, error envelope, timeout layer, and health routes configured. |
+| `nidus api defaults production with metrics request` | `4.0460 us` | New benchmark; same stack plus opt-in Prometheus metrics recording. |
+| `nidus metrics record response` | `244.47 ns` | Same benchmark invocation. |
+| `nidus metrics render text` | `45.131 us` | Same benchmark invocation with 10 route labels and 100 observations per label. |
+
+Tradeoff:
+
+- This round improves measurement coverage rather than runtime behavior.
+- The production-default request path is now measurably several microseconds on
+  this machine; later optimization should target the largest boxed-future and
+  allocation sources only if it can preserve Tower/Axum compatibility and error
+  behavior.
