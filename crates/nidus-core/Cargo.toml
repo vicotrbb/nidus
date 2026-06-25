@@ -16,4 +16,3 @@ tracing.workspace = true
 [dev-dependencies]
 tracing-core.workspace = true
 tracing-subscriber.workspace = true
-trybuild.workspace = true

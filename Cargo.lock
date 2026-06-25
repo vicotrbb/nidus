@@ -1262,14 +1262,12 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-subscriber",
- "trybuild",
 ]
 
 [[package]]
 name = "nidus-events"
 version = "0.1.0"
 dependencies = [
- "tokio",
  "tracing",
  "uuid",
 ]
@@ -1299,7 +1297,6 @@ dependencies = [
 name = "nidus-example-hello-world"
 version = "0.1.0"
 dependencies = [
- "axum",
  "nidus",
  "nidus-testing",
  "tokio",
@@ -1333,15 +1330,12 @@ dependencies = [
  "async-trait",
  "axum",
  "nidus",
- "nidus-openapi",
  "nidus-testing",
  "serde",
  "serde_json",
  "sqlx",
  "tokio",
- "tower-http",
  "tracing",
- "tracing-subscriber",
  "utoipa",
  "validator",
 ]
@@ -1350,7 +1344,6 @@ dependencies = [
 name = "nidus-example-rest-api"
 version = "0.1.0"
 dependencies = [
- "axum",
  "nidus",
  "nidus-testing",
  "serde",
@@ -1413,7 +1406,6 @@ dependencies = [
  "http",
  "nidus-http",
  "nidus-testing",
- "serde",
  "serde_json",
  "thiserror",
  "tokio",
@@ -1654,7 +1646,6 @@ dependencies = [
  "nidus",
  "nidus-testing",
  "serde",
- "serde_json",
  "tokio",
 ]
 

@@ -5,7 +5,6 @@ edition = "2024"
 publish = false
 
 [dependencies]
-axum.workspace = true
 nidus = { path = "../../crates/nidus", version = "0.1.0" }
 tokio.workspace = true
 

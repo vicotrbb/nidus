@@ -9,7 +9,6 @@ publish = false
 axum.workspace = true
 nidus = { path = "../../crates/nidus" }
 serde.workspace = true
-serde_json.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]

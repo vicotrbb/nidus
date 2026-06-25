@@ -180,3 +180,54 @@ Tradeoff:
 - The request-scoped route benchmark shows a measured regression for the
   request-scoped initialization path. This is an accepted correctness tradeoff
   for this round, but it should stay visible as a future optimization target.
+
+## Round 2 - Unused Dependency Cleanup
+
+Hypothesis:
+
+- The baseline `cargo machete` findings are real unused direct dependencies.
+- Removing confirmed-unused manifest entries should improve dependency hygiene
+  without changing public behavior or benchmark-relevant code paths.
+
+Inspection:
+
+- Source search confirmed these direct dependencies were not referenced by their
+  owning crates:
+  - `crates/nidus-openapi/Cargo.toml`: `serde`
+  - `crates/nidus-events/Cargo.toml`: `tokio`
+  - `crates/nidus-core/Cargo.toml`: `trybuild`
+  - `examples/hello-world/Cargo.toml`: `axum`
+  - `examples/production-api/Cargo.toml`: `serde_json`
+  - `examples/realworld-api/Cargo.toml`: `nidus-openapi`, `tower-http`,
+    `tracing-subscriber`
+  - `examples/rest-api/Cargo.toml`: `axum`
+- Similar crates that are genuinely used remain declared where needed. For
+  example, `examples/production-api` still uses `axum`, `examples/realworld-api`
+  still uses `axum`, `serde`, `serde_json`, and `tracing`, and `nidus-core`
+  tests still use `tracing-subscriber`.
+
+Implementation:
+
+- Removed only the confirmed-unused direct dependency entries from crate and
+  example manifests.
+- Let Cargo update `Cargo.lock` through normal verification.
+
+Verification:
+
+| Command | Result | Notes |
+| --- | --- | --- |
+| `cargo machete` | PASS | No unused dependencies found after cleanup. |
+| `git diff --check` | PASS | No whitespace errors. |
+| `cargo fmt --all --check` | PASS | No formatting drift. |
+| `cargo clippy --workspace --all-targets --all-features -- -D warnings` | PASS | Full workspace clippy passed after cleanup. |
+| `cargo test --workspace --all-features` | PASS | Full workspace tests, examples, trybuild tests, and doc tests passed. |
+| `RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --no-deps` | PASS | Workspace docs built without warnings. |
+| `cargo deny check` | PASS | `advisories ok, bans ok, licenses ok, sources ok`. |
+| `cargo audit` | PASS with warning | Same allowed `RUSTSEC-2026-0173` unmaintained `proc-macro-error2 2.0.1` warning. |
+
+Caveat:
+
+- The first post-cleanup verification attempt failed with `No space left on
+  device` while Cargo was creating a target fingerprint. The repo-local
+  `target/` directory was `9.8 GiB`; `cargo clean` removed rebuildable artifacts
+  (`11.8 GiB`) and verification was rerun successfully.

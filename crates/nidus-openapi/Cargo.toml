@@ -10,7 +10,6 @@ rust-version.workspace = true
 [dependencies]
 axum.workspace = true
 nidus-http = { path = "../nidus-http", version = "0.1.0" }
-serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 utoipa.workspace = true
