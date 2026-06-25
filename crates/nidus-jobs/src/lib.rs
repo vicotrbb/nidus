@@ -15,6 +15,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+use futures_util::FutureExt;
+
 /// Synchronous job abstraction for lightweight background work.
 ///
 /// Implement this for short local jobs that can run on the calling thread. Use
@@ -399,11 +401,15 @@ impl AsyncJobQueue {
         let mut completed = Vec::with_capacity(self.jobs.len());
         let mut failed = Vec::new();
         for job in &self.jobs {
-            match job.run().await {
-                Ok(()) => completed.push(job.name()),
-                Err(error) => failed.push(JobFailure {
+            match AssertUnwindSafe(job.run()).catch_unwind().await {
+                Ok(Ok(())) => completed.push(job.name()),
+                Ok(Err(error)) => failed.push(JobFailure {
                     job: job.name(),
                     error,
+                }),
+                Err(_) => failed.push(JobFailure {
+                    job: job.name(),
+                    error: JobError::new("job panicked"),
                 }),
             }
         }

@@ -411,5 +411,46 @@ Focused verification:
 Tradeoff:
 
 - Panic payload details are intentionally not exposed through `JobError`.
-- This round covers the synchronous queue path only; async job panic containment
-  remains out of scope without changing the async execution model.
+- This round covers the synchronous queue path; async queue containment is
+  handled separately in Round 7.
+
+## Round 7 - Async Job Queue Panic Handling
+
+Hypothesis:
+
+- `AsyncJobQueue::run_all` has the same "every job is attempted" contract as
+  the synchronous queue, but a panicking async job escapes the queue and prevents
+  later async jobs from running.
+- Async panics should be reported with the same stable `JobError` message used
+  by the synchronous queue.
+
+Test added before implementation:
+
+- `async_job_queue_reports_panics_and_continues_running`
+
+Red evidence:
+
+- `cargo test -p nidus-jobs --test jobs async_job_queue_reports_panics_and_continues_running`
+  failed as expected because the `async job panic` escaped `run_all`.
+
+Implementation:
+
+- Added `futures-util` as a direct workspace dependency for
+  `FutureExt::catch_unwind`.
+- Wrapped each async job future in `AssertUnwindSafe(...).catch_unwind().await`.
+- Converted panic payloads into `JobError::new("job panicked")`.
+- Preserved existing returned-error behavior and insertion-order execution.
+
+Focused verification:
+
+| Command | Result | Notes |
+| --- | --- | --- |
+| `cargo test -p nidus-jobs --test jobs async_job_queue_reports_panics_and_continues_running` | PASS | Panicking async job is reported as failed and the later async job runs. |
+| `cargo test -p nidus-jobs` | PASS | Sync and async job queue tests pass. |
+
+Tradeoff:
+
+- `futures-util` is now an intentional direct dependency of `nidus-jobs`; it was
+  already present transitively in the workspace lockfile.
+- Panic payload details remain intentionally hidden behind stable `JobError`
+  text.

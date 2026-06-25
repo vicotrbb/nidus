@@ -78,6 +78,7 @@ async-trait = "0.1"
 axum = "0.8"
 clap = { version = "4", features = ["derive"] }
 criterion = "0.7"
+futures-util = "0.3"
 http = "1"
 insta = "1"
 nidus-core = { path = "crates/nidus-core", version = "0.1.0" }
