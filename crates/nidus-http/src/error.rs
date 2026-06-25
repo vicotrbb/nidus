@@ -178,6 +178,9 @@ struct ErrorDetails {
 /// wrapped. Extra fields under `error` are preserved as `details` for non-5xx
 /// responses. For all 5xx responses, the client-facing message is masked to
 /// `"internal server error"` and `details` is set to `null`.
+/// Error bodies larger than 64 KiB are not parsed as legacy JSON; oversized
+/// bodies are replaced with the status-derived envelope to avoid unbounded
+/// buffering.
 ///
 /// When [`crate::context::RequestContext`] is present, its request ID is copied
 /// into `error.requestId`; otherwise that field is an empty string. Install the
@@ -244,8 +247,7 @@ async fn envelope_response(
 ) -> axum::response::Response {
     let (mut parts, body) = response.into_parts();
     let status = parts.status;
-    let bytes = to_bytes(body, usize::MAX).await.unwrap_or_default();
-    let extracted = serde_json::from_slice::<LegacyErrorBody>(&bytes).ok();
+    let extracted = read_legacy_error_body(body).await;
     let code = extracted
         .as_ref()
         .map(|body| body.error.code.clone())
@@ -296,6 +298,13 @@ async fn envelope_response(
         http::HeaderValue::from_static("application/json"),
     );
     axum::response::Response::from_parts(parts, Body::from(body))
+}
+
+const MAX_ERROR_ENVELOPE_BODY_BYTES: usize = 64 * 1024;
+
+async fn read_legacy_error_body(body: Body) -> Option<LegacyErrorBody> {
+    let bytes = to_bytes(body, MAX_ERROR_ENVELOPE_BODY_BYTES).await.ok()?;
+    serde_json::from_slice::<LegacyErrorBody>(&bytes).ok()
 }
 
 /// Returns the current UTC timestamp formatted as RFC3339.

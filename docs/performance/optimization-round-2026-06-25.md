@@ -293,3 +293,45 @@ Tradeoff:
 - Metrics duration memory is now bounded per method/route/status label set.
 - Rendering emits bucket series in addition to count/sum, increasing metrics
   text size by design.
+
+## Round 4 - Bounded Error Envelope Body Reads
+
+Hypothesis:
+
+- `ErrorEnvelopeLayer` reads error response bodies with `usize::MAX`, so a large
+  4xx/5xx body can be buffered before wrapping.
+- Capping legacy body parsing preserves normal envelope behavior while avoiding
+  unbounded buffering for oversized bodies.
+
+Test added before implementation:
+
+- `error_envelope_skips_oversized_legacy_error_bodies`
+
+Red evidence:
+
+- `cargo test -p nidus-http --test production_api error_envelope_skips_oversized_legacy_error_bodies`
+  failed as expected because a 128 KiB legacy-shaped JSON body was fully parsed
+  and surfaced as `oversized_legacy`.
+
+Implementation:
+
+- Added a 64 KiB maximum body size for legacy error-body parsing.
+- Oversized or unreadable bodies are treated as non-legacy bodies, producing the
+  status-derived envelope code and message.
+- Documented the cap on `ErrorEnvelopeLayer`.
+- Existing 5xx sanitization behavior remains unchanged.
+
+Focused verification:
+
+| Command | Result | Notes |
+| --- | --- | --- |
+| `cargo test -p nidus-http --test production_api error_envelope_skips_oversized_legacy_error_bodies` | PASS | Oversized legacy-shaped body now falls back to `bad_request` / `Bad Request`. |
+| `cargo test -p nidus-http` | PASS | All `nidus-http` tests and doc tests passed. |
+| `cargo fmt --all --check` | PASS | No formatting drift. |
+| `cargo clippy -p nidus-http --all-targets --all-features -- -D warnings` | PASS | Focused clippy gate passed. |
+
+Tradeoff:
+
+- Legacy JSON error bodies larger than 64 KiB are no longer parsed for client
+  error code/message/details preservation. This is intentional to avoid
+  unbounded buffering; normal small legacy error bodies are unchanged.

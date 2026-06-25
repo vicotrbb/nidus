@@ -162,6 +162,43 @@ async fn error_envelope_includes_request_id_path_and_timestamp() {
 }
 
 #[tokio::test]
+async fn error_envelope_skips_oversized_legacy_error_bodies() {
+    let oversized_message = "x".repeat(128 * 1024);
+    let oversized_body = serde_json::to_string(&json!({
+        "error": {
+            "code": "oversized_legacy",
+            "message": oversized_message,
+        }
+    }))
+    .unwrap();
+    let service = ServiceBuilder::new()
+        .layer(ErrorEnvelopeLayer::new())
+        .service(service_fn(move |_request: Request<Body>| {
+            let oversized_body = oversized_body.clone();
+            async move {
+                Ok::<_, Infallible>(
+                    Response::builder()
+                        .status(StatusCode::BAD_REQUEST)
+                        .body(Body::from(oversized_body))
+                        .unwrap(),
+                )
+            }
+        }));
+
+    let response = service
+        .oneshot(Request::builder().uri("/huge").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = response_json(response).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(body["error"]["code"], "bad_request");
+    assert_eq!(body["error"]["message"], "Bad Request");
+    assert_eq!(body["error"]["path"], "/huge");
+}
+
+#[tokio::test]
 async fn health_registry_runs_ready_checks_in_parallel_and_controls_details() {
     let registry = HealthRegistry::new()
         .live_check_sync("process", HealthStatus::up)
