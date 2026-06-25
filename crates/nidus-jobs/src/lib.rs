@@ -10,6 +10,7 @@ use std::{
     collections::BTreeMap,
     error::Error,
     fmt,
+    panic::{AssertUnwindSafe, catch_unwind},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -340,11 +341,15 @@ impl JobQueue {
         let mut completed = Vec::with_capacity(self.jobs.len());
         let mut failed = Vec::new();
         for job in &self.jobs {
-            match job.run() {
-                Ok(()) => completed.push(job.name()),
-                Err(error) => failed.push(JobFailure {
+            match catch_unwind(AssertUnwindSafe(|| job.run())) {
+                Ok(Ok(())) => completed.push(job.name()),
+                Ok(Err(error)) => failed.push(JobFailure {
                     job: job.name(),
                     error,
+                }),
+                Err(_) => failed.push(JobFailure {
+                    job: job.name(),
+                    error: JobError::new("job panicked"),
                 }),
             }
         }

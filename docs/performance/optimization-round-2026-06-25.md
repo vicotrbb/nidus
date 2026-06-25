@@ -375,3 +375,41 @@ Tradeoff:
 
 - Panic payload details are intentionally not exposed in health responses; the
   client-facing message is stable and non-sensitive.
+
+## Round 6 - Sync Job Queue Panic Handling
+
+Hypothesis:
+
+- `JobQueue::run_all` documents that every job is attempted and failures are
+  collected, but a panicking synchronous job escapes the queue and prevents
+  later jobs from running.
+- Panics in synchronous jobs should be reported as deterministic failures so
+  queue execution can continue.
+
+Test added before implementation:
+
+- `job_queue_reports_panics_and_continues_running`
+
+Red evidence:
+
+- `cargo test -p nidus-jobs --test jobs job_queue_reports_panics_and_continues_running`
+  failed as expected because the `job panic` escaped `run_all`.
+
+Implementation:
+
+- Wrapped synchronous `Job::run` calls in `catch_unwind(AssertUnwindSafe(...))`.
+- Converted panic payloads into `JobError::new("job panicked")`.
+- Preserved existing returned-error behavior and insertion-order execution.
+
+Focused verification:
+
+| Command | Result | Notes |
+| --- | --- | --- |
+| `cargo test -p nidus-jobs --test jobs job_queue_reports_panics_and_continues_running` | PASS | Panicking sync job is reported as failed and the later job runs. |
+| `cargo test -p nidus-jobs` | PASS | All `nidus-jobs` tests and doc tests passed. |
+
+Tradeoff:
+
+- Panic payload details are intentionally not exposed through `JobError`.
+- This round covers the synchronous queue path only; async job panic containment
+  remains out of scope without changing the async execution model.

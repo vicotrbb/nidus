@@ -8,6 +8,7 @@ struct RecordJob(Arc<Mutex<Vec<&'static str>>>);
 struct AsyncRecordJob(Arc<Mutex<Vec<&'static str>>>);
 struct FailingJob;
 struct AsyncFailingJob;
+struct PanickingJob;
 
 impl Job for RecordJob {
     fn name(&self) -> &'static str {
@@ -27,6 +28,16 @@ impl Job for FailingJob {
 
     fn run(&self) -> nidus_jobs::Result<()> {
         Err(JobError::new("job failed"))
+    }
+}
+
+impl Job for PanickingJob {
+    fn name(&self) -> &'static str {
+        "panic"
+    }
+
+    fn run(&self) -> nidus_jobs::Result<()> {
+        panic!("job panic")
     }
 }
 
@@ -85,6 +96,23 @@ fn job_queue_reports_failures_and_continues_running() {
     assert_eq!(report.failed().len(), 1);
     assert_eq!(report.failed()[0].job(), "fail");
     assert_eq!(report.failed()[0].error().message(), "job failed");
+    assert!(!report.is_success());
+    assert_eq!(*records.lock().unwrap(), ["ran"]);
+}
+
+#[test]
+fn job_queue_reports_panics_and_continues_running() {
+    let records = Arc::new(Mutex::new(Vec::new()));
+    let mut queue = JobQueue::new();
+    queue.push(PanickingJob);
+    queue.push(RecordJob(Arc::clone(&records)));
+
+    let report = queue.run_all();
+
+    assert_eq!(report.completed(), ["record"]);
+    assert_eq!(report.failed().len(), 1);
+    assert_eq!(report.failed()[0].job(), "panic");
+    assert_eq!(report.failed()[0].error().message(), "job panicked");
     assert!(!report.is_success());
     assert_eq!(*records.lock().unwrap(), ["ran"]);
 }
