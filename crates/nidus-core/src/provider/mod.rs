@@ -1,11 +1,11 @@
 //! Provider registration primitives.
 
 use std::{
-    any::Any,
+    any::{Any, TypeId},
     sync::{Arc, Condvar, Mutex, MutexGuard},
 };
 
-use crate::{Container, NidusError, RequestScope, Result};
+use crate::{Container, NidusError, RequestScope, Result, resolution};
 
 /// Provider creation and reuse strategy.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -30,6 +30,7 @@ type RequestProviderFactory =
 
 /// A typed provider registration stored by the container.
 pub struct ProviderEntry {
+    type_id: TypeId,
     type_name: &'static str,
     lifetime: ProviderLifetime,
     factory: Arc<ProviderFactory>,
@@ -47,11 +48,13 @@ enum SingletonState {
 impl ProviderEntry {
     /// Creates a provider entry from an erased factory.
     pub fn new(
+        type_id: TypeId,
         type_name: &'static str,
         lifetime: ProviderLifetime,
         factory: Arc<ProviderFactory>,
     ) -> Self {
         Self {
+            type_id,
             type_name,
             lifetime,
             factory,
@@ -63,11 +66,13 @@ impl ProviderEntry {
 
     /// Creates a request-scoped provider entry from an erased request-scope factory.
     pub fn new_request_scoped(
+        type_id: TypeId,
         type_name: &'static str,
         factory: Arc<ProviderFactory>,
         request_factory: Arc<RequestProviderFactory>,
     ) -> Self {
         Self {
+            type_id,
             type_name,
             lifetime: ProviderLifetime::Request,
             factory,
@@ -121,9 +126,15 @@ impl ProviderEntry {
             match &*singleton {
                 SingletonState::Ready(instance) => return Ok(Arc::clone(instance)),
                 SingletonState::Initializing => {
+                    if resolution::is_active(self.type_id) {
+                        return Err(NidusError::CircularProviderResolution {
+                            type_name: self.type_name,
+                        });
+                    }
                     drop(wait_unpoisoned(&self.singleton_ready, singleton));
                 }
                 SingletonState::Empty => {
+                    let _guard = resolution::enter(self.type_id, self.type_name)?;
                     *singleton = SingletonState::Initializing;
                     drop(singleton);
 
@@ -184,6 +195,7 @@ mod tests {
     #[test]
     fn singleton_provider_recovers_from_poisoned_cache() {
         let provider = Arc::new(ProviderEntry::new(
+            std::any::TypeId::of::<String>(),
             type_name::<String>(),
             ProviderLifetime::Singleton,
             Arc::new(|_container| Ok(Arc::new("ready".to_owned()) as Arc<dyn Any + Send + Sync>)),

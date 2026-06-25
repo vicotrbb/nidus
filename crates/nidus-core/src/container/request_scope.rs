@@ -1,10 +1,12 @@
 use std::{
-    any::{Any, TypeId},
+    any::{Any, TypeId, type_name},
     collections::HashMap,
     sync::{Arc, Condvar, Mutex, MutexGuard},
 };
 
-use crate::{Container, Inject, NidusError, Optional, ProviderLifetime, Result, Scoped};
+use crate::{
+    Container, Inject, NidusError, Optional, ProviderLifetime, Result, Scoped, resolution,
+};
 
 use super::downcast;
 
@@ -61,7 +63,9 @@ impl RequestScope<'_> {
         let erased = match entry.lifetime() {
             ProviderLifetime::Request => {
                 let type_id = TypeId::of::<T>();
-                self.resolve_request_instance(type_id, || entry.resolve_erased_in_scope(self))?
+                self.resolve_request_instance(type_id, type_name::<T>(), || {
+                    entry.resolve_erased_in_scope(self)
+                })?
             }
             ProviderLifetime::Singleton | ProviderLifetime::Transient => {
                 entry.resolve_erased(self.container())?
@@ -105,6 +109,7 @@ impl RequestScope<'_> {
     fn resolve_request_instance(
         &self,
         type_id: TypeId,
+        type_name: &'static str,
         create: impl FnOnce() -> Result<Arc<dyn Any + Send + Sync>>,
     ) -> Result<Arc<dyn Any + Send + Sync>> {
         let mut create = Some(create);
@@ -113,9 +118,13 @@ impl RequestScope<'_> {
             match instances.get(&type_id) {
                 Some(RequestInstanceState::Ready(instance)) => return Ok(Arc::clone(instance)),
                 Some(RequestInstanceState::Initializing) => {
+                    if resolution::is_active(type_id) {
+                        return Err(NidusError::CircularProviderResolution { type_name });
+                    }
                     drop(wait_unpoisoned(&self.request_instance_ready, instances));
                 }
                 None => {
+                    let _guard = resolution::enter(type_id, type_name)?;
                     instances.insert(type_id, RequestInstanceState::Initializing);
                     drop(instances);
 

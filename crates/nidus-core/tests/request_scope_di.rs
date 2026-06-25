@@ -1,8 +1,12 @@
-use std::sync::{
-    Arc, Barrier,
-    atomic::{AtomicUsize, Ordering},
+use std::{
+    any::type_name,
+    sync::{
+        Arc, Barrier,
+        atomic::{AtomicUsize, Ordering},
+    },
+    thread,
+    time::Duration,
 };
-use std::{thread, time::Duration};
 
 use nidus_core::{Container, Inject, NidusError, ProviderLifetime};
 
@@ -12,6 +16,19 @@ struct Database(&'static str);
 #[derive(Debug)]
 struct UsersRepository {
     database: Inject<Database>,
+}
+
+#[derive(Debug)]
+struct SelfReferential;
+
+#[derive(Debug)]
+struct CircularA {
+    _b: Inject<CircularB>,
+}
+
+#[derive(Debug)]
+struct CircularB {
+    _a: Inject<CircularA>,
 }
 
 #[test]
@@ -79,6 +96,46 @@ fn request_factory_runs_once_under_concurrent_first_resolution_in_scope() {
         assert!(Arc::ptr_eq(&instances[0], instance));
     }
     assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn request_scope_reports_self_circular_resolution() {
+    let mut container = Container::new();
+    container
+        .register_request_scoped::<SelfReferential, _>(|scope| {
+            let _self_reference = scope.inject::<SelfReferential>()?;
+            Ok(SelfReferential)
+        })
+        .unwrap();
+    let scope = container.request_scope();
+
+    let error = scope.resolve::<SelfReferential>().unwrap_err();
+
+    assert_circular_provider_error(error, type_name::<SelfReferential>());
+}
+
+#[test]
+fn request_scope_reports_indirect_circular_resolution() {
+    let mut container = Container::new();
+    container
+        .register_request_scoped::<CircularA, _>(|scope| {
+            Ok(CircularA {
+                _b: scope.inject::<CircularB>()?,
+            })
+        })
+        .unwrap();
+    container
+        .register_request_scoped::<CircularB, _>(|scope| {
+            Ok(CircularB {
+                _a: scope.inject::<CircularA>()?,
+            })
+        })
+        .unwrap();
+    let scope = container.request_scope();
+
+    let error = scope.resolve::<CircularA>().unwrap_err();
+
+    assert_circular_provider_error(error, type_name::<CircularA>());
 }
 
 #[test]
@@ -161,4 +218,16 @@ fn request_factories_require_explicit_request_scope() {
 
     assert!(matches!(error, NidusError::RequestScopeRequired { .. }));
     assert!(error.to_string().contains("Database"));
+}
+
+fn assert_circular_provider_error(error: NidusError, expected_type_name: &'static str) {
+    match error {
+        NidusError::ProviderFactory { source, .. } => {
+            assert_circular_provider_error(*source, expected_type_name);
+        }
+        NidusError::CircularProviderResolution { type_name } => {
+            assert_eq!(type_name, expected_type_name);
+        }
+        error => panic!("expected circular provider resolution error, got {error:?}"),
+    }
 }

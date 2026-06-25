@@ -161,7 +161,7 @@ impl Container {
 
         self.providers.insert(
             type_id,
-            ProviderEntry::new(type_name::<T>(), lifetime, Arc::new(factory)),
+            ProviderEntry::new(type_id, type_name::<T>(), lifetime, Arc::new(factory)),
         );
         Ok(())
     }
@@ -189,6 +189,7 @@ impl Container {
         self.providers.insert(
             type_id,
             ProviderEntry::new_request_scoped(
+                type_id,
                 type_name::<T>(),
                 Arc::new(factory),
                 Arc::new(request_factory),

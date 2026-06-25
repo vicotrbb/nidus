@@ -27,6 +27,13 @@ pub enum NidusError {
         type_name: &'static str,
     },
 
+    /// A provider factory recursively requested a provider already being built.
+    #[error("circular provider resolution detected for type `{type_name}`")]
+    CircularProviderResolution {
+        /// Rust type name that was requested recursively.
+        type_name: &'static str,
+    },
+
     /// A module was registered more than once with the same name.
     #[error("duplicate module `{module}`")]
     DuplicateModule {

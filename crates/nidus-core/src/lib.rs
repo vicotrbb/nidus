@@ -8,6 +8,7 @@ pub mod error;
 pub mod lifecycle;
 pub mod module;
 pub mod provider;
+mod resolution;
 
 pub use app::{Application, Nidus};
 pub use container::{

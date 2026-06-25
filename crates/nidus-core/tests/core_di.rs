@@ -1,8 +1,12 @@
-use std::sync::{
-    Arc, Barrier,
-    atomic::{AtomicUsize, Ordering},
+use std::{
+    any::type_name,
+    sync::{
+        Arc, Barrier,
+        atomic::{AtomicUsize, Ordering},
+    },
+    thread,
+    time::Duration,
 };
-use std::{thread, time::Duration};
 
 use nidus_core::{Container, Factory, Inject, Lazy, NidusError, ProviderLifetime};
 
@@ -12,6 +16,19 @@ struct Database(&'static str);
 #[derive(Debug)]
 struct UsersRepository {
     database: Inject<Database>,
+}
+
+#[derive(Debug)]
+struct SelfReferential;
+
+#[derive(Debug)]
+struct CircularA {
+    _b: Inject<CircularB>,
+}
+
+#[derive(Debug)]
+struct CircularB {
+    _a: Inject<CircularA>,
 }
 
 #[test]
@@ -191,6 +208,44 @@ fn singleton_factory_runs_once_under_concurrent_first_resolution() {
 }
 
 #[test]
+fn singleton_factory_reports_self_circular_resolution() {
+    let mut container = Container::new();
+    container
+        .register_singleton_factory::<SelfReferential, _>(|container| {
+            let _self_reference = container.inject::<SelfReferential>()?;
+            Ok(SelfReferential)
+        })
+        .unwrap();
+
+    let error = container.resolve::<SelfReferential>().unwrap_err();
+
+    assert_circular_provider_error(error, type_name::<SelfReferential>());
+}
+
+#[test]
+fn singleton_factory_reports_indirect_circular_resolution() {
+    let mut container = Container::new();
+    container
+        .register_singleton_factory::<CircularA, _>(|container| {
+            Ok(CircularA {
+                _b: container.inject::<CircularB>()?,
+            })
+        })
+        .unwrap();
+    container
+        .register_singleton_factory::<CircularB, _>(|container| {
+            Ok(CircularB {
+                _a: container.inject::<CircularA>()?,
+            })
+        })
+        .unwrap();
+
+    let error = container.resolve::<CircularA>().unwrap_err();
+
+    assert_circular_provider_error(error, type_name::<CircularA>());
+}
+
+#[test]
 fn transient_factories_create_each_resolution() {
     let calls = Arc::new(AtomicUsize::new(0));
     let mut container = Container::new();
@@ -251,4 +306,16 @@ fn provider_factory_errors_include_provider_context() {
     assert!(type_name.contains("UsersRepository"));
     assert!(matches!(*source, NidusError::MissingProvider { .. }));
     assert!(source.to_string().contains("Database"));
+}
+
+fn assert_circular_provider_error(error: NidusError, expected_type_name: &'static str) {
+    match error {
+        NidusError::ProviderFactory { source, .. } => {
+            assert_circular_provider_error(*source, expected_type_name);
+        }
+        NidusError::CircularProviderResolution { type_name } => {
+            assert_eq!(type_name, expected_type_name);
+        }
+        error => panic!("expected circular provider resolution error, got {error:?}"),
+    }
 }
