@@ -36,7 +36,11 @@ let app = router.layer(validated_request_id_layer(
 
 Use `RequestIdMode::Permissive` to replace malformed incoming values instead of
 rejecting them. `RequestIdConfig::header_name(...)` and
-`RequestIdConfig::generator(...)` customize the boundary.
+`RequestIdConfig::generator(...)` customize the boundary. Custom generators must
+return values that can be stored in HTTP headers. If a generator returns an
+invalid header value, the validated middleware returns a structured
+`500 Internal Server Error` with code `invalid_generated_request_id` before the
+request reaches the handler.
 
 `request_context_layer()` attaches `RequestContext` to request extensions and
 makes it extractable by handlers. The context carries request ID, correlation

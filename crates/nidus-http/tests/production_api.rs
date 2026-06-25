@@ -1,4 +1,11 @@
-use std::{convert::Infallible, time::Duration};
+use std::{
+    convert::Infallible,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
+    time::Duration,
+};
 
 use axum::{
     Json, Router,
@@ -121,6 +128,68 @@ async fn permissive_request_id_policy_replaces_malformed_ids() {
 
     assert_ne!(header, HeaderValue::from_static("bad"));
     assert_eq!(body.as_ref(), header.to_str().unwrap().as_bytes());
+}
+
+#[tokio::test]
+async fn generated_request_id_rejects_invalid_header_values_without_calling_inner_service() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let service = ServiceBuilder::new()
+        .layer(validated_request_id_layer(
+            RequestIdConfig::production().generator(|| "bad\nrequest-id".to_owned()),
+        ))
+        .service(service_fn({
+            let calls = Arc::clone(&calls);
+            move |_request: Request<Body>| {
+                let calls = Arc::clone(&calls);
+                async move {
+                    calls.fetch_add(1, Ordering::SeqCst);
+                    Ok::<_, Infallible>(Response::new(Body::from("unreached")))
+                }
+            }
+        }));
+
+    let response = service
+        .oneshot(
+            Request::builder()
+                .uri("/missing")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = response_json(response).await;
+
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    assert_eq!(body["error"]["code"], "invalid_generated_request_id");
+    assert_eq!(body["error"]["path"], "/missing");
+}
+
+#[tokio::test]
+async fn strict_request_id_rejection_handles_invalid_generated_error_ids() {
+    let app = Router::new()
+        .route("/", get(|| async { "unreached" }))
+        .layer(validated_request_id_layer(
+            RequestIdConfig::production().generator(|| "bad\nrequest-id".to_owned()),
+        ));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/strict")
+                .header("x-request-id", "not-a-uuid")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = response_json(response).await;
+
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(body["error"]["code"], "invalid_generated_request_id");
+    assert_eq!(body["error"]["path"], "/strict");
 }
 
 #[tokio::test]

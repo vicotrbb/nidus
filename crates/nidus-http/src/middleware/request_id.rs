@@ -114,7 +114,11 @@ pub type RequestIdPolicy = RequestIdMode;
 /// The default production config uses the `x-request-id` header, strict inbound
 /// validation, and UUID v4 generation. Custom generators are accepted, but their
 /// output must be a valid HTTP header value because generated IDs are inserted
-/// into request headers, request extensions, and response headers.
+/// into request headers, request extensions, and response headers. If a custom
+/// generator returns an invalid header value, the middleware returns a stable
+/// `500 Internal Server Error` response with code
+/// `invalid_generated_request_id` instead of panicking or calling the inner
+/// service.
 #[derive(Clone)]
 pub struct RequestIdConfig {
     header_name: HeaderName,
@@ -177,7 +181,8 @@ impl RequestIdConfig {
     /// [`RequestIdConfig::production`] and [`RequestIdConfig::development`] use
     /// UUID v4 strings. If you provide a custom generator, keep it deterministic
     /// enough for your tests and ensure it returns values that can be stored in
-    /// an HTTP header.
+    /// an HTTP header. Invalid generated header values return a structured
+    /// framework error response before the request reaches the inner service.
     pub fn generator(mut self, generator: impl Fn() -> String + Send + Sync + 'static) -> Self {
         self.generator = Arc::new(generator);
         self
@@ -294,20 +299,49 @@ where
         let request_id = match incoming {
             Some(value) if is_valid_request_id(&value) => value,
             Some(_) if config.validation_mode() == RequestIdMode::Strict => {
-                let request_id = config.generate();
+                let (request_id, header_value) = match generated_request_id_header(&config) {
+                    Some(generated) => generated,
+                    None => {
+                        return Box::pin(async move {
+                            Ok(invalid_generated_request_id_response(parts.uri.path()))
+                        });
+                    }
+                };
                 let mut response = invalid_request_id_response(&request_id, parts.uri.path());
-                response.headers_mut().insert(
-                    config.header().clone(),
-                    HeaderValue::from_str(&request_id)
-                        .expect("generated request id must be a valid header value"),
-                );
+                response
+                    .headers_mut()
+                    .insert(config.header().clone(), header_value);
                 return Box::pin(async move { Ok(response) });
             }
-            Some(_) | None => config.generate(),
+            Some(_) | None => {
+                let (request_id, header_value) = match generated_request_id_header(&config) {
+                    Some(generated) => generated,
+                    None => {
+                        return Box::pin(async move {
+                            Ok(invalid_generated_request_id_response(parts.uri.path()))
+                        });
+                    }
+                };
+                parts
+                    .headers
+                    .insert(config.header().clone(), header_value.clone());
+                let context = RequestContext::from_parts(&parts, request_id.clone());
+                parts.extensions.insert(context);
+                let future = self.inner.call(Request::from_parts(parts, body));
+
+                return Box::pin(async move {
+                    let mut response = future.await?;
+                    response
+                        .headers_mut()
+                        .entry(config.header().clone())
+                        .or_insert(header_value);
+                    Ok(response)
+                });
+            }
         };
 
-        let header_value =
-            HeaderValue::from_str(&request_id).expect("request id must be a valid header value");
+        let header_value = HeaderValue::from_str(&request_id)
+            .unwrap_or_else(|_| unreachable!("accepted inbound request id came from a header"));
         parts
             .headers
             .insert(config.header().clone(), header_value.clone());
@@ -324,6 +358,12 @@ where
             Ok(response)
         })
     }
+}
+
+fn generated_request_id_header(config: &RequestIdConfig) -> Option<(String, HeaderValue)> {
+    let request_id = config.generate();
+    let header_value = HeaderValue::from_str(&request_id).ok()?;
+    Some((request_id, header_value))
 }
 
 fn is_valid_request_id(value: &str) -> bool {
@@ -345,7 +385,26 @@ fn invalid_request_id_response(request_id: &str, path: &str) -> Response<Body> {
                 details: serde_json::Value::Null,
                 timestamp,
                 path: path.to_owned(),
-                request_id: request_id.to_owned(),
+                request_id: Some(request_id.to_owned()),
+            },
+        }),
+    )
+        .into_response()
+}
+
+fn invalid_generated_request_id_response(path: &str) -> Response<Body> {
+    let timestamp = crate::error::timestamp_now();
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        axum::Json(RequestIdErrorBody {
+            error: RequestIdErrorDetails {
+                status_code: StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
+                code: "invalid_generated_request_id",
+                message: "generated request id was not a valid HTTP header value",
+                details: serde_json::Value::Null,
+                timestamp,
+                path: path.to_owned(),
+                request_id: None,
             },
         }),
     )
@@ -366,5 +425,6 @@ struct RequestIdErrorDetails {
     details: serde_json::Value,
     timestamp: String,
     path: String,
-    request_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    request_id: Option<String>,
 }
