@@ -199,17 +199,29 @@ impl HealthRegistry {
         let mut handles = Vec::with_capacity(checks.len());
         for check in checks {
             let timeout_duration = self.timeout;
-            handles.push(tokio::spawn(async move {
+            let name = check.name.clone();
+            let handle = tokio::spawn(async move {
                 let result = timeout(timeout_duration, (check.check)()).await;
                 let status = result.unwrap_or_else(|_| HealthStatus::down("check timed out"));
                 (check.name, status)
-            }));
+            });
+            handles.push((name, handle));
         }
 
         let mut body_checks = BTreeMap::new();
         let mut all_up = true;
-        for handle in handles {
-            let (name, status) = handle.await.expect("health check task should join");
+        for (name, handle) in handles {
+            let (name, status) = match handle.await {
+                Ok(result) => result,
+                Err(error) => {
+                    let message = if error.is_panic() {
+                        "check panicked"
+                    } else {
+                        "check join failed"
+                    };
+                    (name, HealthStatus::down(message))
+                }
+            };
             all_up &= status.is_up();
             body_checks.insert(
                 name,

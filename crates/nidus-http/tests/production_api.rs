@@ -239,6 +239,31 @@ async fn health_registry_runs_ready_checks_in_parallel_and_controls_details() {
 }
 
 #[tokio::test]
+async fn health_registry_reports_panicking_checks_as_down() {
+    let registry = HealthRegistry::new()
+        .ready_check_sync("cache", || panic!("cache client panicked"))
+        .timeout(Duration::from_secs(1));
+    let app = Router::new().merge(registry.routes());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/health/ready")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = response_json(response).await;
+
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(body["status"], "down");
+    assert_eq!(body["checks"]["cache"]["status"], "down");
+    assert_eq!(body["checks"]["cache"]["message"], "check panicked");
+}
+
+#[tokio::test]
 async fn prometheus_metrics_uses_matched_routes_and_excludes_internal_paths() {
     let metrics = PrometheusMetrics::new().exclude_route("/metrics");
     let app = Router::new()

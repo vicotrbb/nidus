@@ -335,3 +335,43 @@ Tradeoff:
 - Legacy JSON error bodies larger than 64 KiB are no longer parsed for client
   error code/message/details preservation. This is intentional to avoid
   unbounded buffering; normal small legacy error bodies are unchanged.
+
+## Round 5 - Health Check Panic Handling
+
+Hypothesis:
+
+- Health checks run in spawned tasks, but `HealthRegistry` unwraps task joins
+  with `expect`, so a panicking check can panic the health route instead of
+  reporting the check as down.
+- Join failures should be converted into a deterministic down check result.
+
+Test added before implementation:
+
+- `health_registry_reports_panicking_checks_as_down`
+
+Red evidence:
+
+- `cargo test -p nidus-http --test production_api health_registry_reports_panicking_checks_as_down`
+  failed as expected: the check panicked and `run_checks` panicked again on
+  `health check task should join`.
+
+Implementation:
+
+- Preserved each check name outside its spawned task.
+- Converted `JoinError::is_panic()` into `HealthStatus::down("check panicked")`.
+- Converted other join errors into `HealthStatus::down("check join failed")`.
+- Existing timeout behavior remains `HealthStatus::down("check timed out")`.
+
+Focused verification:
+
+| Command | Result | Notes |
+| --- | --- | --- |
+| `cargo test -p nidus-http --test production_api health_registry_reports_panicking_checks_as_down` | PASS | Panicking check now returns `503` with check status `down`. |
+| `cargo test -p nidus-http` | PASS | All `nidus-http` tests and doc tests passed. |
+| `cargo fmt --all --check` | PASS | No formatting drift. |
+| `cargo clippy -p nidus-http --all-targets --all-features -- -D warnings` | PASS | Focused clippy gate passed. |
+
+Tradeoff:
+
+- Panic payload details are intentionally not exposed in health responses; the
+  client-facing message is stable and non-sensitive.
