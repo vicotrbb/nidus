@@ -130,78 +130,15 @@ impl PrometheusMetrics {
     /// `nidus_http_request_duration_seconds_sum`,
     /// `nidus_http_in_flight_requests`, and `nidus_http_errors_total`.
     pub fn render(&self) -> String {
-        let state = self
-            .state
+        let state = self.snapshot();
+        render_prometheus(&state)
+    }
+
+    fn snapshot(&self) -> PrometheusState {
+        self.state
             .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let mut output = String::new();
-        output.push_str("# TYPE nidus_http_requests_total counter\n");
-        for ((method, route, status), count) in &state.requests_total {
-            output.push_str(&format!(
-                "nidus_http_requests_total{{method=\"{}\",route=\"{}\",status=\"{}\"}} {}\n",
-                escape_label(method),
-                escape_label(route),
-                status,
-                count
-            ));
-        }
-        output.push_str("# TYPE nidus_http_request_duration_seconds histogram\n");
-        for ((method, route, status), histogram) in &state.durations {
-            for (bucket, count) in HTTP_DURATION_BUCKETS
-                .iter()
-                .zip(histogram.bucket_counts.iter())
-            {
-                output.push_str(&format!(
-                    "nidus_http_request_duration_seconds_bucket{{method=\"{}\",route=\"{}\",status=\"{}\",le=\"{}\"}} {}\n",
-                    escape_label(method),
-                    escape_label(route),
-                    status,
-                    format_bucket(*bucket),
-                    count
-                ));
-            }
-            output.push_str(&format!(
-                "nidus_http_request_duration_seconds_bucket{{method=\"{}\",route=\"{}\",status=\"{}\",le=\"+Inf\"}} {}\n",
-                escape_label(method),
-                escape_label(route),
-                status,
-                histogram.count
-            ));
-            output.push_str(&format!(
-                "nidus_http_request_duration_seconds_count{{method=\"{}\",route=\"{}\",status=\"{}\"}} {}\n",
-                escape_label(method),
-                escape_label(route),
-                status,
-                histogram.count
-            ));
-            output.push_str(&format!(
-                "nidus_http_request_duration_seconds_sum{{method=\"{}\",route=\"{}\",status=\"{}\"}} {:.6}\n",
-                escape_label(method),
-                escape_label(route),
-                status,
-                histogram.sum
-            ));
-        }
-        output.push_str("# TYPE nidus_http_in_flight_requests gauge\n");
-        for ((method, route), count) in &state.in_flight {
-            output.push_str(&format!(
-                "nidus_http_in_flight_requests{{method=\"{}\",route=\"{}\"}} {}\n",
-                escape_label(method),
-                escape_label(route),
-                count
-            ));
-        }
-        output.push_str("# TYPE nidus_http_errors_total counter\n");
-        for ((method, route, status), count) in &state.errors_total {
-            output.push_str(&format!(
-                "nidus_http_errors_total{{method=\"{}\",route=\"{}\",status=\"{}\"}} {}\n",
-                escape_label(method),
-                escape_label(route),
-                status,
-                count
-            ));
-        }
-        output
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
     }
 
     fn should_record(&self, route: Option<&str>) -> bool {
@@ -209,6 +146,77 @@ impl PrometheusMetrics {
             .map(|route| !self.excluded_routes.contains(route))
             .unwrap_or(true)
     }
+}
+
+fn render_prometheus(state: &PrometheusState) -> String {
+    let mut output = String::new();
+    output.push_str("# TYPE nidus_http_requests_total counter\n");
+    for ((method, route, status), count) in &state.requests_total {
+        output.push_str(&format!(
+            "nidus_http_requests_total{{method=\"{}\",route=\"{}\",status=\"{}\"}} {}\n",
+            escape_label(method),
+            escape_label(route),
+            status,
+            count
+        ));
+    }
+    output.push_str("# TYPE nidus_http_request_duration_seconds histogram\n");
+    for ((method, route, status), histogram) in &state.durations {
+        for (bucket, count) in HTTP_DURATION_BUCKETS
+            .iter()
+            .zip(histogram.bucket_counts.iter())
+        {
+            output.push_str(&format!(
+                    "nidus_http_request_duration_seconds_bucket{{method=\"{}\",route=\"{}\",status=\"{}\",le=\"{}\"}} {}\n",
+                    escape_label(method),
+                    escape_label(route),
+                    status,
+                    format_bucket(*bucket),
+                    count
+                ));
+        }
+        output.push_str(&format!(
+                "nidus_http_request_duration_seconds_bucket{{method=\"{}\",route=\"{}\",status=\"{}\",le=\"+Inf\"}} {}\n",
+                escape_label(method),
+                escape_label(route),
+                status,
+                histogram.count
+            ));
+        output.push_str(&format!(
+                "nidus_http_request_duration_seconds_count{{method=\"{}\",route=\"{}\",status=\"{}\"}} {}\n",
+                escape_label(method),
+                escape_label(route),
+                status,
+                histogram.count
+            ));
+        output.push_str(&format!(
+                "nidus_http_request_duration_seconds_sum{{method=\"{}\",route=\"{}\",status=\"{}\"}} {:.6}\n",
+                escape_label(method),
+                escape_label(route),
+                status,
+                histogram.sum
+            ));
+    }
+    output.push_str("# TYPE nidus_http_in_flight_requests gauge\n");
+    for ((method, route), count) in &state.in_flight {
+        output.push_str(&format!(
+            "nidus_http_in_flight_requests{{method=\"{}\",route=\"{}\"}} {}\n",
+            escape_label(method),
+            escape_label(route),
+            count
+        ));
+    }
+    output.push_str("# TYPE nidus_http_errors_total counter\n");
+    for ((method, route, status), count) in &state.errors_total {
+        output.push_str(&format!(
+            "nidus_http_errors_total{{method=\"{}\",route=\"{}\",status=\"{}\"}} {}\n",
+            escape_label(method),
+            escape_label(route),
+            status,
+            count
+        ));
+    }
+    output
 }
 
 impl Default for PrometheusMetrics {
@@ -304,7 +312,7 @@ impl HttpMetricsHook for PrometheusMetrics {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 struct PrometheusState {
     requests_total: BTreeMap<(String, String, u16), u64>,
     durations: BTreeMap<(String, String, u16), DurationHistogram>,
@@ -316,7 +324,7 @@ const HTTP_DURATION_BUCKETS: [f64; 11] = [
     0.005, 0.010, 0.025, 0.050, 0.100, 0.250, 0.500, 1.000, 2.500, 5.000, 10.000,
 ];
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 struct DurationHistogram {
     count: u64,
     sum: f64,
@@ -442,7 +450,10 @@ where
 }
 
 fn escape_label(value: &str) -> String {
-    value.replace('\\', r"\\").replace('"', r#"\""#)
+    value
+        .replace('\\', r"\\")
+        .replace('\n', r"\n")
+        .replace('"', r#"\""#)
 }
 
 fn format_bucket(bucket: f64) -> String {

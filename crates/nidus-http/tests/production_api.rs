@@ -540,6 +540,89 @@ fn prometheus_metrics_counts_inner_service_errors_as_requests() {
     );
 }
 
+#[test]
+fn prometheus_metrics_escapes_label_values() {
+    let metrics = PrometheusMetrics::new();
+
+    metrics.on_request(&Method::GET, Some("/quoted\"route\\line\nbreak"));
+    metrics.on_response(
+        &Method::GET,
+        Some("/quoted\"route\\line\nbreak"),
+        StatusCode::OK,
+        Duration::from_millis(1),
+    );
+
+    let text = metrics.render();
+
+    assert!(
+        text.contains(r#"route="/quoted\"route\\line\nbreak""#),
+        "{text}"
+    );
+    assert!(
+        !text.contains("line\nbreak"),
+        "raw newlines must be escaped in label values: {text}"
+    );
+}
+
+#[test]
+fn prometheus_metrics_records_high_cardinality_routes_explicitly() {
+    let metrics = PrometheusMetrics::new();
+
+    for route in (0..25).map(|index| format!("/users/{index}")) {
+        metrics.on_request(&Method::GET, Some(&route));
+        metrics.on_response(
+            &Method::GET,
+            Some(&route),
+            StatusCode::OK,
+            Duration::from_millis(1),
+        );
+    }
+
+    let text = metrics.render();
+
+    assert_eq!(text.matches("nidus_http_requests_total").count(), 26);
+    assert!(text.contains(r#"route="/users/0""#), "{text}");
+    assert!(text.contains(r#"route="/users/24""#), "{text}");
+}
+
+#[test]
+fn prometheus_metrics_can_render_while_recording_concurrently() {
+    let metrics = PrometheusMetrics::new();
+    let writers = (0..4)
+        .map(|worker| {
+            let metrics = metrics.clone();
+            std::thread::spawn(move || {
+                for index in 0..200 {
+                    let route = format!("/workers/{worker}/requests/{index}");
+                    metrics.on_request(&Method::GET, Some(&route));
+                    metrics.on_response(
+                        &Method::GET,
+                        Some(&route),
+                        StatusCode::OK,
+                        Duration::from_micros(250),
+                    );
+                }
+            })
+        })
+        .collect::<Vec<_>>();
+
+    for _ in 0..50 {
+        let text = metrics.render();
+        assert!(text.contains("# TYPE nidus_http_requests_total counter"));
+    }
+
+    for writer in writers {
+        writer.join().unwrap();
+    }
+
+    let text = metrics.render();
+    assert!(text.contains(r#"route="/workers/0/requests/0""#), "{text}");
+    assert!(
+        text.contains(r#"route="/workers/3/requests/199""#),
+        "{text}"
+    );
+}
+
 #[tokio::test]
 async fn production_api_defaults_composes_routes_layers_and_overrides() {
     async fn matched_path(path: MatchedPath) -> String {
