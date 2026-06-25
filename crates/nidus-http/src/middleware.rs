@@ -39,7 +39,7 @@ pub use request_scope::{RequestScopeLayer, RequestScopeService, request_scope_la
 pub use security::{
     BodyLimitLayer, BodyLimitService, SecurityHeadersLayer, SecurityHeadersService,
     TimeoutResponseLayer, TimeoutResponseService, body_limit_layer, security_headers_layer,
-    timeout_response_layer, webhook_body_limit_layer,
+    streaming_body_limit_layer, timeout_response_layer, webhook_body_limit_layer,
 };
 
 /// Creates a Tower timeout layer.

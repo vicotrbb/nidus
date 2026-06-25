@@ -8,6 +8,7 @@ use std::{
 use axum::{body::Body, extract::Request};
 use http::{HeaderValue, Response, StatusCode, header};
 use tower::{Layer, Service};
+use tower_http::limit::RequestBodyLimitLayer;
 
 /// Creates a layer that applies conservative API security headers.
 ///
@@ -91,6 +92,21 @@ pub fn body_limit_layer(max_bytes: u64) -> BodyLimitLayer {
         max_bytes,
         webhook_boundary: false,
     }
+}
+
+/// Creates a streaming request body limit layer.
+///
+/// Unlike [`body_limit_layer`], this wraps the request body and enforces
+/// `max_bytes` as the downstream extractor or handler reads the stream. Requests
+/// with an oversized `Content-Length` are rejected before the inner service is
+/// called; requests without `Content-Length` fail with `413 Payload Too Large`
+/// when the body is read past the configured limit.
+///
+/// Use this when you need a hard read-time cap across streaming bodies. Keep
+/// [`body_limit_layer`] when you only want the lightweight declared
+/// `Content-Length` boundary used by [`crate::middleware::ApiDefaults`].
+pub fn streaming_body_limit_layer(max_bytes: usize) -> RequestBodyLimitLayer {
+    RequestBodyLimitLayer::new(max_bytes)
 }
 
 /// Creates a request body limit layer for webhook/raw-body routes.

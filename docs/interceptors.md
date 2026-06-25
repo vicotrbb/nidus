@@ -96,8 +96,11 @@ and `Retry-After` headers when a request is rejected.
 `security_headers_layer()` adds conservative API response headers:
 `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy`.
 `body_limit_layer(max_bytes)` rejects requests with a declared oversized
-`Content-Length`. `webhook_body_limit_layer(max_bytes)` is the same boundary
-helper with an explicit response marker for webhook/raw-body routes.
+`Content-Length`; it does not count streamed bytes. Use
+`streaming_body_limit_layer(max_bytes)` when you need the request body wrapped
+and capped as downstream extractors or handlers read it. `webhook_body_limit_layer(max_bytes)`
+uses the declared `Content-Length` boundary with an explicit response marker for
+webhook/raw-body routes.
 
 ```rust
 let app = router

@@ -4,12 +4,13 @@ use std::{
     time::Duration,
 };
 
-use axum::{Router, body::Body, routing::get};
+use axum::{Router, body::Body, body::to_bytes, routing::get, routing::post};
 use http::{Method, Request, Response, StatusCode, header};
 use nidus_http::{
     logging::{LoggingConfig, LoggingFormat, StructuredMakeSpan},
     middleware::{
-        body_limit_layer, security_headers_layer, timeout_response_layer, webhook_body_limit_layer,
+        body_limit_layer, security_headers_layer, streaming_body_limit_layer,
+        timeout_response_layer, webhook_body_limit_layer,
     },
 };
 use tower::{ServiceBuilder, ServiceExt, service_fn};
@@ -99,6 +100,49 @@ async fn body_limit_layer_rejects_oversized_requests() {
                 .method(Method::GET)
                 .uri("/")
                 .header(header::CONTENT_LENGTH, "5")
+                .body(Body::from("12345"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+}
+
+#[tokio::test]
+async fn body_limit_layer_allows_undeclared_body_sizes() {
+    let app = Router::new()
+        .route("/", post(|body: String| async move { body }))
+        .layer(body_limit_layer(4));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/")
+                .body(Body::from("12345"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body.as_ref(), b"12345");
+}
+
+#[tokio::test]
+async fn streaming_body_limit_layer_rejects_oversized_body_without_content_length() {
+    let app = Router::new()
+        .route("/", post(|body: String| async move { body }))
+        .layer(streaming_body_limit_layer(4));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/")
                 .body(Body::from("12345"))
                 .unwrap(),
         )
