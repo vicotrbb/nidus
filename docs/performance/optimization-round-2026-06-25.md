@@ -569,3 +569,41 @@ Interpretation:
 - Any later optimization should preserve strict request ID semantics,
   `RequestContext` fields, error-envelope behavior, and Tower/Axum service
   compatibility.
+
+## Round 10 - Error Envelope Regression Coverage
+
+Hypothesis:
+
+- Round 4 fixed oversized error-body buffering, but the requested regression
+  matrix also calls out legacy JSON wrapping, non-JSON wrapping, 5xx masking,
+  and request ID propagation.
+- Existing tests covered request ID propagation and oversized bodies; explicit
+  tests for the other error-body shapes make future error-envelope optimization
+  safer.
+
+Tests added:
+
+- `error_envelope_preserves_legacy_json_error_details`
+- `error_envelope_wraps_non_json_error_bodies`
+- `error_envelope_masks_5xx_legacy_error_details`
+
+Implementation:
+
+- Added coverage only; no production code or public behavior changed.
+- The legacy JSON test verifies non-5xx code/message/detail preservation.
+- The non-JSON test verifies status-derived default code/message/details.
+- The 5xx test verifies client-facing message masking and detail clearing even
+  when the legacy body contains sensitive fields.
+
+Focused verification:
+
+| Command | Result | Notes |
+| --- | --- | --- |
+| `cargo test -p nidus-http --test production_api error_envelope_ -- --nocapture` | PASS | All five error-envelope production API tests passed. |
+| `cargo test -p nidus-http` | PASS | All `nidus-http` tests and doc tests passed. |
+
+Tradeoff:
+
+- This round improves regression coverage rather than runtime behavior.
+- The 5xx test intentionally documents the current behavior that legacy error
+  codes remain visible while messages and details are masked.

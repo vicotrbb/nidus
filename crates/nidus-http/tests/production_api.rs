@@ -162,6 +162,106 @@ async fn error_envelope_includes_request_id_path_and_timestamp() {
 }
 
 #[tokio::test]
+async fn error_envelope_preserves_legacy_json_error_details() {
+    let service = ServiceBuilder::new()
+        .layer(ErrorEnvelopeLayer::new())
+        .service(service_fn(|_request: Request<Body>| async move {
+            Ok::<_, Infallible>(
+                Response::builder()
+                    .status(StatusCode::UNPROCESSABLE_ENTITY)
+                    .body(Body::from(
+                        r#"{"error":{"code":"invalid_user","message":"invalid user","field":"email"}}"#,
+                    ))
+                    .unwrap(),
+            )
+        }));
+
+    let response = service
+        .oneshot(
+            Request::builder()
+                .uri("/legacy")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = response_json(response).await;
+
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(body["error"]["code"], "invalid_user");
+    assert_eq!(body["error"]["message"], "invalid user");
+    assert_eq!(body["error"]["details"]["field"], "email");
+    assert_eq!(body["error"]["path"], "/legacy");
+}
+
+#[tokio::test]
+async fn error_envelope_wraps_non_json_error_bodies() {
+    let service = ServiceBuilder::new()
+        .layer(ErrorEnvelopeLayer::new())
+        .service(service_fn(|_request: Request<Body>| async move {
+            Ok::<_, Infallible>(
+                Response::builder()
+                    .status(StatusCode::NOT_FOUND)
+                    .body(Body::from("plain missing"))
+                    .unwrap(),
+            )
+        }));
+
+    let response = service
+        .oneshot(
+            Request::builder()
+                .uri("/plain")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = response_json(response).await;
+
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(body["error"]["code"], "not_found");
+    assert_eq!(body["error"]["message"], "Not Found");
+    assert_eq!(body["error"]["details"], serde_json::Value::Null);
+    assert_eq!(body["error"]["path"], "/plain");
+}
+
+#[tokio::test]
+async fn error_envelope_masks_5xx_legacy_error_details() {
+    let service = ServiceBuilder::new()
+        .layer(ErrorEnvelopeLayer::new())
+        .service(service_fn(|_request: Request<Body>| async move {
+            Ok::<_, Infallible>(
+                Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(Body::from(
+                        r#"{"error":{"code":"database_error","message":"database password leaked","secret":"value"}}"#,
+                    ))
+                    .unwrap(),
+            )
+        }));
+
+    let response = service
+        .oneshot(
+            Request::builder()
+                .uri("/panic")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = response_json(response).await;
+
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(body["error"]["code"], "database_error");
+    assert_eq!(body["error"]["message"], "internal server error");
+    assert_eq!(body["error"]["details"], serde_json::Value::Null);
+    assert_eq!(body["error"]["path"], "/panic");
+}
+
+#[tokio::test]
 async fn error_envelope_skips_oversized_legacy_error_bodies() {
     let oversized_message = "x".repeat(128 * 1024);
     let oversized_body = serde_json::to_string(&json!({
