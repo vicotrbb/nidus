@@ -67,8 +67,8 @@ where
         let (mut parts, body) = request.into_parts();
         let request_id = parts
             .extensions
-            .get::<RequestContext>()
-            .map(|context| context.request_id().to_owned())
+            .remove::<RequestContext>()
+            .map(RequestContext::into_request_id)
             .or_else(|| header_to_string(&parts.headers, "x-request-id"))
             .unwrap_or_else(|| "unknown".to_owned());
         let context = RequestContext::from_parts(&parts, request_id);

@@ -122,6 +122,10 @@ impl RequestContext {
         &self.request_id
     }
 
+    pub(crate) fn into_request_id(self) -> String {
+        self.request_id
+    }
+
     /// Returns the correlation id when available.
     ///
     /// [`Self::from_parts`] prefers `x-correlation-id` and falls back to the
@@ -306,5 +310,17 @@ fn infer_client_kind(headers: &HeaderMap) -> ClientKind {
         ClientKind::Authenticated
     } else {
         ClientKind::Anonymous
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn request_context_can_consume_request_id() {
+        let context = RequestContext::new("req-123", Method::GET, "/users");
+
+        assert_eq!(context.into_request_id(), "req-123");
     }
 }

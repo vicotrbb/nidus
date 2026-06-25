@@ -607,3 +607,60 @@ Tradeoff:
 - This round improves regression coverage rather than runtime behavior.
 - The 5xx test intentionally documents the current behavior that legacy error
   codes remain visible while messages and details are masked.
+
+## Round 11 - Request Context ID Transfer Cleanup
+
+Hypothesis:
+
+- `validated_request_id_layer` inserts a `RequestContext`, and
+  `request_context_layer` immediately rebuilds the context from current request
+  parts. The rebuild cloned the request ID out of the existing context before
+  discarding that context.
+- Consuming the existing context's request ID should remove one allocation in
+  the combined production stack while preserving the documented behavior that
+  `request_context_layer` rebuilds context fields from the current request
+  boundary.
+
+Test added before implementation:
+
+- `request_context_can_consume_request_id`
+
+Red evidence:
+
+- `cargo test -p nidus-http request_context_can_consume_request_id` failed as
+  expected because `RequestContext::into_request_id` did not exist.
+
+Implementation:
+
+- Added an internal `RequestContext::into_request_id` helper.
+- Changed `request_context_layer` to remove any existing `RequestContext` from
+  request extensions and consume its request ID instead of cloning it.
+- The layer still rebuilds the inserted context from request parts, preserving
+  route, correlation, trace, client-kind, method, and path behavior.
+
+Focused verification:
+
+| Command | Result | Notes |
+| --- | --- | --- |
+| `cargo test -p nidus-http request_context_can_consume_request_id` | PASS | New internal helper test passed. |
+| `cargo test -p nidus-http` | PASS | All `nidus-http` tests and doc tests passed. |
+| `cargo fmt --all --check` | PASS | No formatting drift. |
+| `cargo clippy -p nidus-http --all-targets --all-features -- -D warnings` | PASS | Focused clippy gate passed. |
+| `cargo bench --bench request_lifecycle` | PASS | Criterion completed after the change. |
+
+Relevant benchmarks after the change:
+
+| Benchmark | Previous Round 9 | After Round 11 | Criterion comparison |
+| --- | ---: | ---: | --- |
+| `nidus middleware request context request` | `1.3017 us` | `1.3000 us` | Change within noise threshold. |
+| `nidus api defaults production request` | `3.2962 us` | `3.3124 us` | No change detected. |
+| `nidus api defaults production with metrics request` | `4.1240 us` | `4.1260 us` | No change detected. |
+| `nidus middleware validated request id request` | `1.5391 us` | `1.5379 us` | Change within noise threshold. |
+
+Tradeoff:
+
+- This is a small code-quality cleanup on a measured hot path, but it did not
+  produce a statistically meaningful benchmark improvement.
+- Larger middleware wins likely require addressing boxed futures or deeper
+  request ID/context construction costs, which would need more careful API and
+  compatibility analysis.
