@@ -11,8 +11,8 @@ use nidus_http::{
     error::{ErrorEnvelopeLayer, HttpError},
     health::{HealthRegistry, HealthStatus},
     middleware::{
-        ApiDefaults, InMemoryRateLimitStore, PrometheusMetrics, RateLimitConfig, RequestContext,
-        RequestIdConfig, RequestIdMode, client_ip_identity, request_context_layer,
+        ApiDefaults, HttpMetricsHook, InMemoryRateLimitStore, PrometheusMetrics, RateLimitConfig,
+        RequestContext, RequestIdConfig, RequestIdMode, client_ip_identity, request_context_layer,
         validated_request_id_layer,
     },
 };
@@ -240,6 +240,42 @@ async fn prometheus_metrics_uses_matched_routes_and_excludes_internal_paths() {
     assert!(text.contains(r#"route="/users/{id}""#), "{text}");
     assert!(!text.contains(r#"route="/users/42""#), "{text}");
     assert!(!text.contains(r#"route="/metrics""#), "{text}");
+}
+
+#[test]
+fn prometheus_metrics_renders_bounded_duration_histogram_buckets() {
+    let metrics = PrometheusMetrics::new();
+
+    for milliseconds in 1..=1000 {
+        metrics.on_request(&Method::GET, Some("/bulk"));
+        metrics.on_response(
+            &Method::GET,
+            Some("/bulk"),
+            StatusCode::OK,
+            Duration::from_millis(milliseconds % 20),
+        );
+    }
+
+    let text = metrics.render();
+
+    assert!(
+        text.contains(
+            r#"nidus_http_request_duration_seconds_bucket{method="GET",route="/bulk",status="200",le="0.005"}"#
+        ),
+        "{text}"
+    );
+    assert!(
+        text.contains(
+            r#"nidus_http_request_duration_seconds_bucket{method="GET",route="/bulk",status="200",le="+Inf"} 1000"#
+        ),
+        "{text}"
+    );
+    assert!(
+        text.contains(
+            r#"nidus_http_request_duration_seconds_count{method="GET",route="/bulk",status="200"} 1000"#
+        ),
+        "{text}"
+    );
 }
 
 #[tokio::test]

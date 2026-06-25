@@ -59,11 +59,11 @@ pub trait HttpMetricsHook: Clone + Send + Sync + 'static {
 
 /// In-memory Prometheus-format HTTP metrics collector.
 ///
-/// This collector stores counters and duration samples in process memory and
-/// renders Prometheus text exposition. It is useful for small services,
-/// examples, and tests; it is not a durable metrics store and values reset on
-/// process restart. The default exclusions are `/health/live`, `/health/ready`,
-/// and `/metrics`.
+/// This collector stores counters and bounded duration histograms in process
+/// memory and renders Prometheus text exposition. It is useful for small
+/// services, examples, and tests; it is not a durable metrics store and values
+/// reset on process restart. The default exclusions are `/health/live`,
+/// `/health/ready`, and `/metrics`.
 ///
 /// ```ignore
 /// use axum::{Router, routing::get};
@@ -105,9 +105,9 @@ impl PrometheusMetrics {
 
     /// Creates a metrics layer backed by this collector.
     ///
-    /// The layer records request totals, errors, in-flight counts, and duration
-    /// sums/counts. It does not expose a scrape endpoint; use [`Self::routes`]
-    /// or [`Self::routes_at`] for that.
+    /// The layer records request totals, errors, in-flight counts, and bounded
+    /// duration histograms. It does not expose a scrape endpoint; use
+    /// [`Self::routes`] or [`Self::routes_at`] for that.
     pub fn layer(&self) -> MetricsLayer<Self> {
         MetricsLayer::new(self.clone())
     }
@@ -146,22 +146,40 @@ impl PrometheusMetrics {
             ));
         }
         output.push_str("# TYPE nidus_http_request_duration_seconds histogram\n");
-        for ((method, route, status), durations) in &state.durations {
-            let count = durations.len();
-            let sum = durations.iter().sum::<f64>();
+        for ((method, route, status), histogram) in &state.durations {
+            for (bucket, count) in HTTP_DURATION_BUCKETS
+                .iter()
+                .zip(histogram.bucket_counts.iter())
+            {
+                output.push_str(&format!(
+                    "nidus_http_request_duration_seconds_bucket{{method=\"{}\",route=\"{}\",status=\"{}\",le=\"{}\"}} {}\n",
+                    escape_label(method),
+                    escape_label(route),
+                    status,
+                    format_bucket(*bucket),
+                    count
+                ));
+            }
+            output.push_str(&format!(
+                "nidus_http_request_duration_seconds_bucket{{method=\"{}\",route=\"{}\",status=\"{}\",le=\"+Inf\"}} {}\n",
+                escape_label(method),
+                escape_label(route),
+                status,
+                histogram.count
+            ));
             output.push_str(&format!(
                 "nidus_http_request_duration_seconds_count{{method=\"{}\",route=\"{}\",status=\"{}\"}} {}\n",
                 escape_label(method),
                 escape_label(route),
                 status,
-                count
+                histogram.count
             ));
             output.push_str(&format!(
                 "nidus_http_request_duration_seconds_sum{{method=\"{}\",route=\"{}\",status=\"{}\"}} {:.6}\n",
                 escape_label(method),
                 escape_label(route),
                 status,
-                sum
+                histogram.sum
             ));
         }
         output.push_str("# TYPE nidus_http_in_flight_requests gauge\n");
@@ -240,7 +258,7 @@ impl HttpMetricsHook for PrometheusMetrics {
             .durations
             .entry((method.clone(), route.clone(), status))
             .or_default()
-            .push(latency.as_secs_f64());
+            .observe(latency);
         if StatusCode::from_u16(status)
             .is_ok_and(|status| status.is_client_error() || status.is_server_error())
         {
@@ -280,9 +298,36 @@ impl HttpMetricsHook for PrometheusMetrics {
 #[derive(Debug, Default)]
 struct PrometheusState {
     requests_total: BTreeMap<(String, String, u16), u64>,
-    durations: BTreeMap<(String, String, u16), Vec<f64>>,
+    durations: BTreeMap<(String, String, u16), DurationHistogram>,
     in_flight: BTreeMap<(String, String), u64>,
     errors_total: BTreeMap<(String, String, u16), u64>,
+}
+
+const HTTP_DURATION_BUCKETS: [f64; 11] = [
+    0.005, 0.010, 0.025, 0.050, 0.100, 0.250, 0.500, 1.000, 2.500, 5.000, 10.000,
+];
+
+#[derive(Debug, Default)]
+struct DurationHistogram {
+    count: u64,
+    sum: f64,
+    bucket_counts: [u64; HTTP_DURATION_BUCKETS.len()],
+}
+
+impl DurationHistogram {
+    fn observe(&mut self, latency: Duration) {
+        let seconds = latency.as_secs_f64();
+        self.count += 1;
+        self.sum += seconds;
+        for (bucket, count) in HTTP_DURATION_BUCKETS
+            .iter()
+            .zip(self.bucket_counts.iter_mut())
+        {
+            if seconds <= *bucket {
+                *count += 1;
+            }
+        }
+    }
 }
 
 /// Tower layer that invokes [`HttpMetricsHook`] for request lifecycle metrics.
@@ -389,4 +434,13 @@ where
 
 fn escape_label(value: &str) -> String {
     value.replace('\\', r"\\").replace('"', r#"\""#)
+}
+
+fn format_bucket(bucket: f64) -> String {
+    if bucket.fract() == 0.0 {
+        format!("{bucket:.0}")
+    } else {
+        let formatted = format!("{bucket:.3}");
+        formatted.trim_end_matches('0').to_owned()
+    }
 }

@@ -231,3 +231,65 @@ Caveat:
   device` while Cargo was creating a target fingerprint. The repo-local
   `target/` directory was `9.8 GiB`; `cargo clean` removed rebuildable artifacts
   (`11.8 GiB`) and verification was rerun successfully.
+
+## Round 3 - Bounded Metrics Duration Histograms
+
+Hypothesis:
+
+- `PrometheusMetrics` stores every observed duration in a per-label `Vec<f64>`,
+  which grows without bound in long-lived processes.
+- Fixed cumulative Prometheus histogram buckets can preserve useful duration
+  telemetry while bounding memory per label set.
+
+Test added before implementation:
+
+- `prometheus_metrics_renders_bounded_duration_histogram_buckets`
+
+Red evidence:
+
+- `cargo test -p nidus-http --test production_api prometheus_metrics_renders_bounded_duration_histogram_buckets`
+  failed as expected because the collector rendered only `_count` and `_sum`
+  series and did not expose any `_bucket` series.
+
+Implementation:
+
+- Replaced raw duration sample vectors with `DurationHistogram` values storing:
+  - total count
+  - total sum
+  - fixed cumulative bucket counts for `0.005`, `0.01`, `0.025`, `0.05`,
+    `0.1`, `0.25`, `0.5`, `1`, `2.5`, `5`, `10`, and `+Inf`
+- Kept existing metric names for request totals, in-flight counts, errors,
+  duration `_count`, and duration `_sum`.
+- Updated the in-memory collector docs to describe bounded duration histograms
+  instead of retained duration samples.
+- Added metrics recording and rendering coverage to `benches/request_lifecycle.rs`.
+
+Focused verification:
+
+| Command | Result | Notes |
+| --- | --- | --- |
+| `cargo test -p nidus-http --test production_api prometheus_metrics_renders_bounded_duration_histogram_buckets` | PASS | New bounded histogram regression test passed. |
+| `cargo test -p nidus-http` | PASS | All `nidus-http` tests and doc tests passed. |
+| `cargo fmt --all --check` | PASS | No formatting drift. |
+| `cargo clippy -p nidus-http --all-targets --all-features -- -D warnings` | PASS | Focused clippy gate passed. |
+| `cargo clippy --bench request_lifecycle --all-features -- -D warnings` | PASS | New benchmark code passed clippy. |
+| `cargo bench --bench request_lifecycle` | PASS | Relevant request lifecycle and metrics benchmarks completed. |
+
+Relevant benchmarks after the change:
+
+| Benchmark | Estimate | Notes |
+| --- | ---: | --- |
+| `raw axum baseline request` | `631.27 ns` | Close to original baseline. |
+| `nidus hello-world request` | `601.98 ns` | Close to original baseline. |
+| `nidus controller + service request` | `712.30 ns` | Close to original baseline. |
+| `nidus guarded route` | `913.66 ns` | Close to original baseline. |
+| `nidus validation route` | `1.8586 us` | Close to original baseline. |
+| `nidus request-scoped route` | `1.2211 us` | Still reflects Round 1 correctness overhead. |
+| `nidus metrics record response` | `268.28 ns` | New benchmark; no prior baseline. |
+| `nidus metrics render text` | `50.262 us` | New benchmark with 10 route labels and 100 observations per label. |
+
+Tradeoff:
+
+- Metrics duration memory is now bounded per method/route/status label set.
+- Rendering emits bucket series in addition to count/sum, increasing metrics
+  text size by design.

@@ -1,14 +1,16 @@
 use axum::{
     Extension, Router,
     body::Body,
-    http::{Method, Request, header::CONTENT_TYPE},
+    http::{Method, Request, StatusCode, header::CONTENT_TYPE},
     routing::{get, post},
 };
 use criterion::{Criterion, criterion_group, criterion_main};
 use nidus_auth::{Guard, GuardContext, GuardError, guard_layer};
 use nidus_core::{Container, Inject, SharedRequestScope};
 use nidus_http::{
-    controller::Controller, middleware::request_scope_layer, router::RouteDefinition,
+    controller::Controller,
+    middleware::{HttpMetricsHook, PrometheusMetrics, request_scope_layer},
+    router::RouteDefinition,
 };
 use nidus_validation::ValidatedJson;
 use serde::Deserialize;
@@ -18,6 +20,7 @@ use std::{
         Arc,
         atomic::{AtomicUsize, Ordering},
     },
+    time::Duration,
 };
 use tower::ServiceExt;
 use validator::Validate;
@@ -194,6 +197,46 @@ fn request_lifecycle_setup(c: &mut Criterion) {
                 .unwrap();
             black_box(response.status());
         });
+    });
+
+    let metrics = PrometheusMetrics::new();
+    c.bench_function("nidus metrics record response", |b| {
+        b.iter(|| {
+            metrics.on_request(&Method::GET, Some("/metrics-bench/{id}"));
+            metrics.on_response(
+                &Method::GET,
+                Some("/metrics-bench/{id}"),
+                StatusCode::OK,
+                Duration::from_millis(12),
+            );
+        });
+    });
+
+    let render_metrics = PrometheusMetrics::new();
+    for route in [
+        "/metrics-bench/0",
+        "/metrics-bench/1",
+        "/metrics-bench/2",
+        "/metrics-bench/3",
+        "/metrics-bench/4",
+        "/metrics-bench/5",
+        "/metrics-bench/6",
+        "/metrics-bench/7",
+        "/metrics-bench/8",
+        "/metrics-bench/9",
+    ] {
+        for _ in 0..100 {
+            render_metrics.on_request(&Method::GET, Some(route));
+            render_metrics.on_response(
+                &Method::GET,
+                Some(route),
+                StatusCode::OK,
+                Duration::from_millis(12),
+            );
+        }
+    }
+    c.bench_function("nidus metrics render text", |b| {
+        b.iter(|| black_box(render_metrics.render()));
     });
 }
 
