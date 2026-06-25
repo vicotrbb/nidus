@@ -12,6 +12,7 @@ requiring external services by default.
 | `openapi` | Controller metadata converted into an OpenAPI JSON document plus `/openapi.json` and `/docs` routes. |
 | `background-jobs` | In-memory job queue execution with success and failure reporting. |
 | `modular-monolith` | Macro-defined module graph imports, providers, controllers, and exports. |
+| `realworld-api` | Production-shaped team tasks API with modules, SQLite persistence, validation, OpenAPI, health, metrics, request IDs, guards, CORS, limits, timeouts, events, and jobs. |
 | `production-api` | Production API preset with health, metrics, request context extraction, validated request IDs, error envelopes, and route-local rate limiting. |
 
 Run an example with Cargo's package selector:
@@ -38,3 +39,12 @@ validation commands:
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --all-features
 ```
+
+The examples also include focused tests for their important runtime paths:
+HTTP routing uses `nidus_testing::TestApp`, module examples validate generated
+metadata and container resolution, job examples cover sync and async execution,
+and production-shaped examples cover health, metrics, request IDs, error
+envelopes, limits, timeouts, CORS, guards, OpenAPI, validation, and persistence.
+The `sqlx-postgres` example intentionally validates provider registration around
+Postgres pool options without opening a live database connection, keeping the
+default example suite free of external service requirements.
