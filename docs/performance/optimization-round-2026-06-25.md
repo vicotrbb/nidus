@@ -508,3 +508,64 @@ Tradeoff:
   this machine; later optimization should target the largest boxed-future and
   allocation sources only if it can preserve Tower/Axum compatibility and error
   behavior.
+
+## Round 9 - Individual Middleware Layer Benchmarks
+
+Hypothesis:
+
+- The full `ApiDefaults::production` benchmark shows the default stack cost, but
+  it does not identify which high-value middleware layers are most expensive.
+- Per-layer request benchmarks can guide any later optimization toward measured
+  bottlenecks instead of speculative refactors.
+
+Implementation:
+
+- Added individual request-path benchmarks for:
+  - `security_headers_layer`
+  - `body_limit_layer`
+  - `validated_request_id_layer`
+  - `request_context_layer`
+  - `ErrorEnvelopeLayer` on the success path
+  - `timeout_response_layer`
+- Kept the full production-default and production-with-metrics benchmarks from
+  Round 8.
+- No production code or public behavior changed in this round.
+
+Focused verification:
+
+| Command | Result | Notes |
+| --- | --- | --- |
+| `cargo fmt --all --check` | PASS | Benchmark code is formatted. |
+| `cargo clippy --bench request_lifecycle --all-features -- -D warnings` | PASS | Expanded benchmark target compiles cleanly. |
+| `cargo bench --bench request_lifecycle` | PASS | Criterion completed with the individual middleware benchmarks. |
+
+Relevant benchmarks after the change:
+
+| Benchmark | Estimate | Notes |
+| --- | ---: | --- |
+| `raw axum baseline request` | `647.28 ns` | Reference run in the same benchmark invocation. |
+| `nidus hello-world request` | `622.91 ns` | Reference run; Criterion marked improvement vs prior run, but production code did not change. |
+| `nidus controller + service request` | `837.73 ns` | Reference run; noisy/regressed vs prior run despite benchmark-only changes. |
+| `nidus guarded route` | `964.43 ns` | Reference run; noisy/regressed vs prior run despite benchmark-only changes. |
+| `nidus validation route` | `1.8918 us` | No change detected. |
+| `nidus request-scoped route` | `1.2710 us` | Change within noise threshold. |
+| `nidus middleware security headers request` | `891.49 ns` | New per-layer benchmark. |
+| `nidus middleware body limit request` | `818.27 ns` | New per-layer benchmark. |
+| `nidus middleware validated request id request` | `1.5391 us` | New per-layer benchmark; strict validation of a valid inbound UUID. |
+| `nidus middleware request context request` | `1.3017 us` | New per-layer benchmark; builds and inserts `RequestContext`. |
+| `nidus middleware error envelope success request` | `1.0148 us` | New per-layer benchmark; successful response path only. |
+| `nidus middleware timeout response request` | `898.73 ns` | New per-layer benchmark. |
+| `nidus api defaults production request` | `3.2962 us` | Stayed close to Round 8's `3.2466 us`. |
+| `nidus api defaults production with metrics request` | `4.1240 us` | Stayed close to Round 8's `4.0460 us`. |
+| `nidus metrics record response` | `242.69 ns` | Change within noise threshold. |
+| `nidus metrics render text` | `45.372 us` | Change within noise threshold. |
+
+Interpretation:
+
+- `validated_request_id_layer`, `request_context_layer`, and the success path of
+  `ErrorEnvelopeLayer` are the clearest measured middleware-cost candidates.
+- Because this round only added benchmark code, Criterion's comparisons on
+  existing benchmarks should not be treated as product regressions.
+- Any later optimization should preserve strict request ID semantics,
+  `RequestContext` fields, error-envelope behavior, and Tower/Axum service
+  compatibility.

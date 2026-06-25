@@ -9,7 +9,12 @@ use nidus_auth::{Guard, GuardContext, GuardError, guard_layer};
 use nidus_core::{Container, Inject, SharedRequestScope};
 use nidus_http::{
     controller::Controller,
-    middleware::{ApiDefaults, HttpMetricsHook, PrometheusMetrics, request_scope_layer},
+    error::ErrorEnvelopeLayer,
+    middleware::{
+        ApiDefaults, HttpMetricsHook, PrometheusMetrics, RequestIdConfig, body_limit_layer,
+        request_context_layer, request_scope_layer, security_headers_layer, timeout_response_layer,
+        validated_request_id_layer,
+    },
     router::RouteDefinition,
 };
 use nidus_validation::ValidatedJson;
@@ -117,6 +122,25 @@ fn request_lifecycle_setup(c: &mut Criterion) {
             ),
         )
         .layer(request_scope_layer(Arc::new(request_container)));
+    let middleware_base_router = Router::new().route("/middleware", get(|| async { "ok" }));
+    let security_headers_router = middleware_base_router
+        .clone()
+        .layer(security_headers_layer());
+    let body_limit_router = middleware_base_router
+        .clone()
+        .layer(body_limit_layer(1024 * 1024));
+    let request_id_router = middleware_base_router
+        .clone()
+        .layer(validated_request_id_layer(RequestIdConfig::production()));
+    let request_context_router = middleware_base_router
+        .clone()
+        .layer(request_context_layer());
+    let error_envelope_success_router = middleware_base_router
+        .clone()
+        .layer(ErrorEnvelopeLayer::new());
+    let timeout_response_router = middleware_base_router
+        .clone()
+        .layer(timeout_response_layer(Duration::from_secs(30)));
     let production_defaults_router =
         ApiDefaults::production("bench-api").apply(Router::new().route(
             "/production",
@@ -216,6 +240,84 @@ fn request_lifecycle_setup(c: &mut Criterion) {
         b.iter(|| {
             let response = runtime
                 .block_on(request_scope_router.clone().oneshot(get_request("/scope")))
+                .unwrap();
+            black_box(response.status());
+        });
+    });
+
+    c.bench_function("nidus middleware security headers request", |b| {
+        b.iter(|| {
+            let response = runtime
+                .block_on(
+                    security_headers_router
+                        .clone()
+                        .oneshot(get_request("/middleware")),
+                )
+                .unwrap();
+            black_box(response.status());
+        });
+    });
+
+    c.bench_function("nidus middleware body limit request", |b| {
+        b.iter(|| {
+            let response = runtime
+                .block_on(
+                    body_limit_router
+                        .clone()
+                        .oneshot(get_request("/middleware")),
+                )
+                .unwrap();
+            black_box(response.status());
+        });
+    });
+
+    c.bench_function("nidus middleware validated request id request", |b| {
+        b.iter(|| {
+            let response = runtime
+                .block_on(
+                    request_id_router
+                        .clone()
+                        .oneshot(get_request_with_id("/middleware")),
+                )
+                .unwrap();
+            black_box(response.status());
+        });
+    });
+
+    c.bench_function("nidus middleware request context request", |b| {
+        b.iter(|| {
+            let response = runtime
+                .block_on(
+                    request_context_router
+                        .clone()
+                        .oneshot(get_request_with_id("/middleware")),
+                )
+                .unwrap();
+            black_box(response.status());
+        });
+    });
+
+    c.bench_function("nidus middleware error envelope success request", |b| {
+        b.iter(|| {
+            let response = runtime
+                .block_on(
+                    error_envelope_success_router
+                        .clone()
+                        .oneshot(get_request_with_id("/middleware")),
+                )
+                .unwrap();
+            black_box(response.status());
+        });
+    });
+
+    c.bench_function("nidus middleware timeout response request", |b| {
+        b.iter(|| {
+            let response = runtime
+                .block_on(
+                    timeout_response_router
+                        .clone()
+                        .oneshot(get_request("/middleware")),
+                )
                 .unwrap();
             black_box(response.status());
         });
