@@ -57,6 +57,11 @@ pub trait RateLimitStore: Send + Sync + 'static {
 }
 
 /// In-memory rate-limit store intended for local development and single-process apps.
+///
+/// The store tracks counters in process memory and opportunistically removes
+/// expired identity windows whenever [`RateLimitStore::check`] runs. It is not
+/// shared across processes, not durable across restarts, and not a substitute
+/// for a distributed limiter at multi-instance production boundaries.
 #[derive(Clone, Default)]
 pub struct InMemoryRateLimitStore {
     state: Arc<Mutex<HashMap<String, WindowState>>>,
@@ -66,6 +71,22 @@ impl InMemoryRateLimitStore {
     /// Creates an empty in-memory rate-limit store.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Returns the number of identity windows currently retained by the store.
+    ///
+    /// Expired windows are pruned opportunistically during [`RateLimitStore::check`],
+    /// so this value is mainly useful for tests, diagnostics, and local tools.
+    pub fn len(&self) -> usize {
+        self.state
+            .lock()
+            .map(|state| state.len())
+            .unwrap_or_default()
+    }
+
+    /// Returns whether the store currently retains no identity windows.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
@@ -81,6 +102,7 @@ impl RateLimitStore for InMemoryRateLimitStore {
             .state
             .lock()
             .map_err(|_| RateLimitError::new("rate limit store poisoned"))?;
+        state.retain(|_, window_state| now.duration_since(window_state.started_at) < window);
         let window_state = state
             .entry(identity.as_str().to_owned())
             .or_insert_with(|| WindowState {

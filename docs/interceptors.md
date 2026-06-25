@@ -75,7 +75,9 @@ let app = router.layer(rate_limit_layer(100, Duration::from_secs(60)));
 For production-shaped boundaries, use `RateLimitConfig` with an identity
 extractor and store adapter. Nidus ships `InMemoryRateLimitStore` for local
 development and single-process apps; distributed stores can implement
-`RateLimitStore`.
+`RateLimitStore`. The in-memory store prunes expired identity windows when it is
+checked, but it is process-local, resets on restart, and is not a distributed
+production rate-limit backend.
 
 ```rust
 let app = router.layer(

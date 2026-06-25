@@ -9,9 +9,12 @@ use http::{
     },
 };
 use nidus_core::{Container, Inject, SharedRequestScope};
-use nidus_http::middleware::{
-    compression_layer, cors_layer, cors_origin_layer, rate_limit_layer, request_id_layer,
-    request_scope_layer, timeout_layer, trace_layer,
+use nidus_http::{
+    context::RequestIdentity,
+    middleware::{
+        InMemoryRateLimitStore, RateLimitStore, compression_layer, cors_layer, cors_origin_layer,
+        rate_limit_layer, request_id_layer, request_scope_layer, timeout_layer, trace_layer,
+    },
 };
 use tokio::time::sleep;
 use tower::{Service, ServiceBuilder, ServiceExt, service_fn};
@@ -215,6 +218,50 @@ async fn rate_limit_layer_backpressures_until_period_resets() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
+}
+
+#[test]
+fn in_memory_rate_limit_store_starts_empty() {
+    let store = InMemoryRateLimitStore::new();
+
+    assert!(store.is_empty());
+    assert_eq!(store.len(), 0);
+}
+
+#[test]
+fn in_memory_rate_limit_store_prunes_stale_identity_windows() {
+    let store = InMemoryRateLimitStore::new();
+    let window = Duration::from_millis(10);
+
+    store
+        .check(&RequestIdentity::new("client-a"), 10, window)
+        .unwrap();
+    store
+        .check(&RequestIdentity::new("client-b"), 10, window)
+        .unwrap();
+    assert_eq!(store.len(), 2);
+
+    std::thread::sleep(Duration::from_millis(25));
+    store
+        .check(&RequestIdentity::new("client-c"), 10, window)
+        .unwrap();
+
+    assert_eq!(store.len(), 1);
+}
+
+#[test]
+fn in_memory_rate_limit_store_preserves_active_identity_windows() {
+    let store = InMemoryRateLimitStore::new();
+    let window = Duration::from_secs(60);
+
+    store
+        .check(&RequestIdentity::new("client-a"), 10, window)
+        .unwrap();
+    store
+        .check(&RequestIdentity::new("client-b"), 10, window)
+        .unwrap();
+
+    assert_eq!(store.len(), 2);
 }
 
 #[tokio::test]
