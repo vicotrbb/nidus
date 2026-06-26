@@ -155,6 +155,91 @@ async fn guard_error_maps_to_stable_json_response() {
     assert_eq!(json["error"]["message"], "route role does not match");
 }
 
+#[derive(Clone)]
+struct ApiKeyGuard;
+
+#[async_trait]
+impl Guard<()> for ApiKeyGuard {
+    async fn check(&self, ctx: GuardContext<()>) -> Result<(), GuardError> {
+        match ctx
+            .headers()
+            .get("x-api-key")
+            .and_then(|value| value.to_str().ok())
+        {
+            Some("secret") => Ok(()),
+            _ => Err(GuardError::unauthorized("missing or invalid api key")),
+        }
+    }
+}
+
+#[tokio::test]
+async fn guard_layer_passes_request_headers_to_guard() {
+    let app = Router::new()
+        .route("/admin", get(|| async { "ok" }))
+        .layer(guard_layer((), "admin:index", ApiKeyGuard));
+
+    let denied = app
+        .clone()
+        .oneshot(
+            http::Request::builder()
+                .uri("/admin")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(denied.status(), StatusCode::UNAUTHORIZED);
+
+    let allowed = app
+        .oneshot(
+            http::Request::builder()
+                .uri("/admin")
+                .header("x-api-key", "secret")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(allowed.status(), StatusCode::OK);
+    let body = to_bytes(allowed.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(&body[..], b"ok");
+}
+
+#[tokio::test]
+async fn guard_layer_returns_error_response_without_calling_inner_service_when_header_missing() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let app = Router::new()
+        .route("/admin", {
+            let calls = Arc::clone(&calls);
+            get(move || {
+                let calls = Arc::clone(&calls);
+                async move {
+                    calls.fetch_add(1, Ordering::SeqCst);
+                    "ok"
+                }
+            })
+        })
+        .layer(guard_layer((), "admin:index", ApiKeyGuard));
+
+    let response = app
+        .oneshot(
+            http::Request::builder()
+                .uri("/admin")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(json["error"]["code"], "unauthorized");
+    assert_eq!(json["error"]["message"], "missing or invalid api key");
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+}
+
 #[tokio::test]
 async fn guard_layer_allows_authorized_requests() {
     let app = Router::new()

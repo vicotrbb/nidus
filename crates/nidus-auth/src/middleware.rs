@@ -65,7 +65,7 @@ pub struct GuardService<Inner, S, G> {
 
 impl<Inner, S, G> Service<Request<Body>> for GuardService<Inner, S, G>
 where
-    Inner: Service<Request<Body>, Response = Response> + Send + 'static,
+    Inner: Service<Request<Body>, Response = Response> + Clone + Send + 'static,
     Inner::Future: Send + 'static,
     Inner::Error: Send + 'static,
     S: Clone + Send + Sync + 'static,
@@ -83,13 +83,19 @@ where
         let state = self.state.clone();
         let route_label = self.route_label.clone();
         let guard = self.guard.clone();
-        let future = self.inner.call(request);
+        let inner = self.inner.clone();
 
         Box::pin(async move {
-            match guard.check(GuardContext::new(state, route_label)).await {
-                Ok(()) => future.await,
-                Err(error) => Ok(error.into_response()),
+            let (parts, body) = request.into_parts();
+            let context = GuardContext::new(state, route_label).with_headers(parts.headers.clone());
+
+            if let Err(error) = guard.check(context).await {
+                return Ok(error.into_response());
             }
+
+            let request = Request::from_parts(parts, body);
+            let mut inner = inner;
+            inner.call(request).await
         })
     }
 }
