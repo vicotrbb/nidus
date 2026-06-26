@@ -449,8 +449,10 @@ example/bench code.
 ## Security / reliability risks
 
 - **SEC-1 (P2):** body limit bypassable (F-HTTP-2) — DoS surface.
-- **SEC-2 (P2):** rate-limit identity spoofing + anonymous collapse (F-HTTP-6), compounded by the
-  server not enabling `ConnectInfo` (F-HTTP-5).
+- **SEC-2 (~~P2~~ partially mitigated, Wave 4):** rate-limit identity now uses the real peer
+  IP via `ConnectInfo` (F-HTTP-5 fix), closing XFF-spoofing and shared-`anonymous`-bucket
+  evasion on the blessed `listen`/`serve` path. Trusted-proxy XFF validation (F-HTTP-6)
+  remains deferred; XFF is now only consulted when `ConnectInfo` is absent.
 - **SEC-3 (P2):** unbounded growth surfaces: prometheus series (F-HTTP-8), event queues (E-1),
   job queues (J-2).
 - **SEC-4 (P1):** `guard_layer` silently breaks header auth (F-HTTP-1) — authorization bypass risk
@@ -471,7 +473,7 @@ example/bench code.
 | F-HTTP-2 | P2 | Body limit Content-Length-only (bypassable) | `nidus-http/src/middleware/security.rs:171-185` |
 | F-HTTP-3 | P2 | 413 bypasses request-id/metrics/envelope | `nidus-http/src/middleware/api_defaults.rs:282-284` |
 | F-HTTP-4 | P2 | No production middleware order test | `nidus-http/tests/production_api.rs` |
-| F-HTTP-5 | P2 | No graceful shutdown / no ConnectInfo | `nidus-http/src/server.rs:67-73` |
+| F-HTTP-5 | ~~P2~~ mitigated | ConnectInfo now on blessed path; graceful-shutdown API added (Wave 4) | `nidus-http/src/server.rs` |
 | F-HTTP-6 | P2 | client_ip_identity spoofing + anonymous bucket | `nidus-http/src/context.rs:282-296` |
 | F-HTTP-7 | P2 | No panic-catching layer | `nidus-http/src/middleware/api_defaults.rs` |
 | F-HTTP-8 | P2 | Prometheus series unbounded | `nidus-http/src/middleware/metrics.rs:317-320` |
@@ -551,6 +553,79 @@ Manual curl (production-api on `127.0.0.1:64752`, since `metrics.rs` was touched
 `route="/metrics"` excluded (count 0); `GET /users/1` → 200 with UUID `x-request-id` and
 matching `request_id` in body. No live regression; opt-in cap does not affect the default
 uncapped render path.
+
+## Follow-up hardening — Wave 4 (2026-06-26, after commit `3070c07`)
+
+Waves 1-3 landed in prior sessions. Wave 4 closed the production server-path
+gap (F-HTTP-5) and the largest part of SEC-2. Baseline before this pass:
+build green, `cargo test --workspace --all-features` 354 passed / 0 failed;
+fmt/clippy/doc clean.
+
+### Implemented (TDD, atomic commits)
+
+- **F-HTTP-5 mitigated — ConnectInfo on the blessed serve path**
+  (`crates/nidus-http/src/server.rs`). Every serving method
+  (`listen`, `serve`, and new `listen_with_graceful_shutdown` /
+  `serve_with_graceful_shutdown`) now wraps the router with
+  `into_make_service_with_connect_info::<SocketAddr>()`, so
+  `axum::extract::ConnectInfo<SocketAddr>` is populated for every connection.
+  This is the correctness fix the audit flagged: `client_ip_identity`
+  (`crates/nidus-http/src/context.rs:282-296`) prefers `ConnectInfo` but the old
+  `listen` used plain `axum::serve(listener, self.router)`, so it was **never**
+  populated and identity fell through to the spoofable `X-Forwarded-For` header
+  or a shared `"anonymous"` bucket.
+  - `serve(listener)` and `serve_with_graceful_shutdown(listener, signal)` are
+    new public methods (pre-bound listener) — useful for reading the assigned
+    port / `SO_REUSEPORT`, and the seam the new tests target.
+  - `listen` keeps its public signature (`listen<A: ToSocketAddrs>(self, A)`);
+    no public API break. `#[nidus::main]` examples that call `.listen(addr)` are
+    unchanged and still build.
+  - **Design choice (matches axum):** graceful shutdown is **not** auto-wired on
+    `listen`/`serve` (axum's own `axum::serve` also leaves it to the caller).
+    The explicit `*_with_graceful_shutdown(signal)` methods provide in-flight
+    draining on a caller-supplied signal (SIGTERM/ctrl_c in production); this
+    needs no new tokio feature. Resolves the audit's proposed fix
+    ("Add optional graceful-shutdown signal + ConnectInfo make-service").
+  - **TDD:** test `serve_populates_connect_info_for_peer_identity` was written
+    first; verified RED for the exact expected reason
+    (`Missing request extension: ConnectInfo<SocketAddr>`) against a
+    no-ConnectInfo `serve`, then GREEN after the fix. Test
+    `serve_with_graceful_shutdown_drains_and_exits_cleanly` proves a controlled
+    shutdown signal drains and the serve future completes cleanly (no hang).
+- **SEC-2 mitigated (rate-limit identity):** because `ConnectInfo` is now
+  populated, `client_ip_identity` classifies by the **real peer IP** instead of
+  trusting spoofable `X-Forwarded-For` or collapsing to `"anonymous"`. The
+  shared-anonymous-bucket evasion and XFF-spoofing evasion are closed on the
+  blessed server path. (Trusted-proxy validation of XFF, F-HTTP-6, remains
+  deferred — but XFF is now only consulted when `ConnectInfo` is absent, i.e.
+  not via the blessed `listen`/`serve`.)
+
+### Manual curl evidence (Wave 4)
+
+All server examples started on free ports, real routes curled (read from
+source), then stopped cleanly (no background servers left; `lsof` confirmed
+ports clear):
+
+| Example | Route(s) | Result |
+| --- | --- | --- |
+| `hello-world` | `GET /` | 200 `hello from nidus` |
+| `rest-api` | `GET /users/42` | 200 `{"id":42,"email":"user@nidus.dev","request_id":0}` |
+| `auth-api` | `GET /me` | 200 `authorized` (guard passes route label) |
+| `openapi` | `GET /openapi.json`; `GET /docs`; `GET /users/7`; `POST /users` | 200 / 200 (`<title>Nidus Example API Documentation</title>`) / 200 / 201 |
+| `production-api` | `GET /health/live`; `/health/ready`; `/users/1`; `/metrics` | 200 / 200 / 200 (UUID `x-request-id`) / 200 (route labels present) |
+| `production-api` (Wave 4) | `GET /limited` #1; `GET /limited` #2 with `X-Forwarded-For: 1.2.3.4` | **200 then 429** — 429 on #2 proves the real peer IP (via ConnectInfo) overrides the spoofed XFF, so the `client_ip_identity` limiter can no longer be evaded |
+| `realworld-api` | `GET /health`; `GET /projects/1` no key; `POST /users`; `POST /projects owner_id:1`; `GET /projects/1`; `/metrics`; `/openapi.json` | 200 / 401 `missing or invalid x-api-key` / 201 / 201 / 200 / 200 (route labels) / 200 |
+
+### Verification after this pass
+
+`cargo fmt --all --check`, `cargo clippy -p nidus-http --all-targets --all-features
+-- -D warnings`, `cargo test -p nidus-http` all clean (+3 tests in the `server`
+suite: 357 expected workspace-wide). `cargo build` of all six server examples
+succeeds against the updated `listen`. Benchmark decision: **not required** —
+the change is on the connection/serve boundary (`into_make_service`), not a
+measured request-routing/DI hot path; the per-request middleware stack is
+unchanged. (`routing`/`dependency_resolution`/`request_lifecycle` bench source
+is untouched.)
 
 ## Appendix: verification commands (baseline)
 

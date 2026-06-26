@@ -219,3 +219,37 @@ fmt/clippy/doc clean; `cargo test --workspace --all-features` → 354 passed / 0
 exclusion still work. Benchmark decision: `request_lifecycle` metrics scenarios re-run
 because `metrics.rs` (hot path) was touched — no regression (p > 0.05). `dependency_resolution`
 and `routing` benches not re-run: no DI or routing hot-path code changed.
+
+---
+
+## Wave 4 — production server-path hardening: ConnectInfo + graceful shutdown (F-HTTP-5)
+
+Status: **implemented** (commits below). See the audit's "Follow-up hardening —
+Wave 4" section for full evidence.
+
+### 4a — F-HTTP-5: `ConnectInfo<SocketAddr>` on the blessed serve path
+
+- **Files:** `crates/nidus-http/src/server.rs`; test `crates/nidus-http/tests/server.rs`
+- **Behavior change:** every serving method wraps the router with
+  `into_make_service_with_connect_info::<SocketAddr>()`. `listen` keeps its public
+  signature (no break); `serve`/`serve_with_graceful_shutdown`/`listen_with_graceful_shutdown`
+  are new. `client_ip_identity` now classifies by real peer IP, not spoofable XFF / `"anonymous"`.
+- **TDD steps:** (1) wrote `serve_populates_connect_info_for_peer_identity` +
+  `serve_with_graceful_shutdown_drains_and_exits_cleanly`; (2) confirmed RED on a
+  no-ConnectInfo `serve` (`Missing request extension: ConnectInfo<SocketAddr>`); (3) added
+  ConnectInfo + the graceful-shutdown API; (4) GREEN.
+- **Verification:** `cargo test -p nidus-http --test server` (3 passed);
+  `cargo clippy -p nidus-http --all-targets --all-features -- -D warnings`; `cargo fmt -p nidus-http -- --check`.
+- **Design note:** graceful shutdown is opt-in via the explicit `*_with_graceful_shutdown`
+  methods (matches axum's `axum::serve`); no tokio `signal` feature needed.
+- **Bench:** not required (connection/serve boundary, not a measured request/DI hot path).
+- **Manual curl:** production-api `GET /limited` #1 → 200, #2 with spoofed
+  `X-Forwarded-For: 1.2.3.4` → 429 (proves real-peer-IP identity overrides XFF).
+  All six server examples curled green (see audit table).
+- **Rollback:** `git revert <commit>`.
+
+### Verification after Wave 4
+
+`cargo fmt --all --check`, `cargo clippy -p nidus-http --all-targets --all-features -- -D
+warnings`, `cargo test -p nidus-http` clean; six server examples build against the updated
+`listen`; full workspace gate run at finalize (see audit).
