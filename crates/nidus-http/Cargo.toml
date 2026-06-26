@@ -27,4 +27,5 @@ tracing-subscriber.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["io-util"] }
 tracing-core.workspace = true
