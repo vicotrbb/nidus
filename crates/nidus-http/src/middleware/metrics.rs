@@ -65,6 +65,16 @@ pub trait HttpMetricsHook: Clone + Send + Sync + 'static {
 /// reset on process restart. The default exclusions are `/health/live`,
 /// `/health/ready`, and `/metrics`.
 ///
+/// # Label cardinality
+///
+/// By default the collector records every distinct route label it observes, so
+/// the caller is responsible for keeping cardinality bounded — prefer route
+/// patterns (e.g. `"/users/:id"`) over concrete paths. To harden against
+/// accidental high-cardinality labels (which would grow memory without bound in
+/// a long-running process), apply [`PrometheusMetrics::with_max_series`]: once
+/// the configured number of distinct route labels has been admitted, every
+/// further distinct label collapses into a single `"<overflow>"` route.
+///
 /// ```ignore
 /// use axum::{Router, routing::get};
 /// use nidus_http::middleware::{PrometheusMetrics, route_metrics_layer};
@@ -79,10 +89,14 @@ pub trait HttpMetricsHook: Clone + Send + Sync + 'static {
 pub struct PrometheusMetrics {
     state: Arc<Mutex<PrometheusState>>,
     excluded_routes: Arc<BTreeSet<String>>,
+    max_series: Option<usize>,
 }
 
 impl PrometheusMetrics {
     /// Creates a Prometheus metrics collector with default internal route exclusions.
+    ///
+    /// The collector is unbounded by default (every distinct route label is
+    /// recorded); use [`Self::with_max_series`] to cap label cardinality.
     pub fn new() -> Self {
         Self {
             state: Arc::new(Mutex::new(PrometheusState::default())),
@@ -91,6 +105,7 @@ impl PrometheusMetrics {
                 "/health/ready".to_owned(),
                 "/metrics".to_owned(),
             ])),
+            max_series: None,
         }
     }
 
@@ -100,6 +115,19 @@ impl PrometheusMetrics {
     /// static route supplied to [`route_metrics_layer`] or an Axum matched path.
     pub fn exclude_route(mut self, route: impl Into<String>) -> Self {
         Arc::make_mut(&mut self.excluded_routes).insert(route.into());
+        self
+    }
+
+    /// Bounds the number of distinct route labels retained in memory.
+    ///
+    /// The first `max_series` distinct route labels are recorded normally; any
+    /// further distinct label collapses into a single shared `"<overflow>"`
+    /// route. This prevents unbounded memory growth when a layer accidentally
+    /// emits high-cardinality labels (for example concrete request paths) while
+    /// still keeping the already-admitted routes intact. Without this cap the
+    /// collector records every distinct label it observes.
+    pub fn with_max_series(mut self, max_series: usize) -> Self {
+        self.max_series = Some(max_series);
         self
     }
 
@@ -235,6 +263,10 @@ impl HttpMetricsHook for PrometheusMetrics {
             .state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let route = match self.max_series {
+            Some(max) => state.admit_route(route, max),
+            None => route,
+        };
         *state
             .in_flight
             .entry((method.as_str().to_owned(), route))
@@ -258,6 +290,10 @@ impl HttpMetricsHook for PrometheusMetrics {
             .state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let route = match self.max_series {
+            Some(max) => state.admit_route(route, max),
+            None => route,
+        };
         *state
             .requests_total
             .entry((method.clone(), route.clone(), status))
@@ -291,6 +327,10 @@ impl HttpMetricsHook for PrometheusMetrics {
             .state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let route = match self.max_series {
+            Some(max) => state.admit_route(route, max),
+            None => route,
+        };
         let status = StatusCode::INTERNAL_SERVER_ERROR.as_u16();
         *state
             .requests_total
@@ -318,6 +358,24 @@ struct PrometheusState {
     durations: BTreeMap<(String, String, u16), DurationHistogram>,
     in_flight: BTreeMap<(String, String), u64>,
     errors_total: BTreeMap<(String, String, u16), u64>,
+    known_routes: BTreeSet<String>,
+}
+
+impl PrometheusState {
+    /// Returns the label to record for `route`, honoring a cap on the number of
+    /// distinct route labels. Already-admitted routes are returned unchanged;
+    /// once the cap is reached, new labels collapse to `"<overflow>"`. Callers
+    /// with no cap must skip this call entirely (the uncapped path pays nothing).
+    fn admit_route(&mut self, route: String, max_series: usize) -> String {
+        if self.known_routes.contains(&route) {
+            route
+        } else if self.known_routes.len() < max_series {
+            self.known_routes.insert(route.clone());
+            route
+        } else {
+            "<overflow>".to_owned()
+        }
+    }
 }
 
 const HTTP_DURATION_BUCKETS: [f64; 11] = [

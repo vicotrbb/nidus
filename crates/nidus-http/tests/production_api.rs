@@ -586,6 +586,60 @@ fn prometheus_metrics_records_high_cardinality_routes_explicitly() {
 }
 
 #[test]
+fn prometheus_metrics_caps_distinct_routes_when_max_series_configured() {
+    let metrics = PrometheusMetrics::new().with_max_series(2);
+
+    for route in ["/a", "/b", "/c"] {
+        metrics.on_request(&Method::GET, Some(route));
+        metrics.on_response(
+            &Method::GET,
+            Some(route),
+            StatusCode::OK,
+            Duration::from_millis(1),
+        );
+    }
+
+    let text = metrics.render();
+
+    // The first two distinct routes fit within the configured cap; the third
+    // overflows into a single shared bucket so series count can never grow
+    // unbounded regardless of how many distinct labels are observed.
+    assert!(text.contains(r#"route="/a""#), "{text}");
+    assert!(text.contains(r#"route="/b""#), "{text}");
+    assert!(
+        !text.contains(r#"route="/c""#),
+        "route beyond the cap must overflow, not create a new series: {text}"
+    );
+    assert!(
+        text.contains(r#"route="<overflow>""#),
+        "overflow bucket must be present: {text}"
+    );
+}
+
+#[test]
+fn prometheus_metrics_unbounded_by_default_admits_all_routes() {
+    let metrics = PrometheusMetrics::new();
+
+    for route in ["/a", "/b", "/c", "/d"] {
+        metrics.on_request(&Method::GET, Some(route));
+        metrics.on_response(
+            &Method::GET,
+            Some(route),
+            StatusCode::OK,
+            Duration::from_millis(1),
+        );
+    }
+
+    let text = metrics.render();
+    assert!(text.contains(r#"route="/a""#), "{text}");
+    assert!(text.contains(r#"route="/d""#), "{text}");
+    assert!(
+        !text.contains(r#"route="<overflow>""#),
+        "no overflow bucket when cap is not configured: {text}"
+    );
+}
+
+#[test]
 fn prometheus_metrics_can_render_while_recording_concurrently() {
     let metrics = PrometheusMetrics::new();
     let writers = (0..4)
