@@ -1,0 +1,10 @@
+[package]
+name = "nidus-example-cache-app"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+nidus = { path = "../../crates/nidus", version = "0.1.0" }
+nidus-cache = { path = "../../crates/nidus-cache", version = "0.1.0" }
+tokio.workspace = true

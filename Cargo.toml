@@ -23,6 +23,9 @@ members = [
   "examples/modular-monolith",
   "examples/realworld-api",
   "examples/production-api",
+  "examples/sqlx-app",
+  "examples/cache-app",
+  "examples/integrations-production",
 ]
 resolver = "2"
 

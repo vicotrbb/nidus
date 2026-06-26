@@ -44,6 +44,10 @@ let settings = config.deserialize::<AppConfig>()?;
 Secrets should come from the deployment platform's secret mechanism and enter
 the app through typed config, not hard-coded constants.
 
+Adapter crates such as `nidus-sqlx` and `nidus-cache` should read the same typed
+configuration at startup. Keep URLs, pool sizes, cache namespaces, and TTLs in
+application config, then pass explicit values into adapter builders.
+
 ## HTTP Boundary
 
 Nidus builds on Axum and Tower, so standard Rust deployment patterns apply:
@@ -137,6 +141,16 @@ let health = HealthRegistry::new()
     .ready_check("database", || async { HealthStatus::up() })
     .hide_details();
 let app = router.merge(health.routes());
+```
+
+Adapters can contribute checks by closing over their typed providers:
+
+```rust
+let database = container.resolve::<nidus_sqlx::SqlitePoolProvider>()?;
+let health = HealthRegistry::new().ready_check("database", move || {
+    let database = std::sync::Arc::clone(&database);
+    async move { database.health_status().await }
+});
 ```
 
 Keep startup validation strict so a bad config, missing provider, invalid module

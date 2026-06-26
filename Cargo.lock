@@ -1381,11 +1381,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "nidus-example-cache-app"
+version = "0.1.0"
+dependencies = [
+ "nidus",
+ "nidus-cache",
+ "tokio",
+]
+
+[[package]]
 name = "nidus-example-hello-world"
 version = "0.1.0"
 dependencies = [
  "nidus",
  "nidus-testing",
+ "tokio",
+]
+
+[[package]]
+name = "nidus-example-integrations-production"
+version = "0.1.0"
+dependencies = [
+ "nidus",
+ "nidus-cache",
+ "nidus-sqlx",
  "tokio",
 ]
 
@@ -1435,6 +1454,16 @@ dependencies = [
  "nidus-testing",
  "serde",
  "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "nidus-example-sqlx-app"
+version = "0.1.0"
+dependencies = [
+ "nidus",
+ "nidus-sqlx",
+ "sqlx",
  "tokio",
 ]
 

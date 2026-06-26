@@ -8,12 +8,14 @@ requiring external services by default.
 | `hello-world` | Minimal Nidus HTTP server with a macro-defined controller route on `127.0.0.1:3000`. |
 | `rest-api` | Macro-defined Nidus controller route with an Axum JSON response and request-scoped provider extraction. |
 | `auth-api` | Guard trait implementation with explicit guard failure mapping in a Nidus-composed route. |
-| `sqlx-postgres` | Facade `sqlx-postgres` feature plus macro-registered repository injection around Postgres pool options without opening a database connection. |
 | `openapi` | Controller metadata converted into an OpenAPI JSON document plus `/openapi.json` and `/docs` routes. |
 | `background-jobs` | In-memory job queue execution with success and failure reporting. |
 | `modular-monolith` | Macro-defined module graph imports, providers, controllers, and exports. |
 | `realworld-api` | Production-shaped team tasks API with modules, SQLite persistence, validation, OpenAPI, health, metrics, request IDs, guards, CORS, limits, timeouts, events, and jobs. |
 | `production-api` | Production API preset with health, metrics, request context extraction, validated request IDs, error envelopes, and route-local rate limiting. |
+| `sqlx-app` | Separate `nidus-sqlx` SQLite adapter with repository injection and direct SQLx query access. |
+| `cache-app` | Separate `nidus-cache` Moka adapter with an optional cache dependency in a service. |
+| `integrations-production` | Production-shaped integration wiring with typed config, SQLite, Moka cache, and health checks without binding a live port in tests. |
 
 Run an example with Cargo's package selector:
 
@@ -45,6 +47,5 @@ HTTP routing uses `nidus_testing::TestApp`, module examples validate generated
 metadata and container resolution, job examples cover sync and async execution,
 and production-shaped examples cover health, metrics, request IDs, error
 envelopes, limits, timeouts, CORS, guards, OpenAPI, validation, and persistence.
-The `sqlx-postgres` example intentionally validates provider registration around
-Postgres pool options without opening a live database connection, keeping the
+The adapter examples use SQLite in memory and Moka by default, keeping the
 default example suite free of external service requirements.

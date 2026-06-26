@@ -12,10 +12,15 @@ The workspace is split into focused crates:
 - `nidus-auth`: guards.
 - `nidus-events`: typed event bus with weak subscriber cleanup.
 - `nidus-jobs`: background jobs with explicit run reports.
+- `nidus-sqlx`: separately installable SQLx adapter.
+- `nidus-cache`: separately installable cache adapter.
 - `nidus-testing`: app test helpers.
 - `cargo-nidus`: CLI tooling.
 
 Crates should depend inward on stable abstractions and avoid circular dependencies.
+Adapter crates are intentionally outside the `nidus` facade dependency graph so
+backend vendors are only compiled when applications install the matching
+adapter.
 Framework library crates deny missing public documentation at the crate root, so
 public API documentation is enforced by normal build and documentation checks
 rather than being only a release-time manual audit.

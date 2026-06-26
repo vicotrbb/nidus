@@ -15,6 +15,7 @@ Nidus is a modular Rust backend framework that keeps framework behavior explicit
 - [Pipes](pipes.md)
 - [Interceptors](interceptors.md)
 - [Config](config.md)
+- [Integrations](integrations.md)
 - [Error Handling](error-handling.md)
 - [OpenAPI](openapi.md)
 - [Testing](testing.md)

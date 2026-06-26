@@ -52,10 +52,12 @@ impl UsersController {
 - `cargo-nidus` project generation.
 - Compile-fail tests for invalid macro usage.
 - Criterion benchmark targets for routing, dependency resolution, and request lifecycle setup.
+- Separately installable official adapters for SQLx and cache integration.
 
 Default features enable the core HTTP, config, and tracing facade. Optional
 facade features are available for `openapi`, `validation`, `auth`, `events`,
-`jobs`, `testing`, and `sqlx-postgres`.
+`jobs`, and `testing`. Ecosystem integrations such as SQLx and cache live in
+separate crates including `nidus-sqlx` and `nidus-cache`.
 
 ## Status
 
@@ -64,7 +66,7 @@ Nidus is under active implementation as a pre-1.0 framework. The repository cont
 ## Roadmap
 
 - Continue hardening route-level guard and pipe ergonomics while preserving the explicit Tower and extractor-based execution model.
-- Continue hardening SQLx, jobs, events, and production API examples into production-shaped applications.
+- Continue hardening official adapters, jobs, events, and production API examples into production-shaped applications.
 - Keep benchmark result tables current as the raw Axum and Nidus overhead baselines evolve.
 - Keep broadening compile-fail and CLI regression coverage as the public API settles.
 
