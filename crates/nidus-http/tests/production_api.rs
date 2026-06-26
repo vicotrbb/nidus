@@ -297,7 +297,7 @@ async fn error_envelope_wraps_non_json_error_bodies() {
 }
 
 #[tokio::test]
-async fn error_envelope_masks_5xx_legacy_error_details() {
+async fn error_envelope_masks_5xx_legacy_error_code_message_and_details() {
     let service = ServiceBuilder::new()
         .layer(ErrorEnvelopeLayer::new())
         .service(service_fn(|_request: Request<Body>| async move {
@@ -324,7 +324,10 @@ async fn error_envelope_masks_5xx_legacy_error_details() {
     let body = response_json(response).await;
 
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
-    assert_eq!(body["error"]["code"], "database_error");
+    // ERR-1: the internal taxonomy (`database_error`) must NOT leak to the
+    // client on a 5xx; only the generic `internal_server_error` code is exposed.
+    // The original code is preserved in the server log (envelope_response).
+    assert_eq!(body["error"]["code"], "internal_server_error");
     assert_eq!(body["error"]["message"], "internal server error");
     assert_eq!(body["error"]["details"], serde_json::Value::Null);
     assert_eq!(body["error"]["path"], "/panic");

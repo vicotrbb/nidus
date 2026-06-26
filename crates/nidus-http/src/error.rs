@@ -248,7 +248,7 @@ async fn envelope_response(
     let (mut parts, body) = response.into_parts();
     let status = parts.status;
     let extracted = read_legacy_error_body(body).await;
-    let code = extracted
+    let mut code = extracted
         .as_ref()
         .map(|body| body.error.code.clone())
         .unwrap_or_else(|| default_code(status).to_owned());
@@ -273,8 +273,11 @@ async fn envelope_response(
             http.path = %path,
             "http error envelope"
         );
+        // ERR-1: do not leak internal error taxonomy to clients on a 5xx. The
+        // original code is retained in the structured log above for debugging.
         message = "internal server error".to_owned();
         details = serde_json::Value::Null;
+        code = default_code(status).to_owned();
     }
 
     let envelope = ProductionErrorBody {
