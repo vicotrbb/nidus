@@ -308,6 +308,49 @@ fn provider_factory_errors_include_provider_context() {
     assert!(source.to_string().contains("Database"));
 }
 
+#[test]
+fn singleton_factory_recovers_after_panic() {
+    let attempts = Arc::new(AtomicUsize::new(0));
+    let mut container = Container::new();
+    container
+        .register_singleton_factory::<Database, _>({
+            let attempts = Arc::clone(&attempts);
+            move |_container| {
+                let attempt = attempts.fetch_add(1, Ordering::SeqCst);
+                if attempt == 0 {
+                    panic!("singleton factory panicked on first construction");
+                }
+                Ok(Database("recovered"))
+            }
+        })
+        .unwrap();
+    let container = Arc::new(container);
+
+    // First resolution panics; the panic must propagate out of resolution.
+    let first = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let _ = container.resolve::<Database>();
+    }));
+    assert!(first.is_err(), "first resolution should panic");
+    assert_eq!(attempts.load(Ordering::SeqCst), 1);
+
+    // After the panic the provider must be re-resolvable instead of permanently
+    // stuck in `Initializing`. Resolve on a background thread with a timeout so a
+    // regression (permanent deadlock) fails the test quickly instead of hanging.
+    let (tx, rx) = std::sync::mpsc::channel();
+    {
+        let container = Arc::clone(&container);
+        thread::spawn(move || {
+            let _ = tx.send(container.resolve::<Database>());
+        });
+    }
+    let recovered = rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("provider resolution deadlocked after a panicking factory")
+        .expect("provider should be re-resolvable after a panicking factory");
+    assert_eq!(recovered.0, "recovered");
+    assert_eq!(attempts.load(Ordering::SeqCst), 2);
+}
+
 fn assert_circular_provider_error(error: NidusError, expected_type_name: &'static str) {
     match error {
         NidusError::ProviderFactory { source, .. } => {

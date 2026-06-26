@@ -2,6 +2,7 @@
 
 use std::{
     any::{Any, TypeId},
+    panic::{AssertUnwindSafe, catch_unwind},
     sync::{Arc, Condvar, Mutex, MutexGuard},
 };
 
@@ -138,7 +139,17 @@ impl ProviderEntry {
                     *singleton = SingletonState::Initializing;
                     drop(singleton);
 
-                    let instance = self.create_erased(container);
+                    let instance =
+                        match catch_unwind(AssertUnwindSafe(|| self.create_erased(container))) {
+                            Ok(outcome) => outcome,
+                            Err(panic_payload) => {
+                                let mut singleton = lock_unpoisoned(&self.singleton);
+                                *singleton = SingletonState::Empty;
+                                self.singleton_ready.notify_all();
+                                drop(singleton);
+                                std::panic::resume_unwind(panic_payload);
+                            }
+                        };
                     let mut singleton = lock_unpoisoned(&self.singleton);
                     match instance {
                         Ok(instance) => {
