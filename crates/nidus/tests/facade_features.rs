@@ -1,5 +1,15 @@
 use nidus::prelude::*;
 
+#[test]
+fn facade_does_not_reexport_sqlx_adapter_dependencies() {
+    let manifest_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+    let manifest = std::fs::read_to_string(manifest_path).unwrap();
+
+    assert!(!manifest.contains("sqlx ="), "{manifest}");
+    assert!(!manifest.contains("nidus-sqlx"), "{manifest}");
+    assert!(!manifest.contains("nidus-cache"), "{manifest}");
+}
+
 #[derive(Clone)]
 struct NoopMetrics;
 
@@ -28,8 +38,6 @@ fn prelude_exports_optional_feature_crates() {
     let _context = GuardContext::new((), "/health");
     let _and_guard: Option<AndGuard<(), ()>> = None;
     let _or_guard: Option<OrGuard<(), ()>> = None;
-    let _pool: Option<PgPool> = None;
-    let _pool_options = PgPoolOptions::new();
     let jobs = JobQueue::new();
     let _async_jobs = AsyncJobQueue::new();
     let events = EventBus::<String>::new();
@@ -79,7 +87,6 @@ fn facade_exports_optional_feature_modules() {
     let _validation = nidus::validation::ValidationPipe::new();
     let _validated_json = nidus::validation::ValidatedJson("ok");
     let _context = nidus::auth::GuardContext::new((), "/health");
-    let _pool_options = nidus::sqlx::postgres::PgPoolOptions::new();
     let jobs = nidus::jobs::JobQueue::new();
     let _async_jobs = nidus::jobs::AsyncJobQueue::new();
     let events = nidus::events::EventBus::<String>::new();

@@ -11,12 +11,13 @@ members = [
   "crates/nidus-auth",
   "crates/nidus-events",
   "crates/nidus-jobs",
+  "crates/nidus-sqlx",
+  "crates/nidus-cache",
   "crates/nidus-testing",
   "crates/cargo-nidus",
   "examples/hello-world",
   "examples/rest-api",
   "examples/auth-api",
-  "examples/sqlx-postgres",
   "examples/openapi",
   "examples/background-jobs",
   "examples/modular-monolith",
@@ -87,7 +88,7 @@ quote = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_urlencoded = "0.7"
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "postgres"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio"] }
 syn = { version = "2", features = ["full"] }
 thiserror = "2"
 time = { version = "0.3", features = ["formatting"] }
@@ -101,3 +102,5 @@ trybuild = "1"
 utoipa = "5"
 uuid = { version = "1", features = ["v4"] }
 validator = { version = "0.20", features = ["derive"] }
+moka = { version = "0.12", features = ["future"] }
+redis = { version = "0.32", default-features = false, features = ["tokio-comp"] }

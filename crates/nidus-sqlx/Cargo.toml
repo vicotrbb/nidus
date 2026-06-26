@@ -1,0 +1,26 @@
+[package]
+name = "nidus-sqlx"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+
+[features]
+default = []
+postgres = ["sqlx/postgres"]
+sqlite = ["sqlx/sqlite"]
+nidus-config = ["dep:nidus-config"]
+health = ["dep:nidus-http"]
+
+[dependencies]
+nidus-core = { path = "../nidus-core", version = "0.1.0" }
+nidus-config = { path = "../nidus-config", version = "0.1.0", optional = true }
+nidus-http = { path = "../nidus-http", version = "0.1.0", optional = true }
+sqlx.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+nidus-config = { path = "../nidus-config", version = "0.1.0" }
+tokio = { workspace = true, features = ["time"] }

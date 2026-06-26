@@ -60,5 +60,3 @@ pub use nidus_openapi as openapi;
 pub use nidus_testing as testing;
 #[cfg(feature = "validation")]
 pub use nidus_validation as validation;
-#[cfg(feature = "sqlx-postgres")]
-pub use sqlx;

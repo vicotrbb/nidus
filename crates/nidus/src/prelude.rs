@@ -73,5 +73,3 @@ pub use nidus_validation::{
     FieldValidationError, Pipe, ValidatedJson, ValidatedJsonRejection, ValidationPipe,
     ValidationPipeError,
 };
-#[cfg(feature = "sqlx-postgres")]
-pub use sqlx::{PgPool, postgres::PgPoolOptions};

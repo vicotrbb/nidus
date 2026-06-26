@@ -1,8 +1,0 @@
-[package]
-name = "nidus-example-sqlx-postgres"
-version = "0.1.0"
-edition = "2024"
-publish = false
-
-[dependencies]
-nidus = { path = "../../crates/nidus", version = "0.1.0", features = ["sqlx-postgres"] }
