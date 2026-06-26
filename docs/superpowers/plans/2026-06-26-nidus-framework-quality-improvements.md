@@ -269,3 +269,20 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 5" sectio
   integration level; manual curl confirmed on the running server.
 - **Verification:** `cargo test -p nidus-example-auth-api` (6 passed); fmt/clippy clean.
 - **Bench:** not required (example-only, no hot path).
+
+---
+
+## Wave 6 — production envelope: mask 5xx `code` (ERR-1)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 6" section.
+
+- **Files:** `crates/nidus-http/src/error.rs`; test `crates/nidus-http/tests/production_api.rs`.
+- **Behavior change:** the production error envelope now masks `code` to the generic
+  `internal_server_error` on a 5xx (previously a handler-supplied code like `database_error`
+  leaked while `message`/`details` were masked). Server logs retain the original code.
+- **TDD:** strengthened the pinning test to assert the mask; verified RED (`database_error`
+  leaked) then GREEN.
+- **Verification:** `cargo test -p nidus-http --test production_api` (23 passed);
+  `cargo test --workspace --all-features` (358 passed); fmt/clippy clean.
+- **Bench:** not required — the changed 5xx branch is off every measured `request_lifecycle`
+  path (success short-circuits before `envelope_response`); confirmed via two noisy re-runs.

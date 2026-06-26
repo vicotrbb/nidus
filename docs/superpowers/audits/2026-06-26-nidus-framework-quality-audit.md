@@ -404,9 +404,12 @@ example/bench code.
   oversized-body skip, `requestId`/`path`/`timestamp`, all tested.
 - `NidusError` covers DI/module/lifecycle cases with type names and preserved source errors.
 - `ConfigError` is fully path-aware.
-- **ERR-1 (P2):** 5xx `code` field may leak internal taxonomy (e.g. `database_error` survives
-  masking while `message`/`details` are masked — `error.rs:251-294`; test
-  `error_envelope_masks_5xx_legacy_error_details` keeps `code="database_error"`).
+- **ERR-1 (~~P2~~ mitigated, Wave 6):** the production envelope now also masks the `code`
+  field on a 5xx to the generic `internal_server_error` (previously `message`/`details` were
+  masked but a handler-supplied `code` like `database_error` survived, leaking internal
+  taxonomy). The original code is still emitted to the structured server log (`tracing::error!`
+  in `envelope_response`) for debugging. The pinning test was strengthened from asserting the
+  leak to asserting the mask.
 - **ERR-2 (P3):** `register_openapi_schema` panics on serialization failure
   (`crates/nidus/src/lib.rs:40`) instead of returning a `Result`.
 
@@ -491,7 +494,7 @@ example/bench code.
 | EX-2 | ~~P2~~ mitigated | `auth-api` guard now reads `x-api-key` header (Wave 5) | `examples/auth-api/src/main.rs` |
 | CLI-1 | P2 | No end-to-end multi-artifact CLI compile test | `cargo-nidus/tests/cli_generate.rs` |
 | CLI-2 | P2 | Default `nidus="0.1"` branch untested | `cargo-nidus/src/generate.rs:15-17` |
-| ERR-1 | P2 | 5xx `code` may leak internal taxonomy | `nidus-http/src/error.rs:251-294` |
+| ERR-1 | ~~P2~~ mitigated | 5xx `code` now masked to generic value (Wave 6) | `nidus-http/src/error.rs` |
 | AD-3 | P2 | Adapter health/postgres-config/invalidate untested | `nidus-sqlx`, `nidus-cache` tests/ |
 | T-1 | P2 | TestApp can't install request_scope_layer | `nidus-testing/src/app.rs:212-217` |
 | (many) | P3 | diagnostics spans, naming, async assertions, cleanup, etc. | see sections above |
@@ -652,6 +655,34 @@ example whose guard did not exercise a real authorization signal.
 --all-targets -- -D warnings`, `cargo test -p nidus-example-auth-api` (6 passed) all clean.
 Example-only change; no crate hot path touched, so no bench required. Full workspace gate run
 at finalize.
+
+## Follow-up hardening — Wave 6 (2026-06-26, after commit `c481569`)
+
+A contained security/consistency pass on the production error envelope.
+
+### Implemented
+
+- **ERR-1 mitigated — mask 5xx `code`** (`crates/nidus-http/src/error.rs`). The envelope already
+  masked `message`/`details` on a 5xx but left the handler-supplied `code` (e.g.
+  `database_error`) intact, leaking internal taxonomy to clients. `envelope_response` now also
+  resets `code` to the generic `internal_server_error` on a 5xx. The original code is still
+  written to the structured server log (`tracing::error!`, runs before the reset) so debugging
+  is unaffected. Default 5xx (no legacy body) already resolved to `internal_server_error`, so
+  the only observable change is for handlers that returned a custom-coded 5xx legacy body.
+  - **TDD:** the existing `error_envelope_masks_5xx_legacy_error_details` test was renamed and
+    strengthened to assert `code == "internal_server_error"`; verified RED (`code` leaked
+    `database_error`) then GREEN.
+- **Bench decision:** the changed branch (5xx masking) is provably off every measured
+  `request_lifecycle` path — the envelope success scenario short-circuits at `error.rs:235`
+  before `envelope_response` runs, so the success-path code is byte-identical before/after.
+  Re-running the success-envelope bench confirmed noise: it oscillated +10% then −6% across two
+  runs (true ~1.05 µs), i.e. ±~8% run-to-run variance, not a real effect. (No baseline lock
+  exists — BENCH-1.)
+
+### Verification after this pass
+
+`cargo fmt --all --check`, `cargo clippy -p nidus-http --all-targets --all-features -- -D
+warnings`, `cargo test --workspace --all-features` (358 passed / 0 failed) all clean.
 
 ## Appendix: verification commands (baseline)
 
