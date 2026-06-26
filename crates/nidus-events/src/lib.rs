@@ -11,8 +11,47 @@ use std::{
     sync::{Arc, Mutex, MutexGuard, Weak},
 };
 
-type SubscriberQueue<T> = Arc<Mutex<Vec<T>>>;
-type SubscriberHandle<T> = Weak<Mutex<Vec<T>>>;
+/// Bounded buffer backing a single subscriber's event queue.
+///
+/// The default capacity is unbounded (every published event is retained until
+/// [`EventSubscriber::drain`] is called). A bounded buffer evicts the oldest
+/// event when pushing beyond its capacity, so a slow or absent drainer can
+/// never grow memory without limit.
+#[derive(Clone, Debug)]
+struct SubscriberBuffer<T> {
+    events: Vec<T>,
+    capacity: Option<usize>,
+}
+
+impl<T> Default for SubscriberBuffer<T> {
+    fn default() -> Self {
+        Self {
+            events: Vec::new(),
+            capacity: None,
+        }
+    }
+}
+
+impl<T> SubscriberBuffer<T> {
+    fn push(&mut self, event: T) {
+        match self.capacity {
+            Some(capacity) if self.events.len() >= capacity => {
+                if capacity == 0 {
+                    // A zero-capacity subscriber keeps nothing.
+                    return;
+                }
+                // Evict from the front so the most recent events survive.
+                let excess = self.events.len() + 1 - capacity;
+                self.events.drain(..excess);
+            }
+            _ => {}
+        }
+        self.events.push(event);
+    }
+}
+
+type SubscriberQueue<T> = Arc<Mutex<SubscriberBuffer<T>>>;
+type SubscriberHandle<T> = Weak<Mutex<SubscriberBuffer<T>>>;
 type SubscriberList<T> = Arc<Mutex<Vec<SubscriberHandle<T>>>>;
 
 /// In-process typed event bus.
@@ -211,16 +250,36 @@ where
     /// Subscribes to future events.
     ///
     /// The returned subscriber does not replay events published before this
-    /// call.
+    /// call. Its queue is unbounded; use [`Self::subscribe_with_capacity`] to
+    /// bound memory when the subscriber may drain slowly or never.
     pub fn subscribe(&self) -> EventSubscriber<T> {
-        let queue = Arc::new(Mutex::new(Vec::new()));
+        self.subscribe_with_buffer(SubscriberBuffer::default())
+    }
+
+    /// Subscribes to future events with a bounded queue.
+    ///
+    /// The subscriber retains at most `capacity` events. When a new event would
+    /// exceed the capacity, the oldest event is evicted, so memory stays bounded
+    /// even if the subscriber never calls [`EventSubscriber::drain`]. A capacity
+    /// of `0` keeps no events (useful when only the [`ObservedEventBus`]
+    /// observer side-effect matters).
+    pub fn subscribe_with_capacity(&self, capacity: usize) -> EventSubscriber<T> {
+        self.subscribe_with_buffer(SubscriberBuffer {
+            events: Vec::new(),
+            capacity: Some(capacity),
+        })
+    }
+
+    fn subscribe_with_buffer(&self, buffer: SubscriberBuffer<T>) -> EventSubscriber<T> {
+        let queue = Arc::new(Mutex::new(buffer));
         lock_unpoisoned(&self.subscribers).push(Arc::downgrade(&queue));
         EventSubscriber { queue }
     }
 
     /// Publishes an event to current subscribers.
     ///
-    /// The event is cloned once per active subscriber.
+    /// The event is cloned once per active subscriber (bounded subscribers may
+    /// evict the oldest event to honor their capacity).
     pub fn publish(&self, event: T) {
         for subscriber in self.live_subscribers() {
             lock_unpoisoned(&subscriber).push(event.clone());
@@ -259,13 +318,13 @@ where
 /// Subscription handle for an event bus.
 #[derive(Clone, Debug)]
 pub struct EventSubscriber<T> {
-    queue: Arc<Mutex<Vec<T>>>,
+    queue: SubscriberQueue<T>,
 }
 
 impl<T> EventSubscriber<T> {
     /// Drains all received events.
     pub fn drain(&self) -> Vec<T> {
-        std::mem::take(&mut *lock_unpoisoned(&self.queue))
+        std::mem::take(&mut lock_unpoisoned(&self.queue).events)
     }
 }
 
@@ -316,5 +375,42 @@ mod tests {
         bus.publish(UserCreated(42));
 
         assert_eq!(subscriber.drain(), vec![UserCreated(42)]);
+    }
+
+    #[test]
+    fn bounded_subscriber_drops_oldest_events_beyond_capacity() {
+        let bus = EventBus::<UserCreated>::new();
+        let bounded = bus.subscribe_with_capacity(2);
+
+        bus.publish(UserCreated(1));
+        bus.publish(UserCreated(2));
+        bus.publish(UserCreated(3));
+
+        // Capacity is 2: the oldest event is evicted to keep the buffer
+        // bounded, so a slow/absent drainer can never grow memory unbounded.
+        assert_eq!(bounded.drain(), vec![UserCreated(2), UserCreated(3)]);
+
+        // A second batch after draining continues to respect the cap.
+        bus.publish(UserCreated(4));
+        bus.publish(UserCreated(5));
+        bus.publish(UserCreated(6));
+        assert_eq!(bounded.drain(), vec![UserCreated(5), UserCreated(6)]);
+    }
+
+    #[test]
+    fn unbounded_subscriber_keeps_all_events_by_default() {
+        let bus = EventBus::<UserCreated>::new();
+        let subscriber = bus.subscribe();
+
+        for id in 1..=50u64 {
+            bus.publish(UserCreated(id));
+        }
+
+        let drained: Vec<u64> = subscriber
+            .drain()
+            .into_iter()
+            .map(|event| event.0)
+            .collect();
+        assert_eq!(drained, (1..=50).collect::<Vec<_>>());
     }
 }
