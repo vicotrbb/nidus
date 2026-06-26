@@ -351,8 +351,12 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
   `/openapi.json` and `/docs` routes; in fact `main()` (`openapi/src/main.rs:74-77`) only builds the
   router, `println!`s the JSON, and exits. A user running `cargo run -p nidus-example-openapi` cannot
   curl anything. (This is the clearest docs-vs-behavior drift.)
-- **EX-2 (P2):** `auth-api` `ApiKeyGuard` is misleading — only checks `route_label() == "profile"`,
-  never inspects any header (`main.rs:16-21`); name implies header auth.
+- **EX-2 (~~P2~~ mitigated, Wave 5):** `ApiKeyGuard` in the `auth-api` example now reads the
+  `x-api-key` header and authorizes only on a match (`unauthorized` otherwise). It is wired
+  through the public `guard_layer`, so this also serves as end-to-end coverage that the Wave-1
+  header-passing fix works: integration tests assert valid key → 200, missing/wrong key → 401
+  (6 tests). Manual curl on the running server: no key → 401, wrong key → 401, valid key →
+  200 `authorized`.
 - **EX-3 (P3):** `production-api` naming/metadata inconsistency (package `production-api`, workspace-
   inherited edition/license, no `version` pin on the `nidus` dep).
 - **EX-4 (P3):** Orphaned empty dir `examples/sqlx-postgres/src/` — no `Cargo.toml`/`main.rs`, not a
@@ -484,7 +488,7 @@ example/bench code.
 | O-1 | P2 | OpenAPI omits error responses | `nidus-openapi/src/route.rs:163-178` |
 | O-2 | P2 | No route↔OpenAPI parity test | `nidus-openapi/tests/` |
 | EX-1 | P2 | `openapi` example not a server; docs imply it is | `examples/openapi/src/main.rs:74-77`; `docs/examples.md:11` |
-| EX-2 | P2 | `auth-api` guard misleading (no header check) | `examples/auth-api/src/main.rs:16-21` |
+| EX-2 | ~~P2~~ mitigated | `auth-api` guard now reads `x-api-key` header (Wave 5) | `examples/auth-api/src/main.rs` |
 | CLI-1 | P2 | No end-to-end multi-artifact CLI compile test | `cargo-nidus/tests/cli_generate.rs` |
 | CLI-2 | P2 | Default `nidus="0.1"` branch untested | `cargo-nidus/src/generate.rs:15-17` |
 | ERR-1 | P2 | 5xx `code` may leak internal taxonomy | `nidus-http/src/error.rs:251-294` |
@@ -626,6 +630,28 @@ the change is on the connection/serve boundary (`into_make_service`), not a
 measured request-routing/DI hot path; the per-request middleware stack is
 unchanged. (`routing`/`dependency_resolution`/`request_lifecycle` bench source
 is untouched.)
+
+## Follow-up hardening — Wave 5 (2026-06-26, after commit `5d714d6`)
+
+A small, example-only, high-confidence pass: the `auth-api` example was the last
+example whose guard did not exercise a real authorization signal.
+
+### Implemented
+
+- **EX-2 mitigated — realistic header guard in `auth-api`** (`examples/auth-api/src/main.rs`).
+  `ApiKeyGuard` now reads the `x-api-key` header (constant `EXPECTED_API_KEY =
+  "nidus-dev-secret"`) and returns `GuardError::unauthorized` on missing/wrong key. Because it
+  is wired through the public `guard_layer`, this is also end-to-end coverage that the Wave-1
+  header-passing fix (F-HTTP-1) works: 6 tests (valid → 200, missing → 401, wrong → 401, both
+  at the guard unit level and the router integration level). Manual curl on the running
+  server confirmed the same (no key → 401, wrong key → 401, valid key → 200 `authorized`).
+
+### Verification after this pass
+
+`cargo fmt -p nidus-example-auth-api -- --check`, `cargo clippy -p nidus-example-auth-api
+--all-targets -- -D warnings`, `cargo test -p nidus-example-auth-api` (6 passed) all clean.
+Example-only change; no crate hot path touched, so no bench required. Full workspace gate run
+at finalize.
 
 ## Appendix: verification commands (baseline)
 

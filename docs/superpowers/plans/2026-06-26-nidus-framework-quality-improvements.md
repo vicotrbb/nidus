@@ -252,4 +252,20 @@ Wave 4" section for full evidence.
 
 `cargo fmt --all --check`, `cargo clippy -p nidus-http --all-targets --all-features -- -D
 warnings`, `cargo test -p nidus-http` clean; six server examples build against the updated
-`listen`; full workspace gate run at finalize (see audit).
+`listen`; full workspace gate run at finalize (see audit). Benchmark decision: not required
+(connection/serve boundary, not a measured request/DI hot path).
+
+---
+
+## Wave 5 — example realism: header-based guard in `auth-api` (EX-2)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 5" section.
+
+- **Files:** `examples/auth-api/src/main.rs` (guard + tests).
+- **Behavior change:** example-only. `ApiKeyGuard` reads `x-api-key` instead of checking the
+  route label, returning `unauthorized` on failure. End-to-end proof of the Wave-1 `guard_layer`
+  header-passing fix.
+- **TDD:** 6 tests cover valid/missing/wrong key at both the guard unit level and the router
+  integration level; manual curl confirmed on the running server.
+- **Verification:** `cargo test -p nidus-example-auth-api` (6 passed); fmt/clippy clean.
+- **Bench:** not required (example-only, no hot path).
