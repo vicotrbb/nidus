@@ -1500,6 +1500,7 @@ dependencies = [
  "nidus-config",
  "nidus-core",
  "nidus-http",
+ "serde",
  "sqlx",
  "thiserror",
  "tokio",
