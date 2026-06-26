@@ -77,6 +77,7 @@ fn config_from_nidus_config(config: Config) -> nidus::prelude::Result<AppConfig>
     })
 }
 
+#[cfg(test)]
 fn test_config() -> AppConfig {
     AppConfig {
         database_url: "sqlite::memory:".to_owned(),
