@@ -199,3 +199,32 @@ async fn validated_json_extractor_rejects_invalid_bodies_with_validation_respons
     assert_eq!(json["error"]["code"], "validation_failed");
     assert_eq!(json["error"]["fields"][0]["field"], "email");
 }
+
+/// Audit V-1: a body that is syntactically invalid JSON must be rejected with a
+/// 400 (Axum's `JsonRejection`) and never reach the 422 validation path, which
+/// is reserved for structurally-valid input that fails business rules.
+#[tokio::test]
+async fn validated_json_extractor_rejects_malformed_json_with_bad_request() {
+    async fn create_user(ValidatedJson(input): ValidatedJson<CreateUser>) -> String {
+        input.email
+    }
+
+    let app = Router::new().route("/users", post(create_user));
+    let response = app
+        .oneshot(
+            http::Request::builder()
+                .method(http::Method::POST)
+                .uri("/users")
+                .header(http::header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(r#"{"email": broken json}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_REQUEST,
+        "malformed JSON must yield 400, not 422"
+    );
+}

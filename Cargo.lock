@@ -1563,6 +1563,7 @@ dependencies = [
  "nidus-http",
  "nidus-validation",
  "serde",
+ "serde_json",
  "tokio",
  "tower",
  "validator",

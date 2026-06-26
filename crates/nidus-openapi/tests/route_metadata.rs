@@ -318,3 +318,94 @@ fn openapi_document_try_from_controller_routes_rejects_invalid_route_path() {
     };
     assert_eq!(error.path(), "/:");
 }
+
+/// Audit O-2: the generated document must expose exactly the declared routes
+/// (no missing, no extra, correct methods) so the spec and the router built
+/// from the same `RouteMetadata` can never silently diverge.
+#[test]
+fn openapi_document_paths_match_declared_route_metadata_exactly() {
+    let routes = [
+        RouteMetadata::new("GET", "/users"),
+        RouteMetadata::new("POST", "/users"),
+        RouteMetadata::new("GET", "/users/:id"),
+        RouteMetadata::new("DELETE", "/users/:id"),
+        RouteMetadata::new("PATCH", "/users/:id/tasks/:task_id"),
+    ];
+
+    let document = OpenApiDocument::from_route_metadata("Nidus API", "0.1.0", &routes);
+    let json = document.to_json_value();
+    let paths = json["paths"].as_object().expect("paths must be an object");
+
+    // Every declared route is present in its braced (OpenAPI) form.
+    let mut path_keys: Vec<&String> = paths.keys().collect();
+    path_keys.sort();
+    assert_eq!(
+        path_keys,
+        vec!["/users", "/users/{id}", "/users/{id}/tasks/{task_id}"],
+        "paths must match declared routes exactly: {paths:?}"
+    );
+
+    // Method parity per path (collected and sorted to be order-independent).
+    let sorted_methods = |path: &str| -> Vec<&str> {
+        let mut methods: Vec<&str> = paths[path]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        methods.sort();
+        methods
+    };
+
+    assert_eq!(sorted_methods("/users"), vec!["get", "post"]);
+    assert_eq!(sorted_methods("/users/{id}"), vec!["delete", "get"]);
+    assert_eq!(sorted_methods("/users/{id}/tasks/{task_id}"), vec!["patch"]);
+
+    // A declared operationId must exist for every (path, method) so nothing is
+    // silently dropped during the metadata -> spec conversion.
+    for (path, ops) in paths {
+        for (method, operation) in ops.as_object().unwrap() {
+            assert!(
+                operation.get("operationId").is_some(),
+                "missing operationId for {method} {path}: {operation:?}"
+            );
+        }
+    }
+}
+
+/// Audit O-2 (controller prefix): the prefixed builder must surface exactly the
+/// prefixed routes, guarding against prefix-joining divergence.
+#[test]
+fn openapi_controller_routes_paths_match_declared_metadata_exactly() {
+    let routes = [
+        RouteMetadata::new("GET", "/"),
+        RouteMetadata::new("POST", "/"),
+        RouteMetadata::new("GET", "/:id"),
+    ];
+
+    let document =
+        OpenApiDocument::from_controller_routes("Nidus API", "0.1.0", "/projects", &routes);
+    let json = document.to_json_value();
+    let paths = json["paths"].as_object().expect("paths must be an object");
+
+    let mut path_keys: Vec<&String> = paths.keys().collect();
+    path_keys.sort();
+    assert_eq!(
+        path_keys,
+        vec!["/projects", "/projects/{id}"],
+        "prefixed paths must match declared routes exactly: {paths:?}"
+    );
+
+    let sorted_methods = |path: &str| -> Vec<&str> {
+        let mut methods: Vec<&str> = paths[path]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        methods.sort();
+        methods
+    };
+    assert_eq!(sorted_methods("/projects"), vec!["get", "post"]);
+    assert_eq!(sorted_methods("/projects/{id}"), vec!["get"]);
+}

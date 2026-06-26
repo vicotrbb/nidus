@@ -64,6 +64,7 @@ nidus-core = { path = "crates/nidus-core", version = "0.1.0" }
 nidus-http = { path = "crates/nidus-http", version = "0.1.0" }
 nidus-validation = { path = "crates/nidus-validation", version = "0.1.0" }
 serde.workspace = true
+serde_json.workspace = true
 tokio.workspace = true
 tower.workspace = true
 validator.workspace = true
