@@ -748,6 +748,64 @@ async fn production_api_defaults_apply_security_headers_body_limit_and_timeout()
     );
 }
 
+#[tokio::test]
+async fn production_defaults_envelope_meter_and_identify_handler_errors() {
+    // Pins the documented production middleware order by asserting that a single
+    // handler-produced 500 is simultaneously:
+    //   - wrapped by the production error envelope (ErrorEnvelope is outside the handler)
+    //   - recorded by metrics (metrics is outside ErrorEnvelope)
+    //   - given an x-request-id (request-id layer is outside metrics)
+    //   - given security headers (security headers are outermost)
+    // Reordering any of these layers relative to the handler would fail an assertion.
+    let metrics = PrometheusMetrics::new();
+    let app = ApiDefaults::production("users-api")
+        .metrics(metrics.clone())
+        .apply(
+            Router::new()
+                .route(
+                    "/boom",
+                    get(|| async {
+                        Err::<&'static str, HttpError>(HttpError::internal_server_error())
+                    }),
+                )
+                .merge(metrics.routes()),
+        );
+
+    let response = app
+        .clone()
+        .oneshot(Request::builder().uri("/boom").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert!(response.headers().contains_key("x-request-id"));
+    assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+    let body = response_json(response).await;
+    assert_eq!(body["error"]["statusCode"], 500);
+    assert_eq!(body["error"]["message"], "internal server error");
+    assert!(body["error"]["requestId"].is_string());
+
+    let metrics_response = app
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let text = String::from_utf8(
+        to_bytes(metrics_response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert!(
+        text.contains(r#"nidus_http_requests_total{method="GET",route="/boom",status="500"} 1"#),
+        "{text}"
+    );
+}
+
 async fn response_json(response: axum::response::Response) -> serde_json::Value {
     let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     serde_json::from_slice(&body).unwrap()
