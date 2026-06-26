@@ -129,6 +129,31 @@ fn job_queue_reports_panics_and_continues_running() {
     assert_eq!(*records.lock().unwrap(), ["ran"]);
 }
 
+#[test]
+fn job_queue_retains_jobs_after_run_all_and_clear_empties_it() {
+    let records = Arc::new(Mutex::new(Vec::new()));
+    let mut queue = JobQueue::new();
+    queue.push(RecordJob(Arc::clone(&records)));
+
+    let first = queue.run_all();
+    assert_eq!(first.completed(), ["record"]);
+    assert_eq!(*records.lock().unwrap(), ["ran"]);
+
+    // Jobs are retained: a second run_all re-executes them.
+    let second = queue.run_all();
+    assert_eq!(second.completed(), ["record"]);
+    assert_eq!(*records.lock().unwrap(), ["ran", "ran"]);
+
+    // After clear, run_all runs nothing and the queue is empty.
+    queue.clear();
+    assert!(queue.is_empty());
+
+    let third = queue.run_all();
+    assert!(third.completed().is_empty());
+    assert!(third.failed().is_empty());
+    assert_eq!(*records.lock().unwrap(), ["ran", "ran"]);
+}
+
 #[tokio::test]
 async fn async_job_queue_runs_registered_jobs_in_order() {
     let records = Arc::new(Mutex::new(Vec::new()));
@@ -180,4 +205,27 @@ async fn async_job_queue_reports_panics_and_continues_running() {
     assert_eq!(report.failed()[0].error().message(), "job panicked");
     assert!(!report.is_success());
     assert_eq!(*records.lock().unwrap(), ["async_ran"]);
+}
+
+#[tokio::test]
+async fn async_job_queue_retains_jobs_after_run_all_and_clear_empties_it() {
+    let records = Arc::new(Mutex::new(Vec::new()));
+    let mut queue = AsyncJobQueue::new();
+    queue.push(AsyncRecordJob(Arc::clone(&records)));
+
+    let first = queue.run_all().await;
+    assert_eq!(first.completed(), ["async_record"]);
+    assert_eq!(*records.lock().unwrap(), ["async_ran"]);
+
+    let second = queue.run_all().await;
+    assert_eq!(second.completed(), ["async_record"]);
+    assert_eq!(*records.lock().unwrap(), ["async_ran", "async_ran"]);
+
+    queue.clear();
+    assert!(queue.is_empty());
+
+    let third = queue.run_all().await;
+    assert!(third.completed().is_empty());
+    assert!(third.failed().is_empty());
+    assert_eq!(*records.lock().unwrap(), ["async_ran", "async_ran"]);
 }

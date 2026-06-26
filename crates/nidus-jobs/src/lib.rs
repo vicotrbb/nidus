@@ -341,6 +341,16 @@ impl JobQueue {
         self.jobs.is_empty()
     }
 
+    /// Removes all queued jobs without running them.
+    ///
+    /// Jobs are retained across [`run_all`](Self::run_all) calls, so calling
+    /// `run_all` again runs the same jobs again. Use `clear` when the queue should
+    /// not retain jobs after a run, for example to avoid re-executing jobs with
+    /// side effects.
+    pub fn clear(&mut self) {
+        self.jobs.clear();
+    }
+
     /// Runs all queued jobs in insertion order.
     ///
     /// Every job is attempted. Failures are collected in the returned
@@ -397,6 +407,16 @@ impl AsyncJobQueue {
     /// Returns whether the queue has no asynchronous jobs.
     pub fn is_empty(&self) -> bool {
         self.jobs.is_empty()
+    }
+
+    /// Removes all queued asynchronous jobs without running them.
+    ///
+    /// Jobs are retained across [`run_all`](Self::run_all) calls, so calling
+    /// `run_all` again runs the same jobs again. Use `clear` when the queue should
+    /// not retain jobs after a run, for example to avoid re-executing jobs with
+    /// side effects.
+    pub fn clear(&mut self) {
+        self.jobs.clear();
     }
 
     /// Runs all queued asynchronous jobs in insertion order.
