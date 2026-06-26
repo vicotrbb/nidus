@@ -71,10 +71,17 @@ fn app() -> Router {
         .merge(document().into_router())
 }
 
-fn main() {
-    let _router = app();
-    println!("{}", document().to_json_value());
+#[nidus::main]
+async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    Nidus::bootstrap::<AppModule>()?
+        .with_router(app())
+        .listen("127.0.0.1:3000")
+        .await?;
+    Ok(())
 }
+
+#[module]
+struct AppModule;
 
 #[cfg(test)]
 mod tests {
