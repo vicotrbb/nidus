@@ -188,3 +188,34 @@ Each wave is a separate atomic commit. Any wave can be reverted in isolation wit
 - BENCH-1 baseline locking.
 
 These are tracked in the audit backlog and will be addressed in follow-up phases.
+
+---
+
+## Wave 3 — reliability hardening + parity coverage (second session, after `ac108ef`)
+
+Status: **implemented** (commits `66834f7`, `dcfbf0a`, `3070c07`). See the audit's
+"Follow-up hardening — second pass" section for full evidence.
+
+- **3a — F-HTTP-8 / SEC-3**: opt-in `PrometheusMetrics::with_max_series(n)` cardinality
+  cap (overflow bucket). Default uncapped path unchanged and zero-overhead. Metrics
+  criterion benches: no change (p > 0.05). (Default-cap change deferred.)
+- **3b — E-1 / SEC-3**: opt-in `EventBus::subscribe_with_capacity(cap)` bounded
+  subscriber (drop-oldest). Default unbounded path unchanged.
+- **3c — O-2**: route↔spec parity tests (`from_route_metadata`, `from_controller_routes`).
+- **3d — V-1**: malformed-JSON 400 test + `ValidatedJson` 422 ↔ `ErrorEnvelopeLayer`
+  composition integration test (workspace-level).
+
+### Reclassified out of the backlog (evidence in audit follow-up section)
+
+- **F-MAC-1** is **not a defect**: the runtime `ApplicationBuild` is intentional to support
+  manually-constructed controllers (`controller_routes.rs`, `routes_generic_controller.rs`).
+  A compile-error enforcement was implemented, TDD-tested, and reverted to avoid regressing
+  those patterns. Removed from the deferred backlog.
+
+### Verification after Wave 3
+
+fmt/clippy/doc clean; `cargo test --workspace --all-features` → 354 passed / 0 failed
+(+9); deny/machete/tree clean; production-api manual curl confirms metrics recording and
+exclusion still work. Benchmark decision: `request_lifecycle` metrics scenarios re-run
+because `metrics.rs` (hot path) was touched — no regression (p > 0.05). `dependency_resolution`
+and `routing` benches not re-run: no DI or routing hot-path code changed.

@@ -490,6 +490,68 @@ example/bench code.
 | T-1 | P2 | TestApp can't install request_scope_layer | `nidus-testing/src/app.rs:212-217` |
 | (many) | P3 | diagnostics spans, naming, async assertions, cleanup, etc. | see sections above |
 
+## Follow-up hardening — second pass (2026-06-26, after commit `ac108ef`)
+
+Waves 1-2 (the three P1 fixes + cheap P2 hardening from the plan) landed in the
+prior session. A second evidence-backed pass advanced the deferred backlog.
+Baseline before this pass: build green, `cargo test --workspace --all-features`
+345 passed / 0 failed; fmt/clippy/doc/deny/audit/machete/tree all clean.
+
+### Implemented (TDD, atomic commits)
+
+- **F-HTTP-8 / SEC-3 mitigated** (commit `66834f7`): `PrometheusMetrics::with_max_series(n)`
+  bounds distinct route labels; once `n` are admitted, further labels collapse into a
+  single `"<overflow>"` route, preventing unbounded memory growth from accidental
+  high-cardinality labels. The default `new()` path is unchanged and zero-overhead
+  (`admit_route` is guarded behind `max_series.is_some()`). Two tests pin both paths.
+  Benchmark: all three metrics criterion scenarios report *"No change in performance
+  detected"* (p > 0.05). Default-cardinality change deferred because existing tests
+  deliberately pin "records every distinct route" as intended behavior and the caller
+  already controls cardinality via route patterns.
+- **E-1 / SEC-3 mitigated** (commit `dcfbf0a`): `EventBus::subscribe_with_capacity(cap)`
+  returns a bounded subscriber that evicts the oldest event past the cap, so a slow/absent
+  drainer can never grow memory without limit. Queue type moved to a `SubscriberBuffer`
+  carrying an optional capacity; default `subscribe()` remains unbounded. Two tests pin
+  drop-oldest and keep-all behaviors.
+- **O-2 covered** (commit `3070c07`): parity tests assert `from_route_metadata` and
+  `from_controller_routes` emit exactly the declared paths and methods (no missing, no
+  extra, every operation has an `operationId`), so the generated spec and the router
+  built from the same `RouteMetadata` cannot silently diverge.
+- **V-1 covered** (commit `3070c07`): a malformed-JSON body is pinned to 400 (Axum
+  `JsonRejection`), distinct from the 422 business-rule path; a new workspace integration
+  test pins the `ValidatedJson` 422 → `ErrorEnvelopeLayer` composition (envelope preserves
+  `code`/`message` and flattens `fields` into `details` while adding `statusCode`/
+  `timestamp`/`path`). `serde_json` added as a test-only workspace dev-dependency.
+
+### Investigated and intentionally NOT changed (with evidence)
+
+- **F-MAC-1 reclassified → not a defect.** A blanket compile error for non-`Inject`/
+  `Optional` controller fields was implemented and TDD-tested, then **reverted** because it
+  regresses two legitimate, tested patterns: `crates/nidus/tests/controller_routes.rs`
+  (a controller with a concrete `suffix: &'static str` field, constructed manually via
+  `into_router()`) and `crates/nidus/tests/ui/routes_generic_controller.rs` (a generic
+  controller `service: S`). The runtime `NidusError::ApplicationBuild` is **intentional**:
+  it supports manually-constructed controllers that are never built from the container.
+  Refined scoping (compile-error only on concrete fields, runtime-error for generic params)
+  still breaks the `&'static str` case. F-MAC-1 is therefore **not a defect** and is removed
+  from the backlog.
+
+### Verification after this pass
+
+`cargo fmt --all --check`, `cargo clippy --workspace --all-targets --all-features -- -D
+warnings`, `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps` all
+clean; `cargo test --workspace --all-features` → **354 passed / 0 failed / 30 ignored**
+(+9 tests vs baseline); `cargo deny check`, `cargo machete`, `cargo tree -d` clean; the one
+`cargo audit` warning (RUSTSEC-2026-0173, `proc-macro-error2` via `validator` 0.20) remains
+the pre-existing, documented/ignored advisory.
+
+Manual curl (production-api on `127.0.0.1:64752`, since `metrics.rs` was touched):
+`GET /health/live` → 200; `GET /metrics` → 200 `text/plain` rendering
+`nidus_http_requests_total{method="GET",route="/users/{id}",status="200"}` with
+`route="/metrics"` excluded (count 0); `GET /users/1` → 200 with UUID `x-request-id` and
+matching `request_id` in body. No live regression; opt-in cap does not affect the default
+uncapped render path.
+
 ## Appendix: verification commands (baseline)
 
 ```
