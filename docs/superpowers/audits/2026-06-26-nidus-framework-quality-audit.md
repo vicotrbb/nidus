@@ -1,0 +1,504 @@
+# Nidus Framework Quality Audit
+
+- Date: 2026-06-26
+- Scope: full repository at `main` (commit `70bf62a`), all 14 crates, 11 example packages, 3 benches, docs
+- Method: source inspection of every crate/example/bench + verification baseline commands
+- Author: automated framework hardening pass (evidence-backed; no overclaiming)
+
+## Severity scale
+
+- **P0** — correctness/security/release blocker
+- **P1** — important framework-quality issue (real defect with user-visible impact)
+- **P2** — useful hardening / ergonomics / coverage gap
+- **P3** — polish
+
+## Verification baseline (recorded before any changes)
+
+All run on the audited commit:
+
+```
+cargo build --workspace --all-features             -> Finished, 0 errors
+cargo test --workspace --all-features              -> ok (all suites), 0 failures
+```
+
+The full test suite is green: ~260 tests across unit/integration/doc-tests pass (doctests are
+intentionally `#[ignore]`d and reported as ignored). Per-suite counts sampled:
+`nidus-core` 51, `nidus-http` 45+ (`production_api` suite included), `cargo-nidus` 60,
+`nidus-testing` 26, `nidus-openapi` 27, `nidus-config` 21, `nidus-validation` 9, `nidus-auth` 10,
+`nidus-events` 6, `nidus-jobs` 8, all examples 34.
+
+## Architecture summary
+
+Nidus is a modular Rust backend framework inspired by NestJS ergonomics, built directly on
+Axum 0.8, Tower 0.5, Tokio, serde, validator, utoipa, and tracing. It composes these crates
+instead of replacing them.
+
+Workspace layout (`Cargo.toml`):
+
+- `nidus` — public facade + prelude + `NidusApplicationBuilder`; feature-gated re-exports.
+- `nidus-core` — `Container` (type-keyed, `HashMap<TypeId, ProviderEntry>`), providers, lifetimes
+  (`Singleton`/`Transient`/`Request`), `RequestScope`, `ModuleGraph` validation, `LifecycleRunner`,
+  `NidusError`.
+- `nidus-macros` — attribute macros: `module`, `injectable`, `controller`, `routes`, HTTP verbs,
+  `openapi`, `guard`, `pipe`, `validate`, `main`. Compile-fail + insta snapshot coverage.
+- `nidus-http` — `Controller`/`RouteDefinition` route composition, router/path math, `HttpError`,
+  production `ErrorEnvelopeLayer`, `RequestContext`/request-id, `ApiDefaults::production` stack,
+  `HealthRegistry`, `PrometheusMetrics`, rate limiting, logging, OTel helpers (`otel` feature).
+- `nidus-config` — `Config` (serde-based, layered merge, typed access, path errors).
+- `nidus-openapi` — `OpenApiDocument` from controller `RouteMetadata`, `/openapi.json` + `/docs`.
+- `nidus-validation` — `Pipe` trait, `ValidationPipe`, `ValidatedJson<T>` (422 shape).
+- `nidus-auth` — `Guard`/`GuardExt`/`GuardContext`/`GuardError`, `guard_layer` Tower integration.
+- `nidus-events` — in-process `EventBus` (weak subscribers), `EventObserver`.
+- `nidus-jobs` — in-memory `JobQueue`/`AsyncJobQueue` (batch, panic-recovering), `ObservedJobRunner`.
+- `nidus-sqlx`, `nidus-cache` — separately installable adapters (outside the facade).
+- `nidus-testing` — `TestApp`/`TestAppBuilder` (in-memory `oneshot`), provider/config overrides.
+- `cargo-nidus` — CLI (`new`, `generate`, `routes`, `graph`, `expand`, `check`, `openapi`).
+
+Dependency direction is clean and inward: facade → core/macros/http/...; adapters depend only on
+`nidus-core` (+ optional `nidus-http`/`nidus-config`). No circular crate dependencies. The
+`nidus-workspace` root package only hosts the three Criterion benches.
+
+## Crate-by-crate findings
+
+### nidus-core (DI, modules, lifecycle)
+
+#### F-CORE-1 — Panicking singleton factory permanently deadlocks that provider (P1)
+- **Evidence:** `crates/nidus-core/src/provider/mod.rs:136-154`. `resolve_singleton` enters
+  resolution (`:137`), sets `SingletonState::Initializing` (`:138`), drops the lock (`:139`),
+  then calls `self.create_erased(container)` (`:141`) with **no `catch_unwind`**. The `Err`
+  branch (`:149-152`) resets state to `Empty`, but a **panic unwinds past it**. The
+  `resolution::enter` guard's `Drop` removes the type from the stack, so later resolves see
+  `Initializing` (`:128`) and `is_active` returns false (`:129`), then **block forever** on
+  `wait_unpoisoned` (`:134`).
+- **Files:** `crates/nidus-core/src/provider/mod.rs`
+- **Risk:** One `panic!`/index-oob/`.unwrap()` inside any singleton factory (or a transitive dep)
+  makes that provider unresolvable for the entire process lifetime, silently hanging request
+  handlers that touch it.
+- **Fix:** Wrap `create_erased` in `std::panic::catch_unwind(AssertUnwindSafe(..))`; on panic,
+  reset state to `Empty`, `notify_all`, then either `resume_unwind` or return a `NidusError`.
+- **Verification:** add a test that registers a panicking singleton factory, triggers a resolve,
+  and asserts a second resolve returns an error (not a hang) — run under a timeout.
+
+#### F-CORE-2 — Core `Nidus::bootstrap` yields an empty container (no providers) (P1)
+- **Evidence:** `crates/nidus-core/src/app/mod.rs:56-69` builds `Container::new()` and never runs
+  `module.provider_registrars()` / `async_initializers()`. Only the facade
+  `NidusApplicationBuilder::build` (`crates/nidus/src/app.rs:99-109`) registers providers. The
+  core `app.rs` / `lifecycle_bootstrap.rs` tests assert module presence, never provider resolution.
+- **Files:** `crates/nidus-core/src/app/mod.rs`; contrast `crates/nidus/src/app.rs`
+- **Risk:** `Nidus::bootstrap::<M>()` followed by `app.container().resolve::<T>()` returns
+  `MissingProvider` despite declared providers. Surprising for anyone using the documented core API.
+- **Fix:** Either register providers in core bootstrap, or rename/gate the core bootstrap and
+  document that registration requires the facade builder; add a resolution test.
+- **Verification:** `cargo test -p nidus-core --test app` (new resolution assertion).
+
+#### F-CORE-3 — Module graph keyed by short type name, not `TypeId`; no dependency completeness (P2)
+- **Evidence:** name derivation at `crates/nidus-core/src/module/mod.rs:230-236,271-277`
+  (`rsplit("::").next()`); `graph.rs:123-241` compares these strings. Missing transitive deps
+  surface only at runtime resolution.
+- **Files:** `crates/nidus-core/src/module/{mod,graph}.rs`
+- **Risk:** Distinct types sharing a simple name (e.g. `auth::Session` vs `billing::Session`)
+  trigger false `DuplicateModuleProvider`/`AmbiguousProvider`.
+- **Fix:** Key graph identity on `TypeId`; optionally capture `Inject<T>` field types in
+  `#[injectable]` for a real dependency graph.
+- **Verification:** regression test with two same-simple-name providers.
+
+#### F-CORE-4 — Blocking `Condvar` waits reachable from async handlers (P2)
+- **Evidence:** `provider/mod.rs:134` (`wait_unpoisoned`), `request_scope.rs:124`. First-time
+  singleton resolution can happen lazily during request handling (providers are not eagerly
+  resolved at build — `crates/nidus/src/app.rs:96-113`).
+- **Files:** `crates/nidus-core/src/provider/mod.rs`, `crates/nidus-core/src/request_scope.rs`
+- **Risk:** Under contention a Tokio worker thread blocks on the condvar; many stalls starve the
+  runtime.
+- **Fix:** Eagerly resolve singletons at bootstrap, or document; reserve the wait for the sync API.
+- **Verification:** `cargo bench --bench dependency_resolution` before/after any change.
+
+#### F-CORE-5 — `register_request` providers cannot chain request-scoped deps (P2)
+- **Evidence:** `container/mod.rs:84-90` registers only the container factory;
+  `create_erased_in_scope` falls back to `create_erased(scope.container())` (`provider/mod.rs:166-168`),
+  so a `container.inject::<OtherRequest>()` fails with `RequestScopeRequired`. Only
+  `register_request_scoped` / `#[injectable(request)]` chain correctly.
+- **Files:** `crates/nidus-core/src/container/mod.rs`, `crates/nidus-core/src/provider/mod.rs`
+- **Risk:** Subtle trap for lower-level API users. (Already documented at
+  `docs/dependency-injection.md:84-87` for the `register_request_scoped` path.)
+- **Fix:** Document the limitation explicitly, or unify `register_request` to pass the scope.
+
+### nidus-macros (diagnostics)
+
+#### F-MAC-1 — `#[controller]` non-injectable fields defer to runtime error, not compile error (P2)
+- **Evidence:** `crates/nidus-macros/src/controller.rs:42-67,97-116`. A field type that is not
+  `Inject`/`Optional` becomes a generated method returning a runtime `NidusError::ApplicationBuild`
+  rather than a `syn::Error::new_spanned` at expansion (contrast `injectable.rs:60-67` which does
+  emit compile errors for its fields).
+- **Files:** `crates/nidus-macros/src/controller.rs`
+- **Risk:** Structurally invalid controllers compile and fail at first instantiation.
+- **Fix:** Emit a spanned compile error for non-`Inject`/`Optional` named fields.
+- **Verification:** add a `tests/ui` compile-fail case (trybuild).
+
+#### F-MAC-2 — Attribute-level macro errors use `Span::call_site()` (P3)
+- **Evidence:** `crates/nidus-macros/src/diagnostics.rs:5-7`; consumers in `controller.rs`,
+  `guard.rs`, `pipe.rs`, `entrypoint.rs`, `module.rs:51`, `injectable.rs:15`. Route/openapi errors
+  are spanned (`new_spanned`); attribute placement errors point at the whole invocation.
+- **Files:** `crates/nidus-macros/src/diagnostics.rs`
+- **Risk:** Poorer DX for macro-misplacement errors.
+- **Fix:** Thread the offending token/span into `compile_error`.
+
+### nidus-http (controllers, middleware, errors, health, metrics)
+
+#### F-HTTP-1 — `guard_layer` never populates request headers; inner service called before authorization (P1)
+- **Evidence:** `crates/nidus-auth/src/middleware.rs:82-93`. `call()` moves `request` into
+  `self.inner.call(request)` at `:86` **before** the guard runs at `:89`;
+  `GuardContext::new(state, route_label)` is built with **no headers**, so `ctx.headers()` is
+  always an empty `HeaderMap` through this layer. The macro path
+  (`crates/nidus-macros/src/routes.rs:176-177`) DOES pass headers, so the two wiring paths are
+  inconsistent.
+- **Files:** `crates/nidus-auth/src/middleware.rs` (hosted in nidus-auth; the layer's home)
+- **Risk:** Any header/token guard wired via the documented public `guard_layer` is silently broken
+  (always-deny for header-required guards; always-allow for "no header = anonymous" guards).
+  `examples/realworld-api/src/auth/guard.rs:14-21` (`ApiKeyGuard` reading `x-api-key`) would be
+  broken if wired through the layer. Existing `guard_layer` tests only check `route_label`/`state`,
+  so the bug is latent.
+- **Fix:** Split headers off the request before calling inner; authorize first; pass headers:
+  `GuardContext::new(state, route_label).with_headers(parts.headers.clone())`, then call inner on
+  success.
+- **Verification:** regression test asserting a header-reading guard receives the header through
+  `guard_layer` (`cargo test -p nidus-auth`).
+
+#### F-HTTP-2 — Production body limit is `Content-Length`-only (bypassable) (P2)
+- **Evidence:** `crates/nidus-http/src/middleware/security.rs:171-185` (`body_limit_layer` checks
+  only `Content-Length`); `api_defaults.rs:93,282-284` uses it for the 1 MiB default. Docs at
+  `security.rs:80-89,199-204` acknowledge this; test `body_limit_layer_allows_undeclared_body_sizes`
+  proves the bypass.
+- **Files:** `crates/nidus-http/src/middleware/{security,api_defaults}.rs`
+- **Risk:** Chunked-transfer clients (no `Content-Length`) bypass the stated limit on the wire.
+- **Fix:** Layer `streaming_body_limit_layer` (tower-http `RequestBodyLimitLayer`, already a dep)
+  into `ApiDefaults::production`, or document the two-tier model prominently.
+- **Verification:** `cargo test -p nidus-http --test logging_otel_security`; new streaming-limit test.
+
+#### F-HTTP-3 — 413 (body-limit) responses bypass request-id, metrics, and error envelope (P2)
+- **Evidence:** inbound order (from `api_defaults.rs:260-289`, last `.level()` is outermost):
+  security_headers → **body_limit** → validated_request_id → request_context → metrics →
+  ErrorEnvelope → timeout → rate_limit → handlers. So a 413 is produced before a request id exists,
+  is not metered, not enveloped, and carries no `x-request-id`.
+- **Files:** `crates/nidus-http/src/middleware/api_defaults.rs`
+- **Risk:** Oversized-body DoS is invisible to metrics and inconsistent with the production
+  envelope contract; log correlation breaks (no request id).
+- **Fix:** Move `body_limit` inside `validated_request_id`/`metrics`/`ErrorEnvelope`, or document.
+- **Verification:** test asserting 413 carries `x-request-id` + is metered + enveloped.
+
+#### F-HTTP-4 — No test pins the production middleware order (P2)
+- **Evidence:** `tests/production_api.rs` tests only behavioral side-effects; no assertion that the
+  layer sequence equals the documented stack (`api_defaults.rs:246-254`).
+- **Files:** `crates/nidus-http/tests/production_api.rs`
+- **Risk:** A future refactor can silently reorder layers (e.g., move `ErrorEnvelope` inside
+  `metrics`, or `body_limit` inside `request_id`) without any test failure.
+- **Fix:** Add an order-probe test (envelope present on a handler 500, metric recorded on a 408,
+  security header present on 413/429, request-id echoed on all paths).
+- **Verification:** `cargo test -p nidus-http --test production_api`.
+
+#### F-HTTP-5 — `HttpApplication::listen` lacks graceful shutdown and `ConnectInfo` (P2)
+- **Evidence:** `crates/nidus-http/src/server.rs:67-73` uses plain `axum::serve(listener, router)`
+  with no `.with_graceful_shutdown(..)` and no
+  `into_make_service_with_connect_info::<SocketAddr>()`.
+- **Files:** `crates/nidus-http/src/server.rs`
+- **Risk:** (a) On SIGTERM in-flight requests abort abruptly with no drain. (b) `client_ip_identity`
+  (`context.rs:282-296`) prefers `ConnectInfo<SocketAddr>`, which is never populated via the blessed
+  server path — so rate-limit identity falls through to spoofable `X-Forwarded-For` / `"anonymous"`.
+- **Fix:** Add optional graceful-shutdown signal + `ConnectInfo` make-service (or document).
+- **Verification:** `cargo test -p nidus-http --test server`; integration test for identity.
+
+#### F-HTTP-6 — `client_ip_identity` trusts `X-Forwarded-For` and collapses anonymous to one bucket (P2)
+- **Evidence:** `crates/nidus-http/src/context.rs:282-296` reads the first XFF hop with no
+  trusted-proxy validation; falls back to a single `RequestIdentity::new("anonymous")`.
+- **Files:** `crates/nidus-http/src/context.rs`
+- **Risk:** Identity spoofing (evade/framed per-IP limits); one abuser exhausts the shared
+  `"anonymous"` window for all anonymous clients.
+- **Fix:** Trusted-proxy config; per-connection fallback instead of a shared bucket.
+- **Verification:** unit tests for identity extraction branches.
+
+#### F-HTTP-7 — No panic-catching layer in production stack (P2)
+- **Evidence:** `api_defaults.rs:260-289` installs no `CatchPanicLayer`; `tower-http` is configured
+  without the `catch-panic` feature.
+- **Files:** `crates/nidus-http/src/middleware/api_defaults.rs`, root `Cargo.toml`
+- **Risk:** A panicking handler does not yield the production envelope / `x-request-id`; behavior
+  depends on hyper/axum internals.
+- **Fix:** Gate `tower-http` `catch-panic`, map caught panics to `HttpError::internal_server_error`.
+- **Verification:** test handler-panic under the production stack.
+
+#### F-HTTP-8 — Prometheus series count unbounded (P2)
+- **Evidence:** per-series storage is fixed (`DurationHistogram` fixed 11-bucket array,
+  `metrics.rs:331`), but `PrometheusState` maps (`:317-320`) have no max-series cap;
+  `on_request`/`on_response` accept arbitrary route strings; test
+  `prometheus_metrics_records_high_cardinality_routes_explicitly` exercises unbounded growth.
+- **Files:** `crates/nidus-http/src/middleware/metrics.rs`
+- **Risk:** A misconfigured hook or concrete-path labels cause unbounded memory growth in
+  long-running processes (the recent "bound duration storage" commits bounded per-series size,
+  not series count).
+- **Fix:** Bound series (LRU/cap with `route="<overflow>"`), or enforce pattern-only labels.
+- **Verification:** `cargo test -p nidus-http --test production_api`.
+
+#### F-HTTP-9 — Legacy `request_id_layer` generates non-unique `nidus-<nanos>` ids (P3)
+- **Evidence:** `crates/nidus-http/src/middleware/request_id.rs:78-85` (wall-clock nanos).
+  Production path uses UUID v4. **Confirmed safe** otherwise (request id hardening verified).
+
+### nidus-config
+
+- **Clean.** No panics/unwrap in non-test code; `ConfigError` is path-aware and tested (21 tests).
+- **C-1 (P3):** `get_path` navigates objects only — no array indices (`lib.rs:197-199`); untested.
+- **C-2 (P3):** env-prefix matching is case-sensitive (`lib.rs:135`); not asserted in tests.
+- Docs (`docs/config.md`, `docs/dependency-injection.md`) are **accurate** against the implementation.
+
+### nidus-openapi
+
+- **O-1 (P2):** Error responses (4xx/5xx) are never represented — only the success status is
+  emitted (`route.rs:163-178`). Clients can't discover validation (422)/auth (401/403) responses.
+- **O-2 (P2):** No route↔spec parity test; the document is populated manually, so router/spec can
+  silently diverge. **Verification:** integration test asserting each `RouteMetadata` appears in JSON.
+- **O-3 (P3):** `cargo nidus openapi` inspector hardcodes title/version
+  (`crates/cargo-nidus/src/openapi_doc.rs:102-105`), can diverge from runtime `OpenApiDocument`.
+- Docs (`docs/openapi.md`) are **accurate**.
+
+### nidus-validation
+
+- **Clean.** No panics/unwrap in non-test code; 422 + sorted `fields` shape tested (9 tests).
+- **V-1 (P3):** No test for malformed-JSON rejection (400) path, nor for the
+  `ValidationPipeError` ↔ `ErrorEnvelopeLayer` composition (`fields` → `details`).
+- Docs (`docs/pipes.md`) are **accurate**.
+
+### nidus-auth
+
+- **F-HTTP-1 (P1)** above (the `guard_layer` bug lives here).
+- **A-1 (P2):** Guard runs after `inner.call` (request consumed before authorization)
+  (`middleware.rs:86`). Fixed together with F-HTTP-1.
+- **A-2 (P3):** `OrGuard` discards the second error when both fail (`lib.rs:99-102`) — intentional,
+  tested.
+- Note: there is **no `CurrentUser` extractor** in the codebase; auth state reaches handlers only
+  generically via `GuardContext::state()`. (README/goal mention `CurrentUser` aspirationally.)
+
+### nidus-events
+
+- **E-1 (P2):** Subscriber queues are unbounded `Vec<T>` (`lib.rs:14,216,226`); no backpressure; a
+  slow/absent drainer causes unbounded memory growth for the subscriber's lifetime.
+- **E-2 (P3):** Observer runs synchronously on the publishing thread (`lib.rs:178-192`) —
+  blocking-in-async risk if the observer does I/O.
+- **E-3 (P3):** `lock_unpoisoned` silently absorbs poisoned-mutex state (`lib.rs:272-276`).
+- Sync, in-process, no spawns/channels — runtime-safe otherwise.
+
+### nidus-jobs
+
+- **J-1 (P2):** `ObservedJobRunner` has **no `catch_unwind`** — a panicking job skips
+  `on_job_finished`, violating the observer contract (`lib.rs:209,230`). The queues do recover
+  (`lib.rs:346,404`, verified). No panic-recovery test for the runner.
+- **J-2 (P2):** Queues are unbounded and **retain jobs after `run_all`** with no `clear`/`drain`
+  (`lib.rs:286-288,321-326,342-359`); a second `run_all` re-executes everything (duplicate side
+  effects). No test pins this behavior.
+- **J-3 (P3):** No observer integration in `JobQueue`/`AsyncJobQueue` (telemetry vs orchestration
+  are mutually exclusive).
+- **J-4 (P3):** `ObservedJobRunner::run_async` holds a `!Send` tracing `Entered` across `.await`
+  (`lib.rs:228-230`) — latent footgun if the future is ever spawned/boxed as `Send`.
+
+### nidus-testing
+
+- **Clean & ergonomic** overall (26 tests). In-memory `oneshot`, provider/config overrides, lifecycle.
+- **T-1 (P2):** No way to install the production `request_scope_layer` on `TestApp`, so realistic
+  `RequestScoped<T>` handlers can't be integration-tested without manual wiring
+  (`app.rs:212-217` admits this).
+- **T-2 (P3):** `assert_text`/`assert_json` are spuriously `async` (no `.await` in body,
+  `response.rs:111,119`) — call sites must write `.await` (docs show it: `docs/testing.md:9`).
+
+### cargo-nidus
+
+- **All 10 documented subcommands implemented** and tested (60 tests); `cargo nidus new` template is
+  verified to compile and serve `200 hello from nidus` by `tests/cli_new.rs`.
+- **CLI-1 (P2):** No end-to-end `cargo check` test for `new` + all four `generate` artifacts
+  (module/controller/service/repository) — the multi-artifact wiring is only file-asserted, not
+  compile-verified (`tests/cli_generate.rs`).
+- **CLI-2 (P2):** The default `nidus = "0.1"` dependency branch (`generate.rs:15-17`) is never
+  exercised by any test (all pass `--nidus-path`); the published-user codepath is untested.
+- **CLI-3 (P3):** Generated service name hardcodes `"hello-nidus"` regardless of project name
+  (`generate.rs:38`).
+- **CLI-4 (P3):** `expand` silently requires `cargo-expand` to be installed (`main.rs:136-141`).
+- **CLI-5 (P3):** `graph` only scans `src/{main,lib,modules/*.rs}` — controllers/services outside
+  `src/modules/` are invisible to `nidus graph` (`graph.rs:29-48`).
+
+### nidus-sqlx / nidus-cache (adapters)
+
+- **Clean boundaries.** Depend only on `nidus-core` (+ optional `nidus-http`/`nidus-config`/`moka`/
+  `sqlx`); not pulled into the facade, as designed. No panics/unwrap in source.
+- **AD-1 (P3):** Both implement `ProviderRegistrant` as a **no-op** (`nidus-sqlx/lib.rs:182-186`,
+  `nidus-cache/lib.rs:229-233`) — registration is imperative via `Builder::register`. Misleading.
+- **AD-2 (P3):** `health_status()` exists but is not wired into `HealthRegistry` (no bridge helper);
+  untested in both adapters.
+- **AD-3 (P2, coverage):** `nidus-sqlx` `health` feature and Postgres `from_config_path` untested;
+  `nidus-cache` `invalidate()`/`from_cache()` untested.
+
+## Example findings
+
+| Example | Type | Default port | External svc | Notes |
+| --- | --- | --- | --- | --- |
+| `hello-world` | server | `127.0.0.1:3000` (hardcoded) | none | clean |
+| `rest-api` | server | `127.0.0.1:3000` (hardcoded) | none | `.expect()` in startup helper (`main.rs:38-39`) |
+| `auth-api` | server | `127.0.0.1:3000` (hardcoded) | none | guard is a toy route-label check, never reads a header (`main.rs:16-21`) |
+| `openapi` | **CLI (prints + exits)** | — | none | **not a server** despite docs implying `/openapi.json`+`/docs` are served |
+| `background-jobs` | CLI | — | none | clean |
+| `modular-monolith` | CLI | — | none | 4× `.unwrap()` in `main()` (`main.rs:122,123,133,134`) |
+| `realworld-api` | server | `127.0.0.1:3000` (`NIDUS_BIND_ADDR`) | none (sqlite::memory:) | `.expect()` in request handler path (`ops.rs:127,137,144,267,271`); deterministic |
+| `production-api` | server | `127.0.0.1:3000` (`NIDUS_ADDR`) | none | package named `production-api` (not `nidus-example-*`); metadata drift |
+| `sqlx-app` | CLI | — | none (sqlite::memory:) | clean |
+| `cache-app` | CLI | — | none | clean |
+| `integrations-production` | CLI | — | none for tests; `main()` needs `APP_DATABASE_URL`+`APP_CACHE_NAMESPACE` | clean |
+
+- **EX-1 (P2):** `openapi` example is not a server — `docs/examples.md:11` says it provides
+  `/openapi.json` and `/docs` routes; in fact `main()` (`openapi/src/main.rs:74-77`) only builds the
+  router, `println!`s the JSON, and exits. A user running `cargo run -p nidus-example-openapi` cannot
+  curl anything. (This is the clearest docs-vs-behavior drift.)
+- **EX-2 (P2):** `auth-api` `ApiKeyGuard` is misleading — only checks `route_label() == "profile"`,
+  never inspects any header (`main.rs:16-21`); name implies header auth.
+- **EX-3 (P3):** `production-api` naming/metadata inconsistency (package `production-api`, workspace-
+  inherited edition/license, no `version` pin on the `nidus` dep).
+- **EX-4 (P3):** Orphaned empty dir `examples/sqlx-postgres/src/` — no `Cargo.toml`/`main.rs`, not a
+  workspace member; leftover from the integrations migration. (Note: the `sqlx-postgres` package in
+  `Cargo.lock` is sqlx's own transitive sub-crate, unrelated.)
+- **EX-5 (P3):** `.expect()`/`.unwrap()` in non-test example `main`/startup paths (rest-api,
+  modular-monolith, realworld-api config + handler).
+
+No example fails to compile against the current API (build is green). No `TODO/FIXME/panic!` in
+example/bench code.
+
+## Docs consistency findings
+
+- `docs/architecture.md`, `docs/dependency-injection.md`, `docs/testing.md`, `docs/config.md`,
+  `docs/openapi.md`, `docs/pipes.md` are **accurate** against the implementation (verified
+  symbol-by-symbol). Notably `docs/dependency-injection.md:84-95` correctly documents the
+  `register_request_scoped` chaining requirement and the `RequestScopeRequired` error.
+- **D-1 (P2):** `docs/examples.md:11,26` — implies `openapi` example serves `/openapi.json`+`/docs`
+  and that "server examples ... keep running"; the `openapi` example does neither (see EX-1).
+- **D-2 (P3):** `docs/deployment.md:77-90` lists `without_rate_limit()`/`without_metrics()` among
+  "preset concerns" alongside on-by-default ones; rate limiting and metrics are actually opt-in
+  (the `ApiDefaults::production` rustdoc at `api_defaults.rs:77-80` is accurate, so this is mild).
+
+## Dependency boundary findings
+
+- **Clean.** No circular crate deps. Adapters outside the facade. `tower-http` features are minimal.
+  `deny.toml` licenses allow-list is tight; one acknowledged advisory (`RUSTSEC-2026-0173`,
+  proc-macro-error2 via validator 0.20) is ignored with a documented reason.
+- **DEP-1 (P3):** `clippy.toml` sets `avoid-breaking-exported-api = false` (good for pre-1.0 hygiene);
+  no action.
+- (To confirm at finalize: `cargo tree -d`, `cargo deny check`, `cargo audit`, `cargo machete` if
+  available.)
+
+## Public API ergonomics findings
+
+- `Inject<T>`, `Optional<T>`, `Lazy<T>`, `Factory<T>`, `Scoped<T>` all exist and are documented.
+- **API-1 (P3):** `Lazy<T>`/`Factory<T>` are not container-constructed (manual `::new` only) —
+  README lists them alongside the auto-wired types without noting the distinction.
+- **API-2 (P3):** Adapter `ProviderRegistrant` no-op impls are misleading (AD-1).
+- **API-3 (P3):** `assert_text`/`assert_json` spurious `async` (T-2).
+
+## Error handling & diagnostics findings
+
+- `HttpError` + `ErrorEnvelopeLayer` production envelope is solid: 64 KiB body cap, 5xx masking,
+  oversized-body skip, `requestId`/`path`/`timestamp`, all tested.
+- `NidusError` covers DI/module/lifecycle cases with type names and preserved source errors.
+- `ConfigError` is fully path-aware.
+- **ERR-1 (P2):** 5xx `code` field may leak internal taxonomy (e.g. `database_error` survives
+  masking while `message`/`details` are masked — `error.rs:251-294`; test
+  `error_envelope_masks_5xx_legacy_error_details` keeps `code="database_error"`).
+- **ERR-2 (P3):** `register_openapi_schema` panics on serialization failure
+  (`crates/nidus/src/lib.rs:40`) instead of returning a `Result`.
+
+## Async/runtime safety findings
+
+- **Mostly clean.** No `Mutex` held across `.await` in nidus-http layers; health `tokio::spawn`s are
+  joined; no unbounded channels anywhere.
+- **RT-1 (P1):** singleton panic-stuck (F-CORE-1) — a panic during lazy resolution deadlocks.
+- **RT-2 (P2):** blocking `Condvar` waits reachable from async (F-CORE-4).
+- **RT-3 (P2):** no graceful shutdown (F-HTTP-5).
+- **RT-4 (P3):** `ObservedJobRunner::run_async` `!Send` future (J-4); event observer blocking risk (E-2).
+- No hidden global mutable state (the `RESOLUTION_STACK` thread-local is correctly scoped by `Drop`).
+
+## Test coverage gaps
+
+- **TG-1 (P1):** no test for the singleton panic-stuck scenario (F-CORE-1).
+- **TG-2 (P1):** no test resolves providers from a core `Nidus::bootstrap` app (F-CORE-2).
+- **TG-3 (P1):** no test exercises a header-reading guard through `guard_layer` (F-HTTP-1) — the
+  reason the bug slipped through.
+- **TG-4 (P2):** no production middleware order-pinning test (F-HTTP-4).
+- **TG-5 (P2):** no `ObservedJobRunner` panic-recovery test (J-1); no jobs-retained-on-rerun test (J-2).
+- **TG-6 (P2):** no route↔OpenAPI parity test (O-2); no validation↔envelope composition test (V-1).
+- **TG-7 (P2):** no end-to-end CLI multi-artifact compile test (CLI-1).
+- **TG-8 (P3):** adapter `health`/`invalidate`/`from_cache`/Postgres-config untested (AD-3).
+
+## Manual example coverage gaps
+
+- No recorded manual `curl` evidence exists for any example (this audit pass will produce it).
+- Servers that can run with zero external services: `hello-world`, `rest-api`, `auth-api`,
+  `production-api`, `realworld-api` (sqlite::memory:). The `openapi` example is a CLI (gap EX-1).
+- All server examples default to `127.0.0.1:3000`, so manual runs need distinct free ports.
+
+## Benchmark / performance risks
+
+- 3 Criterion benches (`routing`, `dependency_resolution`, `request_lifecycle`) are correctly
+  registered (`harness = false`) and **compile against the current API** (no drift; every imported
+  symbol verified present).
+- `request_lifecycle.rs` is comprehensive (18 scenarios incl. individual middleware layers).
+- **BENCH-1 (P3):** no assertion/baseline file locks bench numbers; "benchmark drift" is only
+  guarded by manual review. (Criterion reports are non-deterministic by nature.)
+- **BENCH-2 (P2):** any change touching F-CORE-1/F-CORE-4 (resolution path) or the HTTP middleware
+  stack must re-run `dependency_resolution` / `request_lifecycle` per the optimization rules.
+
+## Security / reliability risks
+
+- **SEC-1 (P2):** body limit bypassable (F-HTTP-2) — DoS surface.
+- **SEC-2 (P2):** rate-limit identity spoofing + anonymous collapse (F-HTTP-6), compounded by the
+  server not enabling `ConnectInfo` (F-HTTP-5).
+- **SEC-3 (P2):** unbounded growth surfaces: prometheus series (F-HTTP-8), event queues (E-1),
+  job queues (J-2).
+- **SEC-4 (P1):** `guard_layer` silently breaks header auth (F-HTTP-1) — authorization bypass risk
+  for header-token guards.
+- **SEC-5 (P3):** example dev secret `dev-secret` (realworld) — documented + overridable, acceptable.
+- No leaked secrets in logs/errors (5xx message masking verified); no `unsafe` in framework crates.
+
+## Prioritized backlog
+
+| ID | Sev | Finding | Key evidence |
+| --- | --- | --- | --- |
+| F-HTTP-1 | **P1** | `guard_layer` never passes headers; authorizes after inner.call | `nidus-auth/src/middleware.rs:86-89` |
+| F-CORE-1 | **P1** | Panicking singleton factory permanently deadlocks provider | `nidus-core/src/provider/mod.rs:136-154` |
+| F-CORE-2 | **P1** | Core `Nidus::bootstrap` yields empty container | `nidus-core/src/app/mod.rs:56-69` vs `nidus/src/app.rs:99-109` |
+| F-CORE-3 | P2 | Graph keyed by short name, not TypeId | `nidus-core/src/module/mod.rs:230-236,271-277` |
+| F-CORE-4 | P2 | Blocking Condvar reachable from async | `nidus-core/src/provider/mod.rs:134` |
+| F-CORE-5 | P2 | `register_request` can't chain request deps | `nidus-core/src/container/mod.rs:84-90` |
+| F-HTTP-2 | P2 | Body limit Content-Length-only (bypassable) | `nidus-http/src/middleware/security.rs:171-185` |
+| F-HTTP-3 | P2 | 413 bypasses request-id/metrics/envelope | `nidus-http/src/middleware/api_defaults.rs:282-284` |
+| F-HTTP-4 | P2 | No production middleware order test | `nidus-http/tests/production_api.rs` |
+| F-HTTP-5 | P2 | No graceful shutdown / no ConnectInfo | `nidus-http/src/server.rs:67-73` |
+| F-HTTP-6 | P2 | client_ip_identity spoofing + anonymous bucket | `nidus-http/src/context.rs:282-296` |
+| F-HTTP-7 | P2 | No panic-catching layer | `nidus-http/src/middleware/api_defaults.rs` |
+| F-HTTP-8 | P2 | Prometheus series unbounded | `nidus-http/src/middleware/metrics.rs:317-320` |
+| F-MAC-1 | P2 | Controller non-injectable fields → runtime error | `nidus-macros/src/controller.rs:42-67` |
+| J-1 | P2 | `ObservedJobRunner` no panic recovery | `nidus-jobs/src/lib.rs:209,230` |
+| J-2 | P2 | Job queues retain jobs; rerun duplicates | `nidus-jobs/src/lib.rs:286-288,342-359` |
+| E-1 | P2 | Event subscriber queues unbounded | `nidus-events/src/lib.rs:14,216,226` |
+| O-1 | P2 | OpenAPI omits error responses | `nidus-openapi/src/route.rs:163-178` |
+| O-2 | P2 | No route↔OpenAPI parity test | `nidus-openapi/tests/` |
+| EX-1 | P2 | `openapi` example not a server; docs imply it is | `examples/openapi/src/main.rs:74-77`; `docs/examples.md:11` |
+| EX-2 | P2 | `auth-api` guard misleading (no header check) | `examples/auth-api/src/main.rs:16-21` |
+| CLI-1 | P2 | No end-to-end multi-artifact CLI compile test | `cargo-nidus/tests/cli_generate.rs` |
+| CLI-2 | P2 | Default `nidus="0.1"` branch untested | `cargo-nidus/src/generate.rs:15-17` |
+| ERR-1 | P2 | 5xx `code` may leak internal taxonomy | `nidus-http/src/error.rs:251-294` |
+| AD-3 | P2 | Adapter health/postgres-config/invalidate untested | `nidus-sqlx`, `nidus-cache` tests/ |
+| T-1 | P2 | TestApp can't install request_scope_layer | `nidus-testing/src/app.rs:212-217` |
+| (many) | P3 | diagnostics spans, naming, async assertions, cleanup, etc. | see sections above |
+
+## Appendix: verification commands (baseline)
+
+```
+cargo build --workspace --all-features
+cargo test --workspace --all-features
+cargo clippy --workspace --all-targets --all-features -- -D warnings   # to run at finalize
+cargo fmt --all --check                                                # to run at finalize
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps  # at finalize
+cargo tree -d                                                          # at finalize
+```
+
+Result at audit time: build green; all tests pass (0 failures); ~260 tests.
