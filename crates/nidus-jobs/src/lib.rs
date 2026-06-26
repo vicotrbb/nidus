@@ -206,7 +206,10 @@ where
         );
         let _entered = span.enter();
         self.observer.on_job_started(&context);
-        let result = job.run();
+        let result = match catch_unwind(AssertUnwindSafe(|| job.run())) {
+            Ok(outcome) => outcome,
+            Err(_) => Err(JobError::new("job panicked")),
+        };
         context = context.with_duration(started_at.elapsed());
         self.observer
             .on_job_finished(&context, status_for_result(&result));
@@ -227,7 +230,10 @@ where
         );
         let _entered = span.enter();
         self.observer.on_job_started(&context);
-        let result = job.run().await;
+        let result = match AssertUnwindSafe(job.run()).catch_unwind().await {
+            Ok(outcome) => outcome,
+            Err(_) => Err(JobError::new("job panicked")),
+        };
         context = context.with_duration(started_at.elapsed());
         self.observer
             .on_job_finished(&context, status_for_result(&result));
