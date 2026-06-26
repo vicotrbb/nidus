@@ -106,4 +106,3 @@ utoipa = "5"
 uuid = { version = "1", features = ["v4"] }
 validator = { version = "0.20", features = ["derive"] }
 moka = { version = "0.12", features = ["future"] }
-redis = { version = "0.32", default-features = false, features = ["tokio-comp"] }
