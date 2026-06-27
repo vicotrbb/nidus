@@ -353,3 +353,16 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 10" secti
 - **Verification:** `cargo test -p nidus-testing`; `cargo test --workspace --all-features`
   (364 passed); fmt/clippy/doc clean.
 - **Bench:** not required (test infrastructure, not a request hot path).
+
+---
+
+## Wave 11 — CLI coverage: all-artifact compile test (CLI-1)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 11" section.
+
+- **Files:** `crates/cargo-nidus/tests/cli_generate.rs` (test-only).
+- **Behavior change:** none (test-only). Generates all four artifacts and runs `cargo check
+  -Dwarnings` to verify the module wiring compiles end-to-end.
+- **Verification:** `cargo test -p cargo-nidus --test cli_generate` (7 passed); `cargo test
+  --workspace --all-features` (365 passed); fmt/clippy clean.
+- **Bench:** not required (code-generation CLI, not a request hot path).

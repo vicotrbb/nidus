@@ -329,9 +329,10 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 
 - **All 10 documented subcommands implemented** and tested (60 tests); `cargo nidus new` template is
   verified to compile and serve `200 hello from nidus` by `tests/cli_new.rs`.
-- **CLI-1 (P2):** No end-to-end `cargo check` test for `new` + all four `generate` artifacts
-  (module/controller/service/repository) — the multi-artifact wiring is only file-asserted, not
-  compile-verified (`tests/cli_generate.rs`).
+- **CLI-1 (~~P2~~ mitigated, Wave 11):** an end-to-end compile test now generates all four
+  artifacts (module/controller/service/repository) into a temp project and runs `cargo check
+  -Dwarnings`, verifying the generated module wiring (`providers`/`controllers`/`exports`) compiles
+  — previously this multi-artifact wiring was only file-asserted, not compile-verified.
 - **CLI-2 (P2):** The default `nidus = "0.1"` dependency branch (`generate.rs:15-17`) is never
   exercised by any test (all pass `--nidus-path`); the published-user codepath is untested.
 - **CLI-3 (P3):** Generated service name hardcodes `"hello-nidus"` regardless of project name
@@ -512,7 +513,7 @@ example/bench code.
 | O-2 | P2 | No route↔OpenAPI parity test | `nidus-openapi/tests/` |
 | EX-1 | P2 | `openapi` example not a server; docs imply it is | `examples/openapi/src/main.rs:74-77`; `docs/examples.md:11` |
 | EX-2 | ~~P2~~ mitigated | `auth-api` guard now reads `x-api-key` header (Wave 5) | `examples/auth-api/src/main.rs` |
-| CLI-1 | P2 | No end-to-end multi-artifact CLI compile test | `cargo-nidus/tests/cli_generate.rs` |
+| CLI-1 | ~~P2~~ mitigated | All-four-artifact end-to-end compile test (Wave 11) | `cargo-nidus/tests/cli_generate.rs` |
 | CLI-2 | P2 | Default `nidus="0.1"` branch untested | `cargo-nidus/src/generate.rs:15-17` |
 | ERR-1 | ~~P2~~ mitigated | 5xx `code` now masked to generic value (Wave 6) | `nidus-http/src/error.rs` |
 | AD-3 | P2 | Adapter health/postgres-config/invalidate untested | `nidus-sqlx`, `nidus-cache` tests/ |
@@ -811,6 +812,26 @@ HTTP integration tests without manual layer wiring.
 
 `cargo fmt --all --check`, `cargo clippy -p nidus-testing --all-targets --all-features -- -D
 warnings`, `cargo test --workspace --all-features` (364 passed / 0 failed) — all clean.
+
+## Follow-up hardening — Wave 11 (2026-06-27, after commit `a0c13a2`)
+
+Diversified into `cargo-nidus`: closed CLI-1 so the multi-artifact `generate` wiring is
+compile-verified, not just file-asserted.
+
+### Implemented (TDD, atomic commits)
+
+- **CLI-1 mitigated — all-four-artifact end-to-end compile test.**
+  `cargo_nidus_generate_all_artifacts_compile_end_to_end` generates module, repository, service,
+  and controller into a temp project (with a real `Cargo.toml` pointing at the local nidus) and
+  runs `cargo check -Dwarnings`. This verifies the generated module wiring
+  (`providers(crate::repositories::.., crate::services::..)`, `controllers(..)`, `exports(..)`)
+  compiles end-to-end — previously only file-asserted.
+  - **Bench:** not required — `cargo-nidus` is a code-generation CLI, not a request hot path.
+
+### Verification after this pass
+
+`cargo fmt --all --check`, `cargo clippy -p cargo-nidus --all-targets --all-features -- -D
+warnings`, `cargo test --workspace --all-features` (365 passed / 0 failed) — all clean.
 
 ## Appendix: verification commands (baseline)
 
