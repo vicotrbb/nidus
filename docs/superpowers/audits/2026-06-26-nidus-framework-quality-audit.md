@@ -265,8 +265,11 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 
 ### nidus-openapi
 
-- **O-1 (P2):** Error responses (4xx/5xx) are never represented — only the success status is
-  emitted (`route.rs:163-178`). Clients can't discover validation (422)/auth (401/403) responses.
+- **O-1 (~~P2~~ mitigated, Wave 9):** `OpenApiRoute::to_json_value` now derives error responses
+  from route metadata — a guarded route advertises `401 Unauthorized` + `403 Forbidden`, and a
+  validating route advertises `422 Validation failed` (description-only; no shared error schema).
+  Plain routes (no guard/validate) are unchanged, so existing exact-match specs are unaffected.
+  Clients can now discover the error statuses a route can return instead of only the success.
 - **O-2 (P2):** No route↔spec parity test; the document is populated manually, so router/spec can
   silently diverge. **Verification:** integration test asserting each `RouteMetadata` appears in JSON.
 - **O-3 (P3):** `cargo nidus openapi` inspector hardcodes title/version
@@ -504,7 +507,7 @@ example/bench code.
 | J-1 | P2 | `ObservedJobRunner` no panic recovery | `nidus-jobs/src/lib.rs:209,230` |
 | J-2 | P2 | Job queues retain jobs; rerun duplicates | `nidus-jobs/src/lib.rs:286-288,342-359` |
 | E-1 | P2 | Event subscriber queues unbounded | `nidus-events/src/lib.rs:14,216,226` |
-| O-1 | P2 | OpenAPI omits error responses | `nidus-openapi/src/route.rs:163-178` |
+| O-1 | ~~P2~~ mitigated | OpenAPI emits error responses (Wave 9) | `nidus-openapi/src/route.rs` |
 | O-2 | P2 | No route↔OpenAPI parity test | `nidus-openapi/tests/` |
 | EX-1 | P2 | `openapi` example not a server; docs imply it is | `examples/openapi/src/main.rs:74-77`; `docs/examples.md:11` |
 | EX-2 | ~~P2~~ mitigated | `auth-api` guard now reads `x-api-key` header (Wave 5) | `examples/auth-api/src/main.rs` |
@@ -759,6 +762,32 @@ enveloped, metered, and carry a request id.
 `cargo fmt --all --check`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`,
 `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps`,
 `cargo test --workspace --all-features` (360 passed / 0 failed) — all clean.
+
+## Follow-up hardening — Wave 9 (2026-06-27, after commit `8341384`)
+
+Diversified into `nidus-openapi`: closed O-1 so OpenAPI specs advertise the error
+statuses a route can actually return.
+
+### Implemented (TDD, atomic commits)
+
+- **O-1 mitigated — OpenAPI error responses.** `OpenApiRoute::to_json_value`
+  (`crates/nidus-openapi/src/route.rs`) now derives error responses from route metadata:
+  guarded routes advertise `401 Unauthorized` + `403 Forbidden`; validating routes
+  advertise `422 Validation failed` (description-only — a shared error-envelope schema is
+  deferred). Plain routes (no guard/validate) are unchanged, so the existing exact-match
+  specs (plain GET/POST) and all key-based assertions are unaffected.
+  - **TDD:** `openapi_document_emits_error_responses_for_guarded_validating_routes` (RED: no
+    `401`) + `openapi_document_omits_error_responses_for_plain_routes` (pins no-change for
+    plain routes) → GREEN.
+  - **Manual curl:** realworld-api `POST /projects` (guarded + validating) now serves a spec
+    with `201`/`401`/`403`/`422` responses.
+  - **Bench:** not required — OpenAPI document generation is startup/build-time, not a
+    per-request hot path.
+
+### Verification after this pass
+
+`cargo fmt --all --check`, `cargo clippy -p nidus-openapi --all-targets --all-features -- -D
+warnings`, `cargo test --workspace --all-features` (362 passed / 0 failed) — all clean.
 
 ## Appendix: verification commands (baseline)
 

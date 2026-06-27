@@ -324,3 +324,18 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 8" sectio
 - **Bench:** no regression — order-only change (still 9 layers); production scenarios ~3.8 µs
   (bare, p=0.12) / ~4.45 µs (with metrics).
 - **Manual curl:** production-api 2 MB body → 413 JSON envelope + `x-request-id` + metered.
+
+---
+
+## Wave 9 — OpenAPI completeness: error responses (O-1)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 9" section.
+
+- **Files:** `crates/nidus-openapi/src/route.rs`; tests `route_metadata.rs`.
+- **Behavior change:** OpenAPI operations now advertise `401`/`403` (guarded routes) and `422`
+  (validating routes), description-only. Plain routes unchanged.
+- **TDD:** emits-error-responses (RED) + omits-for-plain-routes (no-change pin) → GREEN.
+- **Verification:** `cargo test -p nidus-openapi`; `cargo test --workspace --all-features`
+  (362 passed); fmt/clippy clean.
+- **Bench:** not required (build-time doc generation, not a request hot path).
+- **Manual curl:** realworld-api `POST /projects` spec now lists 201/401/403/422.
