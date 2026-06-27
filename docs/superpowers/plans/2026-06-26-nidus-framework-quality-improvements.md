@@ -184,8 +184,8 @@ Each wave is a separate atomic commit. Any wave can be reverted in isolation wit
 - EX-2 auth-api guard realism.
 - CLI coverage beyond CLI-1/CLI-2; AD-2 live Postgres health coverage.
 - T-1 TestApp request-scope helper; T-2 spurious-async assertions.
-- Fresh benchmark reruns/release-machine result baselines for BENCH-1 after Wave 41's source/docs
-  drift guard.
+- Fresh full-suite/release-machine result baselines for BENCH-1 after Wave 45's local
+  request-lifecycle result artifact.
 
 These are tracked in the audit backlog and will be addressed in follow-up phases.
 
@@ -923,3 +923,22 @@ Wave 44" section.
   regression. No code change was retained.
 - **Manual curl/bench:** not required (documentation/status-only; no server route or hot-path
   HTTP/DI/routing/request lifecycle/metrics/module graph runtime changed).
+
+---
+
+## Wave 45 — request-lifecycle benchmark result artifact (BENCH-1)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 45" section.
+
+- **Files:** `benchmarks/results/2026-06-27-request-lifecycle-wave43.md`,
+  `tests/performance_docs.rs`, `docs/performance.md`, audit, plan.
+- **Behavior change:** none. This is benchmark evidence hygiene.
+- **TDD:** `cargo test --test performance_docs
+  request_lifecycle_result_artifact_covers_current_benchmark_surface` first failed because the
+  result artifact did not exist. After adding the artifact, the test passes and guards that every
+  current request-lifecycle benchmark label has a durable result row.
+- **Verification:** focused performance-doc red/green test, root performance-doc suite, full
+  workspace tests, clippy, rustdoc, fmt, diff whitespace, dependency hygiene, and metadata.
+- **Manual curl/bench:** manual curl not required. No new benchmark run was required because this
+  docs/test wave records the already-run Wave 43 `cargo bench --bench request_lifecycle` structured
+  Criterion output and does not change runtime code.

@@ -1,5 +1,7 @@
 //! Regression coverage for benchmark documentation drift.
 
+use std::{fs, path::Path};
+
 const DEPENDENCY_RESOLUTION_BENCH: &str = include_str!("../benches/dependency_resolution.rs");
 const ROUTING_BENCH: &str = include_str!("../benches/routing.rs");
 const REQUEST_LIFECYCLE_BENCH: &str = include_str!("../benches/request_lifecycle.rs");
@@ -100,6 +102,25 @@ fn performance_docs_cover_every_current_benchmark() {
         assert!(
             PERFORMANCE_DOCS.contains(docs_label),
             "docs/performance.md must mention benchmark `{source_label}` as `{docs_label}`",
+        );
+    }
+}
+
+#[test]
+fn request_lifecycle_result_artifact_covers_current_benchmark_surface() {
+    let result_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("benchmarks/results/2026-06-27-request-lifecycle-wave43.md");
+    let result = fs::read_to_string(&result_path).unwrap_or_else(|error| {
+        panic!(
+            "failed to read benchmark result artifact {}: {error}",
+            result_path.display()
+        )
+    });
+
+    for source_label in benchmark_labels_from(REQUEST_LIFECYCLE_BENCH) {
+        assert!(
+            result.contains(&format!("| `{source_label}` |")),
+            "benchmark result artifact must include request-lifecycle row `{source_label}`",
         );
     }
 }

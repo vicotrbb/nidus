@@ -54,10 +54,11 @@ regressions/improvements versus local saved history, including raw or unrelated
 benchmarks moving in different directions. Treat the table as a current
 reference point, not publish-grade proof.
 
-One request-lifecycle scenario was added after that full-table capture:
-`Nidus middleware legacy request ID request`. Its row is from the later Wave 28
-`cargo bench --bench request_lifecycle` run and should be rerun with the full
-surface before publishing updated performance claims.
+The latest durable request-lifecycle result is recorded separately at
+`benchmarks/results/2026-06-27-request-lifecycle-wave43.md`. Prefer that
+artifact for current request-lifecycle evidence; the table below remains a
+compact reference that mixes the original full-table capture with later
+request-lifecycle follow-up runs.
 
 | Benchmark | Central estimate | Notes |
 | --- | ---: | --- |

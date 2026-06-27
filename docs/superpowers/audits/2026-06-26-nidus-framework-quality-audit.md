@@ -533,9 +533,10 @@ example/bench code.
   registered (`harness = false`) and **compile against the current API** (no drift; every imported
   symbol verified present).
 - `request_lifecycle.rs` is comprehensive (21 scenarios incl. individual middleware layers).
-- **BENCH-1 (~~P3~~ partially mitigated, Wave 41):** the current Criterion benchmark surface is
-  now locked against `docs/performance.md` with a root integration test, reducing source/docs drift.
-  Fresh benchmark result baselines remain manually reviewed because Criterion reports are
+- **BENCH-1 (~~P3~~ partially mitigated, Waves 41 and 45):** the current Criterion benchmark
+  surface is locked against `docs/performance.md` with a root integration test, and the Wave 43
+  request-lifecycle run now has a durable result artifact under `benchmarks/results/`. Fresh
+  release-machine baselines remain intentionally deferred because Criterion reports are
   non-deterministic by nature.
 - **BENCH-2 (P2):** any change touching F-CORE-1/F-CORE-4 (resolution path) or the HTTP middleware
   stack must re-run `dependency_resolution` / `request_lifecycle` per the optimization rules.
@@ -1734,6 +1735,48 @@ Evidence from the reverted investigation:
 - Post-revert focused checks are clean: `cargo test -p nidus --all-features --test macro_ui`,
   `cargo test -p nidus --all-features --test controller_routes`, `cargo fmt --all --check`, and
   `git diff --check`.
+
+## Follow-up hardening — Wave 45 (2026-06-27, after commit `9a6edac`)
+
+Partially advanced BENCH-1 by turning the Wave 43 request-lifecycle benchmark run into a durable
+result artifact.
+
+### Implemented (TDD, docs/test only)
+
+- **BENCH-1 partially mitigated — request-lifecycle result artifact is now guarded.**
+  `benchmarks/results/2026-06-27-request-lifecycle-wave43.md` records the Wave 43
+  `cargo bench --bench request_lifecycle` estimates and local-baseline change intervals for every
+  current request-lifecycle scenario. `tests/performance_docs.rs` now asserts that the artifact has a
+  row for each `bench_function(...)` label in `benches/request_lifecycle.rs`.
+  - **TDD:** `cargo test --test performance_docs
+    request_lifecycle_result_artifact_covers_current_benchmark_surface` first failed because the
+    benchmark result artifact did not exist. After adding the artifact, the focused test passes.
+  - **Docs:** `docs/performance.md` now points readers to the durable request-lifecycle artifact and
+    removes the stale caveat that the legacy request-id scenario still needed a full request-surface
+    rerun.
+  - **Remaining BENCH-1 scope:** release-machine baselines and fresh full-suite captures for
+    `dependency_resolution` and `routing` remain intentionally deferred. This wave records local
+    request-lifecycle evidence only.
+  - **Manual curl/bench:** manual curl not required; no server routes changed. No new benchmark run
+    was required for this docs/test wave because it records the Wave 43 request-lifecycle run from
+    Criterion's structured local output and does not change runtime code.
+
+### Verification after this pass
+
+Clean:
+
+- `cargo test --test performance_docs`
+- `cargo test --workspace --all-features`
+- `cargo clippy --workspace --all-targets --all-features -- -D warnings`
+- `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps`
+- `cargo fmt --all --check`
+- `git diff --check`
+- `cargo deny check`
+- `cargo audit` (same allowed warning for unmaintained `proc-macro-error2`,
+  `RUSTSEC-2026-0173`; no vulnerability failure)
+- `cargo machete`
+- `cargo tree -d`
+- `cargo metadata --no-deps --format-version 1`
 
 ## Appendix: verification commands (baseline)
 
