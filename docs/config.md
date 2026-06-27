@@ -31,7 +31,8 @@ let config = Config::from_json_file("config/defaults.json")?;
 ```
 
 Environment variables can be loaded through an explicit prefix. Double
-underscores create nested objects:
+underscores create nested objects. Prefix matching is case-sensitive, and keys
+are normalized to lowercase after the prefix is removed:
 
 ```rust
 #[derive(serde::Deserialize)]

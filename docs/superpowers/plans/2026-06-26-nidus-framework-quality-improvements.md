@@ -450,3 +450,14 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 17" secti
 - **TDD:** raw and typed array path tests RED (`None` at array boundary), GREEN after array traversal.
 - **Verification:** `cargo test -p nidus-config --test env_paths`; `cargo test -p nidus-config`.
 - **Bench:** not required (config startup/test helper, not request hot path).
+
+## Wave 18 — config docs/tests: env prefix case sensitivity (C-2)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 18" section.
+
+- **Files:** `crates/nidus-config/tests/env_paths.rs`, `docs/config.md`; audit.
+- **Behavior change:** none (test/docs-only).
+- **Coverage:** `config_matches_env_prefix_case_sensitively` pins that `APP_*` matches prefix `APP`
+  while lowercase `app_*` is ignored.
+- **Verification:** `cargo test -p nidus-config --test env_paths`; `cargo test -p nidus-config`.
+- **Bench:** not required (test/docs-only).

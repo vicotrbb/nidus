@@ -47,6 +47,27 @@ fn config_loads_prefixed_environment_style_variables() {
 }
 
 #[test]
+fn config_matches_env_prefix_case_sensitively() {
+    let config = Config::from_prefixed_vars(
+        "APP",
+        [
+            ("APP_NAME", "upper-prefix"),
+            ("app_port", "3000"),
+            ("APP_PORT", "4000"),
+        ],
+    );
+
+    assert_eq!(
+        config.get("name").and_then(serde_json::Value::as_str),
+        Some("upper-prefix")
+    );
+    assert_eq!(
+        config.get("port").and_then(serde_json::Value::as_i64),
+        Some(4000)
+    );
+}
+
+#[test]
 fn config_exposes_nested_raw_values_by_path() {
     let config = Config::from_prefixed_vars(
         "APP",

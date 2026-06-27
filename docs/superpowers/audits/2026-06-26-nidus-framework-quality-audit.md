@@ -284,7 +284,8 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 - **C-1 (~~P3~~ mitigated, Wave 17):** `get_path` and typed path helpers now traverse arrays by
   zero-based numeric path segments (`["servers", "0", "port"]`) in addition to object keys. Tests
   cover raw, optional typed, required typed, out-of-range, and non-numeric array segments.
-- **C-2 (P3):** env-prefix matching is case-sensitive (`lib.rs:135`); not asserted in tests.
+- **C-2 (~~P3~~ covered, Wave 18):** env-prefix matching is case-sensitive and now tested by
+  `config_matches_env_prefix_case_sensitively`; `docs/config.md` documents the behavior.
 - Docs (`docs/config.md`, `docs/dependency-injection.md`) are **accurate** against the implementation.
 
 ### nidus-openapi
@@ -994,6 +995,22 @@ Closed the config nested-path ergonomics gap C-1.
     `config_deserializes_array_values_by_path_index` verified RED (`None` at the array boundary),
     then GREEN after adding array traversal.
   - **Bench:** not required — config lookup is startup/test ergonomics, not a request hot path.
+
+### Verification after this pass
+
+`cargo test -p nidus-config --test env_paths` and `cargo test -p nidus-config` are clean.
+
+## Follow-up hardening — Wave 18 (2026-06-27, after commit `0910591`)
+
+Closed the config env-prefix coverage gap C-2.
+
+### Implemented (test/docs only)
+
+- **C-2 covered — env prefix case sensitivity.** Added
+  `config_matches_env_prefix_case_sensitively`, proving `from_prefixed_vars("APP", ...)` accepts
+  `APP_*` keys and ignores lowercase `app_*` keys. `docs/config.md` now states that prefix matching
+  is case-sensitive and that keys are lowercased after the prefix is removed.
+  - **Bench:** not required — test/docs-only.
 
 ### Verification after this pass
 
