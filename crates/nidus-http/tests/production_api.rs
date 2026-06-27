@@ -863,6 +863,67 @@ async fn production_defaults_envelope_meter_and_identify_handler_errors() {
     );
 }
 
+#[tokio::test]
+async fn production_defaults_envelope_panic_as_500() {
+    // F-HTTP-7: a panicking handler under the production stack must yield a
+    // structured 500 envelope (with request-id) instead of an aborted
+    // connection. Requires CatchPanicLayer inside the production stack.
+    async fn panicking_handler() -> &'static str {
+        panic!("handler panicked");
+    }
+    let metrics = PrometheusMetrics::new();
+    let app = ApiDefaults::production("users-api")
+        .metrics(metrics.clone())
+        .apply(
+            Router::new()
+                .route("/panic", get(panicking_handler))
+                .merge(metrics.routes()),
+        );
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/panic")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert!(
+        response.headers().contains_key("x-request-id"),
+        "panic response must carry a request id"
+    );
+    assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+    let body = response_json(response).await;
+    assert_eq!(body["error"]["statusCode"], 500);
+    assert_eq!(body["error"]["message"], "internal server error");
+    assert!(body["error"]["requestId"].is_string());
+
+    // The panic must also be metered like any other request.
+    let metrics_response = app
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let text = String::from_utf8(
+        to_bytes(metrics_response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert!(
+        text.contains(r#"nidus_http_requests_total{method="GET",route="/panic",status="500"} 1"#),
+        "{text}"
+    );
+}
+
 async fn response_json(response: axum::response::Response) -> serde_json::Value {
     let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     serde_json::from_slice(&body).unwrap()

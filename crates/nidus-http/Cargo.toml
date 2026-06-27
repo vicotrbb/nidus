@@ -13,6 +13,7 @@ otel = []
 
 [dependencies]
 axum.workspace = true
+futures-util.workspace = true
 http.workspace = true
 nidus-core.workspace = true
 serde.workspace = true

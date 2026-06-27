@@ -10,6 +10,7 @@ use tower_http::trace::{HttpMakeClassifier, MakeSpan, TraceLayer};
 use tracing::{Level, Span};
 
 mod api_defaults;
+mod catch_panic;
 mod metrics;
 mod rate_limit;
 mod request_context;
@@ -22,6 +23,7 @@ pub use crate::context::{
     client_ip_identity, context_identity,
 };
 pub use api_defaults::ApiDefaults;
+pub use catch_panic::{CatchPanicLayer, CatchPanicService, catch_panic_layer};
 pub use metrics::{
     HttpMetricsHook, MetricsLayer, MetricsService, PrometheusMetrics, metrics_layer,
     route_metrics_layer,

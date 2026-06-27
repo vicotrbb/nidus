@@ -6,7 +6,7 @@ use crate::{
     error::ErrorEnvelopeLayer,
     health::HealthRegistry,
     middleware::{
-        PrometheusMetrics, RateLimitConfig, RequestIdConfig, body_limit_layer,
+        PrometheusMetrics, RateLimitConfig, RequestIdConfig, body_limit_layer, catch_panic_layer,
         request_context_layer, security_headers_layer, timeout_response_layer,
         validated_request_id_layer,
     },
@@ -58,6 +58,7 @@ pub struct ApiDefaults {
     security_headers: bool,
     body_limit: Option<u64>,
     timeout: Option<Duration>,
+    catch_panic: bool,
 }
 
 impl ApiDefaults {
@@ -73,6 +74,8 @@ impl ApiDefaults {
     /// - security headers: [`security_headers_layer`]
     /// - body limit: [`body_limit_layer`] with `1 MiB`
     /// - timeout: [`timeout_response_layer`] with `30s`
+    /// - panic catching: [`catch_panic_layer`] so a panicking handler yields a
+    ///   `500` envelope instead of aborting the connection
     ///
     /// Metrics and rate limiting are disabled unless [`Self::metrics`] or
     /// [`Self::rate_limit`] is called. The metrics middleware records requests,
@@ -92,6 +95,7 @@ impl ApiDefaults {
             security_headers: true,
             body_limit: Some(1024 * 1024),
             timeout: Some(Duration::from_secs(30)),
+            catch_panic: true,
         }
     }
 
@@ -238,10 +242,20 @@ impl ApiDefaults {
         self
     }
 
+    /// Disables the panic-catching layer.
+    ///
+    /// With it disabled, a panicking handler may abort the connection instead of
+    /// yielding the production `500` envelope. It is enabled by
+    /// [`Self::production`].
+    pub fn without_catch_panic(mut self) -> Self {
+        self.catch_panic = false;
+        self
+    }
+
     /// Applies the configured defaults to an existing router.
     ///
     /// Health routes are merged first. The effective inbound request order for
-    /// the default production stack is:
+    /// the default production stack is (outermost first):
     ///
     /// 1. [`security_headers_layer`] response wrapper
     /// 2. [`body_limit_layer`] `Content-Length` boundary
@@ -251,7 +265,9 @@ impl ApiDefaults {
     /// 6. [`ErrorEnvelopeLayer`]
     /// 7. [`timeout_response_layer`]
     /// 8. rate limiting, when configured
-    /// 9. route handlers
+    /// 9. [`catch_panic_layer`], when enabled (innermost — a handler panic is
+    ///    caught and surfaced as a `500` through every outer layer)
+    /// 10. route handlers
     ///
     /// Order matters when adding route-specific layers. Layers installed on a
     /// route before calling `apply` run inside these defaults, so they can see
@@ -260,6 +276,11 @@ impl ApiDefaults {
     pub fn apply(self, mut router: Router) -> Router {
         if let Some(health) = self.health {
             router = router.merge(health.routes());
+        }
+        // Innermost layer: catch handler panics so they surface as an enveloped
+        // 500 through every outer layer instead of aborting the connection.
+        if self.catch_panic {
+            router = router.layer(catch_panic_layer());
         }
         if let Some(rate_limit) = self.rate_limit {
             router = router.layer(rate_limit.layer());
