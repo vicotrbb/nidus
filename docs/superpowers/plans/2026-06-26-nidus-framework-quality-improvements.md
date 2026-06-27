@@ -643,7 +643,7 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 30" secti
 - **Manual run:** printed `UsersModule` boundaries and `resolved user user-42@nidus.dev from
   tenant-primary`.
 - **Bench:** not required (CLI example error handling/package feature metadata only).
-- **Deferred:** remaining EX-5 paths are realworld-api config/handler expects.
+- **Deferred:** remaining EX-5 paths are realworld-api config loading.
 
 ---
 
@@ -662,4 +662,27 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 31" secti
   returned 200 with `{"id":42,"email":"user@nidus.dev","request_id":0}`; server stopped with
   Ctrl-C.
 - **Bench:** not required (example startup error handling only; no hot path changed).
-- **Deferred:** remaining EX-5 paths are realworld-api config/handler expects.
+- **Deferred:** remaining EX-5 paths are realworld-api config loading.
+
+---
+
+## Wave 32 — example robustness: realworld observed workflow errors (EX-5)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 32" section.
+
+- **Files:** `examples/realworld-api/src/ops.rs`, audit, plan.
+- **Behavior change:** `/ops/workflows/observed` still returns the same success payload, but job
+  failures and missing observer state now become sanitized `HttpError::internal_server_error()`
+  values instead of handler panics.
+- **TDD:** `job_observer_reports_missing_observations_as_http_error` failed before
+  `observation()` was fallible; after the change it returns an error. A companion missing-event
+  test covers the event observer invariant. The existing observed workflow route test stayed green.
+- **Verification:** `cargo test -p nidus-example-realworld-api` (14 passed);
+  `cargo clippy -p nidus-example-realworld-api --all-targets --all-features -- -D warnings`;
+  `cargo check -p nidus-example-realworld-api`.
+- **Manual curl:** `NIDUS_BIND_ADDR=127.0.0.1:64831 cargo run -p nidus-example-realworld-api`;
+  `GET /health/ready` returned 200; `POST /ops/workflows/observed` with a valid UUID request id
+  returned 200 with that id in event, sync job, and async job context; `GET /metrics` recorded
+  the workflow route with status 200; server stopped with Ctrl-C.
+- **Bench:** not required (example handler error mapping only; no hot path changed).
+- **Deferred:** remaining EX-5 path is realworld-api config loading.

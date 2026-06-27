@@ -97,7 +97,9 @@ async fn fail() -> HttpError {
     )
 }
 
-async fn observed_workflow(context: RequestContext) -> Json<ObservedWorkflowDto> {
+async fn observed_workflow(
+    context: RequestContext,
+) -> Result<Json<ObservedWorkflowDto>, HttpError> {
     let request_id = context.request_id().to_owned();
 
     let event_observer = CapturingEventObserver::default();
@@ -124,7 +126,7 @@ async fn observed_workflow(context: RequestContext) -> Json<ObservedWorkflowDto>
         .run_id_generator(|| "job-run-1".to_owned());
     sync_runner
         .run(&SendTaskDigestJob)
-        .expect("example sync job should succeed");
+        .map_err(|error| workflow_job_error("sync", &error))?;
 
     let async_job_observer = CapturingJobObserver::default();
     let async_runner = ObservedJobRunner::new(async_job_observer.clone())
@@ -134,26 +136,22 @@ async fn observed_workflow(context: RequestContext) -> Json<ObservedWorkflowDto>
     async_runner
         .run_async(&RefreshProjectSummaryJob)
         .await
-        .expect("example async job should succeed");
+        .map_err(|error| workflow_job_error("async", &error))?;
 
-    Json(ObservedWorkflowDto {
-        event: event_observer
-            .published()
-            .into_iter()
-            .next()
-            .expect("observed event should be captured"),
+    Ok(Json(ObservedWorkflowDto {
+        event: first_observed_event(event_observer.published())?,
         event_payloads: subscriber
             .drain()
             .into_iter()
             .map(|event| event.task_id)
             .collect(),
-        sync_job: sync_job_observer.observation(),
-        async_job: async_job_observer.observation(),
+        sync_job: sync_job_observer.observation()?,
+        async_job: async_job_observer.observation()?,
         queue: QueueDto {
             sync_completed: sync_report.completed().to_vec(),
             async_completed: async_report.completed().to_vec(),
         },
-    })
+    }))
 }
 
 type DefaultRateLimitStore = nidus::prelude::InMemoryRateLimitStore;
@@ -259,17 +257,58 @@ impl JobObserver for CapturingJobObserver {
 }
 
 impl CapturingJobObserver {
-    fn observation(&self) -> JobObservationDto {
-        JobObservationDto {
-            started: lock(&self.started)
-                .first()
-                .cloned()
-                .expect("job start should be observed"),
-            finished: lock(&self.finished)
-                .first()
-                .cloned()
-                .expect("job finish should be observed"),
-        }
+    fn observation(&self) -> Result<JobObservationDto, HttpError> {
+        let started = lock(&self.started)
+            .first()
+            .cloned()
+            .ok_or_else(|| workflow_invariant_error("job start should be observed"))?;
+        let finished = lock(&self.finished)
+            .first()
+            .cloned()
+            .ok_or_else(|| workflow_invariant_error("job finish should be observed"))?;
+
+        Ok(JobObservationDto { started, finished })
+    }
+}
+
+fn first_observed_event(events: Vec<EventContextDto>) -> Result<EventContextDto, HttpError> {
+    events
+        .into_iter()
+        .next()
+        .ok_or_else(|| workflow_invariant_error("observed event should be captured"))
+}
+
+fn workflow_job_error(queue: &'static str, error: &nidus::prelude::JobError) -> HttpError {
+    tracing::error!(
+        queue,
+        error = %error,
+        "realworld observed workflow job failed"
+    );
+    HttpError::internal_server_error()
+}
+
+fn workflow_invariant_error(message: &'static str) -> HttpError {
+    tracing::error!(
+        invariant = message,
+        "realworld observed workflow invariant failed"
+    );
+    HttpError::internal_server_error()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn job_observer_reports_missing_observations_as_http_error() {
+        let observer = CapturingJobObserver::default();
+
+        assert!(observer.observation().is_err());
+    }
+
+    #[test]
+    fn event_observer_reports_missing_event_as_http_error() {
+        assert!(first_observed_event(Vec::new()).is_err());
     }
 }
 
