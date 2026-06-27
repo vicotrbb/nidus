@@ -337,8 +337,9 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
   the clear-after-run path.
 - **J-3 (P3):** No observer integration in `JobQueue`/`AsyncJobQueue` (telemetry vs orchestration
   are mutually exclusive).
-- **J-4 (P3):** `ObservedJobRunner::run_async` holds a `!Send` tracing `Entered` across `.await`
-  (`lib.rs:228-230`) — latent footgun if the future is ever spawned/boxed as `Send`.
+- **J-4 (~~P3~~ mitigated, Wave 19):** `ObservedJobRunner::run_async` no longer holds a tracing
+  `Entered` guard across `.await`; the job future is instrumented directly, and a compile-time
+  regression test asserts the returned future is `Send`.
 
 ### nidus-testing
 
@@ -471,7 +472,8 @@ example/bench code.
 - **RT-2 (~~P2~~ mitigated, Wave 14):** blocking `Condvar` waits are avoidable via opt-in
   `Container::eagerly_resolve_singletons()` at startup (F-CORE-4); default lazy behavior unchanged.
 - **RT-3 (P2):** no graceful shutdown (F-HTTP-5).
-- **RT-4 (P3):** `ObservedJobRunner::run_async` `!Send` future (J-4); event observer blocking risk (E-2).
+- **RT-4 (P3):** `ObservedJobRunner::run_async` no longer holds a tracing guard across `.await`
+  (J-4 mitigated); event observer blocking risk (E-2) remains.
 - No hidden global mutable state (the `RESOLUTION_STACK` thread-local is correctly scoped by `Drop`).
 
 ## Test coverage gaps
@@ -1015,6 +1017,28 @@ Closed the config env-prefix coverage gap C-2.
 ### Verification after this pass
 
 `cargo test -p nidus-config --test env_paths` and `cargo test -p nidus-config` are clean.
+
+## Follow-up hardening — Wave 19 (2026-06-27, after commit `ce473b1`)
+
+Closed the async job runner hygiene gap J-4.
+
+### Implemented (regression coverage + refactor)
+
+- **J-4 mitigated — no tracing guard across `.await`.** `ObservedJobRunner::run_async` now enters
+  the span only for synchronous observer callbacks and instruments the async job future with
+  `tracing::Instrument`, instead of keeping an `Entered` guard alive across `.await`. The synchronous
+  runner also scopes observer/job execution with `span.in_scope(...)` for consistency.
+  - **Evidence refinement:** the new `observed_job_runner_async_future_is_send` assertion passed
+    before the refactor, so the original audit wording ("!Send future") was too strong. The real
+    issue was holding a tracing guard across an await boundary; this wave removes that pattern and
+    keeps the `Send` assertion as regression coverage.
+  - **Bench:** not required — job observation is not part of HTTP/DI/routing/request-lifecycle hot
+    paths.
+
+### Verification after this pass
+
+`cargo test -p nidus-jobs --test observed_jobs`, `cargo test -p nidus-jobs`, and
+`cargo clippy -p nidus-jobs --all-targets --all-features -- -D warnings` are clean.
 
 ## Appendix: verification commands (baseline)
 

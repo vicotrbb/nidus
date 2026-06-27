@@ -135,6 +135,16 @@ async fn observed_job_runner_supports_async_jobs() {
 }
 
 #[test]
+fn observed_job_runner_async_future_is_send() {
+    fn assert_send<T: Send>(_value: T) {}
+
+    let runner = ObservedJobRunner::new(());
+    let job = AsyncSuccessfulJob;
+
+    assert_send(runner.run_async(&job));
+}
+
+#[test]
 fn observed_job_runner_emits_finished_and_returns_error_after_sync_panic() {
     let observer = RecordingObserver::default();
     let runner = ObservedJobRunner::new(observer.clone()).run_id_generator(|| "run-3".to_owned());

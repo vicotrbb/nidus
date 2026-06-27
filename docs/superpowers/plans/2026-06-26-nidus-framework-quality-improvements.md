@@ -461,3 +461,17 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 18" secti
   while lowercase `app_*` is ignored.
 - **Verification:** `cargo test -p nidus-config --test env_paths`; `cargo test -p nidus-config`.
 - **Bench:** not required (test/docs-only).
+
+## Wave 19 — async job observation: no span guard across await (J-4)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 19" section.
+
+- **Files:** `crates/nidus-jobs/src/lib.rs`, `crates/nidus-jobs/tests/observed_jobs.rs`; audit.
+- **Behavior change:** internal instrumentation hygiene only — observer callbacks and job outcomes
+  are unchanged.
+- **Coverage:** `observed_job_runner_async_future_is_send` asserts the async runner future is `Send`.
+  The assertion already passed before the refactor, refining the audit finding; the implementation
+  still removes the tracing `Entered` guard across `.await`.
+- **Verification:** `cargo test -p nidus-jobs --test observed_jobs`; `cargo test -p nidus-jobs`;
+  `cargo clippy -p nidus-jobs --all-targets --all-features -- -D warnings`.
+- **Bench:** not required (job observation, not HTTP/DI/routing/request lifecycle).

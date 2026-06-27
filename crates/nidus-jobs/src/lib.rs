@@ -16,6 +16,7 @@ use std::{
 };
 
 use futures_util::FutureExt;
+use tracing::Instrument;
 
 /// Synchronous job abstraction for lightweight background work.
 ///
@@ -204,15 +205,18 @@ where
             job.name = job.name(),
             job.run_id = context.run_id()
         );
-        let _entered = span.enter();
-        self.observer.on_job_started(&context);
-        let result = match catch_unwind(AssertUnwindSafe(|| job.run())) {
-            Ok(outcome) => outcome,
-            Err(_) => Err(JobError::new("job panicked")),
-        };
+        let result = span.in_scope(|| {
+            self.observer.on_job_started(&context);
+            match catch_unwind(AssertUnwindSafe(|| job.run())) {
+                Ok(outcome) => outcome,
+                Err(_) => Err(JobError::new("job panicked")),
+            }
+        });
         context = context.with_duration(started_at.elapsed());
-        self.observer
-            .on_job_finished(&context, status_for_result(&result));
+        span.in_scope(|| {
+            self.observer
+                .on_job_finished(&context, status_for_result(&result));
+        });
         result
     }
 
@@ -228,15 +232,21 @@ where
             job.name = job.name(),
             job.run_id = context.run_id()
         );
-        let _entered = span.enter();
-        self.observer.on_job_started(&context);
-        let result = match AssertUnwindSafe(job.run()).catch_unwind().await {
+        span.in_scope(|| {
+            self.observer.on_job_started(&context);
+        });
+        let result = match AssertUnwindSafe(job.run().instrument(span.clone()))
+            .catch_unwind()
+            .await
+        {
             Ok(outcome) => outcome,
             Err(_) => Err(JobError::new("job panicked")),
         };
         context = context.with_duration(started_at.elapsed());
-        self.observer
-            .on_job_finished(&context, status_for_result(&result));
+        span.in_scope(|| {
+            self.observer
+                .on_job_finished(&context, status_for_result(&result));
+        });
         result
     }
 
