@@ -183,8 +183,14 @@ function chromaKey(image) {
     const r = out.data[i];
     const g = out.data[i + 1];
     const b = out.data[i + 2];
+    const greenDominance = g - Math.max(r, b);
     const dist = Math.hypot(r - kr, g - kg, b - kb);
-    if (dist < inner) {
+    const isGreenScreen = g > 70 && greenDominance > 28 && g > r * 1.12 && g > b * 1.12;
+
+    if (dist < inner || isGreenScreen) {
+      out.data[i] = 0;
+      out.data[i + 1] = 0;
+      out.data[i + 2] = 0;
       out.data[i + 3] = 0;
       removed++;
     } else if (dist < outer) {
@@ -239,39 +245,11 @@ function trim(image, pad = 0) {
   return crop(image, minX, minY, maxX - minX + 1, maxY - minY + 1);
 }
 
-function splitMark(full) {
-  const ratios = [];
-  for (let y = 0; y < full.height; y++) {
-    let opaque = 0;
-    for (let x = 0; x < full.width; x++) {
-      if (full.data[(y * full.width + x) * 4 + 3] > 32) opaque++;
-    }
-    ratios.push(opaque / full.width);
-  }
-
-  let bestStart = -1;
-  let bestEnd = -1;
-  let start = -1;
-  const scanStart = Math.floor(full.height * 0.42);
-  const scanEnd = Math.floor(full.height * 0.82);
-  for (let y = scanStart; y < scanEnd; y++) {
-    if (ratios[y] < 0.035) {
-      if (start === -1) start = y;
-    } else if (start !== -1) {
-      if (y - start > bestEnd - bestStart) {
-        bestStart = start;
-        bestEnd = y - 1;
-      }
-      start = -1;
-    }
-  }
-  if (start !== -1 && scanEnd - start > bestEnd - bestStart) {
-    bestStart = start;
-    bestEnd = scanEnd;
-  }
-
-  const cut = bestStart > 0 ? Math.max(1, bestStart - 6) : Math.floor(full.height * 0.62);
-  return trim(crop(full, 0, 0, full.width, cut), 4);
+function extractMark(full) {
+  // The source image is already a standalone mark, not a horizontal lockup.
+  // Preserve the full symbol; do not infer a horizontal split from internal
+  // negative space, or the lower pods get cropped off.
+  return trim(full, 4);
 }
 
 function resizeContain(image, width, height, background = [0, 0, 0, 0], scale = 1) {
@@ -352,7 +330,7 @@ function write(name, image) {
 function main() {
   const source = readPng(SRC);
   const transparent = trim(chromaKey(source), 4);
-  const mark = splitMark(transparent);
+  const mark = extractMark(transparent);
   const squareMark = resizeContain(mark, Math.max(mark.width, mark.height), Math.max(mark.width, mark.height));
 
   write('logo-full-transparent.png', transparent);
