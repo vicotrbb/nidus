@@ -215,14 +215,28 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 - **Fix:** Trusted-proxy config; per-connection fallback instead of a shared bucket.
 - **Verification:** unit tests for identity extraction branches.
 
-#### F-HTTP-7 — No panic-catching layer in production stack (P2)
-- **Evidence:** `api_defaults.rs:260-289` installs no `CatchPanicLayer`; `tower-http` is configured
-  without the `catch-panic` feature.
-- **Files:** `crates/nidus-http/src/middleware/api_defaults.rs`, root `Cargo.toml`
-- **Risk:** A panicking handler does not yield the production envelope / `x-request-id`; behavior
-  depends on hyper/axum internals.
-- **Fix:** Gate `tower-http` `catch-panic`, map caught panics to `HttpError::internal_server_error`.
-- **Verification:** test handler-panic under the production stack.
+#### F-HTTP-7 — No panic-catching layer in production stack (~~P2~~ mitigated, Wave 7)
+- **Evidence:** the production stack now installs a nidus-native `CatchPanicLayer`
+  (`crates/nidus-http/src/middleware/catch_panic.rs`) as the innermost layer in
+  `ApiDefaults::production`. A handler panic is caught (`std::panic::catch_unwind` over
+  `call` and `FutureExt::catch_unwind` over the inner future), logged via `tracing::error!`,
+  and surfaced as a bare `500` that the outer `ErrorEnvelopeLayer` renders as the production
+  envelope (with request id + metrics). The audit originally flagged
+  `api_defaults.rs:260-289` as installing no `CatchPanicLayer`.
+- **Files:** `crates/nidus-http/src/middleware/{api_defaults,catch_panic,security}.rs`,
+  `crates/nidus-http/src/middleware.rs`, `crates/nidus-http/Cargo.toml`
+- **Design notes:** a nidus-native layer is used (not `tower_http::catch_panic`) because the
+  latter returns `Response<UnsyncBoxBody<..>>`, which does not compose with the
+  `Response<Body>`-typed `ErrorEnvelopeLayer`. It is default-on in `ApiDefaults::production`
+  with an opt-out `without_catch_panic()`. `futures-util` (already a workspace dep) added to
+  nidus-http for `FutureExt::catch_unwind`.
+- **Overhead (within-session A/B):** ~250ns / ~6% on the bare production stack
+  (borderline, p=0.02, CI nearly touching zero); statistically undetectable on the
+  production+metrics stack (p=0.43, where the metrics layer dominates). Acceptable for
+  default-on panic safety; opt out with `without_catch_panic()` for the lowest latency.
+- **Verification:** `cargo test -p nidus-http --test production_api
+  production_defaults_envelope_panic_as_500` (panicking handler -> 500 envelope + request-id +
+  metered); manual curl of production-api normal routes unaffected (health/users/limited 200).
 
 #### F-HTTP-8 — Prometheus series count unbounded (P2)
 - **Evidence:** per-series storage is fixed (`DurationHistogram` fixed 11-bucket array,
@@ -482,7 +496,7 @@ example/bench code.
 | F-HTTP-4 | P2 | No production middleware order test | `nidus-http/tests/production_api.rs` |
 | F-HTTP-5 | ~~P2~~ mitigated | ConnectInfo now on blessed path; graceful-shutdown API added (Wave 4) | `nidus-http/src/server.rs` |
 | F-HTTP-6 | P2 | client_ip_identity spoofing + anonymous bucket | `nidus-http/src/context.rs:282-296` |
-| F-HTTP-7 | P2 | No panic-catching layer | `nidus-http/src/middleware/api_defaults.rs` |
+| F-HTTP-7 | ~~P2~~ mitigated | Production stack catches handler panics (Wave 7) | `nidus-http/src/middleware/{api_defaults,catch_panic}.rs` |
 | F-HTTP-8 | P2 | Prometheus series unbounded | `nidus-http/src/middleware/metrics.rs:317-320` |
 | F-MAC-1 | P2 | Controller non-injectable fields → runtime error | `nidus-macros/src/controller.rs:42-67` |
 | J-1 | P2 | `ObservedJobRunner` no panic recovery | `nidus-jobs/src/lib.rs:209,230` |
@@ -683,6 +697,38 @@ A contained security/consistency pass on the production error envelope.
 
 `cargo fmt --all --check`, `cargo clippy -p nidus-http --all-targets --all-features -- -D
 warnings`, `cargo test --workspace --all-features` (358 passed / 0 failed) all clean.
+
+## Follow-up hardening — Wave 7 (2026-06-26, after commit `803ba1a`)
+
+Closed the production-stack reliability gap F-HTTP-7: a panicking handler now yields the
+production envelope instead of aborting the connection.
+
+### Implemented (TDD, atomic commits)
+
+- **F-HTTP-7 mitigated — panic-catching in the production stack.** A new nidus-native
+  `CatchPanicLayer`/`CatchPanicService` (`crates/nidus-http/src/middleware/catch_panic.rs`)
+  preserves `Response<Body>` (unlike `tower_http::catch_panic`, whose `Response<UnsyncBoxBody>`
+  does not compose with `ErrorEnvelopeLayer`). Installed as the innermost layer in
+  `ApiDefaults::production` (default-on, opt-out via `without_catch_panic()`). A handler panic is
+  caught, logged, and returned as a bare `500` that the outer envelope renders with request-id +
+  metrics. `futures-util` (already a workspace dep) added to nidus-http.
+  - **TDD:** `production_defaults_envelope_panic_as_500` verified RED (panic propagated:
+    `handler panicked`) then GREEN (500 envelope + request-id + metered).
+  - **Bench (within-session A/B against a saved baseline):** catch_panic adds ~250ns / ~6% on the
+    bare production stack (borderline p=0.02, CI nearly touching zero) and is statistically
+    undetectable on the production+metrics stack (p=0.43). Earlier cross-session comparisons
+    showing +95%/+20% were noise (the machine showed ~40% run-to-run swing independent of the
+    change).
+  - **Manual curl:** production-api normal routes unaffected (health/live, /users/5, /limited all
+    200; metrics route labels intact).
+
+### Verification after this pass
+
+`cargo fmt --all --check`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`,
+`RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps`,
+`cargo test --workspace --all-features` (359 passed / 0 failed), `cargo tree -d` (no dups),
+`cargo deny check` (all ok), `cargo machete` (no unused), `cargo audit` (only the pre-existing
+documented advisory RUSTSEC-2026-0173) — all clean.
 
 ## Appendix: verification commands (baseline)
 

@@ -286,3 +286,24 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 6" sectio
   `cargo test --workspace --all-features` (358 passed); fmt/clippy clean.
 - **Bench:** not required — the changed 5xx branch is off every measured `request_lifecycle`
   path (success short-circuits before `envelope_response`); confirmed via two noisy re-runs.
+
+---
+
+## Wave 7 — production reliability: panic-catching layer (F-HTTP-7)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 7" section.
+
+- **Files:** `crates/nidus-http/src/middleware/catch_panic.rs` (new), `api_defaults.rs`,
+  `security.rs`, `middleware.rs`, `Cargo.toml`; test `production_api.rs`.
+- **Behavior change:** `ApiDefaults::production` now catches handler panics (default-on) and
+  renders them as the production `500` envelope (request-id + metrics), instead of aborting the
+  connection. Opt out with `without_catch_panic()`.
+- **Design:** nidus-native layer (not `tower_http::catch_panic`, whose `UnsyncBoxBody` response
+  doesn't compose with `ErrorEnvelopeLayer`'s `Response<Body>`). Preserves the body type.
+- **TDD:** `production_defaults_envelope_panic_as_500` RED (panic propagated) → GREEN.
+- **Verification:** `cargo test -p nidus-http` (24 in production_api); `cargo test --workspace
+  --all-features` (359 passed); fmt/clippy/doc/deny/machete/tree/audit clean.
+- **Bench:** within-session A/B vs a saved baseline — ~250ns/~6% on the bare production stack
+  (borderline p=0.02), undetectable on production+metrics (p=0.43). Earlier cross-session
+  "regressions" were noise (~40% run-to-run swing). Acceptable for default-on panic safety.
+- **Manual curl:** production-api normal routes unaffected.
