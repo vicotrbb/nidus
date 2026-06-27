@@ -182,7 +182,7 @@ Each wave is a separate atomic commit. Any wave can be reverted in isolation wit
   partially by 2.1's probe).
 - E-1/E-2/E-3 bounded event queues + observer offloading.
 - EX-2 auth-api guard realism.
-- CLI coverage beyond CLI-1/CLI-2; AD-2/AD-3 adapter health wiring + coverage.
+- CLI coverage beyond CLI-1/CLI-2; AD-2 live Postgres health coverage.
 - T-1 TestApp request-scope helper; T-2 spurious-async assertions.
 - BENCH-1 baseline locking.
 
@@ -375,8 +375,8 @@ Status: **implemented** (AD-3 cache) / **deferred with rationale** (F-CORE-3). S
 
 - **Files (AD-3):** `crates/nidus-cache/tests/moka_cache.rs` (test-only).
 - **AD-3 change:** added `invalidate` (removes only the targeted key) and `from_cache` (wraps a
-  caller-owned Moka cache + namespace) tests. `nidus-sqlx` health/Postgres-config stay out of scope
-  (need a live DB).
+  caller-owned Moka cache + namespace) tests. Postgres config coverage was later closed by Wave 38;
+  live Postgres health stays out of scope without a live database.
 - **F-CORE-3:** investigated and deferred — proper fix is a public API change; DI resolution is
   already `TypeId`-safe, so only graph validation can false-positive (rare). Documented workaround.
 - **Verification:** `cargo test -p nidus-cache`; `cargo test --workspace --all-features`
@@ -786,3 +786,20 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 37" secti
   `cargo fmt --all --check`; `git diff --check`.
 - **Manual curl/bench:** not required (local background-job API only; no server route or hot-path
   HTTP/DI/routing/request lifecycle/metrics/module graph change).
+
+---
+
+## Wave 38 — deterministic Postgres adapter config coverage (AD-3/TG-8)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 38" section.
+
+- **Files:** `crates/nidus-sqlx/tests/postgres_metadata.rs`, audit, plan.
+- **Behavior change:** none. This is coverage and documentation reconciliation for an existing
+  deterministic config parser.
+- **Coverage:** `postgres_config_from_nidus_config_uses_nested_pool_settings` proves
+  `PostgresPoolConfig::from_config_path` reads `url`, `max_connections`, and `min_connections`
+  from nested `nidus_config::Config` JSON without requiring a live database.
+- **Verification:** `cargo test -p nidus-sqlx --features 'postgres nidus-config' --test postgres_metadata`;
+  full `cargo test -p nidus-sqlx --all-features`; SQLx clippy/doc/fmt/diff checks.
+- **Manual curl/bench:** not required (test-only adapter config coverage; no server route or
+  hot-path HTTP/DI/routing/request lifecycle/metrics/module graph change).

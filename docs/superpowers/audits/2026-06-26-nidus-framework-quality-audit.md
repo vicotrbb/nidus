@@ -385,10 +385,10 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 - **AD-2 (~~P3~~ partially mitigated, Wave 25):** `health_status()` now has `HealthRegistry`
   readiness bridge helpers for SQLx and cache providers. SQLite and Moka bridges are tested
   locally; live Postgres health remains intentionally out of scope without a Postgres service.
-- **AD-3 (~~P2~~ partially mitigated, Wave 12):** `nidus-cache` `invalidate()` and `from_cache()`
-  are now covered by focused tests (`tests/moka_cache.rs`). The `nidus-sqlx` `health` feature and
-  Postgres `from_config_path` remain **intentionally out of scope** — they require a live Postgres
-  instance and cannot be exercised deterministically in the unit suite.
+- **AD-3 (~~P2~~ mostly mitigated, Waves 12 and 38):** `nidus-cache` `invalidate()` and
+  `from_cache()` are covered by focused tests (`tests/moka_cache.rs`), and
+  `PostgresPoolConfig::from_config_path` is covered by deterministic config parsing tests. Live
+  Postgres health remains intentionally out of scope without a Postgres service.
 
 ## Example findings
 
@@ -503,7 +503,9 @@ example/bench code.
 - **TG-6 (~~P2~~ covered, Wave 3):** route↔OpenAPI parity and validation↔envelope composition are covered.
 - **TG-7 (~~P2~~ covered, Waves 11 and 15):** CLI generated artifact compile and default
   publishable dependency branches are covered.
-- **TG-8 (P3):** adapter `health`/`invalidate`/`from_cache`/Postgres-config untested (AD-3).
+- **TG-8 (~~P3~~ partially mitigated, Waves 12, 25, and 38):** cache health/invalidate/from_cache,
+  SQLite health, and Postgres config parsing are covered. Live Postgres health remains intentionally
+  out of deterministic local tests.
 
 ## Manual example coverage gaps
 
@@ -572,7 +574,7 @@ example/bench code.
 | CLI-2 | ~~P2~~ covered | Default `nidus="0.1"` branch tested (Wave 15) | `cargo-nidus/tests/cli_new.rs` |
 | ERR-1 | ~~P2~~ mitigated | 5xx `code` now masked to generic value (Wave 6) | `nidus-http/src/error.rs` |
 | AD-1 | ~~P3~~ mitigated | Cache typed registration is real; SQLx typed registration is compile-rejected (Wave 36) | `nidus-cache`, `nidus-sqlx` tests/ |
-| AD-3 | ~~P2~~ mitigated (cache) | nidus-cache invalidate/from_cache covered (Wave 12); sqlx health/postgres need live DB | `nidus-sqlx`, `nidus-cache` tests/ |
+| AD-3 | ~~P2~~ mostly mitigated | cache invalidate/from_cache and Postgres config covered; live Postgres health deferred | `nidus-sqlx`, `nidus-cache` tests/ |
 | T-1 | ~~P2~~ mitigated | TestApp `with_request_scope` installs request scope layer (Wave 10) | `nidus-testing/src/app.rs` |
 | (many) | P3 | diagnostics spans, naming, async assertions, cleanup, etc. | see sections above |
 
@@ -899,8 +901,9 @@ the deferral of F-CORE-3.
 - **AD-3 partially mitigated — nidus-cache `invalidate`/`from_cache` coverage.** Added focused
   tests to `crates/nidus-cache/tests/moka_cache.rs`: `invalidate` removes only the targeted key,
   and `from_cache` wraps a caller-owned Moka instance and applies the namespace to logical keys.
-  The `nidus-sqlx` `health`/Postgres-`from_config_path` parts of AD-3 stay **intentionally out of
-  scope** (require a live Postgres instance, not deterministic in the unit suite).
+  At the time, `nidus-sqlx` health and Postgres `from_config_path` coverage stayed out of scope;
+  Postgres config coverage was later closed by Wave 38, while live Postgres health remains
+  intentionally out of deterministic local tests.
   - **Bench:** not required — adapter unit coverage, not a request hot path.
 
 ### Investigated and intentionally deferred (with evidence)
@@ -1491,6 +1494,31 @@ Closed the job queue observer integration gap J-3.
 `cargo test -p nidus-jobs --test observed_jobs`, `cargo test -p nidus-jobs`,
 `cargo clippy -p nidus-jobs --all-targets --all-features -- -D warnings`,
 `RUSTDOCFLAGS="-D warnings" cargo doc -p nidus-jobs --all-features --no-deps`,
+`cargo fmt --all --check`, and `git diff --check` are clean.
+
+## Follow-up hardening — Wave 38 (2026-06-27, after commit `a30754f`)
+
+Closed the deterministic Postgres adapter config coverage part of AD-3 / TG-8.
+
+### Implemented (coverage only)
+
+- **AD-3/TG-8 narrowed — Postgres config parsing is locally proven.**
+  `postgres_config_from_nidus_config_uses_nested_pool_settings` covers
+  `PostgresPoolConfig::from_config_path` with nested `nidus_config::Config` JSON and asserts
+  `url`, `max_connections`, and `min_connections`. This does not require a live Postgres service
+  and corrects the earlier overbroad deferral. Live Postgres health execution remains intentionally
+  out of deterministic local tests.
+  - **TDD:** not applicable — this is test-only coverage for existing behavior, not a behavior
+    change.
+  - **Bench/manual curl:** not required — adapter config parsing coverage only; no server route or
+    hot-path HTTP/DI/routing/request lifecycle/metrics/module graph behavior changed.
+
+### Verification after this pass
+
+`cargo test -p nidus-sqlx --features 'postgres nidus-config' --test postgres_metadata`,
+`cargo test -p nidus-sqlx --all-features`,
+`cargo clippy -p nidus-sqlx --all-targets --all-features -- -D warnings`,
+`RUSTDOCFLAGS="-D warnings" cargo doc -p nidus-sqlx --all-features --no-deps`,
 `cargo fmt --all --check`, and `git diff --check` are clean.
 
 ## Appendix: verification commands (baseline)

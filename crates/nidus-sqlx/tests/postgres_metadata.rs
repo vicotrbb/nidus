@@ -23,3 +23,17 @@ fn postgres_provider_preserves_raw_sqlx_options_and_module_metadata() {
         "SQLx pools require explicit async builder/initializer registration"
     );
 }
+
+#[test]
+fn postgres_config_from_nidus_config_uses_nested_pool_settings() {
+    let config = nidus_config::Config::from_json_str(
+        r#"{"database":{"url":"postgres://localhost/nidus","max_connections":5,"min_connections":1}}"#,
+    )
+    .unwrap();
+
+    let settings = PostgresPoolConfig::from_config_path(&config, ["database"]).unwrap();
+
+    assert_eq!(settings.database_url(), "postgres://localhost/nidus");
+    assert_eq!(settings.max_connections(), Some(5));
+    assert_eq!(settings.min_connections(), Some(1));
+}
