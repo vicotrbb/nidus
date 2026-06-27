@@ -133,68 +133,35 @@ mod tests {
     async fn docs_routes_serve_openapi_json_and_swagger_ui() {
         let app = TestApp::from_router(app());
 
-        app.get("/openapi.json")
-            .send()
-            .await
-            .assert_json(json!({
-                "openapi": "3.1.0",
-                "info": {
-                    "title": "Nidus Example API",
-                    "version": "0.1.0"
-                },
-                "paths": {
-                    "/users": {
-                        "post": {
-                            "operationId": "post_users",
-                            "summary": "Create user",
-                            "tags": ["users"],
-                            "requestBody": {
-                                "required": true,
-                                "content": {
-                                    "application/json": {
-                                        "schema": {
-                                            "$ref": "#/components/schemas/CreateUserDto"
-                                        }
-                                    }
-                                }
-                            },
-                            "responses": {
-                                "201": {
-                                    "description": "Success",
-                                    "content": {
-                                        "application/json": {
-                                            "schema": {
-                                                "$ref": "#/components/schemas/UserDto"
-                                            }
-                                        }
+        app.get("/openapi.json").send().await.assert_json(json!({
+            "openapi": "3.1.0",
+            "info": {
+                "title": "Nidus Example API",
+                "version": "0.1.0"
+            },
+            "paths": {
+                "/users": {
+                    "post": {
+                        "operationId": "post_users",
+                        "summary": "Create user",
+                        "tags": ["users"],
+                        "requestBody": {
+                            "required": true,
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "$ref": "#/components/schemas/CreateUserDto"
                                     }
                                 }
                             }
-                        }
-                    },
-                    "/users/{id}": {
-                        "get": {
-                            "operationId": "get_users_by_id",
-                            "summary": "Find user by ID",
-                            "tags": ["users"],
-                            "parameters": [
-                                {
-                                    "name": "id",
-                                    "in": "path",
-                                    "required": true,
-                                    "schema": {
-                                        "type": "string"
-                                    }
-                                }
-                            ],
-                            "responses": {
-                                "200": {
-                                    "description": "Success",
-                                    "content": {
-                                        "application/json": {
-                                            "schema": {
-                                                "$ref": "#/components/schemas/UserDto"
-                                            }
+                        },
+                        "responses": {
+                            "201": {
+                                "description": "Success",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/UserDto"
                                         }
                                     }
                                 }
@@ -202,34 +169,63 @@ mod tests {
                         }
                     }
                 },
-                "components": {
-                    "schemas": {
-                        "CreateUserDto": {
-                            "type": "object",
-                            "required": ["email"],
-                            "properties": {
-                                "email": {
+                "/users/{id}": {
+                    "get": {
+                        "operationId": "get_users_by_id",
+                        "summary": "Find user by ID",
+                        "tags": ["users"],
+                        "parameters": [
+                            {
+                                "name": "id",
+                                "in": "path",
+                                "required": true,
+                                "schema": {
                                     "type": "string"
                                 }
                             }
-                        },
-                        "UserDto": {
-                            "type": "object",
-                            "required": ["id", "email"],
-                            "properties": {
-                                "email": {
-                                    "type": "string"
-                                },
-                                "id": {
-                                    "format": "int32",
-                                    "type": "integer"
+                        ],
+                        "responses": {
+                            "200": {
+                                "description": "Success",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/UserDto"
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }))
-            .await;
+            },
+            "components": {
+                "schemas": {
+                    "CreateUserDto": {
+                        "type": "object",
+                        "required": ["email"],
+                        "properties": {
+                            "email": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "UserDto": {
+                        "type": "object",
+                        "required": ["id", "email"],
+                        "properties": {
+                            "email": {
+                                "type": "string"
+                            },
+                            "id": {
+                                "format": "int32",
+                                "type": "integer"
+                            }
+                        }
+                    }
+                }
+            }
+        }));
 
         let docs = app.get("/docs").send().await;
 
@@ -243,14 +239,10 @@ mod tests {
     async fn controller_routes_are_executable() {
         let app = TestApp::from_router(app());
 
-        app.get("/users/42")
-            .send()
-            .await
-            .assert_json(json!({
-                "id": 42,
-                "email": "user@nidus.dev"
-            }))
-            .await;
+        app.get("/users/42").send().await.assert_json(json!({
+            "id": 42,
+            "email": "user@nidus.dev"
+        }));
 
         app.post("/users")
             .json(&json!({
@@ -261,7 +253,6 @@ mod tests {
             .assert_json(json!({
                 "id": 1,
                 "email": "new@nidus.dev"
-            }))
-            .await;
+            }));
     }
 }

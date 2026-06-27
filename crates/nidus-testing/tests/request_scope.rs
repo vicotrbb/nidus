@@ -22,7 +22,7 @@ async fn with_request_scope_enables_request_scoped_extractors() {
 
     let response = app.get("/greet").send().await;
     response.assert_status(StatusCode::OK);
-    response.assert_text("hello").await;
+    response.assert_text("hello");
 }
 
 #[tokio::test]

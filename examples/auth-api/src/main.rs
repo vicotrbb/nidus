@@ -109,7 +109,7 @@ mod tests {
             .await;
 
         response.assert_status(axum::http::StatusCode::OK);
-        response.assert_text("authorized").await;
+        response.assert_text("authorized");
     }
 
     #[tokio::test]
@@ -117,14 +117,12 @@ mod tests {
         let response = TestApp::from_router(app()).get("/me").send().await;
 
         response.assert_status(axum::http::StatusCode::UNAUTHORIZED);
-        response
-            .assert_json(serde_json::json!({
-                "error": {
-                    "code": "unauthorized",
-                    "message": "missing or invalid x-api-key"
-                }
-            }))
-            .await;
+        response.assert_json(serde_json::json!({
+            "error": {
+                "code": "unauthorized",
+                "message": "missing or invalid x-api-key"
+            }
+        }));
     }
 
     #[tokio::test]

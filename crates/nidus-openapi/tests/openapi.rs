@@ -244,8 +244,7 @@ async fn openapi_document_serves_json_and_docs_routes() {
                 }
             }
         }
-    }))
-    .await;
+    }));
 
     let docs = app.get("/docs").send().await;
     docs.assert_status(http::StatusCode::OK);

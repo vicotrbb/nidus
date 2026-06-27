@@ -84,36 +84,26 @@ mod tests {
     async fn rest_api_returns_user_by_id() {
         let response = TestApp::from_router(app()).get("/users/42").send().await;
 
-        response
-            .assert_json(json!({
-                "id": 42,
-                "email": "user@nidus.dev",
-                "request_id": 0,
-            }))
-            .await;
+        response.assert_json(json!({
+            "id": 42,
+            "email": "user@nidus.dev",
+            "request_id": 0,
+        }));
     }
 
     #[tokio::test]
     async fn rest_api_allocates_request_context_per_request() {
         let app = TestApp::from_router(app());
 
-        app.get("/users/1")
-            .send()
-            .await
-            .assert_json(json!({
-                "id": 1,
-                "email": "user@nidus.dev",
-                "request_id": 0,
-            }))
-            .await;
-        app.get("/users/2")
-            .send()
-            .await
-            .assert_json(json!({
-                "id": 2,
-                "email": "user@nidus.dev",
-                "request_id": 1,
-            }))
-            .await;
+        app.get("/users/1").send().await.assert_json(json!({
+            "id": 1,
+            "email": "user@nidus.dev",
+            "request_id": 0,
+        }));
+        app.get("/users/2").send().await.assert_json(json!({
+            "id": 2,
+            "email": "user@nidus.dev",
+            "request_id": 1,
+        }));
     }
 }

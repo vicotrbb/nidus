@@ -513,3 +513,19 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 22" secti
 - **Verification:** focused graph test; full `cli_graph` target; `cargo test -p cargo-nidus`;
   `cargo clippy -p cargo-nidus --all-targets --all-features -- -D warnings`.
 - **Bench:** not required (CLI source inspection only).
+
+## Wave 23 — testkit response assertions: synchronous helpers (T-2 / API-3)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 23" section.
+
+- **Files:** `crates/nidus-testing/src/response.rs`, nidus-testing tests, example tests,
+  `docs/testing.md`; audit.
+- **Behavior change:** `TestResponse::assert_text` and `TestResponse::assert_json` no longer return
+  immediately-ready futures; callers assert synchronously after awaiting `send()`.
+- **TDD:** one `assert_json(...)` call was changed to the synchronous form first. RED under
+  `cargo clippy -p nidus-testing --test http_testing --all-features -- -D warnings` because the
+  async helper returned an unused `Future`, GREEN after making the helpers synchronous.
+- **Verification:** focused http_testing case; `cargo test -p nidus-testing`;
+  `cargo clippy -p nidus-testing --all-targets --all-features -- -D warnings`; affected
+  `nidus-openapi` and example package tests/clippy.
+- **Bench:** not required (test-helper ergonomics only).

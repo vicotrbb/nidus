@@ -34,7 +34,7 @@ use crate::request::TestRequest;
 ///
 ///     let response = app.get("/health").send().await;
 ///     response.assert_status(StatusCode::OK);
-///     response.assert_json(json!({ "ok": true })).await;
+///     response.assert_json(json!({ "ok": true }));
 /// }
 /// ```
 #[derive(Clone)]

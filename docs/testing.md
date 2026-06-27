@@ -6,7 +6,7 @@
 let response = TestApp::from_router(router).get("/health").send().await;
 response.assert_status(http::StatusCode::OK);
 response.assert_header("content-type", "text/plain; charset=utf-8");
-response.assert_text("ok").await;
+response.assert_text("ok");
 ```
 
 Request helpers are available for `GET`, `POST`, `PUT`, `PATCH`, and `DELETE`.

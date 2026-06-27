@@ -101,8 +101,7 @@ mod tests {
                 "id": 1,
                 "email": "owner@nidus.dev",
                 "display_name": "Owner"
-            }))
-            .await;
+            }));
     }
 
     async fn create_project(app: &TestApp) {
@@ -118,8 +117,7 @@ mod tests {
                 "id": 1,
                 "owner_id": 1,
                 "name": "Launch API"
-            }))
-            .await;
+            }));
     }
 
     #[test]
@@ -184,20 +182,15 @@ mod tests {
         app.get("/health")
             .send()
             .await
-            .assert_json(json!({ "status": "ok" }))
-            .await;
+            .assert_json(json!({ "status": "ok" }));
 
         create_user(&app).await;
 
-        app.get("/users/1")
-            .send()
-            .await
-            .assert_json(json!({
-                "id": 1,
-                "email": "owner@nidus.dev",
-                "display_name": "Owner"
-            }))
-            .await;
+        app.get("/users/1").send().await.assert_json(json!({
+            "id": 1,
+            "email": "owner@nidus.dev",
+            "display_name": "Owner"
+        }));
     }
 
     #[tokio::test]
@@ -229,8 +222,7 @@ mod tests {
                 "title": "Write docs",
                 "description": "Document the real-world example",
                 "completed": false
-            }))
-            .await;
+            }));
 
         app.patch("/tasks/1/complete")
             .header("x-api-key", "dev-secret")
@@ -242,8 +234,7 @@ mod tests {
                 "title": "Write docs",
                 "description": "Document the real-world example",
                 "completed": true
-            }))
-            .await;
+            }));
 
         app.get("/projects/1/tasks")
             .header("x-api-key", "dev-secret")
@@ -258,8 +249,7 @@ mod tests {
                     "description": "Document the real-world example",
                     "completed": true
                 }
-            ]))
-            .await;
+            ]));
     }
 
     #[tokio::test]
@@ -401,27 +391,19 @@ mod tests {
     async fn production_health_metrics_errors_and_security_headers_are_wired() {
         let app = test_app().await;
 
-        app.get("/health/live")
-            .send()
-            .await
-            .assert_json(json!({
-                "status": "up",
-                "checks": {
-                    "process": { "status": "up" }
-                }
-            }))
-            .await;
+        app.get("/health/live").send().await.assert_json(json!({
+            "status": "up",
+            "checks": {
+                "process": { "status": "up" }
+            }
+        }));
 
-        app.get("/health/ready")
-            .send()
-            .await
-            .assert_json(json!({
-                "status": "up",
-                "checks": {
-                    "database": { "status": "up" }
-                }
-            }))
-            .await;
+        app.get("/health/ready").send().await.assert_json(json!({
+            "status": "up",
+            "checks": {
+                "database": { "status": "up" }
+            }
+        }));
 
         let domain_404 = app
             .get("/projects/404")

@@ -18,7 +18,7 @@ use std::str;
 /// let response = app.get("/health").send().await;
 /// response.assert_status(StatusCode::OK);
 /// assert_eq!(response.header_str("content-type")?.unwrap(), "application/json");
-/// response.assert_json(json!({ "ok": true })).await;
+/// response.assert_json(json!({ "ok": true }));
 /// # Ok::<(), http::header::ToStrError>(())
 /// ```
 pub struct TestResponse {
@@ -108,7 +108,7 @@ impl TestResponse {
     ///
     /// This consumes the response so tests cannot accidentally assert against a
     /// body after moving it into another helper.
-    pub async fn assert_text(self, expected: &str) {
+    pub fn assert_text(self, expected: &str) {
         let text = self.text().expect("test response was not UTF-8");
         assert_eq!(text, expected);
     }
@@ -116,7 +116,7 @@ impl TestResponse {
     /// Asserts the response body as JSON.
     ///
     /// This consumes the response and compares against a `serde_json::Value`.
-    pub async fn assert_json(self, expected: Value) {
+    pub fn assert_json(self, expected: Value) {
         let actual: Value = self.json();
         assert_eq!(actual, expected);
     }

@@ -38,6 +38,6 @@ mod tests {
     async fn hello_world_responds() {
         let response = TestApp::from_router(app()).get("/").send().await;
 
-        response.assert_text("hello from nidus").await;
+        response.assert_text("hello from nidus");
     }
 }

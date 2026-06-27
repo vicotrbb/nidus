@@ -348,8 +348,8 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
   production `request_scope_layer` on the test router, so `RequestScoped<T>` extractors resolve
   during HTTP integration tests (previously rejected with `500`/`request_scope_unavailable` unless
   the user wired the layer manually). Two tests pin both the enabled and disabled paths.
-- **T-2 (P3):** `assert_text`/`assert_json` are spuriously `async` (no `.await` in body,
-  `response.rs:111,119`) — call sites must write `.await` (docs show it: `docs/testing.md:9`).
+- **T-2 (~~P3~~ mitigated, Wave 23):** `assert_text`/`assert_json` are now synchronous helpers;
+  call sites no longer need `.await` after body assertions.
 
 ### cargo-nidus
 
@@ -447,7 +447,8 @@ example/bench code.
 - **API-1 (P3):** `Lazy<T>`/`Factory<T>` are not container-constructed (manual `::new` only) —
   README lists them alongside the auto-wired types without noting the distinction.
 - **API-2 (P3):** Adapter `ProviderRegistrant` no-op impls are misleading (AD-1).
-- **API-3 (P3):** `assert_text`/`assert_json` spurious `async` (T-2).
+- **API-3 (~~P3~~ mitigated, Wave 23):** `assert_text`/`assert_json` no longer return unused
+  futures (T-2).
 
 ## Error handling & diagnostics findings
 
@@ -1098,6 +1099,30 @@ Closed the CLI graph discovery gap CLI-5.
 `cargo test -p cargo-nidus --test cli_graph cargo_nidus_graph_inspects_generated_feature_directories`,
 `cargo test -p cargo-nidus --test cli_graph`, `cargo test -p cargo-nidus`, and
 `cargo clippy -p cargo-nidus --all-targets --all-features -- -D warnings` are clean.
+
+## Follow-up hardening — Wave 23 (2026-06-27, after commit `eb55e4e`)
+
+Closed the testkit assertion ergonomics gap T-2 / API-3.
+
+### Implemented (TDD)
+
+- **T-2/API-3 mitigated — response body assertions are synchronous.** `TestResponse::assert_text`
+  and `TestResponse::assert_json` now execute synchronously instead of returning immediately-ready
+  futures. Repo tests, rustdoc snippets, docs, and example tests were updated to drop the trailing
+  `.await` from assertion calls.
+  - **TDD:** `route_definition_mounts_controller_prefix_on_axum_router` first used synchronous
+    `assert_json(...)`. RED: clippy with `-D warnings` rejected the unused `Future`; GREEN: the
+    helper became synchronous and the same call compiled cleanly.
+  - **Bench:** not required — test-helper ergonomics only.
+
+### Verification after this pass
+
+`cargo test -p nidus-testing --test http_testing route_definition_mounts_controller_prefix_on_axum_router`,
+`cargo test -p nidus-testing`, and
+`cargo clippy -p nidus-testing --all-targets --all-features -- -D warnings` are clean. Because
+the call-site update touched examples and `nidus-openapi` tests,
+`cargo test -p nidus-openapi -p nidus-example-auth-api -p nidus-example-hello-world -p nidus-example-openapi -p nidus-example-realworld-api -p nidus-example-rest-api`
+and matching clippy over the same package set are also clean.
 
 ## Appendix: verification commands (baseline)
 

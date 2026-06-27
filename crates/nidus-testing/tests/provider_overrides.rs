@@ -102,11 +102,9 @@ async fn test_app_bootstrap_with_router_validates_module_and_exercises_routes() 
 
     let response = app.get("/users").send().await;
 
-    response
-        .assert_json(serde_json::json!({
-            "source": "mock",
-        }))
-        .await;
+    response.assert_json(serde_json::json!({
+        "source": "mock",
+    }));
 }
 
 #[test]
@@ -138,11 +136,9 @@ async fn test_app_bootstrap_with_modules_and_router_validates_explicit_module_gr
 
     let response = app.get("/users").send().await;
 
-    response
-        .assert_json(serde_json::json!({
-            "source": "real",
-        }))
-        .await;
+    response.assert_json(serde_json::json!({
+        "source": "real",
+    }));
 }
 
 #[test]

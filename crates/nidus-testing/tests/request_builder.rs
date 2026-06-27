@@ -44,7 +44,7 @@ async fn test_request_sends_custom_headers() {
         .send()
         .await;
 
-    response.assert_text("secret").await;
+    response.assert_text("secret");
 }
 
 #[test]
@@ -108,9 +108,7 @@ async fn test_request_sends_text_body_with_content_type() {
         .send()
         .await;
 
-    response
-        .assert_text("text/plain; charset=utf-8:hello")
-        .await;
+    response.assert_text("text/plain; charset=utf-8:hello");
 }
 
 #[tokio::test]
@@ -126,7 +124,7 @@ async fn test_request_sends_raw_body() {
         .send()
         .await;
 
-    response.assert_text("5").await;
+    response.assert_text("5");
 }
 
 #[tokio::test]
@@ -148,5 +146,5 @@ async fn test_request_appends_typed_query_params() {
         .send()
         .await;
 
-    response.assert_text("Ada Lovelace:2").await;
+    response.assert_text("Ada Lovelace:2");
 }
