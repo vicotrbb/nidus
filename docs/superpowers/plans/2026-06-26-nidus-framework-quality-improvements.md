@@ -475,3 +475,14 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 19" secti
 - **Verification:** `cargo test -p nidus-jobs --test observed_jobs`; `cargo test -p nidus-jobs`;
   `cargo clippy -p nidus-jobs --all-targets --all-features -- -D warnings`.
 - **Bench:** not required (job observation, not HTTP/DI/routing/request lifecycle).
+
+## Wave 20 — deployment docs: default-on vs opt-in API defaults (D-2)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 20" section.
+
+- **Files:** `docs/deployment.md`; audit.
+- **Behavior change:** none (docs-only).
+- **Docs change:** default-on `ApiDefaults::production` middleware concerns are listed separately
+  from opt-in metrics and rate limiting.
+- **Verification:** `git diff --check`; `cargo fmt --all --check`.
+- **Bench:** not required (docs-only).

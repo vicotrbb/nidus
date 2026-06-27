@@ -426,9 +426,9 @@ example/bench code.
   `register_request_scoped` chaining requirement and the `RequestScopeRequired` error.
 - **D-1 (~~P2~~ mitigated, Wave 2):** `docs/examples.md` now matches the runnable `openapi`
   example: `cargo run -p nidus-example-openapi` keeps serving `/openapi.json` and `/docs`.
-- **D-2 (P3):** `docs/deployment.md:77-90` lists `without_rate_limit()`/`without_metrics()` among
-  "preset concerns" alongside on-by-default ones; rate limiting and metrics are actually opt-in
-  (the `ApiDefaults::production` rustdoc at `api_defaults.rs:77-80` is accurate, so this is mild).
+- **D-2 (~~P3~~ mitigated, Wave 20):** `docs/deployment.md` now separates default-on
+  `ApiDefaults::production` concerns from opt-in metrics/rate limiting, matching the
+  `ApiDefaults::production` rustdoc.
 
 ## Dependency boundary findings
 
@@ -1039,6 +1039,22 @@ Closed the async job runner hygiene gap J-4.
 
 `cargo test -p nidus-jobs --test observed_jobs`, `cargo test -p nidus-jobs`, and
 `cargo clippy -p nidus-jobs --all-targets --all-features -- -D warnings` are clean.
+
+## Follow-up hardening — Wave 20 (2026-06-27, after commit `c41fffa`)
+
+Closed the deployment docs consistency gap D-2.
+
+### Implemented (docs only)
+
+- **D-2 mitigated — production defaults docs match the API.** `docs/deployment.md` now lists
+  default-on `ApiDefaults::production` concerns separately from opt-in metrics and rate limiting.
+  This matches the `ApiDefaults::production` rustdoc and avoids implying that `without_metrics()`
+  or `without_rate_limit()` disable middleware that is enabled by default.
+  - **Bench:** not required — docs-only.
+
+### Verification after this pass
+
+`git diff --check` and `cargo fmt --all --check` are clean.
 
 ## Appendix: verification commands (baseline)
 

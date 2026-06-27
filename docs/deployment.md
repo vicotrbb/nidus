@@ -74,17 +74,21 @@ let app = ApiDefaults::production("users-api")
     .apply(router.merge(metrics.routes()));
 ```
 
-Every preset concern has an opt-out or replacement hook:
+Default-on concerns have an opt-out or replacement hook:
 
 - `without_request_ids()` or `request_ids(RequestIdConfig::...)`
 - `without_request_context()`
 - `without_error_envelope()`
 - `without_health()` or `health(HealthRegistry::...)`
-- `without_metrics()` or `metrics(PrometheusMetrics::new())`
-- `without_rate_limit()` or `rate_limit(RateLimitConfig::...)`
 - `without_body_limit()` or `body_limit(max_bytes)`
 - `without_security_headers()` or `security_headers()`
 - `without_timeout()` or `timeout(duration)`
+
+Metrics and rate limiting are opt-in:
+
+- `metrics(PrometheusMetrics::new())` installs request recording; merge
+  `metrics.routes()` separately to expose `/metrics`
+- `rate_limit(RateLimitConfig::...)` installs rate limiting
 
 Use the lower-level helpers directly when an application needs a different
 composition order.
