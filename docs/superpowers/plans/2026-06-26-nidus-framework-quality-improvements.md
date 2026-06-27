@@ -366,3 +366,20 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 11" secti
 - **Verification:** `cargo test -p cargo-nidus --test cli_generate` (7 passed); `cargo test
   --workspace --all-features` (365 passed); fmt/clippy clean.
 - **Bench:** not required (code-generation CLI, not a request hot path).
+
+---
+
+## Wave 12 — adapter coverage + F-CORE-3 deferral (AD-3 partial; F-CORE-3)
+
+Status: **implemented** (AD-3 cache) / **deferred with rationale** (F-CORE-3). See the audit's
+"Follow-up hardening — Wave 12" section.
+
+- **Files (AD-3):** `crates/nidus-cache/tests/moka_cache.rs` (test-only).
+- **AD-3 change:** added `invalidate` (removes only the targeted key) and `from_cache` (wraps a
+  caller-owned Moka cache + namespace) tests. `nidus-sqlx` health/Postgres-config stay out of scope
+  (need a live DB).
+- **F-CORE-3:** investigated and deferred — proper fix is a public API change; DI resolution is
+  already `TypeId`-safe, so only graph validation can false-positive (rare). Documented workaround.
+- **Verification:** `cargo test -p nidus-cache`; `cargo test --workspace --all-features`
+  (367 passed); fmt/clippy/doc clean.
+- **Bench:** not required (adapter unit coverage, not a request hot path).

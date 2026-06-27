@@ -101,6 +101,14 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 - **Fix:** Key graph identity on `TypeId`; optionally capture `Inject<T>` field types in
   `#[injectable]` for a real dependency graph.
 - **Verification:** regression test with two same-simple-name providers.
+- **Status (deferred, Wave 12 review):** investigated and **intentionally deferred**. The
+  collision is rare (two providers with the same simple name across imported modules) and — crucially —
+  DI resolution is `TypeId`-keyed in the container, so the runtime is unaffected; only graph
+  *validation* can false-positive. The proper fix is a **public API change** (`ModuleDefinition::providers()`
+  would return full type names instead of short names) or a structural refactor (a parallel
+  `TypeId`-keyed identity alongside the short display names), and several tests pin the short-name
+  behavior. That is not a small high-confidence change, so it stays deferred. Workaround: give
+  same-module-graph providers distinct simple type names.
 
 #### F-CORE-4 — Blocking `Condvar` waits reachable from async handlers (P2)
 - **Evidence:** `provider/mod.rs:134` (`wait_unpoisoned`), `request_scope.rs:124`. First-time
@@ -349,8 +357,10 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
   `nidus-cache/lib.rs:229-233`) — registration is imperative via `Builder::register`. Misleading.
 - **AD-2 (P3):** `health_status()` exists but is not wired into `HealthRegistry` (no bridge helper);
   untested in both adapters.
-- **AD-3 (P2, coverage):** `nidus-sqlx` `health` feature and Postgres `from_config_path` untested;
-  `nidus-cache` `invalidate()`/`from_cache()` untested.
+- **AD-3 (~~P2~~ partially mitigated, Wave 12):** `nidus-cache` `invalidate()` and `from_cache()`
+  are now covered by focused tests (`tests/moka_cache.rs`). The `nidus-sqlx` `health` feature and
+  Postgres `from_config_path` remain **intentionally out of scope** — they require a live Postgres
+  instance and cannot be exercised deterministically in the unit suite.
 
 ## Example findings
 
@@ -516,7 +526,7 @@ example/bench code.
 | CLI-1 | ~~P2~~ mitigated | All-four-artifact end-to-end compile test (Wave 11) | `cargo-nidus/tests/cli_generate.rs` |
 | CLI-2 | P2 | Default `nidus="0.1"` branch untested | `cargo-nidus/src/generate.rs:15-17` |
 | ERR-1 | ~~P2~~ mitigated | 5xx `code` now masked to generic value (Wave 6) | `nidus-http/src/error.rs` |
-| AD-3 | P2 | Adapter health/postgres-config/invalidate untested | `nidus-sqlx`, `nidus-cache` tests/ |
+| AD-3 | ~~P2~~ mitigated (cache) | nidus-cache invalidate/from_cache covered (Wave 12); sqlx health/postgres need live DB | `nidus-sqlx`, `nidus-cache` tests/ |
 | T-1 | ~~P2~~ mitigated | TestApp `with_request_scope` installs request scope layer (Wave 10) | `nidus-testing/src/app.rs` |
 | (many) | P3 | diagnostics spans, naming, async assertions, cleanup, etc. | see sections above |
 
@@ -832,6 +842,34 @@ compile-verified, not just file-asserted.
 
 `cargo fmt --all --check`, `cargo clippy -p cargo-nidus --all-targets --all-features -- -D
 warnings`, `cargo test --workspace --all-features` (365 passed / 0 failed) — all clean.
+
+## Follow-up hardening — Wave 12 (2026-06-27, after commit `35de8c5`)
+
+Two aims: close the deterministic part of adapter coverage (AD-3), and re-investigate + document
+the deferral of F-CORE-3.
+
+### Implemented (TDD, atomic commits)
+
+- **AD-3 partially mitigated — nidus-cache `invalidate`/`from_cache` coverage.** Added focused
+  tests to `crates/nidus-cache/tests/moka_cache.rs`: `invalidate` removes only the targeted key,
+  and `from_cache` wraps a caller-owned Moka instance and applies the namespace to logical keys.
+  The `nidus-sqlx` `health`/Postgres-`from_config_path` parts of AD-3 stay **intentionally out of
+  scope** (require a live Postgres instance, not deterministic in the unit suite).
+  - **Bench:** not required — adapter unit coverage, not a request hot path.
+
+### Investigated and intentionally deferred (with evidence)
+
+- **F-CORE-3 deferred.** Re-verified: the `#[module]` macro reaches the short-name derivation, so
+  the false-positive is reachable, but DI resolution is `TypeId`-keyed (runtime unaffected); only
+  graph *validation* can false-positive on same-simple-name providers across modules. The fix is a
+  public API change (`providers()` returning full type names) or a structural refactor, with
+  several tests pinning short names — not a small high-confidence change. Deferred with a documented
+  workaround (distinct simple type names). See the F-CORE-3 finding for the full rationale.
+
+### Verification after this pass
+
+`cargo fmt --all --check`, `cargo clippy -p nidus-cache --all-targets --all-features -- -D
+warnings`, `cargo test --workspace --all-features` (367 passed / 0 failed) — all clean.
 
 ## Appendix: verification commands (baseline)
 
