@@ -208,6 +208,81 @@ fn singleton_factory_runs_once_under_concurrent_first_resolution() {
 }
 
 #[test]
+fn eagerly_resolve_singletons_constructs_each_singleton_once_and_caches() {
+    // F-CORE-4: eagerly_resolve_singletons pre-constructs every singleton so the
+    // lazy Condvar wait is never reached from an async request handler later.
+    let db_calls = Arc::new(AtomicUsize::new(0));
+    let cache_calls = Arc::new(AtomicUsize::new(0));
+    let mut container = Container::new();
+    container
+        .register_singleton_factory::<Database, _>({
+            let db_calls = Arc::clone(&db_calls);
+            move |_| {
+                db_calls.fetch_add(1, Ordering::SeqCst);
+                Ok(Database("primary"))
+            }
+        })
+        .unwrap();
+    container
+        .register_singleton_factory::<i64, _>({
+            let cache_calls = Arc::clone(&cache_calls);
+            move |_| {
+                cache_calls.fetch_add(1, Ordering::SeqCst);
+                Ok(99)
+            }
+        })
+        .unwrap();
+
+    container.eagerly_resolve_singletons().unwrap();
+
+    assert_eq!(db_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(cache_calls.load(Ordering::SeqCst), 1);
+
+    // Later resolves reuse the cached instances (no reconstruction).
+    let _ = container.resolve::<Database>().unwrap();
+    let _ = container.resolve::<i64>().unwrap();
+    assert_eq!(db_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(cache_calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn eagerly_resolve_singletons_skips_transient_and_request_providers() {
+    let transient_calls = Arc::new(AtomicUsize::new(0));
+    let mut container = Container::new();
+    container
+        .register_singleton::<Database>(Database("primary"))
+        .unwrap();
+    container
+        .register_transient::<i64, _>({
+            let transient_calls = Arc::clone(&transient_calls);
+            move |_| {
+                transient_calls.fetch_add(1, Ordering::SeqCst);
+                Ok(1)
+            }
+        })
+        .unwrap();
+
+    // Only the singleton is pre-constructed; the transient factory is untouched.
+    container.eagerly_resolve_singletons().unwrap();
+    assert_eq!(transient_calls.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn eagerly_resolve_singletons_propagates_factory_errors() {
+    let mut container = Container::new();
+    container
+        .register_singleton_factory::<Database, _>(|_| {
+            Err(NidusError::MissingProvider {
+                type_name: type_name::<SelfReferential>(),
+            })
+        })
+        .unwrap();
+
+    let error = container.eagerly_resolve_singletons().unwrap_err();
+    assert!(matches!(error, NidusError::ProviderFactory { .. }));
+}
+
+#[test]
 fn singleton_factory_reports_self_circular_resolution() {
     let mut container = Container::new();
     container

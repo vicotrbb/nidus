@@ -144,6 +144,27 @@ impl Container {
         downcast::<T>(erased)
     }
 
+    /// Eagerly constructs every registered singleton provider and caches it.
+    ///
+    /// Singletons are otherwise constructed lazily on first resolution, which
+    /// uses a blocking `Condvar` wait when two callers race to construct the
+    /// same provider. Calling this at startup pre-constructs each singleton so
+    /// later resolutions (including from async request handlers) hit the cached
+    /// value and never reach that wait — avoiding an async-runtime worker
+    /// stalling on first use. Transient and request-lifetime providers are
+    /// skipped.
+    ///
+    /// A singleton whose factory errors or panics will do so here, failing
+    /// startup fast instead of on first request.
+    pub fn eagerly_resolve_singletons(&self) -> Result<()> {
+        for entry in self.providers.values() {
+            if entry.lifetime() == ProviderLifetime::Singleton {
+                entry.resolve_erased(self)?;
+            }
+        }
+        Ok(())
+    }
+
     fn insert<T>(
         &mut self,
         lifetime: ProviderLifetime,
