@@ -414,9 +414,10 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
   200 `authorized`.
 - **EX-3 (~~P3~~ mitigated, Wave 29):** `production-api` package metadata now uses the consistent
   `nidus-example-production-api` package name. The directory remains `examples/production-api`.
-- **EX-4 (P3):** Orphaned empty dir `examples/sqlx-postgres/src/` — no `Cargo.toml`/`main.rs`, not a
-  workspace member; leftover from the integrations migration. (Note: the `sqlx-postgres` package in
-  `Cargo.lock` is sqlx's own transitive sub-crate, unrelated.)
+- **EX-4 (~~P3~~ mitigated, Wave 35):** Orphaned empty local worktree dir
+  `examples/sqlx-postgres/src/` was removed. There was no tracked `Cargo.toml`/`main.rs` and it was
+  not a workspace member. (Note: the `sqlx-postgres` package in `Cargo.lock` is sqlx's own
+  transitive sub-crate, unrelated.)
 - **EX-5 (~~P3~~ mitigated, Waves 30-33):** non-test example `main`/startup/handler paths no
   longer panic through `.expect()`/`.unwrap()`. `modular-monolith` now returns `Result` from its
   main flow, `rest-api` provider registration now propagates errors from `app()`, and
@@ -1409,6 +1410,27 @@ Closed the OpenAPI schema registration panic gap ERR-2.
 `cargo clippy -p nidus-http -p nidus-openapi -p nidus --all-targets --all-features -- -D warnings`,
 `RUSTDOCFLAGS="-D warnings" cargo doc -p nidus-http -p nidus-openapi -p nidus --all-features --no-deps`,
 and `cargo fmt --all --check` are clean.
+
+## Follow-up hardening — Wave 35 (2026-06-27, after commit `143a4ed`)
+
+Closed the orphan local example-directory cleanup item EX-4.
+
+### Implemented (worktree hygiene)
+
+- **EX-4 mitigated — orphan empty `examples/sqlx-postgres` directory removed.** The directory had
+  no tracked files, no `Cargo.toml`, no `main.rs`, and was not a workspace member. Cleanup used
+  `rmdir examples/sqlx-postgres/src examples/sqlx-postgres`, so it would have failed rather than
+  deleting unexpected contents. Historical migration docs still mention `examples/sqlx-postgres`
+  where relevant, and `Cargo.lock` still legitimately contains SQLx's transitive `sqlx-postgres`
+  crate.
+  - **TDD:** not applicable — local empty-directory hygiene only; no Rust behavior changed.
+  - **Bench/manual curl:** not required — no code or server example changed.
+
+### Verification after this pass
+
+`test ! -e examples/sqlx-postgres` succeeds,
+`cargo metadata --no-deps --format-version 1` has no `examples/sqlx-postgres` workspace member,
+`cargo fmt --all --check`, and `git diff --check` are clean.
 
 ## Appendix: verification commands (baseline)
 

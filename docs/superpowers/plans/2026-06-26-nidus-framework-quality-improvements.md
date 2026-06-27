@@ -181,7 +181,7 @@ Each wave is a separate atomic commit. Any wave can be reverted in isolation wit
 - F-MAC-2 spanned diagnostics; O-1 OpenAPI error-response modeling; O-2 parity test (covered
   partially by 2.1's probe).
 - E-1/E-2/E-3 bounded event queues + observer offloading.
-- EX-2 auth-api guard realism; EX-4 orphan `sqlx-postgres` dir cleanup.
+- EX-2 auth-api guard realism.
 - CLI coverage beyond CLI-1/CLI-2; AD-1/AD-2/AD-3 adapter registration + health wiring + coverage.
 - T-1 TestApp request-scope helper; T-2 spurious-async assertions.
 - BENCH-1 baseline locking.
@@ -731,3 +731,17 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 34" secti
   `cargo fmt --all --check`.
 - **Manual curl:** not required; no server example changed.
 - **Bench:** not required (OpenAPI schema generation is build/startup-time, not a hot path).
+
+---
+
+## Wave 35 — local worktree hygiene: orphan sqlx-postgres directory (EX-4)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 35" section.
+
+- **Files:** audit and plan only; the removed `examples/sqlx-postgres/src/` directory was empty and
+  untracked.
+- **Behavior change:** none.
+- **Verification:** `test ! -e examples/sqlx-postgres`;
+  `cargo metadata --no-deps --format-version 1` has no `examples/sqlx-postgres` workspace member;
+  `cargo fmt --all --check`; `git diff --check`.
+- **Manual curl/bench:** not required (no code/server change).
