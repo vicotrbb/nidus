@@ -5,8 +5,9 @@ use syn::{ImplItemFn, Path, parse2};
 use crate::utils::require_method_receiver;
 
 pub(crate) fn expand(attr: TokenStream, item: TokenStream) -> TokenStream {
-    if parse2::<Path>(attr).is_err() {
-        return crate::diagnostics::compile_error_with_item(
+    if let Err(error) = parse2::<Path>(attr) {
+        return crate::diagnostics::compile_error_with_item_at(
+            error.span(),
             "#[guard] requires a guard type like #[guard(AuthGuard)]",
             item,
         );

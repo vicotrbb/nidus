@@ -54,7 +54,8 @@ fn main() {
     let Some(register_request_schema) = routes[0].request_schema_registrar() else {
         panic!("expected request schema registrar for route");
     };
-    register_request_schema(&mut route_request_schemas);
+    register_request_schema(&mut route_request_schemas)
+        .expect("request schema registration should succeed");
     assert!(
         route_request_schemas
             .iter()
@@ -65,8 +66,13 @@ fn main() {
     let Some(register_response_schema) = routes[0].response_schema_registrar() else {
         panic!("expected response schema registrar for route");
     };
-    register_response_schema(&mut route_response_schemas);
-    assert!(route_response_schemas.iter().any(|(name, _)| name.as_str() == "UserDto"));
+    register_response_schema(&mut route_response_schemas)
+        .expect("response schema registration should succeed");
+    assert!(
+        route_response_schemas
+            .iter()
+            .any(|(name, _)| name.as_str() == "UserDto")
+    );
     assert_eq!(routes[1].method(), "POST");
     assert_eq!(routes[1].path(), "/");
     assert_eq!(routes[1].summary(), None);

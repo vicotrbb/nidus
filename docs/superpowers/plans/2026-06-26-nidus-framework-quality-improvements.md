@@ -178,8 +178,7 @@ Each wave is a separate atomic commit. Any wave can be reverted in isolation wit
 - F-CORE-3 graph TypeId re-keying; F-CORE-4 eager singleton resolution; F-CORE-5 request-dep docs.
 - F-HTTP-2 streaming body limit; F-HTTP-3 413 ordering; F-HTTP-5 graceful shutdown + ConnectInfo;
   F-HTTP-6 client_ip_identity hardening; F-HTTP-7 panic-catching layer; F-HTTP-8 prometheus series cap.
-- F-MAC-2 spanned diagnostics; O-1 OpenAPI error-response modeling; O-2 parity test (covered
-  partially by 2.1's probe).
+- O-1 OpenAPI error-response modeling; O-2 parity test (covered partially by 2.1's probe).
 - E-2 has an opt-in channel offload seam; direct observers remain synchronous by design.
 - EX-2 auth-api guard realism.
 - CLI coverage beyond CLI-1/CLI-2; AD-2 live Postgres health coverage.
@@ -858,3 +857,22 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 41" secti
 - **Manual curl/bench:** not required (test/docs-only benchmark surface guard; no server route or
   hot-path HTTP/DI/routing/request lifecycle/metrics/module graph implementation changed, and no new
   performance claim was produced).
+
+---
+
+## Wave 42 — macro attribute diagnostic spans (F-MAC-2)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 42" section.
+
+- **Files:** `crates/nidus-macros/src/{diagnostics,utils,entrypoint,guard,pipe,module}.rs`,
+  `crates/nidus/tests/{macro_ui.rs,ui/controller_non_string_path.*,
+  ui/routes_generate_metadata.rs}`, audit, plan.
+- **Behavior change:** macro compile errors for parse-error and non-empty attribute argument paths can
+  use the parser's offending-token span instead of always using `Span::call_site()`.
+- **TDD:** `cargo test -p nidus --all-features --test macro_ui` first failed because
+  `#[controller(42)]` highlighted the full attribute invocation; after the helper change it
+  highlights `42`.
+- **Verification:** focused macro UI trybuild suite plus macro/nidus package tests and workspace
+  gates.
+- **Manual curl/bench:** not required (macro diagnostics and trybuild fixtures only; no server route
+  or hot-path HTTP/DI/routing/request lifecycle/metrics/module graph runtime changed).

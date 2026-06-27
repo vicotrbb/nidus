@@ -9,7 +9,8 @@ pub(crate) fn expand(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut metadata = match parse2::<ModuleMetadata>(attr) {
         Ok(metadata) => metadata,
         Err(error) => {
-            return crate::diagnostics::compile_error_with_item(
+            return crate::diagnostics::compile_error_with_item_at(
+                error.span(),
                 format!(
                     "#[module] expects groups like providers(UsersService), controllers(UsersController): {error}"
                 ),

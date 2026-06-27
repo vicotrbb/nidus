@@ -154,10 +154,12 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 - **Fix:** Emit a spanned compile error for non-`Inject`/`Optional` named fields.
 - **Verification:** add a `tests/ui` compile-fail case (trybuild).
 
-#### F-MAC-2 — Attribute-level macro errors use `Span::call_site()` (P3)
-- **Evidence:** `crates/nidus-macros/src/diagnostics.rs:5-7`; consumers in `controller.rs`,
-  `guard.rs`, `pipe.rs`, `entrypoint.rs`, `module.rs:51`, `injectable.rs:15`. Route/openapi errors
-  are spanned (`new_spanned`); attribute placement errors point at the whole invocation.
+#### F-MAC-2 — Attribute-level macro errors use `Span::call_site()` (~~P3~~ mitigated, Wave 42)
+- **Evidence:** parse-error and non-empty attribute argument diagnostics now use explicit spans via
+  `compile_error_at` / `compile_error_with_item_at`; `controller_non_string_path.rs` pins an invalid
+  `#[controller(42)]` path error to the offending `42` token instead of the whole attribute
+  invocation. Empty attributes still point at the attribute invocation because there is no inner
+  offending token to highlight.
 - **Files:** `crates/nidus-macros/src/diagnostics.rs`
 - **Risk:** Poorer DX for macro-misplacement errors.
 - **Fix:** Thread the offending token/span into `compile_error`.
@@ -567,6 +569,7 @@ example/bench code.
 | F-HTTP-7 | ~~P2~~ mitigated | Production stack catches handler panics (Wave 7) | `nidus-http/src/middleware/{api_defaults,catch_panic}.rs` |
 | F-HTTP-8 | ~~P2~~ mitigated | Opt-in Prometheus max-series overflow bucket (Wave 3) | `nidus-http/src/middleware/metrics.rs` |
 | F-MAC-1 | not a defect | Manual controller construction requires runtime field errors; compile-error attempt reverted (Wave 3) | `nidus-macros/src/controller.rs` |
+| F-MAC-2 | ~~P3~~ mitigated | Attribute parse diagnostics can target offending tokens (Wave 42) | `nidus-macros/src/diagnostics.rs`, `crates/nidus/tests/ui/` |
 | J-1 | ~~P2~~ mitigated | `ObservedJobRunner` panic recovery added (Wave 2) | `nidus-jobs/src/lib.rs` |
 | J-2 | ~~P2~~ mitigated | Job queues document retention and expose `clear` (Wave 2) | `nidus-jobs/src/lib.rs` |
 | J-3 | ~~P3~~ mitigated | Job queues can run through `ObservedJobRunner` (Wave 37) | `nidus-jobs/src/lib.rs` |
@@ -1609,6 +1612,37 @@ Partially mitigated BENCH-1 by adding a regression guard for benchmark source/do
 `cargo deny check`, `cargo machete`, and `cargo tree -d` are clean. `cargo audit` reports one
 allowed warning for unmaintained `proc-macro-error2` (`RUSTSEC-2026-0173`) and no vulnerability
 failure.
+
+## Follow-up hardening — Wave 42 (2026-06-27, after commit `d1863ad`)
+
+Mitigated the macro diagnostic span gap F-MAC-2 for parse-error and non-empty attribute argument
+paths.
+
+### Implemented (TDD)
+
+- **F-MAC-2 mitigated — attribute parse diagnostics can point at offending tokens.**
+  `compile_error_at` and `compile_error_with_item_at` let macro expanders preserve parser spans
+  instead of always falling back to `Span::call_site()`. `require_path_attr`, `require_empty_attr`,
+  `#[nidus::main]`, `#[guard]`, `#[pipe]`, and `#[module]` parse-error paths now use those spans.
+  - **TDD:** `controller_non_string_path.rs` first failed because `#[controller(42)]` pointed at the
+    whole `#[controller(42)]` invocation. After threading `syn::Error::span()` through the helper,
+    the caret points at the offending `42` token.
+  - **Test hygiene:** `routes_generate_metadata.rs` now asserts OpenAPI schema registrar callbacks
+    succeed instead of dropping `Result`, removing trybuild pass-fixture warnings.
+  - **Scope note:** empty attributes such as `#[controller]` still point at the attribute invocation;
+    there is no inner argument token to target.
+  - **Bench/manual curl:** not required — macro diagnostics and trybuild fixtures only; no server
+    route or hot-path HTTP/DI/routing/request lifecycle/metrics/module graph runtime changed.
+
+### Verification after this pass
+
+`cargo test -p nidus --all-features --test macro_ui`, `cargo test -p nidus-macros`,
+`cargo test -p nidus --all-features`, `cargo test --workspace --all-features`,
+`cargo clippy --workspace --all-targets --all-features -- -D warnings`,
+`RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps`,
+`cargo fmt --all --check`, `git diff --check`, `cargo deny check`, `cargo machete`, and
+`cargo tree -d` are clean. `cargo audit` reports one allowed warning for unmaintained
+`proc-macro-error2` (`RUSTSEC-2026-0173`) and no vulnerability failure.
 
 ## Appendix: verification commands (baseline)
 

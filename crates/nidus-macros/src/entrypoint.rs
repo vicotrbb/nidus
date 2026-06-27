@@ -1,20 +1,25 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{ItemFn, parse2};
+use syn::{ItemFn, parse2, spanned::Spanned};
 
 pub(crate) fn expand(attr: TokenStream, item: TokenStream) -> TokenStream {
     if !attr.is_empty() {
-        return crate::diagnostics::compile_error_with_item(
+        return crate::diagnostics::compile_error_with_item_at(
+            attr.span(),
             "#[nidus::main] does not accept arguments",
             item,
         );
     }
 
-    let Ok(mut function) = parse2::<ItemFn>(item.clone()) else {
-        return crate::diagnostics::compile_error_with_item(
-            "#[nidus::main] can only be used on async functions",
-            item,
-        );
+    let mut function = match parse2::<ItemFn>(item.clone()) {
+        Ok(function) => function,
+        Err(error) => {
+            return crate::diagnostics::compile_error_with_item_at(
+                error.span(),
+                "#[nidus::main] can only be used on async functions",
+                item,
+            );
+        }
     };
 
     if function.sig.asyncness.take().is_none() {

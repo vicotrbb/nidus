@@ -14,6 +14,7 @@ fn public_macros_report_useful_compile_errors() {
     tests.pass("tests/ui/routes_generate_metadata.rs");
     tests.compile_fail("tests/ui/controller_empty_param_path.rs");
     tests.compile_fail("tests/ui/controller_missing_path.rs");
+    tests.compile_fail("tests/ui/controller_non_string_path.rs");
     tests.compile_fail("tests/ui/guard_missing_type.rs");
     tests.compile_fail("tests/ui/guard_outside_route_method.rs");
     tests.compile_fail("tests/ui/injectable_plain_field.rs");

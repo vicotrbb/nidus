@@ -1,0 +1,5 @@
+error: #[controller] requires a string literal path like #[controller("/users")]: expected string literal
+ --> tests/ui/controller_non_string_path.rs:3:14
+  |
+3 | #[controller(42)]
+  |              ^^
