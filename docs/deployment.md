@@ -147,14 +147,12 @@ let health = HealthRegistry::new()
 let app = router.merge(health.routes());
 ```
 
-Adapters can contribute checks by closing over their typed providers:
+Adapters compiled with their `health` feature can contribute readiness checks
+from their typed providers:
 
 ```rust
 let database = container.resolve::<nidus_sqlx::SqlitePoolProvider>()?;
-let health = HealthRegistry::new().ready_check("database", move || {
-    let database = std::sync::Arc::clone(&database);
-    async move { database.health_status().await }
-});
+let health = database.register_ready_check(HealthRegistry::new(), "database");
 ```
 
 Keep startup validation strict so a bad config, missing provider, invalid module

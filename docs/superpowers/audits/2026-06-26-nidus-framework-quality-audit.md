@@ -376,8 +376,9 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
   `sqlx`); not pulled into the facade, as designed. No panics/unwrap in source.
 - **AD-1 (P3):** Both implement `ProviderRegistrant` as a **no-op** (`nidus-sqlx/lib.rs:182-186`,
   `nidus-cache/lib.rs:229-233`) — registration is imperative via `Builder::register`. Misleading.
-- **AD-2 (P3):** `health_status()` exists but is not wired into `HealthRegistry` (no bridge helper);
-  untested in both adapters.
+- **AD-2 (~~P3~~ partially mitigated, Wave 25):** `health_status()` now has `HealthRegistry`
+  readiness bridge helpers for SQLx and cache providers. SQLite and Moka bridges are tested
+  locally; live Postgres health remains intentionally out of scope without a Postgres service.
 - **AD-3 (~~P2~~ partially mitigated, Wave 12):** `nidus-cache` `invalidate()` and `from_cache()`
   are now covered by focused tests (`tests/moka_cache.rs`). The `nidus-sqlx` `health` feature and
   Postgres `from_config_path` remain **intentionally out of scope** — they require a live Postgres
@@ -1140,6 +1141,35 @@ Closed the README DI wrapper clarity gap API-1.
 ### Verification after this pass
 
 `git diff --check` and `cargo fmt --all --check` are clean.
+
+## Follow-up hardening — Wave 25 (2026-06-27, after commit `7afe1fd`)
+
+Partially closed the adapter health bridge gap AD-2.
+
+### Implemented (TDD)
+
+- **AD-2 partially mitigated — adapter health checks can attach to `HealthRegistry`.**
+  `SqlitePoolProvider`, `PostgresPoolProvider`, and `MokaCacheProvider` now expose
+  `register_ready_check(...)` behind their existing `health` feature. The helpers take
+  `Arc<Self>`, matching providers resolved from `Container`, and return the updated registry.
+  `examples/integrations-production`, `docs/deployment.md`, and `docs/integrations.md` now show
+  the helper path instead of hand-written closures.
+  - **TDD:** cache and SQLite tests first called `register_ready_check(...)`. RED: missing method;
+    GREEN: helpers compile and produce registry routes.
+  - **Scope note:** Postgres gets the same helper, but live Postgres health is not locally proven
+    because the workspace test suite intentionally avoids requiring a Postgres service.
+  - **Bench:** not required — additive health-registration helper, not HTTP/DI/routing/request
+    lifecycle hot path.
+
+### Verification after this pass
+
+`cargo test -p nidus-cache --features health moka_cache_registers_ready_check_with_health_registry`
+and
+`cargo test -p nidus-sqlx --features 'sqlite postgres nidus-config health' sqlite_provider_registers_ready_check_with_health_registry`
+are clean. `cargo test -p nidus-cache --all-features`,
+`cargo test -p nidus-sqlx --all-features`,
+`cargo test -p nidus-example-integrations-production`, and clippy for those three changed packages
+with all targets/features are also clean.
 
 ## Appendix: verification commands (baseline)
 

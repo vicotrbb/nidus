@@ -540,3 +540,20 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 24" secti
   request-scope `Scoped<T>`, and manual `Lazy<T>` / `Factory<T>` helpers.
 - **Verification:** `git diff --check`; `cargo fmt --all --check`.
 - **Bench:** not required (docs-only).
+
+## Wave 25 — adapter health registry bridges (AD-2)
+
+Status: **partially implemented**. See the audit's "Follow-up hardening — Wave 25" section.
+
+- **Files:** `crates/nidus-sqlx/src/lib.rs`, `crates/nidus-cache/src/lib.rs`, adapter tests,
+  `examples/integrations-production/src/main.rs`, `docs/deployment.md`, `docs/integrations.md`;
+  audit.
+- **Behavior change:** providers built with the `health` feature can attach themselves as
+  readiness checks through `register_ready_check(...)`.
+- **TDD:** cache and SQLite tests called the new helper first. RED on missing method; GREEN after
+  adding helpers.
+- **Verification:** focused cache health-feature test; focused SQLx health-feature test with
+  `sqlite postgres nidus-config health` enabled; full changed adapter/example package checks.
+- **Bench:** not required (additive health-registration helper only).
+- **Deferred:** live Postgres health execution still needs an external Postgres service and remains
+  intentionally out of deterministic local tests.

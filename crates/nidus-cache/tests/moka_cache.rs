@@ -3,6 +3,9 @@ use std::time::Duration;
 use nidus_cache::{CacheConfig, MokaCacheProvider};
 use nidus_core::Container;
 
+#[cfg(feature = "health")]
+use {nidus_http::health::HealthRegistry, std::sync::Arc};
+
 #[tokio::test]
 async fn moka_cache_namespaces_keys_and_expires_values() {
     let cache = MokaCacheProvider::builder()
@@ -64,4 +67,14 @@ async fn moka_cache_from_cache_wraps_an_existing_moka_instance() {
     let cache = MokaCacheProvider::from_cache(raw, Some("users".to_owned()));
     assert_eq!(cache.namespace(), Some("users"));
     assert_eq!(cache.get("42").await.unwrap(), b"Ada".to_vec());
+}
+
+#[cfg(feature = "health")]
+#[test]
+fn moka_cache_registers_ready_check_with_health_registry() {
+    let cache = Arc::new(MokaCacheProvider::builder().build());
+
+    let registry = cache.register_ready_check(HealthRegistry::new(), "cache");
+
+    let _routes = registry.routes();
 }

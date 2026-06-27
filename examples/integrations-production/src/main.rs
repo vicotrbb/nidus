@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use nidus::prelude::{
     Application, Config, Container, HealthRegistry, Module, ModuleBuilder, ModuleDefinition,
     ModuleGraph, NidusError,
@@ -54,12 +52,8 @@ async fn build_app(config: AppConfig) -> nidus::prelude::Result<Application> {
 fn health_registry(container: &Container) -> nidus::prelude::Result<HealthRegistry> {
     let database = container.resolve::<SqlitePoolProvider>()?;
     let cache = container.resolve::<MokaCacheProvider>()?;
-    Ok(HealthRegistry::new()
-        .ready_check("database", move || {
-            let database = Arc::clone(&database);
-            async move { database.health_status().await }
-        })
-        .ready_check_sync("cache", move || cache.health_status()))
+    let health = database.register_ready_check(HealthRegistry::new(), "database");
+    Ok(cache.register_ready_check(health, "cache"))
 }
 
 fn config_from_nidus_config(config: Config) -> nidus::prelude::Result<AppConfig> {

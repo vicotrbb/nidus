@@ -221,6 +221,20 @@ mod moka_backend {
             nidus_http::health::HealthStatus::up()
         }
 
+        /// Adds this provider as a readiness check on a health registry.
+        ///
+        /// The provider is expected to be the shared instance resolved from the
+        /// Nidus container, so the method takes `Arc<Self>` and does not clone
+        /// the underlying cache directly.
+        #[cfg(feature = "health")]
+        pub fn register_ready_check(
+            self: std::sync::Arc<Self>,
+            registry: nidus_http::health::HealthRegistry,
+            name: impl Into<String>,
+        ) -> nidus_http::health::HealthRegistry {
+            registry.ready_check_sync(name, move || self.health_status())
+        }
+
         fn cache_key(&self, key: impl AsRef<str>) -> CacheKey {
             CacheKey::new(self.namespace.as_deref(), key)
         }

@@ -1,6 +1,9 @@
 use nidus_core::{Container, ModuleBuilder};
 use nidus_sqlx::{SqlitePoolConfig, SqlitePoolProvider};
 
+#[cfg(feature = "health")]
+use {nidus_http::health::HealthRegistry, std::sync::Arc};
+
 #[tokio::test]
 async fn sqlite_provider_registers_real_pool_in_container() {
     let mut container = Container::new();
@@ -41,4 +44,19 @@ fn sqlite_module_declares_provider_and_export() {
 
     assert_eq!(module.providers(), ["SqlitePoolProvider"]);
     assert_eq!(module.exports(), ["SqlitePoolProvider"]);
+}
+
+#[cfg(feature = "health")]
+#[tokio::test]
+async fn sqlite_provider_registers_ready_check_with_health_registry() {
+    let provider = SqlitePoolProvider::builder()
+        .database_url("sqlite::memory:")
+        .max_connections(1)
+        .connect()
+        .await
+        .unwrap();
+
+    let registry = Arc::new(provider).register_ready_check(HealthRegistry::new(), "database");
+
+    let _routes = registry.routes();
 }

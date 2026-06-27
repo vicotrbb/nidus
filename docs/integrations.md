@@ -73,6 +73,14 @@ Default SQLx adapter tests use SQLite in memory. Postgres support is compiled
 and metadata-tested by default, but live Postgres connectivity is intentionally
 not required by the workspace test suite.
 
+With the adapter's `health` feature enabled, resolved pool providers can attach
+readiness checks to a `HealthRegistry`:
+
+```rust
+let database = container.resolve::<nidus_sqlx::SqlitePoolProvider>()?;
+let health = database.register_ready_check(HealthRegistry::new(), "database");
+```
+
 ## Cache
 
 Install `nidus-cache` directly:
@@ -100,6 +108,14 @@ let raw = cache.inner();
 The local provider is deterministic and tested without external services. Redis
 is reserved for feature-gated distributed cache support; default tests must not
 require a Redis server.
+
+With the adapter's `health` feature enabled, resolved cache providers can attach
+readiness checks to a `HealthRegistry`:
+
+```rust
+let cache = container.resolve::<nidus_cache::MokaCacheProvider>()?;
+let health = cache.register_ready_check(HealthRegistry::new(), "cache");
+```
 
 ## Migration From `sqlx-postgres`
 

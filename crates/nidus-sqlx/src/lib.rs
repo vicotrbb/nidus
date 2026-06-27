@@ -177,6 +177,23 @@ mod sqlite {
                 Err(error) => nidus_http::health::HealthStatus::down(error.to_string()),
             }
         }
+
+        /// Adds this provider as a readiness check on a health registry.
+        ///
+        /// The provider is expected to be the shared instance resolved from the
+        /// Nidus container, so the method takes `Arc<Self>` and does not clone
+        /// the underlying SQLx pool directly.
+        #[cfg(feature = "health")]
+        pub fn register_ready_check(
+            self: std::sync::Arc<Self>,
+            registry: nidus_http::health::HealthRegistry,
+            name: impl Into<String>,
+        ) -> nidus_http::health::HealthRegistry {
+            registry.ready_check(name, move || {
+                let provider = std::sync::Arc::clone(&self);
+                async move { provider.health_status().await }
+            })
+        }
     }
 
     impl ProviderRegistrant for SqlitePoolProvider {
@@ -357,6 +374,23 @@ mod postgres {
                 Ok(_) => nidus_http::health::HealthStatus::up(),
                 Err(error) => nidus_http::health::HealthStatus::down(error.to_string()),
             }
+        }
+
+        /// Adds this provider as a readiness check on a health registry.
+        ///
+        /// The provider is expected to be the shared instance resolved from the
+        /// Nidus container, so the method takes `Arc<Self>` and does not clone
+        /// the underlying SQLx pool directly.
+        #[cfg(feature = "health")]
+        pub fn register_ready_check(
+            self: std::sync::Arc<Self>,
+            registry: nidus_http::health::HealthRegistry,
+            name: impl Into<String>,
+        ) -> nidus_http::health::HealthRegistry {
+            registry.ready_check(name, move || {
+                let provider = std::sync::Arc::clone(&self);
+                async move { provider.health_status().await }
+            })
         }
     }
 
