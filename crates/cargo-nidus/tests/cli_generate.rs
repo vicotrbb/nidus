@@ -152,6 +152,67 @@ fn cargo_nidus_generate_maintains_directory_module_indexes() {
 }
 
 #[test]
+fn cargo_nidus_generate_all_artifacts_compile_end_to_end() {
+    // CLI-1: end-to-end compile verification that a project scaffolded with all
+    // four `generate` artifacts (module/controller/service/repository) compiles,
+    // including the generated module wiring (providers/controllers/exports).
+    let root = temp_project_root("generate_all_artifacts_compile_end_to_end");
+    fs::write(
+        root.join("Cargo.toml"),
+        format!(
+            r#"[package]
+name = "demo"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+nidus = {{ path = {:?} }}
+"#,
+            workspace_root().join("crates/nidus").display().to_string()
+        ),
+    )
+    .unwrap();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(root.join("src/main.rs"), "fn main() {}\n").unwrap();
+
+    for kind in ["module", "repository", "service", "controller"] {
+        let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+            .args(["nidus", "generate", kind, "users", "--path"])
+            .arg(&root)
+            .status()
+            .unwrap();
+        assert!(status.success(), "generate {kind} failed");
+    }
+
+    let main_rs = fs::read_to_string(root.join("src/main.rs")).unwrap();
+    for mod_decl in [
+        "mod modules;",
+        "mod repositories;",
+        "mod services;",
+        "mod controllers;",
+    ] {
+        assert!(
+            main_rs.contains(mod_decl),
+            "main.rs missing `{mod_decl}` declaration"
+        );
+    }
+    assert_module_metadata_is_synced(
+        &fs::read_to_string(root.join("src/modules/users.rs")).unwrap(),
+    );
+
+    let check = Command::new("cargo")
+        .arg("check")
+        .env("RUSTFLAGS", "-Dwarnings")
+        .current_dir(&root)
+        .status()
+        .unwrap();
+    assert!(
+        check.success(),
+        "generated all-artifact project must compile end-to-end"
+    );
+}
+
+#[test]
 fn cargo_nidus_generate_updates_crate_root_module_declarations() {
     let root = temp_project_root("generate_updates_crate_root_module_declarations");
     fs::write(
