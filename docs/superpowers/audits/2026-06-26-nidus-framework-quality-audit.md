@@ -174,16 +174,18 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
   into `ApiDefaults::production`, or document the two-tier model prominently.
 - **Verification:** `cargo test -p nidus-http --test logging_otel_security`; new streaming-limit test.
 
-#### F-HTTP-3 — 413 (body-limit) responses bypass request-id, metrics, and error envelope (P2)
-- **Evidence:** inbound order (from `api_defaults.rs:260-289`, last `.level()` is outermost):
-  security_headers → **body_limit** → validated_request_id → request_context → metrics →
-  ErrorEnvelope → timeout → rate_limit → handlers. So a 413 is produced before a request id exists,
-  is not metered, not enveloped, and carries no `x-request-id`.
-- **Files:** `crates/nidus-http/src/middleware/api_defaults.rs`
-- **Risk:** Oversized-body DoS is invisible to metrics and inconsistent with the production
-  envelope contract; log correlation breaks (no request id).
-- **Fix:** Move `body_limit` inside `validated_request_id`/`metrics`/`ErrorEnvelope`, or document.
-- **Verification:** test asserting 413 carries `x-request-id` + is metered + enveloped.
+#### F-HTTP-3 — 413 (body-limit) responses bypass request-id, metrics, and error envelope (~~P2~~ mitigated, Wave 8)
+- **Evidence:** `body_limit_layer` was the outermost functional layer (after `security_headers`),
+  so a `413` was produced before `validated_request_id`/`metrics`/`ErrorEnvelope` ran. Now moved
+  inside those layers in `ApiDefaults::apply` (`crates/nidus-http/src/middleware/api_defaults.rs`),
+  so an oversized-body `413` flows out through the envelope (enveloped), metrics (metered), and the
+  request-id layer (carries `x-request-id`) — consistent with how `408` timeouts are observed.
+- **Files:** `crates/nidus-http/src/middleware/api_defaults.rs`; test `production_api.rs`.
+- **Verification:** `production_defaults_envelope_and_meter_body_limit_rejections` (413 → JSON
+  envelope `statusCode:413` + `x-request-id` + metered); manual curl of production-api with a 2 MB
+  body → `413` `application/json` envelope + `x-request-id: <uuid>` + security headers + metered.
+  The order-only change adds no per-request layer (still 9 layers); `request_lifecycle` production
+  scenarios show no regression (~3.8 µs bare, ~4.45 µs with metrics).
 
 #### F-HTTP-4 — No test pins the production middleware order (P2)
 - **Evidence:** `tests/production_api.rs` tests only behavioral side-effects; no assertion that the
@@ -492,7 +494,7 @@ example/bench code.
 | F-CORE-4 | P2 | Blocking Condvar reachable from async | `nidus-core/src/provider/mod.rs:134` |
 | F-CORE-5 | P2 | `register_request` can't chain request deps | `nidus-core/src/container/mod.rs:84-90` |
 | F-HTTP-2 | P2 | Body limit Content-Length-only (bypassable) | `nidus-http/src/middleware/security.rs:171-185` |
-| F-HTTP-3 | P2 | 413 bypasses request-id/metrics/envelope | `nidus-http/src/middleware/api_defaults.rs:282-284` |
+| F-HTTP-3 | ~~P2~~ mitigated | 413 now enveloped/metered/request-id'd (Wave 8) | `nidus-http/src/middleware/api_defaults.rs` |
 | F-HTTP-4 | P2 | No production middleware order test | `nidus-http/tests/production_api.rs` |
 | F-HTTP-5 | ~~P2~~ mitigated | ConnectInfo now on blessed path; graceful-shutdown API added (Wave 4) | `nidus-http/src/server.rs` |
 | F-HTTP-6 | P2 | client_ip_identity spoofing + anonymous bucket | `nidus-http/src/context.rs:282-296` |
@@ -729,6 +731,34 @@ production envelope instead of aborting the connection.
 `cargo test --workspace --all-features` (359 passed / 0 failed), `cargo tree -d` (no dups),
 `cargo deny check` (all ok), `cargo machete` (no unused), `cargo audit` (only the pre-existing
 documented advisory RUSTSEC-2026-0173) — all clean.
+
+## Follow-up hardening — Wave 8 (2026-06-27, after commit `ef42feb`)
+
+Closed the production-observability gap F-HTTP-3: oversized-body `413` responses are now
+enveloped, metered, and carry a request id.
+
+### Implemented (TDD, atomic commits)
+
+- **F-HTTP-3 mitigated — 413 observability.** `body_limit_layer` moved from the outermost
+  functional position to inside `validated_request_id` / `metrics` / `ErrorEnvelope` in
+  `ApiDefaults::apply`. An oversized-body `413` now flows out through the envelope (enveloped),
+  metrics (metered), and the request-id layer (carries `x-request-id`) — consistent with how
+  `408` timeouts are observed. Order-only change (still 9 layers; no per-request cost added).
+  - **TDD:** `production_defaults_envelope_and_meter_body_limit_rejections` verified RED (`413 must
+    carry a request id`) then GREEN (413 → JSON envelope `statusCode:413` + `x-request-id` + metered).
+  - **Bench:** `request_lifecycle` production scenarios show no regression (~3.8 µs bare,
+    p=0.12; ~4.45 µs with metrics) — expected, since the change reorders layers without
+    adding/removing any.
+  - **Manual curl:** production-api with a 2 MB body → `413 Payload Too Large`,
+    `content-type: application/json`, `x-request-id: <uuid>`, `x-content-type-options: nosniff`,
+    body `{"error":{"statusCode":413,"code":"http_error","message":"Payload Too Large",...,
+    "requestId":"<uuid>"}}`; `/metrics` records the 413.
+
+### Verification after this pass
+
+`cargo fmt --all --check`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`,
+`RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps`,
+`cargo test --workspace --all-features` (360 passed / 0 failed) — all clean.
 
 ## Appendix: verification commands (baseline)
 

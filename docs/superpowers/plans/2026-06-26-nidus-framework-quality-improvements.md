@@ -307,3 +307,20 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 7" sectio
   (borderline p=0.02), undetectable on production+metrics (p=0.43). Earlier cross-session
   "regressions" were noise (~40% run-to-run swing). Acceptable for default-on panic safety.
 - **Manual curl:** production-api normal routes unaffected.
+
+---
+
+## Wave 8 — production observability: enveloped/metered 413 (F-HTTP-3)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 8" section.
+
+- **Files:** `crates/nidus-http/src/middleware/api_defaults.rs`; test `production_api.rs`.
+- **Behavior change:** `body_limit` moved inside `validated_request_id`/`metrics`/`ErrorEnvelope`,
+  so a `413` is enveloped, metered, and carries a request id (consistent with `408`). Order-only.
+- **TDD:** `production_defaults_envelope_and_meter_body_limit_rejections` RED (`413 must carry a
+  request id`) → GREEN.
+- **Verification:** `cargo test -p nidus-http --test production_api` (25 passed); `cargo test
+  --workspace --all-features` (360 passed); fmt/clippy/doc clean.
+- **Bench:** no regression — order-only change (still 9 layers); production scenarios ~3.8 µs
+  (bare, p=0.12) / ~4.45 µs (with metrics).
+- **Manual curl:** production-api 2 MB body → 413 JSON envelope + `x-request-id` + metered.
