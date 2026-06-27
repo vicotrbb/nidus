@@ -426,3 +426,15 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 15" secti
   `path` dependency.
 - **Verification:** focused test (1 passed) and full `cli_new` suite (4 passed).
 - **Bench:** not required (CLI manifest generation, not a framework hot path).
+
+## Wave 16 — CLI ergonomics: generated service name follows project name (CLI-3)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 16" section.
+
+- **Files:** `crates/cargo-nidus/src/generate.rs`, `crates/cargo-nidus/tests/cli_new.rs`; audit.
+- **Behavior change:** generated `cargo nidus new <name>` projects use `<name>` in
+  `ApiDefaults::production(...)` instead of always using `"hello-nidus"`.
+- **TDD:** `cargo_nidus_new_uses_project_name_for_service_name` RED on the hardcoded template, GREEN
+  after replacing the template marker with the requested project name.
+- **Verification:** focused test (1 passed) and full `cli_new` suite (5 passed).
+- **Bench:** not required (CLI template generation, not a framework hot path).

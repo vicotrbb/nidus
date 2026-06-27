@@ -358,8 +358,9 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 - **CLI-2 (~~P2~~ mitigated, Wave 15):** `cargo_nidus_new_defaults_to_published_nidus_dependency`
   exercises `cargo nidus new` without `--nidus-path` and asserts the generated manifest uses
   `nidus = "0.1"` rather than a local path dependency.
-- **CLI-3 (P3):** Generated service name hardcodes `"hello-nidus"` regardless of project name
-  (`generate.rs:38`).
+- **CLI-3 (~~P3~~ mitigated, Wave 16):** Generated projects now pass the requested project name to
+  `ApiDefaults::production(...)`; `cargo_nidus_new_uses_project_name_for_service_name` covers a
+  non-`hello-nidus` project.
 - **CLI-4 (P3):** `expand` silently requires `cargo-expand` to be installed (`main.rs:136-141`).
 - **CLI-5 (P3):** `graph` only scans `src/{main,lib,modules/*.rs}` — controllers/services outside
   `src/modules/` are invisible to `nidus graph` (`graph.rs:29-48`).
@@ -956,6 +957,25 @@ Closed the remaining deterministic CLI coverage gap CLI-2.
 `cli_new` run failed before the temp cleanup because generated-project dependency compilation
 exhausted macOS temp disk space; the disposable `/private/.../T/nidus-cli-tests` tree was removed,
 free space recovered from ~257 MiB to ~51 GiB, and the suite then passed.
+
+## Follow-up hardening — Wave 16 (2026-06-27, after commit `3e33ece`)
+
+Closed the generated-project naming polish gap CLI-3.
+
+### Implemented (TDD)
+
+- **CLI-3 mitigated — generated service name follows the project name.**
+  `cargo nidus new team-api` now generates `ApiDefaults::production("team-api")` instead of
+  hardcoding `"hello-nidus"` for every project. This keeps request logging/metrics service identity
+  aligned with the scaffolded package name.
+  - **TDD:** `cargo_nidus_new_uses_project_name_for_service_name` verified RED against the
+    hardcoded template, then GREEN after templating the service name.
+  - **Bench:** not required — CLI template generation is not a framework hot path.
+
+### Verification after this pass
+
+`cargo test -p cargo-nidus --test cli_new cargo_nidus_new_uses_project_name_for_service_name`
+(1 passed) and `cargo test -p cargo-nidus --test cli_new` (5 passed) are clean.
 
 ## Appendix: verification commands (baseline)
 

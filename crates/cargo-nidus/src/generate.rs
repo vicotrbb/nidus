@@ -28,14 +28,12 @@ nidus = {nidus_dependency}
 "#
         ),
     )?;
-    write(
-        &src.join("main.rs"),
-        r#"use nidus::prelude::*;
+    let main_rs = r#"use nidus::prelude::*;
 
 #[nidus::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let address = std::env::var("NIDUS_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".to_owned());
-    let app = ApiDefaults::production("hello-nidus")
+    let app = ApiDefaults::production("__NIDUS_SERVICE_NAME__")
         .without_metrics()
         .apply(HelloController.into_router());
 
@@ -59,8 +57,9 @@ impl HelloController {
 
 #[module]
 struct AppModule;
-"#,
-    )?;
+"#
+    .replace("__NIDUS_SERVICE_NAME__", name);
+    write(&src.join("main.rs"), &main_rs)?;
     write(
         &project.join("README.md"),
         &format!(

@@ -81,6 +81,24 @@ fn cargo_nidus_new_defaults_to_published_nidus_dependency() {
 }
 
 #[test]
+fn cargo_nidus_new_uses_project_name_for_service_name() {
+    let root = temp_project_root("new_uses_project_name_for_service_name");
+    let project = root.join("team-api");
+    let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "new", "team-api", "--path"])
+        .arg(&root)
+        .arg("--nidus-path")
+        .arg(workspace_root().join("crates/nidus"))
+        .status()
+        .unwrap();
+
+    assert!(status.success());
+    let main_rs = fs::read_to_string(project.join("src/main.rs")).unwrap();
+    assert!(main_rs.contains("ApiDefaults::production(\"team-api\")"));
+    assert!(!main_rs.contains("ApiDefaults::production(\"hello-nidus\")"));
+}
+
+#[test]
 fn cargo_nidus_new_generates_runnable_http_server() {
     let root = temp_project_root("new_generates_runnable_http_server");
     let project = root.join("hello-nidus");
