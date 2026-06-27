@@ -5,6 +5,7 @@ use nidus_core::{
     Container, LifecycleHook, LifecycleRunner, Module, ModuleDefinition, Nidus, RequestScope,
     Result,
 };
+use nidus_http::middleware::request_scope_layer;
 use std::sync::Arc;
 
 use crate::request::TestRequest;
@@ -106,6 +107,7 @@ impl TestApp {
             container: Container::new(),
             config: Config::new(),
             lifecycle: LifecycleRunner::new(),
+            request_scope: false,
         }
     }
 
@@ -177,6 +179,7 @@ pub struct TestAppBuilder {
     container: Container,
     config: Config,
     lifecycle: LifecycleRunner,
+    request_scope: bool,
 }
 
 impl TestAppBuilder {
@@ -212,9 +215,10 @@ impl TestAppBuilder {
     /// Registers a request-lifetime provider factory that resolves dependencies
     /// through the active request scope.
     ///
-    /// This matches production request-scoped resolution. Handler extraction
-    /// still requires the HTTP request scope middleware when using
-    /// `RequestScoped<T>`.
+    /// This matches production request-scoped resolution. To exercise
+    /// `RequestScoped<T>` extractors over HTTP in the test app, also call
+    /// [`TestAppBuilder::with_request_scope`] so the request scope layer is
+    /// installed on the router.
     pub fn request_scoped_provider<T, F>(mut self, factory: F) -> Result<Self>
     where
         T: Send + Sync + 'static,
@@ -222,6 +226,17 @@ impl TestAppBuilder {
     {
         self.container.register_request_scoped::<T, F>(factory)?;
         Ok(self)
+    }
+
+    /// Installs the production request scope layer so `RequestScoped<T>`
+    /// extractors resolve during HTTP integration tests.
+    ///
+    /// Without this, handlers that extract `RequestScoped<T>` reject with
+    /// `500`/`request_scope_unavailable`. Register request providers with
+    /// [`Self::request_provider`] or [`Self::request_scoped_provider`] first.
+    pub fn with_request_scope(mut self) -> Self {
+        self.request_scope = true;
+        self
     }
 
     /// Overrides a provider in the test container.
@@ -251,8 +266,12 @@ impl TestAppBuilder {
     /// Builds the test application.
     pub fn build(self) -> TestApp {
         let container = Arc::new(self.container);
+        let mut router = self.router.layer(Extension(Arc::clone(&container)));
+        if self.request_scope {
+            router = router.layer(request_scope_layer(Arc::clone(&container)));
+        }
         TestApp {
-            router: self.router.layer(Extension(Arc::clone(&container))),
+            router,
             container,
             config: self.config,
             lifecycle: Arc::new(self.lifecycle),
