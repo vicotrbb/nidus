@@ -339,3 +339,17 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 9" sectio
   (362 passed); fmt/clippy clean.
 - **Bench:** not required (build-time doc generation, not a request hot path).
 - **Manual curl:** realworld-api `POST /projects` spec now lists 201/401/403/422.
+
+---
+
+## Wave 10 — testing ergonomics: TestApp request scope (T-1)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 10" section.
+
+- **Files:** `crates/nidus-testing/src/app.rs`; test `tests/request_scope.rs`.
+- **Behavior change:** `TestAppBuilder::with_request_scope()` installs the request scope layer so
+  `RequestScoped<T>` extractors resolve in HTTP integration tests (additive; off by default).
+- **TDD:** enables-extractor (RED: method missing → GREEN: 200) + rejects-without (pins 500).
+- **Verification:** `cargo test -p nidus-testing`; `cargo test --workspace --all-features`
+  (364 passed); fmt/clippy/doc clean.
+- **Bench:** not required (test infrastructure, not a request hot path).

@@ -318,9 +318,10 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 ### nidus-testing
 
 - **Clean & ergonomic** overall (26 tests). In-memory `oneshot`, provider/config overrides, lifecycle.
-- **T-1 (P2):** No way to install the production `request_scope_layer` on `TestApp`, so realistic
-  `RequestScoped<T>` handlers can't be integration-tested without manual wiring
-  (`app.rs:212-217` admits this).
+- **T-1 (~~P2~~ mitigated, Wave 10):** `TestAppBuilder::with_request_scope()` now installs the
+  production `request_scope_layer` on the test router, so `RequestScoped<T>` extractors resolve
+  during HTTP integration tests (previously rejected with `500`/`request_scope_unavailable` unless
+  the user wired the layer manually). Two tests pin both the enabled and disabled paths.
 - **T-2 (P3):** `assert_text`/`assert_json` are spuriously `async` (no `.await` in body,
   `response.rs:111,119`) — call sites must write `.await` (docs show it: `docs/testing.md:9`).
 
@@ -515,7 +516,7 @@ example/bench code.
 | CLI-2 | P2 | Default `nidus="0.1"` branch untested | `cargo-nidus/src/generate.rs:15-17` |
 | ERR-1 | ~~P2~~ mitigated | 5xx `code` now masked to generic value (Wave 6) | `nidus-http/src/error.rs` |
 | AD-3 | P2 | Adapter health/postgres-config/invalidate untested | `nidus-sqlx`, `nidus-cache` tests/ |
-| T-1 | P2 | TestApp can't install request_scope_layer | `nidus-testing/src/app.rs:212-217` |
+| T-1 | ~~P2~~ mitigated | TestApp `with_request_scope` installs request scope layer (Wave 10) | `nidus-testing/src/app.rs` |
 | (many) | P3 | diagnostics spans, naming, async assertions, cleanup, etc. | see sections above |
 
 ## Follow-up hardening — second pass (2026-06-26, after commit `ac108ef`)
@@ -788,6 +789,28 @@ statuses a route can actually return.
 
 `cargo fmt --all --check`, `cargo clippy -p nidus-openapi --all-targets --all-features -- -D
 warnings`, `cargo test --workspace --all-features` (362 passed / 0 failed) — all clean.
+
+## Follow-up hardening — Wave 10 (2026-06-27, after commit `737a5e6`)
+
+Diversified into `nidus-testing`: closed T-1 so request-scoped handlers can be exercised in
+HTTP integration tests without manual layer wiring.
+
+### Implemented (TDD, atomic commits)
+
+- **T-1 mitigated — `TestAppBuilder::with_request_scope()`.** Adds a builder flag that installs
+  `nidus_http::middleware::request_scope_layer(container)` on the test router during `build()`, so
+  `RequestScoped<T>` extractors resolve (the layer inserts the `SharedRequestScope` extension they
+  read). `from_router` users still wire the layer themselves when they own the container. Updated
+  the `request_scoped_provider` doc to point at `with_request_scope`.
+  - **TDD:** `with_request_scope_enables_request_scoped_extractors` (RED: method missing → GREEN:
+    `200 "hello"`) + `without_request_scope_rejects_request_scoped_extractors` (pins the
+    `500`/`request_scope_unavailable` path when the layer is absent).
+  - **Bench:** not required — `nidus-testing` is test infrastructure, not a request hot path.
+
+### Verification after this pass
+
+`cargo fmt --all --check`, `cargo clippy -p nidus-testing --all-targets --all-features -- -D
+warnings`, `cargo test --workspace --all-features` (364 passed / 0 failed) — all clean.
 
 ## Appendix: verification commands (baseline)
 
