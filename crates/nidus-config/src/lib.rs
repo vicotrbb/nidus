@@ -185,6 +185,9 @@ impl Config {
     }
 
     /// Returns a nested raw configuration value by path.
+    ///
+    /// Object segments match keys. Array segments are zero-based numeric
+    /// indexes such as `"0"`.
     pub fn get_path<I, S>(&self, path: I) -> Option<&Value>
     where
         I: IntoIterator<Item = S>,
@@ -195,7 +198,12 @@ impl Config {
         let mut value = self.values.get(first.as_ref())?;
 
         for segment in path {
-            value = value.as_object()?.get(segment.as_ref())?;
+            let segment = segment.as_ref();
+            value = match value {
+                Value::Object(object) => object.get(segment)?,
+                Value::Array(array) => array.get(segment.parse::<usize>().ok()?)?,
+                _ => return None,
+            };
         }
 
         Some(value)

@@ -73,6 +73,34 @@ fn config_exposes_nested_raw_values_by_path() {
 }
 
 #[test]
+fn config_exposes_array_values_by_path_index() {
+    let config = Config::from_json_str(
+        r#"{
+            "servers": [
+                { "name": "primary", "port": 3000 },
+                { "name": "replica", "port": 3001 }
+            ]
+        }"#,
+    )
+    .unwrap();
+
+    assert_eq!(
+        config
+            .get_path(["servers", "0", "name"])
+            .and_then(serde_json::Value::as_str),
+        Some("primary")
+    );
+    assert_eq!(
+        config
+            .get_path(["servers", "1", "port"])
+            .and_then(serde_json::Value::as_i64),
+        Some(3001)
+    );
+    assert!(config.get_path(["servers", "2", "name"]).is_none());
+    assert!(config.get_path(["servers", "primary", "name"]).is_none());
+}
+
+#[test]
 fn config_deserializes_nested_values_by_path() {
     let config = Config::from_prefixed_vars(
         "APP",
@@ -99,6 +127,32 @@ fn config_deserializes_nested_values_by_path() {
             .get_path_typed::<_, _, String>(["database", "missing"])
             .unwrap(),
         None
+    );
+}
+
+#[test]
+fn config_deserializes_array_values_by_path_index() {
+    let config = Config::from_json_str(
+        r#"{
+            "servers": [
+                { "name": "primary", "port": 3000 },
+                { "name": "replica", "port": 3001 }
+            ]
+        }"#,
+    )
+    .unwrap();
+
+    assert_eq!(
+        config
+            .get_path_typed::<_, _, String>(["servers", "1", "name"])
+            .unwrap(),
+        Some("replica".to_owned())
+    );
+    assert_eq!(
+        config
+            .get_required_path_typed::<_, _, u16>(["servers", "0", "port"])
+            .unwrap(),
+        3000
     );
 }
 

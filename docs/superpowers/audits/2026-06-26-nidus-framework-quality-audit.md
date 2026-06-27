@@ -281,7 +281,9 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 ### nidus-config
 
 - **Clean.** No panics/unwrap in non-test code; `ConfigError` is path-aware and tested (21 tests).
-- **C-1 (P3):** `get_path` navigates objects only — no array indices (`lib.rs:197-199`); untested.
+- **C-1 (~~P3~~ mitigated, Wave 17):** `get_path` and typed path helpers now traverse arrays by
+  zero-based numeric path segments (`["servers", "0", "port"]`) in addition to object keys. Tests
+  cover raw, optional typed, required typed, out-of-range, and non-numeric array segments.
 - **C-2 (P3):** env-prefix matching is case-sensitive (`lib.rs:135`); not asserted in tests.
 - Docs (`docs/config.md`, `docs/dependency-injection.md`) are **accurate** against the implementation.
 
@@ -976,6 +978,26 @@ Closed the generated-project naming polish gap CLI-3.
 
 `cargo test -p cargo-nidus --test cli_new cargo_nidus_new_uses_project_name_for_service_name`
 (1 passed) and `cargo test -p cargo-nidus --test cli_new` (5 passed) are clean.
+
+## Follow-up hardening — Wave 17 (2026-06-27, after commit `da7c63b`)
+
+Closed the config nested-path ergonomics gap C-1.
+
+### Implemented (TDD)
+
+- **C-1 mitigated — config path helpers support array indexes.** `Config::get_path` now treats
+  numeric path segments as zero-based indexes when the current value is an array, so callers can
+  inspect and deserialize nested array values with paths such as `["servers", "0", "port"]`.
+  Object traversal remains key-based; out-of-range and non-numeric array segments return `None`
+  like missing object keys.
+  - **TDD:** `config_exposes_array_values_by_path_index` and
+    `config_deserializes_array_values_by_path_index` verified RED (`None` at the array boundary),
+    then GREEN after adding array traversal.
+  - **Bench:** not required — config lookup is startup/test ergonomics, not a request hot path.
+
+### Verification after this pass
+
+`cargo test -p nidus-config --test env_paths` and `cargo test -p nidus-config` are clean.
 
 ## Appendix: verification commands (baseline)
 

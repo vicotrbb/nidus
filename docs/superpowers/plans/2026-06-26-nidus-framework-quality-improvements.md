@@ -438,3 +438,15 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 16" secti
   after replacing the template marker with the requested project name.
 - **Verification:** focused test (1 passed) and full `cli_new` suite (5 passed).
 - **Bench:** not required (CLI template generation, not a framework hot path).
+
+## Wave 17 — config ergonomics: array indexes in path helpers (C-1)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 17" section.
+
+- **Files:** `crates/nidus-config/src/lib.rs`, `crates/nidus-config/tests/env_paths.rs`,
+  `docs/config.md`; audit.
+- **Behavior change:** additive — `get_path` and typed path helpers traverse arrays when a path
+  segment is a zero-based numeric index.
+- **TDD:** raw and typed array path tests RED (`None` at array boundary), GREEN after array traversal.
+- **Verification:** `cargo test -p nidus-config --test env_paths`; `cargo test -p nidus-config`.
+- **Bench:** not required (config startup/test helper, not request hot path).

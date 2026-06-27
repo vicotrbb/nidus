@@ -60,12 +60,15 @@ let config = defaults.merge(env);
 ```
 
 Raw values can be inspected before or after typed deserialization when tests or
-startup checks need targeted assertions:
+startup checks need targeted assertions. Path segments traverse objects by key
+and arrays by zero-based numeric index:
 
 ```rust
 let database_url = config
     .get_path(["database", "url"])
     .and_then(serde_json::Value::as_str);
+
+let first_server_port: Option<u16> = config.get_path_typed(["servers", "0", "port"])?;
 ```
 
 Individual values can also be deserialized with path-aware errors:
