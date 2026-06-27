@@ -304,8 +304,9 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 ### nidus-validation
 
 - **Clean.** No panics/unwrap in non-test code; 422 + sorted `fields` shape tested (9 tests).
-- **V-1 (P3):** No test for malformed-JSON rejection (400) path, nor for the
-  `ValidationPipeError` ↔ `ErrorEnvelopeLayer` composition (`fields` → `details`).
+- **V-1 (~~P3~~ covered, Wave 3; reconciled Wave 26):** malformed-JSON rejection is pinned to
+  `400 Bad Request`, and `ValidationPipeError` ↔ `ErrorEnvelopeLayer` composition preserves
+  validation `fields` under envelope `details`.
 - Docs (`docs/pipes.md`) are **accurate**.
 
 ### nidus-auth
@@ -1170,6 +1171,25 @@ are clean. `cargo test -p nidus-cache --all-features`,
 `cargo test -p nidus-sqlx --all-features`,
 `cargo test -p nidus-example-integrations-production`, and clippy for those three changed packages
 with all targets/features are also clean.
+
+## Follow-up hardening — Wave 26 (2026-06-27, after commit `8b4e922`)
+
+Reconciled stale validation backlog status for V-1.
+
+### Implemented (audit hygiene)
+
+- **V-1 status corrected — validation coverage already exists.** The crate-level finding now matches
+  the existing Wave 3 evidence: malformed JSON is tested as `400 Bad Request` in
+  `crates/nidus-validation/tests/validation.rs`, and the `ValidatedJson` 422 response is tested
+  through `ErrorEnvelopeLayer` in `tests/validation_envelope.rs`.
+  - **Bench:** not required — audit/status-only correction.
+
+### Verification after this pass
+
+`cargo test -p nidus-validation --test validation validated_json_extractor_rejects_malformed_json_with_bad_request`
+and
+`cargo test --test validation_envelope validation_422_is_enveloped_with_field_details_intact`
+are clean.
 
 ## Appendix: verification commands (baseline)
 

@@ -557,3 +557,15 @@ Status: **partially implemented**. See the audit's "Follow-up hardening — Wave
 - **Bench:** not required (additive health-registration helper only).
 - **Deferred:** live Postgres health execution still needs an external Postgres service and remains
   intentionally out of deterministic local tests.
+
+## Wave 26 — audit consistency: validation coverage status (V-1)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 26" section.
+
+- **Files:** audit only.
+- **Behavior change:** none.
+- **Docs change:** V-1 is no longer listed as open in the crate summary because Wave 3 already
+  added malformed-JSON 400 coverage and validation-envelope composition coverage.
+- **Verification:** focused `nidus-validation` malformed JSON test; focused workspace
+  `validation_envelope` composition test.
+- **Bench:** not required (audit/status-only correction).
