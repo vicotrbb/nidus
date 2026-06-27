@@ -86,6 +86,12 @@ another request-lifetime provider. The factory receives the active
 `RequestScope`, so nested request dependencies reuse the same per-request
 instances.
 
+A `register_request` factory receives only `&Container` (not the request
+scope), so it cannot resolve other request-lifetime providers — a
+`container.inject::<OtherRequest>()` inside it returns `RequestScopeRequired`.
+Use `register_request_scoped` whenever a request provider needs to chain
+request-lifetime dependencies.
+
 HTTP applications can attach `request_scope_layer(container)` to create a fresh
 scope for each request. Route handlers can then accept `RequestScoped<T>` to
 resolve a request-lifetime provider directly from that scope.

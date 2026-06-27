@@ -136,6 +136,11 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 - **Risk:** Subtle trap for lower-level API users. (Already documented at
   `docs/dependency-injection.md:84-87` for the `register_request_scoped` path.)
 - **Fix:** Document the limitation explicitly, or unify `register_request` to pass the scope.
+- **Status (~~P2~~ mitigated, Wave 14):** `docs/dependency-injection.md` now states explicitly that a
+  `register_request` factory receives only `&Container` and so cannot chain request-lifetime deps
+  (`RequestScopeRequired`), directing users to `register_request_scoped` for chaining. Documented
+  rather than unified (unifying would change the `register_request` factory signature — a public API
+  change not justified by the benefit).
 
 ### nidus-macros (diagnostics)
 
@@ -518,12 +523,12 @@ example/bench code.
 | F-CORE-2 | **P1** | Core `Nidus::bootstrap` yields empty container | `nidus-core/src/app/mod.rs:56-69` vs `nidus/src/app.rs:99-109` |
 | F-CORE-3 | P2 | Graph keyed by short name, not TypeId | `nidus-core/src/module/mod.rs:230-236,271-277` |
 | F-CORE-4 | ~~P2~~ mitigated | Opt-in `eagerly_resolve_singletons` avoids async-blocking wait (Wave 14) | `nidus-core/src/{provider,container}/mod.rs` |
-| F-CORE-5 | P2 | `register_request` can't chain request deps | `nidus-core/src/container/mod.rs:84-90` |
+| F-CORE-5 | ~~P2~~ mitigated | `register_request` chaining limitation documented (Wave 14) | `docs/dependency-injection.md` |
 | F-HTTP-2 | ~~P2~~ mitigated | Opt-in `streaming_body_limit` + two-tier docs (Wave 13) | `nidus-http/src/middleware/{security,api_defaults}.rs` |
 | F-HTTP-3 | ~~P2~~ mitigated | 413 now enveloped/metered/request-id'd (Wave 8) | `nidus-http/src/middleware/api_defaults.rs` |
 | F-HTTP-4 | P2 | No production middleware order test | `nidus-http/tests/production_api.rs` |
 | F-HTTP-5 | ~~P2~~ mitigated | ConnectInfo now on blessed path; graceful-shutdown API added (Wave 4) | `nidus-http/src/server.rs` |
-| F-HTTP-6 | P2 | client_ip_identity spoofing + anonymous bucket | `nidus-http/src/context.rs:282-296` |
+| F-HTTP-6 | ~~P2~~ partial | ConnectInfo now used first (Wave 4); trusted-proxy XFF validation deferred | `nidus-http/src/context.rs` |
 | F-HTTP-7 | ~~P2~~ mitigated | Production stack catches handler panics (Wave 7) | `nidus-http/src/middleware/{api_defaults,catch_panic}.rs` |
 | F-HTTP-8 | P2 | Prometheus series unbounded | `nidus-http/src/middleware/metrics.rs:317-320` |
 | F-MAC-1 | P2 | Controller non-injectable fields → runtime error | `nidus-macros/src/controller.rs:42-67` |
