@@ -17,7 +17,7 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
-    pub fn from_env() -> Self {
+    pub fn from_env() -> Result<Self, Box<dyn std::error::Error>> {
         let defaults = Config::from_pairs([
             ("api_key", default_api_key()),
             ("bind_addr", default_bind_addr()),
@@ -27,12 +27,7 @@ impl AppConfig {
             ("log_format", default_log_format()),
         ]);
         let env = Config::from_env_prefix("NIDUS");
-        Self::from_nidus_config(
-            defaults
-                .merge(env)
-                .deserialize()
-                .expect("NIDUS_* environment config should deserialize"),
-        )
+        Ok(Self::from_nidus_config(defaults.merge(env).deserialize()?))
     }
 
     pub fn from_nidus_config(config: Self) -> Self {
@@ -74,4 +69,14 @@ fn default_environment() -> String {
 
 fn default_log_format() -> String {
     "development".to_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_env_reports_config_errors() {
+        assert!(AppConfig::from_env().is_ok());
+    }
 }

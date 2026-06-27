@@ -397,7 +397,7 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 | `openapi` | **CLI (prints + exits)** | — | none | **not a server** despite docs implying `/openapi.json`+`/docs` are served |
 | `background-jobs` | CLI | — | none | clean |
 | `modular-monolith` | CLI | — | none | main flow returns `Result`; package compile-tested standalone |
-| `realworld-api` | server | `127.0.0.1:3000` (`NIDUS_BIND_ADDR`) | none (sqlite::memory:) | observed workflow handler returns errors instead of panicking; config loading still has one startup `expect()` |
+| `realworld-api` | server | `127.0.0.1:3000` (`NIDUS_BIND_ADDR`) | none (sqlite::memory:) | observed workflow handler and config loading return errors instead of panicking |
 | `production-api` | server | `127.0.0.1:3000` (`NIDUS_ADDR`) | none | package `nidus-example-production-api`; production defaults example |
 | `sqlx-app` | CLI | — | none (sqlite::memory:) | clean |
 | `cache-app` | CLI | — | none | clean |
@@ -417,11 +417,11 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 - **EX-4 (P3):** Orphaned empty dir `examples/sqlx-postgres/src/` — no `Cargo.toml`/`main.rs`, not a
   workspace member; leftover from the integrations migration. (Note: the `sqlx-postgres` package in
   `Cargo.lock` is sqlx's own transitive sub-crate, unrelated.)
-- **EX-5 (P3, partially mitigated Waves 30-32):** `.expect()`/`.unwrap()` in non-test example
-  `main`/startup paths. `modular-monolith` now returns `Result` from its main flow, and
-  `rest-api` provider registration now propagates errors from `app()`. `realworld-api` observed
-  workflow job/event observer paths now return sanitized HTTP errors instead of panicking.
-  Remaining follow-up: realworld-api config loading.
+- **EX-5 (~~P3~~ mitigated, Waves 30-33):** non-test example `main`/startup/handler paths no
+  longer panic through `.expect()`/`.unwrap()`. `modular-monolith` now returns `Result` from its
+  main flow, `rest-api` provider registration now propagates errors from `app()`, and
+  `realworld-api` observed workflow and config loading paths now return errors instead of
+  panicking. Remaining `.unwrap()`/`.expect()` hits in examples are test-only.
 
 No example fails to compile against the current API (build is green). No `TODO/FIXME/panic!` in
 example/bench code.
@@ -1347,6 +1347,34 @@ Partially closed the remaining EX-5 handler panic paths in the `realworld-api` s
 ### Verification after this pass
 
 `cargo test -p nidus-example-realworld-api` (14 passed),
+`cargo clippy -p nidus-example-realworld-api --all-targets --all-features -- -D warnings`,
+`cargo check -p nidus-example-realworld-api`, and the manual curls above are clean.
+
+## Follow-up hardening — Wave 33 (2026-06-27, after commit `0bb8d3d`)
+
+Closed the remaining EX-5 startup panic path in the `realworld-api` server example.
+
+### Implemented (TDD)
+
+- **EX-5 mitigated — realworld config loading is fallible.** `AppConfig::from_env()` now returns
+  `Result<AppConfig, Box<dyn std::error::Error>>` and `main()` propagates that result with `?`.
+  The example stays on public `nidus::prelude::Config` imports instead of depending directly on
+  `nidus-config::ConfigError`, and config deserialization failures no longer panic through
+  `expect("NIDUS_* environment config should deserialize")`.
+  - **TDD:** `from_env_reports_config_errors` first called `AppConfig::from_env().is_ok()`. RED:
+    `AppConfig` had no `is_ok()` because `from_env()` returned `Self`; GREEN after changing it to
+    return a `Result`.
+  - **Manual curl:** `NIDUS_BIND_ADDR=127.0.0.1:64832 cargo run -p nidus-example-realworld-api`
+    started with `AppConfig::from_env()?`; `GET /health/ready` -> 200 database up;
+    `POST /ops/workflows/observed` with
+    `x-request-id: 018f4ad7-56ce-4f6a-a759-29f4438d8d78` -> 200 with matching request id in event,
+    sync job, and async job context. Server stopped cleanly with Ctrl-C.
+  - **Bench:** not required — example startup config error handling only; no HTTP middleware,
+    routing, DI, request lifecycle, metrics, or module hot-path code changed.
+
+### Verification after this pass
+
+`cargo test -p nidus-example-realworld-api` (15 passed),
 `cargo clippy -p nidus-example-realworld-api --all-targets --all-features -- -D warnings`,
 `cargo check -p nidus-example-realworld-api`, and the manual curls above are clean.
 

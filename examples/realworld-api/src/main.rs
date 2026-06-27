@@ -21,7 +21,7 @@ use crate::{config::AppConfig, modules::AppModule};
 
 #[nidus::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let config = AppConfig::from_env();
+    let config = AppConfig::from_env()?;
     observability::init(&config);
     let bind_addr = config.bind_addr.clone();
 

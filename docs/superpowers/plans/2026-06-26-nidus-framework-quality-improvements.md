@@ -181,8 +181,7 @@ Each wave is a separate atomic commit. Any wave can be reverted in isolation wit
 - F-MAC-2 spanned diagnostics; O-1 OpenAPI error-response modeling; O-2 parity test (covered
   partially by 2.1's probe); ERR-1 5xx code masking.
 - E-1/E-2/E-3 bounded event queues + observer offloading.
-- EX-2 auth-api guard realism; EX-4 orphan `sqlx-postgres` dir cleanup;
-  EX-5 example `.expect()` cleanup.
+- EX-2 auth-api guard realism; EX-4 orphan `sqlx-postgres` dir cleanup.
 - CLI coverage beyond CLI-1/CLI-2; AD-1/AD-2/AD-3 adapter registration + health wiring + coverage.
 - T-1 TestApp request-scope helper; T-2 spurious-async assertions.
 - BENCH-1 baseline locking.
@@ -643,7 +642,7 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 30" secti
 - **Manual run:** printed `UsersModule` boundaries and `resolved user user-42@nidus.dev from
   tenant-primary`.
 - **Bench:** not required (CLI example error handling/package feature metadata only).
-- **Deferred:** remaining EX-5 paths are realworld-api config loading.
+- **Follow-up:** remaining EX-5 paths were handled in Waves 31-33.
 
 ---
 
@@ -662,7 +661,7 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 31" secti
   returned 200 with `{"id":42,"email":"user@nidus.dev","request_id":0}`; server stopped with
   Ctrl-C.
 - **Bench:** not required (example startup error handling only; no hot path changed).
-- **Deferred:** remaining EX-5 paths are realworld-api config loading.
+- **Follow-up:** remaining EX-5 paths were handled in Waves 32-33.
 
 ---
 
@@ -685,4 +684,26 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 32" secti
   returned 200 with that id in event, sync job, and async job context; `GET /metrics` recorded
   the workflow route with status 200; server stopped with Ctrl-C.
 - **Bench:** not required (example handler error mapping only; no hot path changed).
-- **Deferred:** remaining EX-5 path is realworld-api config loading.
+- **Follow-up:** remaining EX-5 path was handled in Wave 33.
+
+---
+
+## Wave 33 — example robustness: realworld config loading (EX-5)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 33" section.
+
+- **Files:** `examples/realworld-api/src/config.rs`, `examples/realworld-api/src/main.rs`, audit,
+  plan.
+- **Behavior change:** `AppConfig::from_env()` now returns a `Result` and `main()` propagates
+  config deserialization errors instead of panicking.
+- **TDD:** `from_env_reports_config_errors` failed while `from_env()` returned `AppConfig`; after
+  changing it to return `Result<AppConfig, Box<dyn std::error::Error>>`, the test passed.
+- **Verification:** `cargo test -p nidus-example-realworld-api` (15 passed);
+  `cargo clippy -p nidus-example-realworld-api --all-targets --all-features -- -D warnings`;
+  `cargo check -p nidus-example-realworld-api`.
+- **Manual curl:** `NIDUS_BIND_ADDR=127.0.0.1:64832 cargo run -p nidus-example-realworld-api`;
+  `GET /health/ready` returned 200; `POST /ops/workflows/observed` with a valid UUID request id
+  returned 200 with that id in event, sync job, and async job context; server stopped with Ctrl-C.
+- **Bench:** not required (example startup config error handling only; no hot path changed).
+- **EX-5 status:** mitigated for non-test example `main`/startup/handler paths. Remaining
+  `.unwrap()`/`.expect()` hits in examples are test-only.
