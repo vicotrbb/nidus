@@ -2,10 +2,13 @@
 name = "nidus-sqlx"
 version.workspace = true
 edition.workspace = true
+description = "Official SQLx adapter primitives for Nidus, including pool registration and health checks."
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [features]
 default = []
@@ -15,14 +18,14 @@ nidus-config = ["dep:nidus-config"]
 health = ["dep:nidus-http"]
 
 [dependencies]
-nidus-core = { path = "../nidus-core", version = "0.1.0" }
-nidus-config = { path = "../nidus-config", version = "0.1.0", optional = true }
-nidus-http = { path = "../nidus-http", version = "0.1.0", optional = true }
+nidus-core = { path = "../nidus-core", version = "1.0.0" }
+nidus-config = { path = "../nidus-config", version = "1.0.0", optional = true }
+nidus-http = { path = "../nidus-http", version = "1.0.0", optional = true }
 serde.workspace = true
 sqlx.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
-nidus-config = { path = "../nidus-config", version = "0.1.0" }
+nidus-config = { path = "../nidus-config", version = "1.0.0" }
 tokio = { workspace = true, features = ["time"] }
 trybuild.workspace = true

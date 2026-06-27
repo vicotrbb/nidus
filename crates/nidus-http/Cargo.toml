@@ -2,10 +2,13 @@
 name = "nidus-http"
 version.workspace = true
 edition.workspace = true
+description = "Axum and Tower HTTP integration, controllers, middleware, health, metrics, and server defaults for Nidus."
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [features]
 default = []

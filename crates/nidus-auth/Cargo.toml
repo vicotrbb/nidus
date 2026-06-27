@@ -2,10 +2,13 @@
 name = "nidus-auth"
 version.workspace = true
 edition.workspace = true
+description = "Guard traits, guard combinators, and Tower guard layers for Nidus HTTP applications."
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 async-trait.workspace = true

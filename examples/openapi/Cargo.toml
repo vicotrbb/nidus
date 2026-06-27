@@ -1,16 +1,16 @@
 [package]
 name = "nidus-example-openapi"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 publish = false
 
 [dependencies]
-nidus = { path = "../../crates/nidus", version = "0.1.0" }
-nidus-openapi = { path = "../../crates/nidus-openapi", version = "0.1.0" }
+nidus = { path = "../../crates/nidus", version = "1.0.0" }
+nidus-openapi = { path = "../../crates/nidus-openapi", version = "1.0.0" }
 serde.workspace = true
 tokio.workspace = true
 utoipa.workspace = true
 
 [dev-dependencies]
-nidus-testing = { path = "../../crates/nidus-testing", version = "0.1.0" }
+nidus-testing = { path = "../../crates/nidus-testing", version = "1.0.0" }
 serde_json.workspace = true

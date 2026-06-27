@@ -125,7 +125,7 @@ W3C `traceparent` extraction/injection, observed span helpers, exception
 recording, and shutdown hooks.
 
 ```toml
-nidus = { version = "0.1", features = ["otel"] }
+nidus = { version = "1.0", features = ["otel"] }
 ```
 
 ```rust

@@ -2,10 +2,13 @@
 name = "nidus-core"
 version.workspace = true
 edition.workspace = true
+description = "Core Nidus dependency injection, modules, provider lifetimes, and application lifecycle."
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 async-trait.workspace = true

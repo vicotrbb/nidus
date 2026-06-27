@@ -233,7 +233,7 @@ checksum = "8ae3f5d315924270530207e2a68396c3cc547f6dca3fbdca317cfb1a51edb593"
 
 [[package]]
 name = "cargo-nidus"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -246,6 +246,15 @@ name = "cast"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37b2a672a2cb129a2e41c10b1224bb368f9f37a2b16b612598138befd7b37eb5"
+
+[[package]]
+name = "castaway"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dec551ab6e7578819132c713a93c022a05d60159dc86e7a7050223577484c55a"
+dependencies = [
+ "rustversion",
+]
 
 [[package]]
 name = "cc"
@@ -335,6 +344,20 @@ name = "colorchoice"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
+
+[[package]]
+name = "compact_str"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9dfdd1c2274d9aa354115b09dc9a901d6c5576818cdf70d14cae2bdb47df00ab"
+dependencies = [
+ "castaway",
+ "cfg-if",
+ "itoa",
+ "rustversion",
+ "ryu",
+ "static_assertions",
+]
 
 [[package]]
 name = "compression-codecs"
@@ -499,41 +522,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "darling"
-version = "0.20.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc7f46116c46ff9ab3eb1597a45688b6715c6e628b5c133e288e709a29bcb4ee"
-dependencies = [
- "darling_core",
- "darling_macro",
-]
-
-[[package]]
-name = "darling_core"
-version = "0.20.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d00b9596d185e565c2207a0b01f8bd1a135483d02d9b7b0a54b11da8d53412e"
-dependencies = [
- "fnv",
- "ident_case",
- "proc-macro2",
- "quote",
- "strsim",
- "syn",
-]
-
-[[package]]
-name = "darling_macro"
-version = "0.20.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc34b93ccb385b40dc71c6fceac4b2ad23662c7eeb248cf10d529b7e055b6ead"
-dependencies = [
- "darling_core",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "deranged"
 version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -664,12 +652,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fnv"
-version = "1.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
-
-[[package]]
 name = "foldhash"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -765,6 +747,31 @@ dependencies = [
  "memchr",
  "pin-project-lite",
  "slab",
+]
+
+[[package]]
+name = "garde"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d7f479d28d1daedf23970890723b8774d120aa627abcb33c1d7c93d0965e6c3"
+dependencies = [
+ "compact_str",
+ "garde_derive",
+ "once_cell",
+ "regex",
+ "smallvec",
+]
+
+[[package]]
+name = "garde_derive"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b0252cacdca8e6f30a900e6d436fbf294e23f674b9288ca4a5bd35976bef87c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "regex",
+ "syn",
 ]
 
 [[package]]
@@ -1044,12 +1051,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ident_case"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
-
-[[package]]
 name = "idna"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1268,7 +1269,7 @@ dependencies = [
 
 [[package]]
 name = "nidus"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -1292,7 +1293,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-auth"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -1306,7 +1307,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-cache"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "moka",
  "nidus-core",
@@ -1317,7 +1318,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-config"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -1326,7 +1327,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-core"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "thiserror",
@@ -1338,7 +1339,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-events"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "tracing",
  "tracing-core",
@@ -1348,7 +1349,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-example-auth-api"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -1360,7 +1361,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-example-background-jobs"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "nidus-jobs",
@@ -1369,7 +1370,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-example-cache-app"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "nidus",
  "nidus-cache",
@@ -1378,7 +1379,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-example-hello-world"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "nidus",
  "nidus-testing",
@@ -1387,7 +1388,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-example-integrations-production"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "nidus",
  "nidus-cache",
@@ -1396,15 +1397,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "nidus-example-launchpad-api"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "garde",
+ "nidus",
+ "nidus-cache",
+ "nidus-sqlx",
+ "nidus-testing",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tracing",
+ "utoipa",
+]
+
+[[package]]
 name = "nidus-example-modular-monolith"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "nidus",
 ]
 
 [[package]]
 name = "nidus-example-openapi"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "nidus",
  "nidus-openapi",
@@ -1417,7 +1437,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-example-production-api"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "axum",
  "nidus",
@@ -1428,11 +1448,12 @@ dependencies = [
 
 [[package]]
 name = "nidus-example-realworld-api"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
  "axum",
+ "garde",
  "nidus",
  "nidus-testing",
  "serde",
@@ -1441,12 +1462,11 @@ dependencies = [
  "tokio",
  "tracing",
  "utoipa",
- "validator",
 ]
 
 [[package]]
 name = "nidus-example-rest-api"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "nidus",
  "nidus-testing",
@@ -1457,7 +1477,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-example-sqlx-app"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "nidus",
  "nidus-sqlx",
@@ -1467,7 +1487,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-http"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "axum",
  "futures-util",
@@ -1488,7 +1508,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-jobs"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "futures-util",
@@ -1499,7 +1519,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-macros"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "insta",
  "proc-macro2",
@@ -1509,7 +1529,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-openapi"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "axum",
  "http",
@@ -1523,7 +1543,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-sqlx"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "nidus-config",
  "nidus-core",
@@ -1537,7 +1557,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-testing"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -1554,25 +1574,26 @@ dependencies = [
 
 [[package]]
 name = "nidus-validation"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "axum",
+ "garde",
  "http",
  "serde",
  "serde_json",
  "thiserror",
  "tokio",
  "tower",
- "validator",
 ]
 
 [[package]]
 name = "nidus-workspace"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "axum",
  "criterion",
+ "garde",
  "nidus-auth",
  "nidus-core",
  "nidus-http",
@@ -1581,7 +1602,6 @@ dependencies = [
  "serde_json",
  "tokio",
  "tower",
- "validator",
 ]
 
 [[package]]
@@ -1735,28 +1755,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
 dependencies = [
  "zerocopy",
-]
-
-[[package]]
-name = "proc-macro-error-attr2"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96de42df36bb9bba5542fe9f1a054b8cc87e172759a1868aa05c1f3acc89dfc5"
-dependencies = [
- "proc-macro2",
- "quote",
-]
-
-[[package]]
-name = "proc-macro-error2"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11ec05c52be0a07b08061f7dd003e7d7092e0472bc731b4af7bb1ef876109802"
-dependencies = [
- "proc-macro-error-attr2",
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -2216,6 +2214,12 @@ name = "stable_deref_trait"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
+
+[[package]]
+name = "static_assertions"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stringprep"
@@ -2714,36 +2718,6 @@ dependencies = [
  "getrandom 0.4.3",
  "js-sys",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "validator"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43fb22e1a008ece370ce08a3e9e4447a910e92621bb49b85d6e48a45397e7cfa"
-dependencies = [
- "idna",
- "once_cell",
- "regex",
- "serde",
- "serde_derive",
- "serde_json",
- "url",
- "validator_derive",
-]
-
-[[package]]
-name = "validator_derive"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7df16e474ef958526d1205f6dda359fdfab79d9aa6d54bafcb92dcd07673dca"
-dependencies = [
- "darling",
- "once_cell",
- "proc-macro-error2",
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]

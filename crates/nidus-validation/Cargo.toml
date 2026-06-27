@@ -2,17 +2,20 @@
 name = "nidus-validation"
 version.workspace = true
 edition.workspace = true
+description = "Validation pipes and JSON extractors for Nidus applications backed by garde."
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 axum.workspace = true
 http.workspace = true
 serde.workspace = true
 thiserror.workspace = true
-validator.workspace = true
+garde.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

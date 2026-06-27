@@ -14,7 +14,7 @@ struct CreateUserDto {
     email: String,
 }
 
-let document = OpenApiDocument::new("Nidus API", "0.1.0")
+let document = OpenApiDocument::new("Nidus API", "1.0.0")
     .schema::<CreateUserDto>()
     .schema::<UserDto>()
     .route(
@@ -60,7 +60,7 @@ Macro metadata currently supports `summary = "..."` and optional
 Unsupported keys fail at compile time, and the `cargo nidus openapi` inspector
 reports the same error when reading source files.
 The inspector defaults to `info.title = "Nidus API"` and
-`info.version = "0.1.0"`; pass `--title` and `--version` to emit
+`info.version = "1.0.0"`; pass `--title` and `--version` to emit
 application-specific document metadata:
 
 ```bash
@@ -82,7 +82,7 @@ Generated route metadata can also seed a document directly:
 ```rust
 let document = OpenApiDocument::from_controller_routes(
     "Nidus API",
-    "0.1.0",
+    "1.0.0",
     UsersController::controller_prefix(),
     &UsersController::routes(),
 );
@@ -91,7 +91,7 @@ let document = OpenApiDocument::from_controller_routes(
 For multiple controllers, use the builder form:
 
 ```rust
-let document = OpenApiDocument::new("Nidus API", "0.1.0")
+let document = OpenApiDocument::new("Nidus API", "1.0.0")
     .controller_routes(UsersController::controller_prefix(), &UsersController::routes())
     .controller_routes(AdminController::controller_prefix(), &AdminController::routes());
 ```

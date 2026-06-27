@@ -2,10 +2,13 @@
 name = "nidus-jobs"
 version.workspace = true
 edition.workspace = true
+description = "Synchronous and asynchronous job queues with observed job runner support for Nidus."
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 async-trait.workspace = true

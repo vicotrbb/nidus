@@ -52,8 +52,8 @@ async adapters should register through a builder or module async initializer.
 Install `nidus-sqlx` directly:
 
 ```toml
-nidus = { version = "0.1", features = ["http", "config"] }
-nidus-sqlx = { version = "0.1", features = ["sqlite"] }
+nidus = { version = "1.0", features = ["http", "config"] }
+nidus-sqlx = { version = "1.0", features = ["sqlite"] }
 ```
 
 The adapter exposes typed providers such as `SqlitePoolProvider` and
@@ -91,8 +91,8 @@ let health = database.register_ready_check(HealthRegistry::new(), "database");
 Install `nidus-cache` directly:
 
 ```toml
-nidus = { version = "0.1" }
-nidus-cache = { version = "0.1", features = ["moka"] }
+nidus = { version = "1.0" }
+nidus-cache = { version = "1.0", features = ["moka"] }
 ```
 
 `MokaCacheProvider` is a local in-memory cache provider with namespace, TTL, and
@@ -129,17 +129,17 @@ let health = cache.register_ready_check(HealthRegistry::new(), "cache");
 
 ## Migration From `sqlx-postgres`
 
-The old facade feature:
+The old pre-1.0 facade feature:
 
 ```toml
-nidus = { version = "0.1", features = ["sqlx-postgres"] }
+nidus = { version = "<1.0", features = ["sqlx-postgres"] }
 ```
 
 has been replaced by a separate adapter dependency:
 
 ```toml
-nidus = { version = "0.1", features = ["http", "config"] }
-nidus-sqlx = { version = "0.1", features = ["postgres"] }
+nidus = { version = "1.0", features = ["http", "config"] }
+nidus-sqlx = { version = "1.0", features = ["postgres"] }
 ```
 
 Imports move from the `nidus` prelude or `nidus::sqlx` to `nidus_sqlx` and

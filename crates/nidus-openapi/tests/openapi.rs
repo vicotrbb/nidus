@@ -16,7 +16,7 @@ struct CreateUserDto {
 
 #[test]
 fn openapi_document_records_routes_and_serves_json() {
-    let document = OpenApiDocument::new("Nidus API", "0.1.0")
+    let document = OpenApiDocument::new("Nidus API", "1.0.0")
         .route(OpenApiRoute::get("/users/{id}").summary("Find user by ID"));
 
     let json = document.to_json_value();
@@ -47,7 +47,7 @@ fn openapi_document_records_routes_and_serves_json() {
 
 #[test]
 fn openapi_route_builders_normalize_nidus_params() {
-    let document = OpenApiDocument::new("Nidus API", "0.1.0")
+    let document = OpenApiDocument::new("Nidus API", "1.0.0")
         .route(OpenApiRoute::get("/users/:id").summary("Find user by ID"));
 
     let json = document.to_json_value();
@@ -73,7 +73,7 @@ fn openapi_route_try_builder_rejects_empty_parameter_name() {
 
 #[test]
 fn openapi_document_rejects_duplicate_operations() {
-    let document = OpenApiDocument::new("Nidus API", "0.1.0")
+    let document = OpenApiDocument::new("Nidus API", "1.0.0")
         .try_route(OpenApiRoute::get("/users/:id"))
         .unwrap();
 
@@ -92,7 +92,7 @@ fn openapi_document_rejects_duplicate_operations() {
 
 #[test]
 fn openapi_document_registers_utoipa_schemas() {
-    let document = OpenApiDocument::new("Nidus API", "0.1.0").schema::<UserDto>();
+    let document = OpenApiDocument::new("Nidus API", "1.0.0").schema::<UserDto>();
 
     let json = document.to_json_value();
     assert!(json["components"]["schemas"]["UserDto"].is_object());
@@ -104,7 +104,7 @@ fn openapi_document_registers_utoipa_schemas() {
 
 #[test]
 fn openapi_route_builders_cover_mutation_methods() {
-    let document = OpenApiDocument::new("Nidus API", "0.1.0")
+    let document = OpenApiDocument::new("Nidus API", "1.0.0")
         .route(OpenApiRoute::put("/users/{id}").summary("Replace user"))
         .route(OpenApiRoute::patch("/users/{id}").summary("Update user"))
         .route(OpenApiRoute::delete("/users/{id}").summary("Delete user"));
@@ -126,7 +126,7 @@ fn openapi_route_builders_cover_mutation_methods() {
 
 #[test]
 fn openapi_route_can_reference_registered_response_schema() {
-    let document = OpenApiDocument::new("Nidus API", "0.1.0")
+    let document = OpenApiDocument::new("Nidus API", "1.0.0")
         .schema::<UserDto>()
         .route(OpenApiRoute::get("/users/{id}").response_schema::<UserDto>());
 
@@ -140,7 +140,7 @@ fn openapi_route_can_reference_registered_response_schema() {
 
 #[test]
 fn openapi_route_can_set_success_response_status() {
-    let document = OpenApiDocument::new("Nidus API", "0.1.0")
+    let document = OpenApiDocument::new("Nidus API", "1.0.0")
         .schema::<UserDto>()
         .route(
             OpenApiRoute::post("/users")
@@ -159,7 +159,7 @@ fn openapi_route_can_set_success_response_status() {
 
 #[test]
 fn openapi_route_can_reference_registered_request_schema() {
-    let document = OpenApiDocument::new("Nidus API", "0.1.0")
+    let document = OpenApiDocument::new("Nidus API", "1.0.0")
         .schema::<CreateUserDto>()
         .route(OpenApiRoute::post("/users").request_schema::<CreateUserDto>());
 
@@ -177,7 +177,7 @@ fn openapi_route_can_reference_registered_request_schema() {
 
 #[test]
 fn openapi_route_records_operation_tags() {
-    let document = OpenApiDocument::new("Nidus API", "0.1.0").route(
+    let document = OpenApiDocument::new("Nidus API", "1.0.0").route(
         OpenApiRoute::get("/users/{id}")
             .summary("Find user by ID")
             .tag("users")
@@ -193,7 +193,7 @@ fn openapi_route_records_operation_tags() {
 
 #[test]
 fn openapi_route_omits_absent_optional_operation_metadata() {
-    let document = OpenApiDocument::new("Nidus API", "0.1.0").route(OpenApiRoute::get("/health"));
+    let document = OpenApiDocument::new("Nidus API", "1.0.0").route(OpenApiRoute::get("/health"));
 
     let json = document.to_json_value();
     assert!(json["paths"]["/health"]["get"]["summary"].is_null());
@@ -208,7 +208,7 @@ fn openapi_route_omits_absent_optional_operation_metadata() {
 
 #[tokio::test]
 async fn openapi_document_serves_json_and_docs_routes() {
-    let router = OpenApiDocument::new("Nidus API", "0.1.0")
+    let router = OpenApiDocument::new("Nidus API", "1.0.0")
         .route(OpenApiRoute::get("/users/{id}").summary("Find user by ID"))
         .into_router();
     let app = TestApp::from_router(router);
@@ -218,7 +218,7 @@ async fn openapi_document_serves_json_and_docs_routes() {
     json.assert_json(serde_json::json!({
         "info": {
             "title": "Nidus API",
-            "version": "0.1.0"
+            "version": "1.0.0"
         },
         "openapi": "3.1.0",
         "paths": {

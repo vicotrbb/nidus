@@ -1,6 +1,6 @@
 # Nidus Documentation
 
-Nidus is a modular Rust backend framework that keeps framework behavior explicit while providing NestJS-like project organization. It uses Axum, Tower, Tokio, serde, validator, utoipa, and tracing directly instead of replacing the Rust web ecosystem.
+Nidus is a modular Rust backend framework that keeps framework behavior explicit while providing NestJS-like project organization. It uses Axum, Tower, Tokio, serde, garde, utoipa, and tracing directly instead of replacing the Rust web ecosystem.
 
 ## Guides
 
@@ -28,6 +28,6 @@ Nidus is a modular Rust backend framework that keeps framework behavior explicit
 
 ## Current Status
 
-The framework is under active development. The repository contains the core workspace crates, CLI, examples, compile-fail tests, integration tests, and benchmark targets. Public APIs can still change before the first published release.
+The repository is on the Nidus 1.0 launch track. It contains the core workspace crates, CLI, examples, compile-fail tests, integration tests, benchmark targets, package dry-run proof, and a generated documentation website.
 
-Use the README for the shortest quickstart and these guides for the deeper mental model.
+Use the README for the shortest quickstart, these guides for the deeper mental model, and `website/` for the generated GitHub Pages portal.

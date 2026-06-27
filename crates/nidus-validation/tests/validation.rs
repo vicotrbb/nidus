@@ -1,29 +1,29 @@
 use std::convert::Infallible;
 
 use axum::{Router, body::to_bytes, response::IntoResponse, routing::post};
+use garde::Validate;
 use http::StatusCode;
 use nidus_validation::{Pipe, ValidatedJson, ValidationPipe};
 use serde::Deserialize;
 use tower::ServiceExt;
-use validator::Validate;
 
 #[derive(Debug, Deserialize, Validate)]
 struct CreateUser {
-    #[validate(email)]
+    #[garde(email)]
     email: String,
 }
 
 #[derive(Debug, Deserialize, Validate)]
 struct UserProfile {
-    #[validate(length(min = 2, message = "display name is too short"))]
+    #[garde(length(min = 2))]
     display_name: String,
 }
 
 #[derive(Debug, Deserialize, Validate)]
 struct CreateTeam {
-    #[validate(nested)]
+    #[garde(dive)]
     owner: UserProfile,
-    #[validate(nested)]
+    #[garde(dive)]
     members: Vec<UserProfile>,
 }
 
@@ -73,7 +73,10 @@ fn validation_errors_expose_field_level_details() {
     assert_eq!(fields.len(), 1);
     assert_eq!(fields[0].field(), "email");
     assert_eq!(fields[0].code(), "email");
-    assert_eq!(fields[0].message(), None);
+    assert_eq!(
+        fields[0].message(),
+        Some("not a valid email: value is missing `@`")
+    );
 }
 
 #[test]
@@ -93,10 +96,10 @@ fn validation_errors_flatten_nested_field_paths() {
     assert_eq!(fields.len(), 2);
     assert_eq!(fields[0].field(), "members[0].display_name");
     assert_eq!(fields[0].code(), "length");
-    assert_eq!(fields[0].message(), Some("display name is too short"));
+    assert_eq!(fields[0].message(), Some("length is lower than 2"));
     assert_eq!(fields[1].field(), "owner.display_name");
     assert_eq!(fields[1].code(), "length");
-    assert_eq!(fields[1].message(), Some("display name is too short"));
+    assert_eq!(fields[1].message(), Some("length is lower than 2"));
 }
 
 #[tokio::test]
@@ -121,7 +124,7 @@ async fn validation_errors_map_to_stable_json_response() {
     assert_eq!(json["error"]["fields"][0]["code"], "email");
     assert_eq!(
         json["error"]["fields"][0]["message"],
-        serde_json::Value::Null
+        "not a valid email: value is missing `@`"
     );
 }
 

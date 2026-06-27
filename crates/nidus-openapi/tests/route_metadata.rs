@@ -28,7 +28,7 @@ fn openapi_document_emits_error_responses_for_guarded_validating_routes() {
         &["ValidationPipe"],
         true,
     )];
-    let document = OpenApiDocument::from_route_metadata("Nidus API", "0.1.0", &routes);
+    let document = OpenApiDocument::from_route_metadata("Nidus API", "1.0.0", &routes);
 
     let json = document.to_json_value();
     let responses = &json["paths"]["/users"]["post"]["responses"];
@@ -52,7 +52,7 @@ fn openapi_document_omits_error_responses_for_plain_routes() {
         &[],
         false,
     )];
-    let document = OpenApiDocument::from_route_metadata("Nidus API", "0.1.0", &routes);
+    let document = OpenApiDocument::from_route_metadata("Nidus API", "1.0.0", &routes);
 
     let json = document.to_json_value();
     let responses = &json["paths"]["/users/{id}"]["get"]["responses"];
@@ -74,7 +74,7 @@ fn openapi_document_can_be_generated_from_route_metadata() {
         true,
     )];
 
-    let document = OpenApiDocument::from_route_metadata("Nidus API", "0.1.0", &routes);
+    let document = OpenApiDocument::from_route_metadata("Nidus API", "1.0.0", &routes);
 
     let json = document.to_json_value();
     assert_eq!(
@@ -126,7 +126,7 @@ fn openapi_document_registers_schemas_from_route_metadata() {
     .expect("request schema registrar should succeed");
     assert!(registered.iter().any(|(name, _)| name == "CreateUserDto"));
 
-    let document = OpenApiDocument::from_route_metadata("Nidus API", "0.1.0", &routes)
+    let document = OpenApiDocument::from_route_metadata("Nidus API", "1.0.0", &routes)
         .try_schemas_from_route_metadata(&routes)
         .expect("route schema registration should succeed");
 
@@ -146,7 +146,7 @@ fn openapi_document_registers_schemas_from_route_metadata() {
 
 #[test]
 fn openapi_document_try_schema_registers_utoipa_schema() {
-    let document = OpenApiDocument::new("Nidus API", "0.1.0")
+    let document = OpenApiDocument::new("Nidus API", "1.0.0")
         .try_schema::<UserDto>()
         .expect("schema registration should succeed");
 
@@ -184,7 +184,7 @@ fn openapi_document_dedupes_route_schemas() {
         .with_openapi_schema_registrars(None, Some(register_schema::<UserDto>)),
     ];
 
-    let document = OpenApiDocument::from_route_metadata("Nidus API", "0.1.0", &routes)
+    let document = OpenApiDocument::from_route_metadata("Nidus API", "1.0.0", &routes)
         .schema::<UserDto>()
         .schemas_from_route_metadata(&routes);
 
@@ -232,7 +232,7 @@ fn openapi_document_uses_schema_refs_from_route_metadata() {
     )
     .with_openapi_schemas(Some("CreateUserDto"), Some("UserDto"))];
 
-    let document = OpenApiDocument::from_route_metadata("Nidus API", "0.1.0", &routes)
+    let document = OpenApiDocument::from_route_metadata("Nidus API", "1.0.0", &routes)
         .schema::<CreateUserDto>()
         .schema::<UserDto>();
 
@@ -262,7 +262,7 @@ fn openapi_document_uses_response_status_from_route_metadata() {
     .with_openapi_status(Some(http::StatusCode::CREATED))
     .with_openapi_schemas(Some("CreateUserDto"), Some("UserDto"))];
 
-    let document = OpenApiDocument::from_route_metadata("Nidus API", "0.1.0", &routes)
+    let document = OpenApiDocument::from_route_metadata("Nidus API", "1.0.0", &routes)
         .schema::<CreateUserDto>()
         .schema::<UserDto>();
 
@@ -279,7 +279,7 @@ fn openapi_document_uses_response_status_from_route_metadata() {
 fn openapi_document_try_from_route_metadata_rejects_invalid_route_path() {
     let routes = [RouteMetadata::new("GET", "/:")];
 
-    let error = match OpenApiDocument::try_from_route_metadata("Nidus API", "0.1.0", &routes) {
+    let error = match OpenApiDocument::try_from_route_metadata("Nidus API", "1.0.0", &routes) {
         Ok(_) => panic!("empty route parameter should fail"),
         Err(error) => error,
     };
@@ -298,7 +298,7 @@ fn openapi_document_try_from_route_metadata_rejects_duplicate_operations() {
     ];
 
     let error =
-        OpenApiDocument::try_from_route_metadata("Nidus API", "0.1.0", &routes).unwrap_err();
+        OpenApiDocument::try_from_route_metadata("Nidus API", "1.0.0", &routes).unwrap_err();
 
     assert_eq!(
         error,
@@ -317,7 +317,7 @@ fn openapi_document_can_be_generated_from_controller_route_metadata() {
         "Find user by ID",
     )];
 
-    let document = OpenApiDocument::from_controller_routes("Nidus API", "0.1.0", "/users", &routes);
+    let document = OpenApiDocument::from_controller_routes("Nidus API", "1.0.0", "/users", &routes);
 
     let json = document.to_json_value();
     assert_eq!(
@@ -339,7 +339,7 @@ fn openapi_document_builder_adds_controller_route_metadata() {
         "Admin health",
     )];
 
-    let document = OpenApiDocument::new("Nidus API", "0.1.0")
+    let document = OpenApiDocument::new("Nidus API", "1.0.0")
         .controller_routes("/users", &user_routes)
         .controller_routes("/admin", &admin_routes);
 
@@ -356,7 +356,7 @@ fn openapi_document_try_controller_routes_rejects_invalid_prefix() {
     let routes = [RouteMetadata::new("GET", "/")];
 
     let error =
-        match OpenApiDocument::new("Nidus API", "0.1.0").try_controller_routes("/:", &routes) {
+        match OpenApiDocument::new("Nidus API", "1.0.0").try_controller_routes("/:", &routes) {
             Ok(_) => panic!("empty route parameter should fail"),
             Err(error) => error,
         };
@@ -373,7 +373,7 @@ fn openapi_document_try_from_controller_routes_rejects_invalid_route_path() {
 
     let error = match OpenApiDocument::try_from_controller_routes(
         "Nidus API",
-        "0.1.0",
+        "1.0.0",
         "/users",
         &routes,
     ) {
@@ -400,7 +400,7 @@ fn openapi_document_paths_match_declared_route_metadata_exactly() {
         RouteMetadata::new("PATCH", "/users/:id/tasks/:task_id"),
     ];
 
-    let document = OpenApiDocument::from_route_metadata("Nidus API", "0.1.0", &routes);
+    let document = OpenApiDocument::from_route_metadata("Nidus API", "1.0.0", &routes);
     let json = document.to_json_value();
     let paths = json["paths"].as_object().expect("paths must be an object");
 
@@ -452,7 +452,7 @@ fn openapi_controller_routes_paths_match_declared_metadata_exactly() {
     ];
 
     let document =
-        OpenApiDocument::from_controller_routes("Nidus API", "0.1.0", "/projects", &routes);
+        OpenApiDocument::from_controller_routes("Nidus API", "1.0.0", "/projects", &routes);
     let json = document.to_json_value();
     let paths = json["paths"].as_object().expect("paths must be an object");
 

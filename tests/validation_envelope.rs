@@ -12,15 +12,15 @@ use axum::{
     http::{self, header},
     routing::post,
 };
+use garde::Validate;
 use nidus_http::error::ErrorEnvelopeLayer;
 use nidus_validation::ValidatedJson;
 use serde::Deserialize;
 use tower::ServiceExt;
-use validator::Validate;
 
 #[derive(Debug, Deserialize, Validate)]
 struct CreateUser {
-    #[validate(email)]
+    #[garde(email)]
     email: String,
 }
 

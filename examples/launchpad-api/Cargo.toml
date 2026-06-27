@@ -1,0 +1,20 @@
+[package]
+name = "nidus-example-launchpad-api"
+version = "1.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+async-trait.workspace = true
+axum.workspace = true
+garde.workspace = true
+nidus = { path = "../../crates/nidus", version = "1.0.0", features = ["auth", "config", "events", "jobs", "openapi", "otel", "validation"] }
+nidus-cache = { path = "../../crates/nidus-cache", version = "1.0.0", features = ["health"] }
+nidus-sqlx = { path = "../../crates/nidus-sqlx", version = "1.0.0", features = ["sqlite", "nidus-config", "health"] }
+nidus-testing = { path = "../../crates/nidus-testing", version = "1.0.0" }
+serde.workspace = true
+serde_json.workspace = true
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite"] }
+tokio.workspace = true
+tracing.workspace = true
+utoipa.workspace = true

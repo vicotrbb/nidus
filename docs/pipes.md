@@ -1,6 +1,6 @@
 # Pipes
 
-Pipes transform or validate request data. The validation crate integrates with `validator`.
+Pipes transform or validate request data. The validation crate integrates with `garde`.
 
 ```rust
 let input = ValidationPipe::new().transform(input)?;

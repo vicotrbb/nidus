@@ -5,7 +5,7 @@
 //! This crate is installed separately from the core `nidus` facade so SQLx
 //! dependencies are only compiled by applications that choose this adapter.
 
-use nidus_core::{Container, NidusError};
+use nidus_core::NidusError;
 use thiserror::Error;
 
 /// Result type used by SQLx adapter operations.
@@ -30,7 +30,8 @@ pub enum SqlxError {
 
 #[cfg(feature = "sqlite")]
 mod sqlite {
-    use super::{Container, Result};
+    use super::Result;
+    use nidus_core::Container;
 
     /// Typed configuration for a SQLx SQLite pool.
     #[derive(Clone, Debug, Eq, PartialEq)]
@@ -202,7 +203,8 @@ pub use sqlite::{SqlitePoolBuilder, SqlitePoolConfig, SqlitePoolProvider};
 
 #[cfg(feature = "postgres")]
 mod postgres {
-    use super::{Container, Result};
+    use super::Result;
+    use nidus_core::Container;
 
     /// Typed configuration for a SQLx Postgres pool.
     #[derive(Clone, Debug, Eq, PartialEq)]

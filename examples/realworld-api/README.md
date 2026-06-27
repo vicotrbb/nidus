@@ -13,7 +13,7 @@ The example demonstrates:
 - Manual `ModuleBuilder` usage with an async SQLx database initializer
 - Dependency injection through `#[injectable]`, `Inject<T>`, singleton config,
   and request-scoped extraction with `RequestScoped<T>`
-- Request validation with `ValidatedJson<T>` and `validator`
+- Request validation with `ValidatedJson<T>` and `garde`
 - SQLite-backed persistence with local SQLx SQLite dependencies
 - Repository, service, and controller layering
 - OpenAPI route metadata and served docs at `/openapi.json` and `/docs`

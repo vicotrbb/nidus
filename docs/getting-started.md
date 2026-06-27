@@ -1,6 +1,12 @@
 # Getting Started
 
-Install the CLI from this workspace during development:
+Install the CLI after the 1.0 crate is published:
+
+```bash
+cargo install cargo-nidus
+```
+
+During local framework development, install from this checkout:
 
 ```bash
 cargo install --path crates/cargo-nidus

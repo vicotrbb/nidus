@@ -1,9 +1,6 @@
 [advisories]
 version = 2
 yanked = "warn"
-ignore = [
-  { id = "RUSTSEC-2026-0173", reason = "validator 0.20 derives currently depend on proc-macro-error2 and no safe fixed upgrade is available; revisit when validator migrates derive diagnostics." },
-]
 
 [licenses]
 version = 2

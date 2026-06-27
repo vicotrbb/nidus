@@ -2,10 +2,13 @@
 name = "nidus-config"
 version.workspace = true
 edition.workspace = true
+description = "Typed configuration values and environment loading utilities for Nidus applications."
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 serde.workspace = true

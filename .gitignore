@@ -21,3 +21,6 @@ target
 #.idea/
 
 .opencode/
+
+# Generated documentation website
+website/dist/

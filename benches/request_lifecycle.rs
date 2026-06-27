@@ -5,6 +5,7 @@ use axum::{
     routing::{get, post},
 };
 use criterion::{Criterion, criterion_group, criterion_main};
+use garde::Validate;
 use nidus_auth::{Guard, GuardContext, GuardError, guard_layer};
 use nidus_core::{Container, Inject, SharedRequestScope};
 use nidus_http::{
@@ -28,7 +29,6 @@ use std::{
     time::Duration,
 };
 use tower::ServiceExt;
-use validator::Validate;
 
 #[derive(Clone)]
 struct AllowGuard;
@@ -66,7 +66,7 @@ struct RequestContext {
 
 #[derive(Deserialize, Validate)]
 struct CreateUserDto {
-    #[validate(email)]
+    #[garde(email)]
     email: String,
 }
 

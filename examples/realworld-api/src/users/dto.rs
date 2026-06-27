@@ -1,12 +1,12 @@
+use garde::Validate;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use validator::Validate;
 
 #[derive(Debug, Deserialize, ToSchema, Validate)]
 pub struct CreateUserDto {
-    #[validate(email)]
+    #[garde(email)]
     pub email: String,
-    #[validate(length(min = 1, max = 80))]
+    #[garde(length(min = 1, max = 80))]
     pub display_name: String,
 }
 

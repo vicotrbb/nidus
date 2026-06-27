@@ -30,7 +30,7 @@ impl HttpMetricsHook for NoopMetrics {
 fn prelude_exports_optional_feature_crates() {
     let _config = Config::new();
     let _error = HttpError::bad_request("invalid request");
-    let _document = OpenApiDocument::new("Nidus API", "0.1.0");
+    let _document = OpenApiDocument::new("Nidus API", "1.0.0");
     let _document_error: Option<OpenApiDocumentError> = None;
     let _validation = ValidationPipe::new();
     let _validated_json = ValidatedJson("ok");
@@ -83,7 +83,7 @@ fn prelude_exports_guard_extension_trait<G: GuardExt<()>>() {}
 fn facade_exports_optional_feature_modules() {
     let _config = nidus::config::Config::new();
     let _error = nidus::http::error::HttpError::bad_request("invalid request");
-    let _document = nidus::openapi::OpenApiDocument::new("Nidus API", "0.1.0");
+    let _document = nidus::openapi::OpenApiDocument::new("Nidus API", "1.0.0");
     let _validation = nidus::validation::ValidationPipe::new();
     let _validated_json = nidus::validation::ValidatedJson("ok");
     let _context = nidus::auth::GuardContext::new((), "/health");

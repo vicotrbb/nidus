@@ -2,10 +2,13 @@
 name = "nidus-events"
 version.workspace = true
 edition.workspace = true
+description = "Synchronous event bus, event subscribers, and observed event dispatch for Nidus."
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 tracing.workspace = true

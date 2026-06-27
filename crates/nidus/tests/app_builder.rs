@@ -125,7 +125,7 @@ async fn controller_dependency_errors_surface_during_build() {
 #[tokio::test]
 async fn openapi_builder_auto_registers_schema_metadata() {
     let app = Nidus::create::<ApiModule>()
-        .with_openapi("Nidus API", "0.1.0")
+        .with_openapi("Nidus API", "1.0.0")
         .build()
         .await
         .unwrap();
@@ -163,7 +163,7 @@ async fn openapi_builder_auto_registers_schema_metadata() {
 #[tokio::test]
 async fn openapi_builder_preserves_fallback_schema_registrations() {
     let app = Nidus::create::<ApiModule>()
-        .with_openapi("Nidus API", "0.1.0")
+        .with_openapi("Nidus API", "1.0.0")
         .with_schema::<CreateUserDto>()
         .build()
         .await

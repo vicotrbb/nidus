@@ -2,10 +2,13 @@
 name = "nidus-macros"
 version.workspace = true
 edition.workspace = true
+description = "Proc macros for Nidus controllers, routes, modules, providers, guards, pipes, and entrypoints."
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [lib]
 proc-macro = true

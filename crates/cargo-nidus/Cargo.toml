@@ -2,10 +2,13 @@
 name = "cargo-nidus"
 version.workspace = true
 edition.workspace = true
+description = "Command-line project generator and inspection tooling for Nidus applications."
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 anyhow.workspace = true

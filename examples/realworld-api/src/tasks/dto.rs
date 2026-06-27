@@ -1,12 +1,12 @@
+use garde::Validate;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use validator::Validate;
 
 #[derive(Debug, Deserialize, ToSchema, Validate)]
 pub struct CreateTaskDto {
-    #[validate(length(min = 1, max = 160))]
+    #[garde(length(min = 1, max = 160))]
     pub title: String,
-    #[validate(length(max = 500))]
+    #[garde(length(max = 500))]
     pub description: Option<String>,
 }
 

@@ -1,0 +1,11 @@
+{
+  "name": "nidus-website",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check-links": "node scripts/check-links.mjs",
+    "verify": "npm run build && npm run check-links"
+  }
+}

@@ -1,34 +1,40 @@
 # Nidus
 
-Nidus is a modular Rust application framework inspired by NestJS ergonomics and built on Rust-native explicitness, compile-time checks, Axum, Tower, and Tokio.
+Nidus is a modular Rust backend framework for teams that want NestJS-like application organization with Rust-native explicitness. It composes Axum, Tower, Tokio, serde, tracing, garde, utoipa, SQLx adapters, cache adapters, and normal Cargo workflows instead of replacing them.
 
-## What Nidus Is
+## Install
 
-Nidus is a framework for building organized Rust backend services with modules, typed providers, controllers, guards, pipes, OpenAPI metadata, testing helpers, and CLI tooling. It aims to make large services easier to structure without hiding the Rust ecosystem underneath.
-
-## What Nidus Is Not
-
-Nidus is not a custom HTTP server, a runtime reflection container, or TypeScript translated into Rust. It composes Axum, Tower, Tokio, serde, tracing, validator, utoipa, and other proven crates directly.
-
-## Quickstart
+After the 1.0 crates are published:
 
 ```bash
+cargo install cargo-nidus
 cargo nidus new hello-nidus
 cd hello-nidus
 cargo run
 ```
 
-During local framework development, the CLI can generate a project against this checkout:
+During local framework development, install the CLI from this checkout:
 
 ```bash
-cargo run -p cargo-nidus -- nidus new hello-nidus --path /tmp --nidus-path "$PWD/crates/nidus"
-cd /tmp/hello-nidus
-cargo check
+cargo install --path crates/cargo-nidus
+cargo nidus new hello-nidus
 ```
 
-For the broader framework mental model, see [docs/](docs/README.md).
+Application dependencies stay explicit:
 
-## Example
+```toml
+[dependencies]
+nidus = { version = "1.0", features = ["http", "config", "openapi", "validation"] }
+```
+
+Official integrations are separate crates:
+
+```toml
+nidus-sqlx = { version = "1.0", features = ["sqlite"] }
+nidus-cache = { version = "1.0", features = ["moka"] }
+```
+
+## Quickstart
 
 ```rust
 use nidus::prelude::*;
@@ -39,36 +45,75 @@ struct UsersController;
 #[routes]
 impl UsersController {
     #[get("/:id")]
-    async fn find_one(&self) {}
+    async fn find_one(&self, Path(id): Path<i64>) -> String {
+        format!("user {id}")
+    }
+}
+
+#[module]
+struct AppModule {
+    controllers: (UsersController,),
+}
+
+#[nidus::main]
+async fn main() -> nidus::Result<()> {
+    let app = Nidus::bootstrap::<AppModule>()?
+        .with_router(UsersController.into_router());
+
+    app.listen("127.0.0.1:3000").await?;
+    Ok(())
 }
 ```
 
-## Features
+## Core Concepts
 
-- Typed dependency injection primitives with auto-wired `Inject<T>` and `Optional<T>`, request-scope `Scoped<T>`, and manual `Lazy<T>` / `Factory<T>` helpers.
-- Explicit module definitions and circular import detection.
-- Axum-backed controller route composition.
-- Guard, validation, config, OpenAPI, events, jobs, request-scope, production API defaults, health, metrics, structured logging, OTel helpers, security boundary layers, request context, and testing support crates.
-- `cargo-nidus` project generation.
-- Compile-fail tests for invalid macro usage.
-- Criterion benchmark targets for routing, dependency resolution, and request lifecycle setup.
-- Separately installable official adapters for SQLx and cache integration.
+- **Modules:** explicit imports, providers, controllers, and exports.
+- **Providers:** Rust types registered by type, with singleton, transient, request-scoped, lazy, optional, and factory patterns.
+- **Controllers:** Axum-backed route composition with Nidus route metadata.
+- **Guards and pipes:** explicit authorization and validation boundaries.
+- **Config:** typed configuration from JSON, files, pairs, and environment variables.
+- **OpenAPI:** route metadata, schemas, and generated documents.
+- **Events and jobs:** in-process event buses, sync/async queues, and observed runners.
+- **Testing:** `nidus_testing::TestApp` for in-memory request tests and provider overrides.
 
-Default features enable the core HTTP, config, and tracing facade. Optional
-facade features are available for `openapi`, `validation`, `auth`, `events`,
-`jobs`, and `testing`. Ecosystem integrations such as SQLx and cache live in
-separate crates including `nidus-sqlx` and `nidus-cache`.
+## Production Defaults
 
-## Status
+`nidus-http` provides opt-in production API defaults for request IDs, request context, health, readiness checks, metrics, CORS, body limits, timeout responses, security headers, structured logging, error envelopes, and OpenTelemetry trace-context helpers. The defaults return normal Axum routers and Tower layers, so applications can replace or reorder the boundary.
 
-Nidus is under active implementation as a pre-1.0 framework. The repository contains the working framework surface described here, and public APIs can still change before the first published stable version.
+## Adapter Story
 
-## Roadmap
+The `nidus` facade stays lean. SQLx and cache integration live in `nidus-sqlx` and `nidus-cache`, with direct access to the underlying ecosystem clients. This keeps vendor dependencies out of core applications until they are explicitly installed.
 
-- Continue hardening route-level guard and pipe ergonomics while preserving the explicit Tower and extractor-based execution model.
-- Continue hardening official adapters, jobs, events, and production API examples into production-shaped applications.
-- Keep benchmark result tables current as the raw Axum and Nidus overhead baselines evolve.
-- Keep broadening compile-fail and CLI regression coverage as the public API settles.
+## Examples
+
+- `examples/hello-world`: minimal server.
+- `examples/openapi`: OpenAPI JSON and docs routes.
+- `examples/production-api`: production middleware defaults.
+- `examples/realworld-api`: team tasks API with modules, SQLite, validation, OpenAPI, health, metrics, request IDs, guards, CORS, limits, timeouts, events, and jobs.
+- `examples/sqlx-app` and `examples/cache-app`: official adapter wiring.
+
+Run an example:
+
+```bash
+cargo run -p nidus-example-realworld-api
+```
+
+## Documentation
+
+- Local Markdown docs: [docs/](docs/README.md)
+- Generated website source: [website/](website/)
+- GitHub Pages build: `.github/workflows/pages.yml`
+
+Build and check the static website locally:
+
+```bash
+cd website
+npm run verify
+```
+
+## 1.0 Status
+
+This repository is preparing the Nidus 1.0 launch. Local dry-runs prove packageability; actual crates.io publishing and GitHub Pages deployment require external credentials or repository settings and should be reported separately when they are not performed.
 
 ## Contributing
 

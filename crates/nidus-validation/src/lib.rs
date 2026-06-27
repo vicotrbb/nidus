@@ -9,9 +9,9 @@ use axum::{
     extract::{FromRequest, Request, rejection::JsonRejection},
     response::IntoResponse,
 };
+use garde::Validate;
 use http::StatusCode;
 use serde::{Serialize, de::DeserializeOwned};
-use validator::{Validate, ValidationError, ValidationErrors, ValidationErrorsKind};
 
 /// Typed request transformation or validation pipe.
 pub trait Pipe<Input>: Send + Sync + 'static {
@@ -25,7 +25,7 @@ pub trait Pipe<Input>: Send + Sync + 'static {
     fn transform(&self, input: Input) -> std::result::Result<Self::Output, Self::Error>;
 }
 
-/// Request validation pipe backed by the `validator` crate.
+/// Request validation pipe backed by the `garde` crate.
 #[derive(Clone, Debug, Default)]
 pub struct ValidationPipe;
 
@@ -38,7 +38,7 @@ impl ValidationPipe {
     /// Validates and returns the input value unchanged when valid.
     pub fn transform<T>(&self, input: T) -> Result<T>
     where
-        T: Validate,
+        T: Validate<Context = ()>,
     {
         input.validate().map_err(ValidationPipeError::Validation)?;
         Ok(input)
@@ -47,7 +47,7 @@ impl ValidationPipe {
 
 impl<T> Pipe<T> for ValidationPipe
 where
-    T: Validate,
+    T: Validate<Context = ()>,
 {
     type Output = T;
     type Error = ValidationPipeError;
@@ -89,7 +89,7 @@ impl<T> DerefMut for ValidatedJson<T> {
 impl<S, T> FromRequest<S> for ValidatedJson<T>
 where
     S: Send + Sync,
-    T: DeserializeOwned + Validate,
+    T: DeserializeOwned + Validate<Context = ()>,
 {
     type Rejection = ValidatedJsonRejection;
 
@@ -132,7 +132,7 @@ pub type Result<T> = std::result::Result<T, ValidationPipeError>;
 pub enum ValidationPipeError {
     /// The input failed validation.
     #[error("validation failed: {0}")]
-    Validation(#[from] validator::ValidationErrors),
+    Validation(#[from] garde::Report),
 }
 
 impl ValidationPipeError {
@@ -150,8 +150,10 @@ impl ValidationPipeError {
     pub fn field_errors(&self) -> Vec<FieldValidationError> {
         match self {
             Self::Validation(errors) => {
-                let mut field_errors = Vec::new();
-                collect_field_errors("", errors, &mut field_errors);
+                let mut field_errors = errors
+                    .iter()
+                    .map(|(path, error)| field_error(&path.to_string(), error.message()))
+                    .collect::<Vec<_>>();
                 field_errors.sort_by(|left, right| {
                     left.field
                         .cmp(&right.field)
@@ -163,42 +165,27 @@ impl ValidationPipeError {
     }
 }
 
-fn collect_field_errors(
-    prefix: &str,
-    errors: &ValidationErrors,
-    field_errors: &mut Vec<FieldValidationError>,
-) {
-    for (field, kind) in errors.errors() {
-        let path = join_field_path(prefix, field);
-        match kind {
-            ValidationErrorsKind::Field(errors) => {
-                field_errors.extend(errors.iter().map(|error| field_error(&path, error)));
-            }
-            ValidationErrorsKind::Struct(errors) => {
-                collect_field_errors(&path, errors, field_errors);
-            }
-            ValidationErrorsKind::List(errors) => {
-                for (index, errors) in errors {
-                    collect_field_errors(&format!("{path}[{index}]"), errors, field_errors);
-                }
-            }
-        }
-    }
-}
-
-fn join_field_path(prefix: &str, field: &str) -> String {
-    if prefix.is_empty() {
-        field.to_owned()
-    } else {
-        format!("{prefix}.{field}")
-    }
-}
-
-fn field_error(field: &str, error: &ValidationError) -> FieldValidationError {
+fn field_error(field: &str, message: &str) -> FieldValidationError {
     FieldValidationError {
         field: field.to_owned(),
-        code: error.code.to_string(),
-        message: error.message.as_ref().map(ToString::to_string),
+        code: validation_code(message).to_owned(),
+        message: Some(message.to_owned()),
+    }
+}
+
+fn validation_code(message: &str) -> &'static str {
+    if message.starts_with("not a valid email") {
+        "email"
+    } else if message.starts_with("length is ") {
+        "length"
+    } else if message.starts_with("not a valid url") {
+        "url"
+    } else if message.starts_with("not a valid IP") || message.starts_with("not a valid IPv") {
+        "ip"
+    } else if message.starts_with("lower than ") || message.starts_with("greater than ") {
+        "range"
+    } else {
+        "invalid"
     }
 }
 
@@ -242,7 +229,7 @@ impl FieldValidationError {
         &self.field
     }
 
-    /// Returns the validator error code.
+    /// Returns the validation rule error code.
     pub fn code(&self) -> &str {
         &self.code
     }
