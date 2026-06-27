@@ -12,7 +12,7 @@ requiring external services by default.
 | `background-jobs` | In-memory job queue execution with success and failure reporting. |
 | `modular-monolith` | Macro-defined module graph imports, providers, controllers, and exports. |
 | `realworld-api` | Production-shaped team tasks API with modules, SQLite persistence, validation, OpenAPI, health, metrics, request IDs, guards, CORS, limits, timeouts, events, and jobs. |
-| `production-api` | Production API preset with health, metrics, request context extraction, validated request IDs, error envelopes, and route-local rate limiting. |
+| `production-api` | Production API preset (`nidus-example-production-api`) with health, metrics, request context extraction, validated request IDs, error envelopes, and route-local rate limiting. |
 | `sqlx-app` | Separate `nidus-sqlx` SQLite adapter with repository injection and direct SQLx query access. |
 | `cache-app` | Separate `nidus-cache` Moka adapter with an optional cache dependency in a service. |
 | `integrations-production` | Production-shaped integration wiring with typed config, SQLite, Moka cache, and health checks without binding a live port in tests. |

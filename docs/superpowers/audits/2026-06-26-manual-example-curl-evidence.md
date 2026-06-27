@@ -29,7 +29,7 @@ Now a runnable server (Wave 2.4 fix; previously it printed JSON and exited).
   `<title>Nidus Example API Documentation</title>`.
 - `GET /users/42` → `HTTP/1.1 200 OK`, body `{"id":42,"email":"user@nidus.dev"}`.
 
-## production-api  (`NIDUS_ADDR=127.0.0.1:3001 cargo run -p production-api`)
+## production-api  (`NIDUS_ADDR=127.0.0.1:3001 cargo run -p nidus-example-production-api`)
 
 - `GET /health/live` → `200`.
 - `GET /health/ready` → `200`, header `x-request-id: <uuid v4>`,

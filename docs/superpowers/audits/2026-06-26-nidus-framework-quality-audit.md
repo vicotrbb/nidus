@@ -398,7 +398,7 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 | `background-jobs` | CLI | — | none | clean |
 | `modular-monolith` | CLI | — | none | 4× `.unwrap()` in `main()` (`main.rs:122,123,133,134`) |
 | `realworld-api` | server | `127.0.0.1:3000` (`NIDUS_BIND_ADDR`) | none (sqlite::memory:) | `.expect()` in request handler path (`ops.rs:127,137,144,267,271`); deterministic |
-| `production-api` | server | `127.0.0.1:3000` (`NIDUS_ADDR`) | none | package named `production-api` (not `nidus-example-*`); metadata drift |
+| `production-api` | server | `127.0.0.1:3000` (`NIDUS_ADDR`) | none | package `nidus-example-production-api`; production defaults example |
 | `sqlx-app` | CLI | — | none (sqlite::memory:) | clean |
 | `cache-app` | CLI | — | none | clean |
 | `integrations-production` | CLI | — | none for tests; `main()` needs `APP_DATABASE_URL`+`APP_CACHE_NAMESPACE` | clean |
@@ -412,8 +412,8 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
   header-passing fix works: integration tests assert valid key → 200, missing/wrong key → 401
   (6 tests). Manual curl on the running server: no key → 401, wrong key → 401, valid key →
   200 `authorized`.
-- **EX-3 (P3):** `production-api` naming/metadata inconsistency (package `production-api`, workspace-
-  inherited edition/license, no `version` pin on the `nidus` dep).
+- **EX-3 (~~P3~~ mitigated, Wave 29):** `production-api` package metadata now uses the consistent
+  `nidus-example-production-api` package name. The directory remains `examples/production-api`.
 - **EX-4 (P3):** Orphaned empty dir `examples/sqlx-postgres/src/` — no `Cargo.toml`/`main.rs`, not a
   workspace member; leftover from the integrations migration. (Note: the `sqlx-postgres` package in
   `Cargo.lock` is sqlx's own transitive sub-crate, unrelated.)
@@ -1240,6 +1240,33 @@ Closed the legacy request ID generation gap F-HTTP-9.
 clean. `cargo test -p nidus-http`, `cargo clippy -p nidus-http --all-targets --all-features -- -D warnings`,
 `cargo clippy --bench request_lifecycle -- -D warnings`, and `cargo bench --bench request_lifecycle`
 completed.
+
+## Follow-up hardening — Wave 29 (2026-06-27, after commit `42f67b0`)
+
+Closed the production example package-name consistency gap EX-3.
+
+### Implemented (metadata/docs)
+
+- **EX-3 mitigated — production API package name follows the example naming convention.**
+  `examples/production-api/Cargo.toml` now declares `nidus-example-production-api`, and
+  `Cargo.lock`, `docs/examples.md`, the manual example evidence, and this plan/audit now point
+  at the consistent package name. The example directory remains `examples/production-api`.
+  - **TDD:** `cargo test -p nidus-example-production-api` first failed because no package matched
+    that ID; after the rename, the package-specific test run passed.
+  - **Manual curl:** `NIDUS_ADDR=127.0.0.1:64829 cargo run -p nidus-example-production-api`
+    started `target/debug/nidus-example-production-api`. `GET /health/live` -> 200 with process
+    check; `GET /health/ready` -> 200 with cache/database checks; `GET /users/1` with
+    `x-request-id: 018f4ad7-56ce-4f6a-a759-29f4438d8d78` -> 200 and matching `request_id` body;
+    `GET /metrics` -> 200 Prometheus text. Server stopped cleanly with Ctrl-C.
+  - **Bench:** not required — package metadata/docs only; no HTTP, DI, routing, request lifecycle,
+    metrics, or module hot-path code changed.
+
+### Verification after this pass
+
+`cargo test -p nidus-example-production-api` (3 passed),
+`cargo clippy -p nidus-example-production-api --all-targets --all-features -- -D warnings`,
+`cargo metadata --no-deps --format-version 1`, `cargo fmt --all --check`, and `git diff --check`
+are clean.
 
 ## Appendix: verification commands (baseline)
 

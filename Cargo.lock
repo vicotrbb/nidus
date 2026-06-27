@@ -1414,6 +1414,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "nidus-example-production-api"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "nidus",
+ "nidus-testing",
+ "serde",
+ "tokio",
+]
+
+[[package]]
 name = "nidus-example-realworld-api"
 version = "0.1.0"
 dependencies = [
@@ -1752,17 +1763,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fd00f0bb2e90d81d1044c2b32617f68fcb9fa3bb7640c23e9c748e53fb30934"
 dependencies = [
  "unicode-ident",
-]
-
-[[package]]
-name = "production-api"
-version = "0.1.0"
-dependencies = [
- "axum",
- "nidus",
- "nidus-testing",
- "serde",
- "tokio",
 ]
 
 [[package]]

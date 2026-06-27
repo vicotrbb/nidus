@@ -141,7 +141,7 @@ where supported, otherwise pick a free port. Capture command + HTTP status + bod
 - `rest-api`: `cargo run -p nidus-example-rest-api` → `curl -i http://127.0.0.1:3000/users/1`
 - `auth-api`: `cargo run -p nidus-example-auth-api` → `curl -i http://127.0.0.1:3000/me`
 - `openapi` (after 2.4): `cargo run -p nidus-example-openapi` → `curl -i http://127.0.0.1:3000/openapi.json` and `/docs`
-- `production-api`: `NIDUS_ADDR=127.0.0.1:<port> cargo run -p production-api` → curl `/health/live`,
+- `production-api`: `NIDUS_ADDR=127.0.0.1:<port> cargo run -p nidus-example-production-api` → curl `/health/live`,
   `/health/ready`, `/metrics`, `/users/1`
 - `realworld-api`: `NIDUS_BIND_ADDR=127.0.0.1:<port> cargo run -p nidus-example-realworld-api` → curl
   `/health/live`, `/health/ready`, `/metrics`, `/openapi.json`, `/users/1`,
@@ -181,7 +181,7 @@ Each wave is a separate atomic commit. Any wave can be reverted in isolation wit
 - F-MAC-2 spanned diagnostics; O-1 OpenAPI error-response modeling; O-2 parity test (covered
   partially by 2.1's probe); ERR-1 5xx code masking.
 - E-1/E-2/E-3 bounded event queues + observer offloading.
-- EX-2 auth-api guard realism; EX-3 production-api naming; EX-4 orphan `sqlx-postgres` dir cleanup;
+- EX-2 auth-api guard realism; EX-4 orphan `sqlx-postgres` dir cleanup;
   EX-5 example `.expect()` cleanup.
 - CLI coverage beyond CLI-1/CLI-2; AD-1/AD-2/AD-3 adapter registration + health wiring + coverage.
 - T-1 TestApp request-scope helper; T-2 spurious-async assertions.
@@ -601,3 +601,23 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 28" secti
 - **Bench:** `cargo bench --bench request_lifecycle` with a new legacy request-id scenario. First
   legacy scenario measurement has no prior baseline; broader run was mixed, so no performance
   improvement is claimed.
+
+---
+
+## Wave 29 — example metadata: production API package name (EX-3)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 29" section.
+
+- **Files:** `examples/production-api/Cargo.toml`, `Cargo.lock`, `docs/examples.md`, manual
+  example evidence, audit, plan.
+- **Behavior change:** none at runtime. The package ID is now `nidus-example-production-api`, which
+  matches the workspace's example package convention and the generated binary name.
+- **TDD:** `cargo test -p nidus-example-production-api` failed before the rename because the
+  package did not exist, then passed after the package metadata update.
+- **Verification:** `cargo test -p nidus-example-production-api` (3 passed);
+  `cargo clippy -p nidus-example-production-api --all-targets --all-features -- -D warnings`;
+  `cargo metadata --no-deps --format-version 1`; `cargo fmt --all --check`; `git diff --check`.
+- **Manual curl:** `NIDUS_ADDR=127.0.0.1:64829 cargo run -p nidus-example-production-api`, then
+  `GET /health/live`, `/health/ready`, `/users/1`, and `/metrics` all returned 200; `/users/1`
+  preserved the supplied UUID request id in both the response header and JSON body.
+- **Bench:** not required (metadata/docs only; no hot path changed).
