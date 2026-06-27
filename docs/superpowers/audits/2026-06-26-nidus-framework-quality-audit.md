@@ -317,8 +317,9 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 
 ### nidus-events
 
-- **E-1 (P2):** Subscriber queues are unbounded `Vec<T>` (`lib.rs:14,216,226`); no backpressure; a
-  slow/absent drainer causes unbounded memory growth for the subscriber's lifetime.
+- **E-1 (~~P2~~ mitigated, Wave 3):** `EventBus::subscribe_with_capacity(cap)` adds an opt-in
+  bounded subscriber queue with drop-oldest behavior. Default `subscribe()` remains unbounded by
+  design for callers that prefer lossless in-process fan-out.
 - **E-2 (P3):** Observer runs synchronously on the publishing thread (`lib.rs:178-192`) —
   blocking-in-async risk if the observer does I/O.
 - **E-3 (P3):** `lock_unpoisoned` silently absorbs poisoned-mutex state (`lib.rs:272-276`).
@@ -326,12 +327,11 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 
 ### nidus-jobs
 
-- **J-1 (P2):** `ObservedJobRunner` has **no `catch_unwind`** — a panicking job skips
-  `on_job_finished`, violating the observer contract (`lib.rs:209,230`). The queues do recover
-  (`lib.rs:346,404`, verified). No panic-recovery test for the runner.
-- **J-2 (P2):** Queues are unbounded and **retain jobs after `run_all`** with no `clear`/`drain`
-  (`lib.rs:286-288,321-326,342-359`); a second `run_all` re-executes everything (duplicate side
-  effects). No test pins this behavior.
+- **J-1 (~~P2~~ mitigated, Wave 2):** `ObservedJobRunner` catches sync and async job panics,
+  reports `JobError("job panicked")`, and still emits `on_job_finished(..., Failure)`.
+- **J-2 (~~P2~~ mitigated, Wave 2):** `JobQueue::clear` and `AsyncJobQueue::clear` now provide an
+  explicit way to drop retained jobs. Tests pin both the documented retain-and-rerun behavior and
+  the clear-after-run path.
 - **J-3 (P3):** No observer integration in `JobQueue`/`AsyncJobQueue` (telemetry vs orchestration
   are mutually exclusive).
 - **J-4 (P3):** `ObservedJobRunner::run_async` holds a `!Send` tracing `Entered` across `.await`
@@ -355,8 +355,9 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
   artifacts (module/controller/service/repository) into a temp project and runs `cargo check
   -Dwarnings`, verifying the generated module wiring (`providers`/`controllers`/`exports`) compiles
   — previously this multi-artifact wiring was only file-asserted, not compile-verified.
-- **CLI-2 (P2):** The default `nidus = "0.1"` dependency branch (`generate.rs:15-17`) is never
-  exercised by any test (all pass `--nidus-path`); the published-user codepath is untested.
+- **CLI-2 (~~P2~~ mitigated, Wave 15):** `cargo_nidus_new_defaults_to_published_nidus_dependency`
+  exercises `cargo nidus new` without `--nidus-path` and asserts the generated manifest uses
+  `nidus = "0.1"` rather than a local path dependency.
 - **CLI-3 (P3):** Generated service name hardcodes `"hello-nidus"` regardless of project name
   (`generate.rs:38`).
 - **CLI-4 (P3):** `expand` silently requires `cargo-expand` to be installed (`main.rs:136-141`).
@@ -392,10 +393,9 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 | `cache-app` | CLI | — | none | clean |
 | `integrations-production` | CLI | — | none for tests; `main()` needs `APP_DATABASE_URL`+`APP_CACHE_NAMESPACE` | clean |
 
-- **EX-1 (P2):** `openapi` example is not a server — `docs/examples.md:11` says it provides
-  `/openapi.json` and `/docs` routes; in fact `main()` (`openapi/src/main.rs:74-77`) only builds the
-  router, `println!`s the JSON, and exits. A user running `cargo run -p nidus-example-openapi` cannot
-  curl anything. (This is the clearest docs-vs-behavior drift.)
+- **EX-1 (~~P2~~ mitigated, Wave 2):** `openapi` is now a real server: `#[nidus::main]` bootstraps
+  `AppModule`, attaches the example router, and listens on `127.0.0.1:3000`. Tests cover
+  `/openapi.json`, `/docs`, and user routes; Wave 4 manual curl evidence verified the live routes.
 - **EX-2 (~~P2~~ mitigated, Wave 5):** `ApiKeyGuard` in the `auth-api` example now reads the
   `x-api-key` header and authorizes only on a match (`unauthorized` otherwise). It is wired
   through the public `guard_layer`, so this also serves as end-to-end coverage that the Wave-1
@@ -419,8 +419,8 @@ example/bench code.
   `docs/openapi.md`, `docs/pipes.md` are **accurate** against the implementation (verified
   symbol-by-symbol). Notably `docs/dependency-injection.md:84-95` correctly documents the
   `register_request_scoped` chaining requirement and the `RequestScopeRequired` error.
-- **D-1 (P2):** `docs/examples.md:11,26` — implies `openapi` example serves `/openapi.json`+`/docs`
-  and that "server examples ... keep running"; the `openapi` example does neither (see EX-1).
+- **D-1 (~~P2~~ mitigated, Wave 2):** `docs/examples.md` now matches the runnable `openapi`
+  example: `cargo run -p nidus-example-openapi` keeps serving `/openapi.json` and `/docs`.
 - **D-2 (P3):** `docs/deployment.md:77-90` lists `without_rate_limit()`/`without_metrics()` among
   "preset concerns" alongside on-by-default ones; rate limiting and metrics are actually opt-in
   (the `ApiDefaults::production` rustdoc at `api_defaults.rs:77-80` is accurate, so this is mild).
@@ -462,7 +462,8 @@ example/bench code.
 
 - **Mostly clean.** No `Mutex` held across `.await` in nidus-http layers; health `tokio::spawn`s are
   joined; no unbounded channels anywhere.
-- **RT-1 (P1):** singleton panic-stuck (F-CORE-1) — a panic during lazy resolution deadlocks.
+- **RT-1 (~~P1~~ mitigated, Wave 1):** singleton factories recover their cache state if creation
+  panics; later resolves no longer hang.
 - **RT-2 (~~P2~~ mitigated, Wave 14):** blocking `Condvar` waits are avoidable via opt-in
   `Container::eagerly_resolve_singletons()` at startup (F-CORE-4); default lazy behavior unchanged.
 - **RT-3 (P2):** no graceful shutdown (F-HTTP-5).
@@ -471,21 +472,24 @@ example/bench code.
 
 ## Test coverage gaps
 
-- **TG-1 (P1):** no test for the singleton panic-stuck scenario (F-CORE-1).
-- **TG-2 (P1):** no test resolves providers from a core `Nidus::bootstrap` app (F-CORE-2).
-- **TG-3 (P1):** no test exercises a header-reading guard through `guard_layer` (F-HTTP-1) — the
-  reason the bug slipped through.
-- **TG-4 (P2):** no production middleware order-pinning test (F-HTTP-4).
-- **TG-5 (P2):** no `ObservedJobRunner` panic-recovery test (J-1); no jobs-retained-on-rerun test (J-2).
-- **TG-6 (P2):** no route↔OpenAPI parity test (O-2); no validation↔envelope composition test (V-1).
-- **TG-7 (P2):** no end-to-end CLI multi-artifact compile test (CLI-1).
+- **TG-1 (~~P1~~ mitigated, Wave 1):** singleton panic recovery is covered.
+- **TG-2 (~~P1~~ mitigated, Wave 1):** core `Nidus::bootstrap` provider resolution is covered.
+- **TG-3 (~~P1~~ mitigated, Wave 1):** header-reading guards through `guard_layer` are covered.
+- **TG-4 (~~P2~~ covered, Wave 2):** production middleware ordering is pinned by a probe test.
+- **TG-5 (~~P2~~ mitigated, Wave 2):** `ObservedJobRunner` panic recovery and queue rerun/clear
+  semantics are covered.
+- **TG-6 (~~P2~~ covered, Wave 3):** route↔OpenAPI parity and validation↔envelope composition are covered.
+- **TG-7 (~~P2~~ covered, Waves 11 and 15):** CLI generated artifact compile and default
+  publishable dependency branches are covered.
 - **TG-8 (P3):** adapter `health`/`invalidate`/`from_cache`/Postgres-config untested (AD-3).
 
 ## Manual example coverage gaps
 
-- No recorded manual `curl` evidence exists for any example (this audit pass will produce it).
+- Manual `curl` evidence is recorded in
+  `docs/superpowers/audits/2026-06-26-manual-example-curl-evidence.md` and summarized in the Wave 4
+  audit section.
 - Servers that can run with zero external services: `hello-world`, `rest-api`, `auth-api`,
-  `production-api`, `realworld-api` (sqlite::memory:). The `openapi` example is a CLI (gap EX-1).
+  `openapi`, `production-api`, `realworld-api` (sqlite::memory:).
 - All server examples default to `127.0.0.1:3000`, so manual runs need distinct free ports.
 
 ## Benchmark / performance risks
@@ -507,10 +511,12 @@ example/bench code.
   IP via `ConnectInfo` (F-HTTP-5 fix), closing XFF-spoofing and shared-`anonymous`-bucket
   evasion on the blessed `listen`/`serve` path. Trusted-proxy XFF validation (F-HTTP-6)
   remains deferred; XFF is now only consulted when `ConnectInfo` is absent.
-- **SEC-3 (P2):** unbounded growth surfaces: prometheus series (F-HTTP-8), event queues (E-1),
-  job queues (J-2).
-- **SEC-4 (P1):** `guard_layer` silently breaks header auth (F-HTTP-1) — authorization bypass risk
-  for header-token guards.
+- **SEC-3 (~~P2~~ mitigated / partially opt-in):** prometheus series and event subscriber queues now
+  have opt-in bounds (F-HTTP-8, E-1); job queues now expose `clear` and document retain/rerun
+  semantics (J-2). Defaults stay backward-compatible where changing them would alter behavior.
+- **SEC-4 (~~P1~~ mitigated, Wave 1):** `guard_layer` now authorizes before calling the inner
+  service and passes request headers into `GuardContext`; the `auth-api` example also exercises a
+  header-token guard through the layer.
 - **SEC-5 (P3):** example dev secret `dev-secret` (realworld) — documented + overridable, acceptable.
 - No leaked secrets in logs/errors (5xx message masking verified); no `unsafe` in framework crates.
 
@@ -518,29 +524,29 @@ example/bench code.
 
 | ID | Sev | Finding | Key evidence |
 | --- | --- | --- | --- |
-| F-HTTP-1 | **P1** | `guard_layer` never passes headers; authorizes after inner.call | `nidus-auth/src/middleware.rs:86-89` |
-| F-CORE-1 | **P1** | Panicking singleton factory permanently deadlocks provider | `nidus-core/src/provider/mod.rs:136-154` |
-| F-CORE-2 | **P1** | Core `Nidus::bootstrap` yields empty container | `nidus-core/src/app/mod.rs:56-69` vs `nidus/src/app.rs:99-109` |
+| F-HTTP-1 | ~~P1~~ mitigated | `guard_layer` passes headers and authorizes before inner.call (Wave 1) | `nidus-auth/src/middleware.rs` |
+| F-CORE-1 | ~~P1~~ mitigated | Panicking singleton factory resets state before unwinding (Wave 1) | `nidus-core/src/provider/mod.rs` |
+| F-CORE-2 | ~~P1~~ mitigated | Core `Nidus::bootstrap` registers declared providers (Wave 1) | `nidus-core/src/app/mod.rs` |
 | F-CORE-3 | P2 | Graph keyed by short name, not TypeId | `nidus-core/src/module/mod.rs:230-236,271-277` |
 | F-CORE-4 | ~~P2~~ mitigated | Opt-in `eagerly_resolve_singletons` avoids async-blocking wait (Wave 14) | `nidus-core/src/{provider,container}/mod.rs` |
 | F-CORE-5 | ~~P2~~ mitigated | `register_request` chaining limitation documented (Wave 14) | `docs/dependency-injection.md` |
 | F-HTTP-2 | ~~P2~~ mitigated | Opt-in `streaming_body_limit` + two-tier docs (Wave 13) | `nidus-http/src/middleware/{security,api_defaults}.rs` |
 | F-HTTP-3 | ~~P2~~ mitigated | 413 now enveloped/metered/request-id'd (Wave 8) | `nidus-http/src/middleware/api_defaults.rs` |
-| F-HTTP-4 | P2 | No production middleware order test | `nidus-http/tests/production_api.rs` |
+| F-HTTP-4 | ~~P2~~ covered | Production middleware order probe test added (Wave 2) | `nidus-http/tests/production_api.rs` |
 | F-HTTP-5 | ~~P2~~ mitigated | ConnectInfo now on blessed path; graceful-shutdown API added (Wave 4) | `nidus-http/src/server.rs` |
 | F-HTTP-6 | ~~P2~~ partial | ConnectInfo now used first (Wave 4); trusted-proxy XFF validation deferred | `nidus-http/src/context.rs` |
 | F-HTTP-7 | ~~P2~~ mitigated | Production stack catches handler panics (Wave 7) | `nidus-http/src/middleware/{api_defaults,catch_panic}.rs` |
-| F-HTTP-8 | P2 | Prometheus series unbounded | `nidus-http/src/middleware/metrics.rs:317-320` |
-| F-MAC-1 | P2 | Controller non-injectable fields → runtime error | `nidus-macros/src/controller.rs:42-67` |
-| J-1 | P2 | `ObservedJobRunner` no panic recovery | `nidus-jobs/src/lib.rs:209,230` |
-| J-2 | P2 | Job queues retain jobs; rerun duplicates | `nidus-jobs/src/lib.rs:286-288,342-359` |
-| E-1 | P2 | Event subscriber queues unbounded | `nidus-events/src/lib.rs:14,216,226` |
+| F-HTTP-8 | ~~P2~~ mitigated | Opt-in Prometheus max-series overflow bucket (Wave 3) | `nidus-http/src/middleware/metrics.rs` |
+| F-MAC-1 | not a defect | Manual controller construction requires runtime field errors; compile-error attempt reverted (Wave 3) | `nidus-macros/src/controller.rs` |
+| J-1 | ~~P2~~ mitigated | `ObservedJobRunner` panic recovery added (Wave 2) | `nidus-jobs/src/lib.rs` |
+| J-2 | ~~P2~~ mitigated | Job queues document retention and expose `clear` (Wave 2) | `nidus-jobs/src/lib.rs` |
+| E-1 | ~~P2~~ mitigated | Opt-in bounded subscriber queues added (Wave 3) | `nidus-events/src/lib.rs` |
 | O-1 | ~~P2~~ mitigated | OpenAPI emits error responses (Wave 9) | `nidus-openapi/src/route.rs` |
-| O-2 | P2 | No route↔OpenAPI parity test | `nidus-openapi/tests/` |
-| EX-1 | P2 | `openapi` example not a server; docs imply it is | `examples/openapi/src/main.rs:74-77`; `docs/examples.md:11` |
+| O-2 | ~~P2~~ covered | Route↔OpenAPI parity tests added (Wave 3) | `nidus-openapi/tests/` |
+| EX-1 | ~~P2~~ mitigated | `openapi` example is a runnable server with docs routes (Wave 2) | `examples/openapi/src/main.rs`; `docs/examples.md` |
 | EX-2 | ~~P2~~ mitigated | `auth-api` guard now reads `x-api-key` header (Wave 5) | `examples/auth-api/src/main.rs` |
 | CLI-1 | ~~P2~~ mitigated | All-four-artifact end-to-end compile test (Wave 11) | `cargo-nidus/tests/cli_generate.rs` |
-| CLI-2 | P2 | Default `nidus="0.1"` branch untested | `cargo-nidus/src/generate.rs:15-17` |
+| CLI-2 | ~~P2~~ covered | Default `nidus="0.1"` branch tested (Wave 15) | `cargo-nidus/tests/cli_new.rs` |
 | ERR-1 | ~~P2~~ mitigated | 5xx `code` now masked to generic value (Wave 6) | `nidus-http/src/error.rs` |
 | AD-3 | ~~P2~~ mitigated (cache) | nidus-cache invalidate/from_cache covered (Wave 12); sqlx health/postgres need live DB | `nidus-sqlx`, `nidus-cache` tests/ |
 | T-1 | ~~P2~~ mitigated | TestApp `with_request_scope` installs request scope layer (Wave 10) | `nidus-testing/src/app.rs` |
@@ -929,6 +935,27 @@ Closed the async-safety gap F-CORE-4 (RT-2).
 
 `cargo fmt --all --check`, `cargo clippy -p nidus-core --all-targets --all-features -- -D warnings`,
 `cargo test --workspace --all-features` (372 passed / 0 failed) — all clean.
+
+## Follow-up hardening — Wave 15 (2026-06-27, after commit `a656912`)
+
+Closed the remaining deterministic CLI coverage gap CLI-2.
+
+### Implemented (test-only)
+
+- **CLI-2 covered — default published dependency branch.**
+  `cargo_nidus_new_defaults_to_published_nidus_dependency` runs `cargo nidus new` without
+  `--nidus-path` and asserts the generated `Cargo.toml` contains `nidus = "0.1"` and not a local
+  `path` dependency. This covers the publishable-user branch in `create_project` without requiring
+  a registry/network compile of the generated project.
+  - **Bench:** not required — CLI manifest generation is not a framework hot path.
+
+### Verification after this pass
+
+`cargo test -p cargo-nidus --test cli_new cargo_nidus_new_defaults_to_published_nidus_dependency`
+(1 passed) and `cargo test -p cargo-nidus --test cli_new` (4 passed) are clean. The first full
+`cli_new` run failed before the temp cleanup because generated-project dependency compilation
+exhausted macOS temp disk space; the disposable `/private/.../T/nidus-cli-tests` tree was removed,
+free space recovered from ~257 MiB to ~51 GiB, and the suite then passed.
 
 ## Appendix: verification commands (baseline)
 

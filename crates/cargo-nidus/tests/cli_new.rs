@@ -65,6 +65,22 @@ fn cargo_nidus_new_generates_compilable_nidus_project() {
 }
 
 #[test]
+fn cargo_nidus_new_defaults_to_published_nidus_dependency() {
+    let root = temp_project_root("new_defaults_to_published_nidus_dependency");
+    let project = root.join("hello-nidus");
+    let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "new", "hello-nidus", "--path"])
+        .arg(&root)
+        .status()
+        .unwrap();
+
+    assert!(status.success());
+    let cargo_toml = fs::read_to_string(project.join("Cargo.toml")).unwrap();
+    assert!(cargo_toml.contains("nidus = \"0.1\""));
+    assert!(!cargo_toml.contains("nidus = { path ="));
+}
+
+#[test]
 fn cargo_nidus_new_generates_runnable_http_server() {
     let root = temp_project_root("new_generates_runnable_http_server");
     let project = root.join("hello-nidus");

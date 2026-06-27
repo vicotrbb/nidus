@@ -183,7 +183,7 @@ Each wave is a separate atomic commit. Any wave can be reverted in isolation wit
 - E-1/E-2/E-3 bounded event queues + observer offloading.
 - EX-2 auth-api guard realism; EX-3 production-api naming; EX-4 orphan `sqlx-postgres` dir cleanup;
   EX-5 example `.expect()` cleanup.
-- CLI-1/CLI-2 CLI compile-coverage tests; AD-1/AD-2/AD-3 adapter registration + health wiring + coverage.
+- CLI coverage beyond CLI-1/CLI-2; AD-1/AD-2/AD-3 adapter registration + health wiring + coverage.
 - T-1 TestApp request-scope helper; T-2 spurious-async assertions.
 - BENCH-1 baseline locking.
 
@@ -414,3 +414,15 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 14" secti
 - **Verification:** `cargo test -p nidus-core`; `cargo test --workspace --all-features`
   (372 passed); fmt/clippy/doc clean.
 - **Bench:** not required (opt-in, default unchanged; runs at startup, not request hot path).
+
+## Wave 15 — CLI coverage: default published dependency branch (CLI-2)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 15" section.
+
+- **Files:** `crates/cargo-nidus/tests/cli_new.rs`; audit status table.
+- **Behavior change:** none (test-only).
+- **Coverage:** `cargo_nidus_new_defaults_to_published_nidus_dependency` runs `cargo nidus new`
+  without `--nidus-path` and asserts the generated manifest uses `nidus = "0.1"` instead of a local
+  `path` dependency.
+- **Verification:** focused test (1 passed) and full `cli_new` suite (4 passed).
+- **Bench:** not required (CLI manifest generation, not a framework hot path).
