@@ -338,8 +338,9 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 - **J-2 (~~P2~~ mitigated, Wave 2):** `JobQueue::clear` and `AsyncJobQueue::clear` now provide an
   explicit way to drop retained jobs. Tests pin both the documented retain-and-rerun behavior and
   the clear-after-run path.
-- **J-3 (P3):** No observer integration in `JobQueue`/`AsyncJobQueue` (telemetry vs orchestration
-  are mutually exclusive).
+- **J-3 (~~P3~~ mitigated, Wave 37):** `JobQueue` and `AsyncJobQueue` now expose
+  `run_all_observed(...)`, so queue orchestration can reuse `ObservedJobRunner` for telemetry
+  without manually wrapping each job.
 - **J-4 (~~P3~~ mitigated, Wave 19):** `ObservedJobRunner::run_async` no longer holds a tracing
   `Entered` guard across `.await`; the job future is instrumented directly, and a compile-time
   regression test asserts the returned future is `Send`.
@@ -561,6 +562,7 @@ example/bench code.
 | F-MAC-1 | not a defect | Manual controller construction requires runtime field errors; compile-error attempt reverted (Wave 3) | `nidus-macros/src/controller.rs` |
 | J-1 | ~~P2~~ mitigated | `ObservedJobRunner` panic recovery added (Wave 2) | `nidus-jobs/src/lib.rs` |
 | J-2 | ~~P2~~ mitigated | Job queues document retention and expose `clear` (Wave 2) | `nidus-jobs/src/lib.rs` |
+| J-3 | ~~P3~~ mitigated | Job queues can run through `ObservedJobRunner` (Wave 37) | `nidus-jobs/src/lib.rs` |
 | E-1 | ~~P2~~ mitigated | Opt-in bounded subscriber queues added (Wave 3) | `nidus-events/src/lib.rs` |
 | O-1 | ~~P2~~ mitigated | OpenAPI emits error responses (Wave 9) | `nidus-openapi/src/route.rs` |
 | O-2 | ~~P2~~ covered | Route↔OpenAPI parity tests added (Wave 3) | `nidus-openapi/tests/` |
@@ -1465,6 +1467,30 @@ Closed the adapter registration semantics gap AD-1 / API-2.
 `cargo test -p nidus-example-integrations-production`,
 `cargo clippy -p nidus-cache -p nidus-sqlx -p nidus-example-integrations-production --all-targets --all-features -- -D warnings`,
 `RUSTDOCFLAGS="-D warnings" cargo doc -p nidus-cache -p nidus-sqlx -p nidus-example-integrations-production --all-features --no-deps`,
+`cargo fmt --all --check`, and `git diff --check` are clean.
+
+## Follow-up hardening — Wave 37 (2026-06-27, after commit `94c4050`)
+
+Closed the job queue observer integration gap J-3.
+
+### Implemented (TDD)
+
+- **J-3 mitigated — queue orchestration can reuse job observers.** `JobQueue::run_all_observed`
+  and `AsyncJobQueue::run_all_observed` run queued jobs through `ObservedJobRunner`, preserving the
+  existing insertion-order and continue-on-failure queue semantics while sharing observer callbacks,
+  tracing spans, panic recovery, run IDs, attributes, and duration capture.
+  - **TDD:** `job_queue_can_run_all_jobs_with_observer` and
+    `async_job_queue_can_run_all_jobs_with_observer` first failed because neither queue exposed
+    `run_all_observed`. After adding the methods and allowing `ObservedJobRunner` to accept job
+    trait objects, both tests pass.
+  - **Bench/manual curl:** not required — jobs are local background primitives, not HTTP server
+    routes or hot-path HTTP/DI/routing/request lifecycle/metrics/module graph behavior.
+
+### Verification after this pass
+
+`cargo test -p nidus-jobs --test observed_jobs`, `cargo test -p nidus-jobs`,
+`cargo clippy -p nidus-jobs --all-targets --all-features -- -D warnings`,
+`RUSTDOCFLAGS="-D warnings" cargo doc -p nidus-jobs --all-features --no-deps`,
 `cargo fmt --all --check`, and `git diff --check` are clean.
 
 ## Appendix: verification commands (baseline)

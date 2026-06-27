@@ -1,7 +1,8 @@
 use std::sync::{Arc, Mutex};
 
 use nidus_jobs::{
-    AsyncJob, Job, JobError, JobObserver, JobResultStatus, ObservedJobContext, ObservedJobRunner,
+    AsyncJob, AsyncJobQueue, Job, JobError, JobObserver, JobQueue, JobResultStatus,
+    ObservedJobContext, ObservedJobRunner,
 };
 
 #[derive(Clone, Default)]
@@ -174,6 +175,57 @@ async fn observed_job_runner_emits_finished_and_returns_error_after_async_panic(
         [
             "started async_panicking_job run-4",
             "finished async_panicking_job run-4 Failure"
+        ]
+    );
+}
+
+#[test]
+fn job_queue_can_run_all_jobs_with_observer() {
+    let observer = RecordingObserver::default();
+    let runner =
+        ObservedJobRunner::new(observer.clone()).run_id_generator(|| "queue-run".to_owned());
+    let mut queue = JobQueue::new();
+    queue.push(SuccessfulJob);
+    queue.push(FailingJob);
+
+    let report = queue.run_all_observed(&runner);
+
+    assert_eq!(report.completed(), ["successful_job"]);
+    assert_eq!(report.failed().len(), 1);
+    assert_eq!(report.failed()[0].job(), "failing_job");
+    assert_eq!(
+        observer.events(),
+        [
+            "started successful_job queue-run",
+            "finished successful_job queue-run Success",
+            "started failing_job queue-run",
+            "finished failing_job queue-run Failure"
+        ]
+    );
+}
+
+#[tokio::test]
+async fn async_job_queue_can_run_all_jobs_with_observer() {
+    let observer = RecordingObserver::default();
+    let runner =
+        ObservedJobRunner::new(observer.clone()).run_id_generator(|| "queue-run".to_owned());
+    let mut queue = AsyncJobQueue::new();
+    queue.push(AsyncSuccessfulJob);
+    queue.push(AsyncPanickingJob);
+
+    let report = queue.run_all_observed(&runner).await;
+
+    assert_eq!(report.completed(), ["async_successful_job"]);
+    assert_eq!(report.failed().len(), 1);
+    assert_eq!(report.failed()[0].job(), "async_panicking_job");
+    assert_eq!(report.failed()[0].error().message(), "job panicked");
+    assert_eq!(
+        observer.events(),
+        [
+            "started async_successful_job queue-run",
+            "finished async_successful_job queue-run Success",
+            "started async_panicking_job queue-run",
+            "finished async_panicking_job queue-run Failure"
         ]
     );
 }

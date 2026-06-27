@@ -196,7 +196,7 @@ where
     /// Runs and observes a synchronous job.
     pub fn run<J>(&self, job: &J) -> Result<()>
     where
-        J: Job,
+        J: Job + ?Sized,
     {
         let started_at = Instant::now();
         let mut context = self.context_for(job.name());
@@ -223,7 +223,7 @@ where
     /// Runs and observes an asynchronous job.
     pub async fn run_async<J>(&self, job: &J) -> Result<()>
     where
-        J: AsyncJob,
+        J: AsyncJob + ?Sized,
     {
         let started_at = Instant::now();
         let mut context = self.context_for(job.name());
@@ -383,6 +383,29 @@ impl JobQueue {
         }
         JobReport { completed, failed }
     }
+
+    /// Runs all queued jobs through an observed runner.
+    ///
+    /// This preserves the queue's insertion-order and continue-on-failure
+    /// semantics while reusing [`ObservedJobRunner`] for tracing, observer
+    /// callbacks, panic recovery, and duration capture.
+    pub fn run_all_observed<O>(&self, runner: &ObservedJobRunner<O>) -> JobReport
+    where
+        O: JobObserver,
+    {
+        let mut completed = Vec::with_capacity(self.jobs.len());
+        let mut failed = Vec::new();
+        for job in &self.jobs {
+            match runner.run(job.as_ref()) {
+                Ok(()) => completed.push(job.name()),
+                Err(error) => failed.push(JobFailure {
+                    job: job.name(),
+                    error,
+                }),
+            }
+        }
+        JobReport { completed, failed }
+    }
 }
 
 /// In-memory asynchronous job queue.
@@ -446,6 +469,29 @@ impl AsyncJobQueue {
                 Err(_) => failed.push(JobFailure {
                     job: job.name(),
                     error: JobError::new("job panicked"),
+                }),
+            }
+        }
+        JobReport { completed, failed }
+    }
+
+    /// Runs all queued asynchronous jobs through an observed runner.
+    ///
+    /// This preserves the queue's insertion-order and continue-on-failure
+    /// semantics while reusing [`ObservedJobRunner`] for tracing, observer
+    /// callbacks, panic recovery, and duration capture.
+    pub async fn run_all_observed<O>(&self, runner: &ObservedJobRunner<O>) -> JobReport
+    where
+        O: JobObserver,
+    {
+        let mut completed = Vec::with_capacity(self.jobs.len());
+        let mut failed = Vec::new();
+        for job in &self.jobs {
+            match runner.run_async(job.as_ref()).await {
+                Ok(()) => completed.push(job.name()),
+                Err(error) => failed.push(JobFailure {
+                    job: job.name(),
+                    error,
                 }),
             }
         }

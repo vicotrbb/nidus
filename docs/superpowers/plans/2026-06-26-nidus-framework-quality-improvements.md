@@ -766,3 +766,23 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 36" secti
 - **Manual curl:** not required; no server example route behavior changed.
 - **Bench:** not required (adapter startup/registration semantics only; no hot-path HTTP, DI
   resolution, routing, request lifecycle, metrics, or module graph algorithm change).
+
+---
+
+## Wave 37 — job queue observer integration (J-3)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 37" section.
+
+- **Files:** `crates/nidus-jobs/src/lib.rs`, `crates/nidus-jobs/tests/observed_jobs.rs`, audit,
+  plan.
+- **Behavior change:** `JobQueue::run_all_observed` and `AsyncJobQueue::run_all_observed` run queued
+  jobs through `ObservedJobRunner`, so queue users can get the same observer callbacks and panic
+  recovery as single-job observed runs.
+- **TDD:** sync and async queue observer tests failed on missing methods, then passed after adding
+  the APIs and supporting job trait objects in the runner.
+- **Verification:** `cargo test -p nidus-jobs --test observed_jobs`; `cargo test -p nidus-jobs`;
+  `cargo clippy -p nidus-jobs --all-targets --all-features -- -D warnings`;
+  `RUSTDOCFLAGS="-D warnings" cargo doc -p nidus-jobs --all-features --no-deps`;
+  `cargo fmt --all --check`; `git diff --check`.
+- **Manual curl/bench:** not required (local background-job API only; no server route or hot-path
+  HTTP/DI/routing/request lifecycle/metrics/module graph change).
