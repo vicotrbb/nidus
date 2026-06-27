@@ -18,7 +18,7 @@ pub use nidus_http::{
     HeaderMap, IntoResponse, Json, Path, Query, Response, Router, State, StatusCode,
     context::{
         ClientKind, IdentityExtractor, RequestContext, RequestIdentity, api_key_identity,
-        client_ip_identity, context_identity,
+        client_ip_identity, context_identity, trusted_proxy_client_ip_identity,
     },
     controller::Controller,
     error::{ErrorEnvelopeLayer, ErrorEnvelopeService, HttpError, RoutePathError},

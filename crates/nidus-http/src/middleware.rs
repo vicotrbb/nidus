@@ -20,7 +20,7 @@ mod security;
 
 pub use crate::context::{
     ClientKind, IdentityExtractor, RequestContext, RequestIdentity, api_key_identity,
-    client_ip_identity, context_identity,
+    client_ip_identity, context_identity, trusted_proxy_client_ip_identity,
 };
 pub use api_defaults::ApiDefaults;
 pub use catch_panic::{CatchPanicLayer, CatchPanicService, catch_panic_layer};

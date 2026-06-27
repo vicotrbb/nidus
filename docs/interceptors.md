@@ -89,6 +89,29 @@ let app = router.layer(
 );
 ```
 
+`client_ip_identity()` uses the connected peer IP from Axum `ConnectInfo` and
+does not trust `X-Forwarded-For`. The Nidus `listen` and `serve` helpers
+populate `ConnectInfo` for normal TCP serving. When an app intentionally runs
+behind a known reverse proxy that owns `X-Forwarded-For`, use
+`trusted_proxy_client_ip_identity([...])` and pass the trusted proxy IPs
+explicitly:
+
+```rust
+let proxy = "127.0.0.1".parse::<std::net::IpAddr>()?;
+let app = router.layer(
+    RateLimitConfig::new(100, Duration::from_secs(60), InMemoryRateLimitStore::new())
+        .identity(trusted_proxy_client_ip_identity([proxy]))
+        .fail_closed()
+        .layer(),
+);
+# Ok::<(), std::net::AddrParseError>(())
+```
+
+Requests from untrusted peers ignore `X-Forwarded-For` and use the direct peer
+IP. Requests without peer information fall back to the shared `"anonymous"`
+identity, which is suitable for in-memory tests but should not be treated as a
+multi-client production boundary.
+
 The layer emits `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`,
 and `Retry-After` headers when a request is rejected.
 

@@ -232,13 +232,15 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 - **Fix:** Add optional graceful-shutdown signal + `ConnectInfo` make-service (or document).
 - **Verification:** `cargo test -p nidus-http --test server`; integration test for identity.
 
-#### F-HTTP-6 — `client_ip_identity` trusts `X-Forwarded-For` and collapses anonymous to one bucket (P2)
-- **Evidence:** `crates/nidus-http/src/context.rs:282-296` reads the first XFF hop with no
-  trusted-proxy validation; falls back to a single `RequestIdentity::new("anonymous")`.
+#### F-HTTP-6 — `client_ip_identity` trusts `X-Forwarded-For` and collapses anonymous to one bucket (~~P2~~ mitigated, Wave 43)
+- **Evidence:** `client_ip_identity()` now uses only `ConnectInfo<SocketAddr>` and ignores
+  `X-Forwarded-For`; `trusted_proxy_client_ip_identity([...])` is the explicit opt-in path for
+  deployments that trust known proxy IPs. Tests cover no-peer XFF fallback to `"anonymous"`,
+  trusted-proxy XFF use, and untrusted-peer XFF rejection.
 - **Files:** `crates/nidus-http/src/context.rs`
-- **Risk:** Identity spoofing (evade/framed per-IP limits); one abuser exhausts the shared
+- **Risk:** Identity spoofing (evade/framed per-IP limits); one abuser could exhaust the shared
   `"anonymous"` window for all anonymous clients.
-- **Fix:** Trusted-proxy config; per-connection fallback instead of a shared bucket.
+- **Fix:** Trusted-proxy config; per-connection fallback instead of implicit header trust.
 - **Verification:** unit tests for identity extraction branches.
 
 #### F-HTTP-7 — No panic-catching layer in production stack (~~P2~~ mitigated, Wave 7)
@@ -538,10 +540,10 @@ example/bench code.
 
 - **SEC-1 (~~P2~~ mitigated, Wave 13):** body limit bypass closed via opt-in `streaming_body_limit`
   (F-HTTP-2); the two-tier model is now documented. The default remains `Content-Length`-only by design.
-- **SEC-2 (~~P2~~ partially mitigated, Wave 4):** rate-limit identity now uses the real peer
-  IP via `ConnectInfo` (F-HTTP-5 fix), closing XFF-spoofing and shared-`anonymous`-bucket
-  evasion on the blessed `listen`/`serve` path. Trusted-proxy XFF validation (F-HTTP-6)
-  remains deferred; XFF is now only consulted when `ConnectInfo` is absent.
+- **SEC-2 (~~P2~~ mitigated, Waves 4 and 43):** rate-limit identity now uses the real peer
+  IP via `ConnectInfo` (F-HTTP-5 fix), and `client_ip_identity()` no longer trusts
+  `X-Forwarded-For` when peer info is absent. Trusted proxy deployments must opt in with
+  `trusted_proxy_client_ip_identity([...])`, which accepts XFF only from configured proxy IPs.
 - **SEC-3 (~~P2~~ mitigated / partially opt-in):** prometheus series and event subscriber queues now
   have opt-in bounds (F-HTTP-8, E-1); job queues now expose `clear` and document retain/rerun
   semantics (J-2). Defaults stay backward-compatible where changing them would alter behavior.
@@ -565,7 +567,7 @@ example/bench code.
 | F-HTTP-3 | ~~P2~~ mitigated | 413 now enveloped/metered/request-id'd (Wave 8) | `nidus-http/src/middleware/api_defaults.rs` |
 | F-HTTP-4 | ~~P2~~ covered | Production middleware order probe test added (Wave 2) | `nidus-http/tests/production_api.rs` |
 | F-HTTP-5 | ~~P2~~ mitigated | ConnectInfo now on blessed path; graceful-shutdown API added (Wave 4) | `nidus-http/src/server.rs` |
-| F-HTTP-6 | ~~P2~~ partial | ConnectInfo now used first (Wave 4); trusted-proxy XFF validation deferred | `nidus-http/src/context.rs` |
+| F-HTTP-6 | ~~P2~~ mitigated | `client_ip_identity` ignores XFF by default; trusted proxy XFF is explicit (Wave 43) | `nidus-http/src/context.rs` |
 | F-HTTP-7 | ~~P2~~ mitigated | Production stack catches handler panics (Wave 7) | `nidus-http/src/middleware/{api_defaults,catch_panic}.rs` |
 | F-HTTP-8 | ~~P2~~ mitigated | Opt-in Prometheus max-series overflow bucket (Wave 3) | `nidus-http/src/middleware/metrics.rs` |
 | F-MAC-1 | not a defect | Manual controller construction requires runtime field errors; compile-error attempt reverted (Wave 3) | `nidus-macros/src/controller.rs` |
@@ -692,9 +694,9 @@ fmt/clippy/doc clean.
   populated, `client_ip_identity` classifies by the **real peer IP** instead of
   trusting spoofable `X-Forwarded-For` or collapsing to `"anonymous"`. The
   shared-anonymous-bucket evasion and XFF-spoofing evasion are closed on the
-  blessed server path. (Trusted-proxy validation of XFF, F-HTTP-6, remains
-  deferred — but XFF is now only consulted when `ConnectInfo` is absent, i.e.
-  not via the blessed `listen`/`serve`.)
+  blessed server path. Wave 43 later removed the implicit XFF fallback from
+  `client_ip_identity()` and added the explicit `trusted_proxy_client_ip_identity([...])`
+  opt-in for known proxy IPs.
 
 ### Manual curl evidence (Wave 4)
 
@@ -1643,6 +1645,55 @@ paths.
 `cargo fmt --all --check`, `git diff --check`, `cargo deny check`, `cargo machete`, and
 `cargo tree -d` are clean. `cargo audit` reports one allowed warning for unmaintained
 `proc-macro-error2` (`RUSTSEC-2026-0173`) and no vulnerability failure.
+
+## Follow-up hardening — Wave 43 (2026-06-27, after commit `8ff648d`)
+
+Mitigated the remaining client-IP identity hardening gap F-HTTP-6 / SEC-2.
+
+### Implemented (TDD)
+
+- **F-HTTP-6 mitigated — default client-IP identity no longer trusts forwarded headers.**
+  `client_ip_identity()` now reads only Axum `ConnectInfo<SocketAddr>` and falls back to
+  `"anonymous"` when a router has no peer info. It no longer accepts spoofable `X-Forwarded-For`
+  values implicitly.
+- **Trusted proxy path is explicit.** `trusted_proxy_client_ip_identity([...])` accepts an exact list
+  of trusted proxy IPs. If the direct peer is trusted and the first `X-Forwarded-For` entry parses as
+  an IP address, that forwarded client IP is used. Otherwise the direct peer IP is used. Requests
+  without peer info still fall back to `"anonymous"`.
+  - **TDD:** focused context tests first failed because the trusted-proxy helper did not exist and
+    `client_ip_identity()` still accepted XFF without peer info. After the implementation, tests prove
+    default XFF rejection, trusted-proxy XFF use, and untrusted-peer XFF rejection.
+  - **Docs:** `docs/interceptors.md` and `docs/deployment.md` document the default peer-IP boundary
+    and explicit trusted-proxy helper.
+  - **Manual curl:** not required — no server example routes were touched. The relevant serving
+    behavior is covered by focused unit tests and prior Wave 4 live curl already proved
+    `listen`/`serve` populate `ConnectInfo`.
+  - **Bench:** `cargo bench --bench request_lifecycle` was run because this touches the HTTP request
+    identity boundary. Most scenarios improved or remained within noise. One unrelated metrics-only
+    microbenchmark (`nidus metrics record response`) reported a small regression
+    `[+1.6632% +3.2101% +5.3351%]` with severe outliers; this wave did not touch metrics recording,
+    and adjacent metrics scenarios were unchanged or within noise, so treat that as residual
+    Criterion noise rather than a proven Wave 43 regression.
+
+### Verification after this pass
+
+Clean:
+
+- `cargo test -p nidus-http context::tests`
+- `cargo test -p nidus-http`
+- `cargo test -p nidus --all-features`
+- `cargo test --workspace --all-features`
+- `cargo clippy --workspace --all-targets --all-features -- -D warnings`
+- `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps`
+- `cargo fmt --all --check`
+- `git diff --check`
+- `cargo deny check`
+- `cargo audit` (same allowed warning for unmaintained `proc-macro-error2`,
+  `RUSTSEC-2026-0173`; no vulnerability failure)
+- `cargo machete`
+- `cargo tree -d`
+- `cargo metadata --no-deps --format-version 1`
+- `cargo bench --bench request_lifecycle` (see benchmark note above)
 
 ## Appendix: verification commands (baseline)
 

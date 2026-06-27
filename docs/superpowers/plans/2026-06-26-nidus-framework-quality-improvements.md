@@ -17,10 +17,11 @@ isolated, each has an obvious failing-test-first path, and none requires a specu
 A small set of cheap, test-first P2 hardening items is bundled in a second wave because they are
 low-risk and directly convert latent risk into locked-in coverage.
 
-Out of scope for this plan (deferred — see "Deferred items"): body-limit/streaming changes,
-graceful-shutdown, rate-limit identity hardening, panic-catching layer, prometheus series bounds,
-graph TypeId re-keying, OpenAPI error-response modeling. These are larger or touch public
-behavior/defaults and deserve their own scoped phases.
+Out of scope for the initial plan (deferred — see "Deferred items" and later wave notes):
+body-limit/streaming changes, graceful-shutdown, rate-limit identity hardening, panic-catching
+layer, prometheus series bounds, graph TypeId re-keying, OpenAPI error-response modeling. Several
+of these were later handled in follow-up waves; unresolved items remain listed in the current
+deferred backlog.
 
 ---
 
@@ -177,7 +178,7 @@ Each wave is a separate atomic commit. Any wave can be reverted in isolation wit
 
 - F-CORE-3 graph TypeId re-keying; F-CORE-4 eager singleton resolution; F-CORE-5 request-dep docs.
 - F-HTTP-2 streaming body limit; F-HTTP-3 413 ordering; F-HTTP-5 graceful shutdown + ConnectInfo;
-  F-HTTP-6 client_ip_identity hardening; F-HTTP-7 panic-catching layer; F-HTTP-8 prometheus series cap.
+  F-HTTP-7 panic-catching layer; F-HTTP-8 prometheus series cap.
 - O-1 OpenAPI error-response modeling; O-2 parity test (covered partially by 2.1's probe).
 - E-2 has an opt-in channel offload seam; direct observers remain synchronous by design.
 - EX-2 auth-api guard realism.
@@ -876,3 +877,27 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 42" secti
   gates.
 - **Manual curl/bench:** not required (macro diagnostics and trybuild fixtures only; no server route
   or hot-path HTTP/DI/routing/request lifecycle/metrics/module graph runtime changed).
+
+---
+
+## Wave 43 — client IP identity trusted proxy hardening (F-HTTP-6 / SEC-2)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 43" section.
+
+- **Files:** `crates/nidus-http/src/context.rs`, `crates/nidus-http/src/middleware.rs`,
+  `crates/nidus/src/prelude.rs`, `docs/interceptors.md`, `docs/deployment.md`, audit, plan.
+- **Behavior change:** `client_ip_identity()` no longer trusts `X-Forwarded-For`; it uses
+  `ConnectInfo<SocketAddr>` and otherwise falls back to `"anonymous"`. New
+  `trusted_proxy_client_ip_identity([...])` accepts forwarded client IPs only when the direct peer
+  IP is in the configured trusted proxy list.
+- **TDD:** focused context tests first failed because the helper did not exist and the default
+  extractor accepted XFF without peer info; after the implementation, default XFF rejection,
+  trusted-proxy XFF use, and untrusted-peer XFF rejection pass.
+- **Verification:** focused `nidus-http` context tests, package tests, full workspace tests, clippy,
+  rustdoc, fmt, diff whitespace, dependency hygiene, metadata, and request-lifecycle benchmark.
+- **Manual curl:** not required (no server example routes changed; prior Wave 4 live curl proved
+  `listen`/`serve` populate `ConnectInfo`).
+- **Bench:** `cargo bench --bench request_lifecycle` completed because this touches the HTTP request
+  identity boundary. Most scenarios improved or remained within noise; one unrelated metrics-only
+  scenario (`nidus metrics record response`) reported a small outlier-heavy regression, while
+  adjacent metrics scenarios were unchanged or within noise.

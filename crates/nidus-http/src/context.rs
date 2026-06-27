@@ -1,6 +1,9 @@
 //! Request context primitives shared by middleware, handlers, and observers.
 
-use std::{future::Future, net::SocketAddr};
+use std::{
+    future::Future,
+    net::{IpAddr, SocketAddr},
+};
 
 use axum::extract::FromRequestParts;
 use http::{HeaderMap, Method, request::Parts};
@@ -279,20 +282,61 @@ pub fn api_key_identity() -> impl IdentityExtractor {
 }
 
 /// Builds an identity extractor from the connected client IP address.
+///
+/// This extractor uses Axum's [`axum::extract::ConnectInfo<SocketAddr>`]
+/// extension and ignores `X-Forwarded-For`. Nidus serving helpers populate
+/// `ConnectInfo` on the normal `listen`/`serve` path. If a router is exercised
+/// without peer information, the identity falls back to `"anonymous"`.
 pub fn client_ip_identity() -> impl IdentityExtractor {
     |parts: &Parts| {
-        parts
-            .extensions
-            .get::<axum::extract::ConnectInfo<SocketAddr>>()
-            .map(|connect| RequestIdentity::new(connect.0.ip().to_string()))
-            .or_else(|| {
-                header_to_string(&parts.headers, "x-forwarded-for")
-                    .and_then(|value| value.split(',').next().map(str::trim).map(str::to_owned))
-                    .filter(|value| !value.is_empty())
-                    .map(RequestIdentity::new)
+        peer_ip(parts)
+            .map(|ip| RequestIdentity::new(ip.to_string()))
+            .or_else(|| Some(RequestIdentity::new("anonymous")))
+    }
+}
+
+/// Builds an identity extractor that trusts `X-Forwarded-For` only from known proxies.
+///
+/// Use this when Nidus runs behind a reverse proxy that rewrites or appends
+/// `X-Forwarded-For` and the direct peer address is one of the configured
+/// trusted proxy IPs. Requests from untrusted peers ignore `X-Forwarded-For`
+/// and use the direct peer IP. Requests without peer information fall back to
+/// `"anonymous"`.
+pub fn trusted_proxy_client_ip_identity(
+    trusted_proxies: impl IntoIterator<Item = IpAddr>,
+) -> impl IdentityExtractor {
+    let trusted_proxies = trusted_proxies.into_iter().collect::<Vec<_>>();
+    move |parts: &Parts| {
+        peer_ip(parts)
+            .map(|peer| {
+                if trusted_proxies.contains(&peer)
+                    && let Some(forwarded_ip) = forwarded_for_ip(&parts.headers)
+                {
+                    RequestIdentity::new(forwarded_ip.to_string())
+                } else {
+                    RequestIdentity::new(peer.to_string())
+                }
             })
             .or_else(|| Some(RequestIdentity::new("anonymous")))
     }
+}
+
+fn peer_ip(parts: &Parts) -> Option<IpAddr> {
+    parts
+        .extensions
+        .get::<axum::extract::ConnectInfo<SocketAddr>>()
+        .map(|connect| connect.0.ip())
+}
+
+fn forwarded_for_ip(headers: &HeaderMap) -> Option<IpAddr> {
+    header_to_string(headers, "x-forwarded-for").and_then(|value| {
+        value
+            .split(',')
+            .next()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .and_then(|value| value.parse().ok())
+    })
 }
 
 pub(crate) fn header_to_string(headers: &HeaderMap, name: &'static str) -> Option<String> {
@@ -316,11 +360,56 @@ fn infer_client_kind(headers: &HeaderMap) -> ClientKind {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use http::Request;
 
     #[test]
     fn request_context_can_consume_request_id() {
         let context = RequestContext::new("req-123", Method::GET, "/users");
 
         assert_eq!(context.into_request_id(), "req-123");
+    }
+
+    #[test]
+    fn client_ip_identity_ignores_forwarded_headers_without_peer_info() {
+        let parts = request_parts(None, Some("203.0.113.10"));
+        let identity = client_ip_identity().extract(&parts).unwrap();
+
+        assert_eq!(identity.as_str(), "anonymous");
+    }
+
+    #[test]
+    fn trusted_proxy_client_ip_identity_uses_forwarded_header_from_trusted_peer() {
+        let parts = request_parts(Some("127.0.0.1:5000"), Some("203.0.113.10, 10.0.0.5"));
+        let trusted_proxy = "127.0.0.1".parse::<IpAddr>().unwrap();
+        let identity = trusted_proxy_client_ip_identity([trusted_proxy])
+            .extract(&parts)
+            .unwrap();
+
+        assert_eq!(identity.as_str(), "203.0.113.10");
+    }
+
+    #[test]
+    fn trusted_proxy_client_ip_identity_ignores_forwarded_header_from_untrusted_peer() {
+        let parts = request_parts(Some("127.0.0.1:5000"), Some("203.0.113.10"));
+        let trusted_proxy = "10.0.0.1".parse::<IpAddr>().unwrap();
+        let identity = trusted_proxy_client_ip_identity([trusted_proxy])
+            .extract(&parts)
+            .unwrap();
+
+        assert_eq!(identity.as_str(), "127.0.0.1");
+    }
+
+    fn request_parts(peer: Option<&str>, forwarded_for: Option<&str>) -> Parts {
+        let mut builder = Request::builder().uri("/");
+        if let Some(forwarded_for) = forwarded_for {
+            builder = builder.header("x-forwarded-for", forwarded_for);
+        }
+        let (mut parts, ()) = builder.body(()).unwrap().into_parts();
+        if let Some(peer) = peer {
+            parts.extensions.insert(axum::extract::ConnectInfo(
+                peer.parse::<SocketAddr>().unwrap(),
+            ));
+        }
+        parts
     }
 }
