@@ -54,11 +54,15 @@ regressions/improvements versus local saved history, including raw or unrelated
 benchmarks moving in different directions. Treat the table as a current
 reference point, not publish-grade proof.
 
-The latest durable request-lifecycle result is recorded separately at
-`benchmarks/results/2026-06-27-request-lifecycle-wave43.md`. Prefer that
-artifact for current request-lifecycle evidence; the table below remains a
-compact reference that mixes the original full-table capture with later
-request-lifecycle follow-up runs.
+The latest durable local result artifacts are:
+
+- `benchmarks/results/2026-06-27-dependency-resolution-wave46.md`
+- `benchmarks/results/2026-06-27-routing-wave46.md`
+- `benchmarks/results/2026-06-27-request-lifecycle-wave43.md`
+
+Prefer those artifacts for current local benchmark evidence. The table below
+remains a compact reference that mixes the original full-table capture with
+later follow-up runs.
 
 | Benchmark | Central estimate | Notes |
 | --- | ---: | --- |

@@ -184,8 +184,8 @@ Each wave is a separate atomic commit. Any wave can be reverted in isolation wit
 - EX-2 auth-api guard realism.
 - CLI coverage beyond CLI-1/CLI-2; AD-2 live Postgres health coverage.
 - T-1 TestApp request-scope helper; T-2 spurious-async assertions.
-- Fresh full-suite/release-machine result baselines for BENCH-1 after Wave 45's local
-  request-lifecycle result artifact.
+- Fresh release-machine result baselines for BENCH-1 after Wave 46's local benchmark result
+  artifacts.
 
 These are tracked in the audit backlog and will be addressed in follow-up phases.
 
@@ -942,3 +942,23 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 45" secti
 - **Manual curl/bench:** manual curl not required. No new benchmark run was required because this
   docs/test wave records the already-run Wave 43 `cargo bench --bench request_lifecycle` structured
   Criterion output and does not change runtime code.
+
+---
+
+## Wave 46 — dependency/routing benchmark result artifacts (BENCH-1)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 46" section.
+
+- **Files:** `benchmarks/results/2026-06-27-dependency-resolution-wave46.md`,
+  `benchmarks/results/2026-06-27-routing-wave46.md`, `tests/performance_docs.rs`,
+  `docs/performance.md`, audit, plan.
+- **Behavior change:** none. This is benchmark evidence hygiene.
+- **TDD:** `cargo test --test performance_docs
+  dependency_and_routing_result_artifacts_cover_current_benchmark_surface` first failed because the
+  dependency-resolution artifact did not exist. After adding both artifacts, the focused test passes.
+- **Bench:** `cargo bench --bench dependency_resolution` and `cargo bench --bench routing` both
+  completed with no detected performance change. The artifacts record local Criterion estimates,
+  confidence intervals, change intervals, and outlier caveats.
+- **Verification:** focused performance-doc test, then standard docs/test/dependency gates for this
+  docs/test wave.
+- **Manual curl:** not required (benchmark docs/tests only; no server routes changed).

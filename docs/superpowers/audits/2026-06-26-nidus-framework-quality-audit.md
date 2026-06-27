@@ -533,9 +533,9 @@ example/bench code.
   registered (`harness = false`) and **compile against the current API** (no drift; every imported
   symbol verified present).
 - `request_lifecycle.rs` is comprehensive (21 scenarios incl. individual middleware layers).
-- **BENCH-1 (~~P3~~ partially mitigated, Waves 41 and 45):** the current Criterion benchmark
-  surface is locked against `docs/performance.md` with a root integration test, and the Wave 43
-  request-lifecycle run now has a durable result artifact under `benchmarks/results/`. Fresh
+- **BENCH-1 (~~P3~~ partially mitigated, Waves 41, 45, and 46):** the current Criterion benchmark
+  surface is locked against `docs/performance.md` with a root integration test, and all three local
+  benchmark surfaces now have durable result artifacts under `benchmarks/results/`. Fresh
   release-machine baselines remain intentionally deferred because Criterion reports are
   non-deterministic by nature.
 - **BENCH-2 (P2):** any change touching F-CORE-1/F-CORE-4 (resolution path) or the HTTP middleware
@@ -1760,6 +1760,46 @@ result artifact.
   - **Manual curl/bench:** manual curl not required; no server routes changed. No new benchmark run
     was required for this docs/test wave because it records the Wave 43 request-lifecycle run from
     Criterion's structured local output and does not change runtime code.
+
+### Verification after this pass
+
+Clean:
+
+- `cargo test --test performance_docs`
+- `cargo test --workspace --all-features`
+- `cargo clippy --workspace --all-targets --all-features -- -D warnings`
+- `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps`
+- `cargo fmt --all --check`
+- `git diff --check`
+- `cargo deny check`
+- `cargo audit` (same allowed warning for unmaintained `proc-macro-error2`,
+  `RUSTSEC-2026-0173`; no vulnerability failure)
+- `cargo machete`
+- `cargo tree -d`
+- `cargo metadata --no-deps --format-version 1`
+
+## Follow-up hardening — Wave 46 (2026-06-27, after commit `0ea6861`)
+
+Further advanced BENCH-1 by adding fresh local result artifacts for the remaining Criterion surfaces.
+
+### Implemented (TDD, docs/test only)
+
+- **BENCH-1 local result coverage now spans all three benchmark files.**
+  `benchmarks/results/2026-06-27-dependency-resolution-wave46.md` records a fresh
+  `cargo bench --bench dependency_resolution` run. `benchmarks/results/2026-06-27-routing-wave46.md`
+  records a fresh `cargo bench --bench routing` run. The existing request-lifecycle artifact remains
+  `benchmarks/results/2026-06-27-request-lifecycle-wave43.md`.
+  - **TDD:** `cargo test --test performance_docs
+    dependency_and_routing_result_artifacts_cover_current_benchmark_surface` first failed because
+    the dependency-resolution artifact did not exist. After adding both artifacts, the focused test
+    passes and guards every current `dependency_resolution` and `routing` benchmark label.
+  - **Bench:** `cargo bench --bench dependency_resolution` completed with no detected performance
+    change for singleton dependency resolution. `cargo bench --bench routing` completed with no
+    detected performance change for both raw Axum and Nidus controller route composition. Both runs
+    reported outliers, so these remain local directional artifacts, not release-machine claims.
+  - **Docs:** `docs/performance.md` now lists all durable local result artifacts, and the plan
+    narrows remaining BENCH-1 scope to release-machine benchmark baselines.
+  - **Manual curl:** not required — benchmark docs/tests only; no server routes changed.
 
 ### Verification after this pass
 

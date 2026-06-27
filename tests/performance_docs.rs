@@ -108,8 +108,26 @@ fn performance_docs_cover_every_current_benchmark() {
 
 #[test]
 fn request_lifecycle_result_artifact_covers_current_benchmark_surface() {
-    let result_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("benchmarks/results/2026-06-27-request-lifecycle-wave43.md");
+    assert_result_artifact_covers(
+        "benchmarks/results/2026-06-27-request-lifecycle-wave43.md",
+        REQUEST_LIFECYCLE_BENCH,
+    );
+}
+
+#[test]
+fn dependency_and_routing_result_artifacts_cover_current_benchmark_surface() {
+    assert_result_artifact_covers(
+        "benchmarks/results/2026-06-27-dependency-resolution-wave46.md",
+        DEPENDENCY_RESOLUTION_BENCH,
+    );
+    assert_result_artifact_covers(
+        "benchmarks/results/2026-06-27-routing-wave46.md",
+        ROUTING_BENCH,
+    );
+}
+
+fn assert_result_artifact_covers(relative_path: &str, benchmark_source: &str) {
+    let result_path = Path::new(env!("CARGO_MANIFEST_DIR")).join(relative_path);
     let result = fs::read_to_string(&result_path).unwrap_or_else(|error| {
         panic!(
             "failed to read benchmark result artifact {}: {error}",
@@ -117,10 +135,10 @@ fn request_lifecycle_result_artifact_covers_current_benchmark_surface() {
         )
     });
 
-    for source_label in benchmark_labels_from(REQUEST_LIFECYCLE_BENCH) {
+    for source_label in benchmark_labels_from(benchmark_source) {
         assert!(
             result.contains(&format!("| `{source_label}` |")),
-            "benchmark result artifact must include request-lifecycle row `{source_label}`",
+            "benchmark result artifact {relative_path} must include row `{source_label}`",
         );
     }
 }
@@ -136,7 +154,7 @@ fn benchmark_source_labels() -> Vec<&'static str> {
     .collect()
 }
 
-fn benchmark_labels_from(source: &'static str) -> Vec<&'static str> {
+fn benchmark_labels_from(source: &str) -> Vec<&str> {
     source
         .lines()
         .filter_map(|line| {
