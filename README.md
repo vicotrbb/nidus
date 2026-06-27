@@ -45,7 +45,7 @@ impl UsersController {
 
 ## Features
 
-- Typed dependency injection primitives with `Inject<T>`, `Optional<T>`, `Lazy<T>`, `Factory<T>`, and `Scoped<T>`.
+- Typed dependency injection primitives with auto-wired `Inject<T>` and `Optional<T>`, request-scope `Scoped<T>`, and manual `Lazy<T>` / `Factory<T>` helpers.
 - Explicit module definitions and circular import detection.
 - Axum-backed controller route composition.
 - Guard, validation, config, OpenAPI, events, jobs, request-scope, production API defaults, health, metrics, structured logging, OTel helpers, security boundary layers, request context, and testing support crates.

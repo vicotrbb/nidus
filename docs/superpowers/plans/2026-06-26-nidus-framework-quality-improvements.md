@@ -529,3 +529,14 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 23" secti
   `cargo clippy -p nidus-testing --all-targets --all-features -- -D warnings`; affected
   `nidus-openapi` and example package tests/clippy.
 - **Bench:** not required (test-helper ergonomics only).
+
+## Wave 24 — README DI wrapper clarity (API-1)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 24" section.
+
+- **Files:** `README.md`; audit.
+- **Behavior change:** none (docs-only).
+- **Docs change:** top-level features now distinguish auto-wired `Inject<T>` / `Optional<T>`,
+  request-scope `Scoped<T>`, and manual `Lazy<T>` / `Factory<T>` helpers.
+- **Verification:** `git diff --check`; `cargo fmt --all --check`.
+- **Bench:** not required (docs-only).

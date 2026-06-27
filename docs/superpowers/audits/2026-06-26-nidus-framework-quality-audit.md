@@ -444,8 +444,8 @@ example/bench code.
 ## Public API ergonomics findings
 
 - `Inject<T>`, `Optional<T>`, `Lazy<T>`, `Factory<T>`, `Scoped<T>` all exist and are documented.
-- **API-1 (P3):** `Lazy<T>`/`Factory<T>` are not container-constructed (manual `::new` only) —
-  README lists them alongside the auto-wired types without noting the distinction.
+- **API-1 (~~P3~~ mitigated, Wave 24):** README now distinguishes auto-wired `Inject<T>` /
+  `Optional<T>` from request-scope `Scoped<T>` and manual `Lazy<T>` / `Factory<T>` helpers.
 - **API-2 (P3):** Adapter `ProviderRegistrant` no-op impls are misleading (AD-1).
 - **API-3 (~~P3~~ mitigated, Wave 23):** `assert_text`/`assert_json` no longer return unused
   futures (T-2).
@@ -1123,6 +1123,23 @@ Closed the testkit assertion ergonomics gap T-2 / API-3.
 the call-site update touched examples and `nidus-openapi` tests,
 `cargo test -p nidus-openapi -p nidus-example-auth-api -p nidus-example-hello-world -p nidus-example-openapi -p nidus-example-realworld-api -p nidus-example-rest-api`
 and matching clippy over the same package set are also clean.
+
+## Follow-up hardening — Wave 24 (2026-06-27, after commit `e08dc0a`)
+
+Closed the README DI wrapper clarity gap API-1.
+
+### Implemented (docs only)
+
+- **API-1 mitigated — README distinguishes auto-wired and manual DI wrappers.** The features list
+  now describes `Inject<T>` and `Optional<T>` as auto-wired, `Scoped<T>` as request-scope, and
+  `Lazy<T>` / `Factory<T>` as manual helpers. This aligns the top-level README with
+  `docs/dependency-injection.md`, which already shows explicit `Lazy::new(...)` and
+  `Factory::new(...)` construction.
+  - **Bench:** not required — docs-only.
+
+### Verification after this pass
+
+`git diff --check` and `cargo fmt --all --check` are clean.
 
 ## Appendix: verification commands (baseline)
 
