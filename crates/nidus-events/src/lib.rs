@@ -367,16 +367,59 @@ impl<T> EventSubscriber<T> {
 }
 
 fn lock_unpoisoned<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+    mutex.lock().unwrap_or_else(|poisoned| {
+        tracing::warn!("event bus mutex poisoned; recovering inner state");
+        poisoned.into_inner()
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use std::thread;
+    use std::{sync::Arc, thread};
 
     use super::*;
+    use tracing::Level;
+    use tracing_subscriber::{Layer, fmt::MakeWriter, layer::SubscriberExt};
+
+    #[derive(Clone, Default)]
+    struct SharedLogWriter {
+        output: Arc<Mutex<Vec<u8>>>,
+    }
+
+    impl SharedLogWriter {
+        fn contents(&self) -> String {
+            String::from_utf8(self.output.lock().unwrap().clone()).unwrap()
+        }
+
+        fn clear(&self) {
+            self.output.lock().unwrap().clear();
+        }
+    }
+
+    impl<'writer> MakeWriter<'writer> for SharedLogWriter {
+        type Writer = SharedLogGuard;
+
+        fn make_writer(&'writer self) -> Self::Writer {
+            SharedLogGuard {
+                output: Arc::clone(&self.output),
+            }
+        }
+    }
+
+    struct SharedLogGuard {
+        output: Arc<Mutex<Vec<u8>>>,
+    }
+
+    impl std::io::Write for SharedLogGuard {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.output.lock().unwrap().extend_from_slice(buf);
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
 
     #[derive(Clone, Debug, PartialEq, Eq)]
     struct UserCreated(u64);
@@ -396,6 +439,44 @@ mod tests {
         bus.publish(UserCreated(42));
 
         assert_eq!(subscriber.drain(), vec![UserCreated(42)]);
+    }
+
+    #[test]
+    fn event_bus_warns_when_recovering_from_poisoned_subscriber_list() {
+        let bus = EventBus::<UserCreated>::new();
+        let subscribers = Arc::clone(&bus.subscribers);
+        let panic = thread::spawn(move || {
+            let _subscribers = subscribers.lock().unwrap();
+            panic!("poison subscriber list");
+        });
+        assert!(panic.join().is_err());
+
+        let writer = SharedLogWriter::default();
+        let subscriber = tracing_subscriber::registry().with(
+            tracing_subscriber::fmt::layer()
+                .with_writer(writer.clone())
+                .with_ansi(false)
+                .with_target(false)
+                .with_filter(tracing_subscriber::filter::LevelFilter::from_level(
+                    Level::WARN,
+                )),
+        );
+
+        tracing::subscriber::with_default(subscriber, || {
+            for _ in 0..16 {
+                writer.clear();
+                tracing_core::callsite::rebuild_interest_cache();
+                let _subscriber = bus.subscribe();
+                let logs = writer.contents();
+                if logs.contains("event bus mutex poisoned") {
+                    return;
+                }
+                std::thread::yield_now();
+            }
+        });
+
+        let logs = writer.contents();
+        assert!(logs.contains("event bus mutex poisoned"), "{logs}");
     }
 
     #[test]

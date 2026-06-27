@@ -16,6 +16,10 @@ Subscribers receive events published after they subscribe. Dropping a subscriber
 handle removes it from future delivery; the bus prunes dropped handles during
 publish and subscriber counting.
 
+If a subscriber list or queue mutex is poisoned by a panic, the bus logs a
+warning and recovers the inner state so later subscribers and publishes can
+continue.
+
 ## Observed Events
 
 `ObservedEventBus` wraps an existing `EventBus` and records publication context

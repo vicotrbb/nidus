@@ -329,7 +329,8 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 - **E-2 (~~P3~~ partially mitigated, Wave 39):** Observer callbacks still run synchronously by
   design, but `event_observer_channel()` now provides a built-in offload seam that only enqueues
   `ObservedEventContext` on the publish path.
-- **E-3 (P3):** `lock_unpoisoned` silently absorbs poisoned-mutex state (`lib.rs:272-276`).
+- **E-3 (~~P3~~ mitigated, Wave 40):** poisoned event-bus mutex recovery now emits a warning before
+  recovering the inner state.
 - Sync and in-process by default; channel observer support is opt-in for telemetry/export offload.
 
 ### nidus-jobs
@@ -569,6 +570,7 @@ example/bench code.
 | J-3 | ~~P3~~ mitigated | Job queues can run through `ObservedJobRunner` (Wave 37) | `nidus-jobs/src/lib.rs` |
 | E-1 | ~~P2~~ mitigated | Opt-in bounded subscriber queues added (Wave 3) | `nidus-events/src/lib.rs` |
 | E-2 | ~~P3~~ partial | Channel observer offload seam added; direct observers remain sync (Wave 39) | `nidus-events/src/lib.rs` |
+| E-3 | ~~P3~~ mitigated | Poisoned event-bus mutex recovery emits a warning (Wave 40) | `nidus-events/src/lib.rs` |
 | O-1 | ~~P2~~ mitigated | OpenAPI emits error responses (Wave 9) | `nidus-openapi/src/route.rs` |
 | O-2 | ~~P2~~ covered | Route↔OpenAPI parity tests added (Wave 3) | `nidus-openapi/tests/` |
 | EX-1 | ~~P2~~ mitigated | `openapi` example is a runnable server with docs routes (Wave 2) | `examples/openapi/src/main.rs`; `docs/examples.md` |
@@ -1546,6 +1548,29 @@ Partially closed the event observer blocking-risk gap E-2.
 
 `cargo test -p nidus-events --test observed_events`, `cargo test -p nidus-events`,
 `cargo clippy -p nidus-events --all-targets --all-features -- -D warnings`,
+`RUSTDOCFLAGS="-D warnings" cargo doc -p nidus-events --all-features --no-deps`,
+`cargo fmt --all --check`, and `git diff --check` are clean.
+
+## Follow-up hardening — Wave 40 (2026-06-27, after commit `a6a53e1`)
+
+Closed the event-bus poisoned-mutex diagnostics gap E-3.
+
+### Implemented (TDD)
+
+- **E-3 mitigated — poisoned event lock recovery is observable.** `lock_unpoisoned` still recovers
+  with `PoisonError::into_inner()` so current delivery behavior is preserved, but it now emits a
+  `tracing::warn!` event before recovering. This keeps panic-contaminated state from being silent
+  while retaining the existing in-process best-effort event semantics.
+  - **TDD:** `event_bus_warns_when_recovering_from_poisoned_subscriber_list` first failed because
+    recovery emitted no warning. After adding the warning, the test captures
+    `event bus mutex poisoned` through a test subscriber while the bus still recovers.
+  - **Bench/manual curl:** not required — local event diagnostics only; no server route or hot-path
+    HTTP/DI/routing/request lifecycle/metrics/module graph behavior changed.
+
+### Verification after this pass
+
+`cargo test -p nidus-events event_bus_warns_when_recovering_from_poisoned_subscriber_list`,
+`cargo test -p nidus-events`, `cargo clippy -p nidus-events --all-targets --all-features -- -D warnings`,
 `RUSTDOCFLAGS="-D warnings" cargo doc -p nidus-events --all-features --no-deps`,
 `cargo fmt --all --check`, and `git diff --check` are clean.
 

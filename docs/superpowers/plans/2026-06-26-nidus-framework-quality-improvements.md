@@ -180,8 +180,7 @@ Each wave is a separate atomic commit. Any wave can be reverted in isolation wit
   F-HTTP-6 client_ip_identity hardening; F-HTTP-7 panic-catching layer; F-HTTP-8 prometheus series cap.
 - F-MAC-2 spanned diagnostics; O-1 OpenAPI error-response modeling; O-2 parity test (covered
   partially by 2.1's probe).
-- E-3 poisoned-mutex diagnostics. E-2 has an opt-in channel offload seam; direct observers remain
-  synchronous by design.
+- E-2 has an opt-in channel offload seam; direct observers remain synchronous by design.
 - EX-2 auth-api guard realism.
 - CLI coverage beyond CLI-1/CLI-2; AD-2 live Postgres health coverage.
 - T-1 TestApp request-scope helper; T-2 spurious-async assertions.
@@ -822,4 +821,21 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 39" secti
 - **Verification:** `cargo test -p nidus-events --test observed_events`; full
   `cargo test -p nidus-events`; events clippy/doc/fmt/diff checks.
 - **Manual curl/bench:** not required (local events API only; no server route or hot-path
+  HTTP/DI/routing/request lifecycle/metrics/module graph change).
+
+---
+
+## Wave 40 — event poison recovery diagnostics (E-3)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 40" section.
+
+- **Files:** `crates/nidus-events/src/lib.rs`, `crates/nidus-events/Cargo.toml`, `docs/events.md`,
+  audit, plan.
+- **Behavior change:** poisoned event-bus lock recovery still preserves previous recovery behavior,
+  but now emits a `tracing::warn!` event before taking the poisoned inner state.
+- **TDD:** poison-recovery warning test failed while recovery was silent, then passed after adding
+  the warning.
+- **Verification:** targeted poisoned-lock warning test; full `cargo test -p nidus-events`;
+  events clippy/doc/fmt/diff checks.
+- **Manual curl/bench:** not required (local event diagnostics only; no server route or hot-path
   HTTP/DI/routing/request lifecycle/metrics/module graph change).
