@@ -25,7 +25,7 @@ mod source_openapi;
 use check::check_project;
 use generate::{create_project, generate_artifact};
 use graph::inspect_graph;
-use openapi_doc::generate_openapi;
+use openapi_doc::{OpenApiOptions, generate_openapi};
 use routes::inspect_routes;
 
 #[derive(Debug, Parser)]
@@ -90,6 +90,12 @@ enum Command {
         /// Project root.
         #[arg(long, default_value = ".")]
         path: PathBuf,
+        /// OpenAPI document title.
+        #[arg(long, default_value = "Nidus API")]
+        title: String,
+        /// OpenAPI document version.
+        #[arg(long, default_value = "0.1.0")]
+        version: String,
     },
 }
 
@@ -116,7 +122,11 @@ fn main() -> Result<()> {
         Command::Graph { path } => inspect_graph(&path),
         Command::Expand { path, dry_run } => expand_project(&path, dry_run),
         Command::Check { path } => check_project(&path),
-        Command::Openapi { path } => generate_openapi(&path),
+        Command::Openapi {
+            path,
+            title,
+            version,
+        } => generate_openapi(&path, &OpenApiOptions { title, version }),
     }
 }
 

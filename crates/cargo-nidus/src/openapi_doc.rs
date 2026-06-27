@@ -6,7 +6,22 @@ use serde_json::{Value, json};
 use crate::schema::discover_schemas;
 use crate::{route_path::openapi_path_parameters, routes::discover_routes};
 
-pub(crate) fn generate_openapi(root: &Path) -> Result<()> {
+#[derive(Debug)]
+pub(crate) struct OpenApiOptions {
+    pub(crate) title: String,
+    pub(crate) version: String,
+}
+
+impl Default for OpenApiOptions {
+    fn default() -> Self {
+        Self {
+            title: "Nidus API".to_owned(),
+            version: "0.1.0".to_owned(),
+        }
+    }
+}
+
+pub(crate) fn generate_openapi(root: &Path, options: &OpenApiOptions) -> Result<()> {
     let mut paths = serde_json::Map::new();
     let mut schema_names = BTreeSet::new();
     for route in discover_routes(root)? {
@@ -100,8 +115,8 @@ pub(crate) fn generate_openapi(root: &Path) -> Result<()> {
     let mut document = json!({
         "openapi": "3.1.0",
         "info": {
-            "title": "Nidus API",
-            "version": "0.1.0",
+            "title": options.title,
+            "version": options.version,
         },
         "paths": paths,
     });

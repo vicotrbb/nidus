@@ -151,6 +151,37 @@ pub struct UserProfile {
 }
 
 #[test]
+fn cargo_nidus_openapi_accepts_document_title_and_version() {
+    let root = temp_project_root("openapi_accepts_document_title_and_version");
+    let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "generate", "controller", "users", "--path"])
+        .arg(&root)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let openapi = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args([
+            "nidus",
+            "openapi",
+            "--title",
+            "Users API",
+            "--version",
+            "2026.6",
+            "--path",
+        ])
+        .arg(&root)
+        .output()
+        .unwrap();
+
+    assert!(openapi.status.success());
+    let stdout = String::from_utf8(openapi.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["info"]["title"], "Users API");
+    assert_eq!(json["info"]["version"], "2026.6");
+}
+
+#[test]
 fn cargo_nidus_openapi_ignores_tags_word_in_summary() {
     let root = temp_project_root("openapi_ignores_tags_word_in_summary");
     let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))

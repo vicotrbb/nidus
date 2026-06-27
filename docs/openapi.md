@@ -59,6 +59,14 @@ Macro metadata currently supports `summary = "..."` and optional
 `tags = ["..."]`, `status = 201`, `request = Type`, and `response = Type`.
 Unsupported keys fail at compile time, and the `cargo nidus openapi` inspector
 reports the same error when reading source files.
+The inspector defaults to `info.title = "Nidus API"` and
+`info.version = "0.1.0"`; pass `--title` and `--version` to emit
+application-specific document metadata:
+
+```bash
+cargo nidus openapi --title "Users API" --version "1.2.3"
+```
+
 Generated OpenAPI operations also preserve Nidus route annotations as vendor
 extensions: `x-nidus-guards`, `x-nidus-pipes`, and `x-nidus-validates`.
 When `cargo nidus openapi` discovers `request = Type` or `response = Type`, it

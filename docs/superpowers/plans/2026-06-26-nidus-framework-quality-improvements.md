@@ -569,3 +569,17 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 26" secti
 - **Verification:** focused `nidus-validation` malformed JSON test; focused workspace
   `validation_envelope` composition test.
 - **Bench:** not required (audit/status-only correction).
+
+## Wave 27 — CLI OpenAPI document metadata flags (O-3)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 27" section.
+
+- **Files:** `crates/cargo-nidus/src/main.rs`, `crates/cargo-nidus/src/openapi_doc.rs`,
+  `crates/cargo-nidus/tests/cli_openapi.rs`, `docs/getting-started.md`, `docs/openapi.md`; audit.
+- **Behavior change:** `cargo nidus openapi` accepts `--title` and `--version` while keeping the
+  existing defaults when flags are omitted.
+- **TDD:** new CLI test failed before the flags existed, then passed once the OpenAPI generator
+  accepted document metadata options.
+- **Verification:** focused metadata flag test; full `cli_openapi` target; `cargo test -p
+  cargo-nidus`; cargo-nidus clippy.
+- **Bench:** not required (CLI metadata only).

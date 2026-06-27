@@ -297,8 +297,9 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
   Clients can now discover the error statuses a route can return instead of only the success.
 - **O-2 (P2):** No route↔spec parity test; the document is populated manually, so router/spec can
   silently diverge. **Verification:** integration test asserting each `RouteMetadata` appears in JSON.
-- **O-3 (P3):** `cargo nidus openapi` inspector hardcodes title/version
-  (`crates/cargo-nidus/src/openapi_doc.rs:102-105`), can diverge from runtime `OpenApiDocument`.
+- **O-3 (~~P3~~ mitigated, Wave 27):** `cargo nidus openapi` now accepts `--title` and
+  `--version`, so generated documents can match application-specific API metadata instead of only
+  the default `Nidus API` / `0.1.0` values.
 - Docs (`docs/openapi.md`) are **accurate**.
 
 ### nidus-validation
@@ -1190,6 +1191,27 @@ Reconciled stale validation backlog status for V-1.
 and
 `cargo test --test validation_envelope validation_422_is_enveloped_with_field_details_intact`
 are clean.
+
+## Follow-up hardening — Wave 27 (2026-06-27, after commit `5e213b1`)
+
+Closed the CLI OpenAPI metadata gap O-3.
+
+### Implemented (TDD)
+
+- **O-3 mitigated — CLI-generated OpenAPI documents accept title/version overrides.**
+  `cargo nidus openapi` now supports `--title` and `--version` flags, while preserving the existing
+  `Nidus API` / `0.1.0` defaults. `docs/getting-started.md` and `docs/openapi.md` document the
+  flags.
+  - **TDD:** `cargo_nidus_openapi_accepts_document_title_and_version` first passed the new flags
+    and failed at the CLI boundary; after plumbing options into the generator, the emitted
+    `info.title` and `info.version` matched the requested values.
+  - **Bench:** not required — CLI JSON metadata only.
+
+### Verification after this pass
+
+`cargo test -p cargo-nidus --test cli_openapi cargo_nidus_openapi_accepts_document_title_and_version`
+is clean. `cargo test -p cargo-nidus --test cli_openapi`, `cargo test -p cargo-nidus`, and
+`cargo clippy -p cargo-nidus --all-targets --all-features -- -D warnings` are also clean.
 
 ## Appendix: verification commands (baseline)
 
