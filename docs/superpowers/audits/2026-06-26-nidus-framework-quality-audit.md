@@ -171,16 +171,18 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 - **Verification:** regression test asserting a header-reading guard receives the header through
   `guard_layer` (`cargo test -p nidus-auth`).
 
-#### F-HTTP-2 — Production body limit is `Content-Length`-only (bypassable) (P2)
-- **Evidence:** `crates/nidus-http/src/middleware/security.rs:171-185` (`body_limit_layer` checks
-  only `Content-Length`); `api_defaults.rs:93,282-284` uses it for the 1 MiB default. Docs at
-  `security.rs:80-89,199-204` acknowledge this; test `body_limit_layer_allows_undeclared_body_sizes`
-  proves the bypass.
-- **Files:** `crates/nidus-http/src/middleware/{security,api_defaults}.rs`
-- **Risk:** Chunked-transfer clients (no `Content-Length`) bypass the stated limit on the wire.
-- **Fix:** Layer `streaming_body_limit_layer` (tower-http `RequestBodyLimitLayer`, already a dep)
-  into `ApiDefaults::production`, or document the two-tier model prominently.
-- **Verification:** `cargo test -p nidus-http --test logging_otel_security`; new streaming-limit test.
+#### F-HTTP-2 — Production body limit is `Content-Length`-only (bypassable) (~~P2~~ mitigated, Wave 13)
+- **Evidence:** `crates/nidus-http/src/middleware/security.rs` (`body_limit_layer` checks only
+  `Content-Length`); `ApiDefaults::production` used it for the 1 MiB default.
+- **Mitigation (Wave 13):** `ApiDefaults::streaming_body_limit(max_bytes)` is now an opt-in builder
+  that layers `streaming_body_limit_layer` (tower-http `RequestBodyLimitLayer`), counting bytes as
+  they are read so chunked/headerless bodies cannot bypass the cap. The default stays
+  `Content-Length`-only (opt-in avoids wrapping every request body when not needed); the
+  `body_limit`/`streaming_body_limit` docs now describe the two-tier model explicitly.
+- **Verification:** `body_limit_without_streaming_cap_is_bypassed_without_content_length` documents
+  the bypass (headerless 1 KiB body → `200` past a 4-byte `body_limit`); `streaming_body_limit_caps_
+  bodies_without_content_length` proves the opt-in cap (same body with `streaming_body_limit(4)` →
+  `413`). Default stack unchanged → no bench required.
 
 #### F-HTTP-3 — 413 (body-limit) responses bypass request-id, metrics, and error envelope (~~P2~~ mitigated, Wave 8)
 - **Evidence:** `body_limit_layer` was the outermost functional layer (after `security_headers`),
@@ -486,7 +488,8 @@ example/bench code.
 
 ## Security / reliability risks
 
-- **SEC-1 (P2):** body limit bypassable (F-HTTP-2) — DoS surface.
+- **SEC-1 (~~P2~~ mitigated, Wave 13):** body limit bypass closed via opt-in `streaming_body_limit`
+  (F-HTTP-2); the two-tier model is now documented. The default remains `Content-Length`-only by design.
 - **SEC-2 (~~P2~~ partially mitigated, Wave 4):** rate-limit identity now uses the real peer
   IP via `ConnectInfo` (F-HTTP-5 fix), closing XFF-spoofing and shared-`anonymous`-bucket
   evasion on the blessed `listen`/`serve` path. Trusted-proxy XFF validation (F-HTTP-6)
@@ -508,7 +511,7 @@ example/bench code.
 | F-CORE-3 | P2 | Graph keyed by short name, not TypeId | `nidus-core/src/module/mod.rs:230-236,271-277` |
 | F-CORE-4 | P2 | Blocking Condvar reachable from async | `nidus-core/src/provider/mod.rs:134` |
 | F-CORE-5 | P2 | `register_request` can't chain request deps | `nidus-core/src/container/mod.rs:84-90` |
-| F-HTTP-2 | P2 | Body limit Content-Length-only (bypassable) | `nidus-http/src/middleware/security.rs:171-185` |
+| F-HTTP-2 | ~~P2~~ mitigated | Opt-in `streaming_body_limit` + two-tier docs (Wave 13) | `nidus-http/src/middleware/{security,api_defaults}.rs` |
 | F-HTTP-3 | ~~P2~~ mitigated | 413 now enveloped/metered/request-id'd (Wave 8) | `nidus-http/src/middleware/api_defaults.rs` |
 | F-HTTP-4 | P2 | No production middleware order test | `nidus-http/tests/production_api.rs` |
 | F-HTTP-5 | ~~P2~~ mitigated | ConnectInfo now on blessed path; graceful-shutdown API added (Wave 4) | `nidus-http/src/server.rs` |
@@ -870,6 +873,28 @@ the deferral of F-CORE-3.
 
 `cargo fmt --all --check`, `cargo clippy -p nidus-cache --all-targets --all-features -- -D
 warnings`, `cargo test --workspace --all-features` (367 passed / 0 failed) — all clean.
+
+## Follow-up hardening — Wave 13 (2026-06-27, after commit `957aac6`)
+
+Closed F-HTTP-2 (chunked body-limit bypass) and SEC-1.
+
+### Implemented (TDD, atomic commits)
+
+- **F-HTTP-2 mitigated — opt-in `ApiDefaults::streaming_body_limit(max_bytes)`.** Layers
+  `streaming_body_limit_layer` (tower-http `RequestBodyLimitLayer`), which counts bytes as they are
+  read so a headerless/chunked body cannot bypass the cap. Default stays `Content-Length`-only
+  (opt-in avoids per-request body wrapping when unneeded); the `body_limit`/`streaming_body_limit`
+  docs now describe the two-tier model. `RequestBodyLimitLayer` was already a dependency.
+  - **TDD:** `body_limit_without_streaming_cap_is_bypassed_without_content_length` (documents the
+    bypass: headerless 1 KiB body → `200` past a 4-byte `body_limit`) +
+    `streaming_body_limit_caps_bodies_without_content_length` (same body with
+    `streaming_body_limit(4)` → `413`).
+  - **Bench:** not required — opt-in (default off), so the default production stack is unchanged.
+
+### Verification after this pass
+
+`cargo fmt --all --check`, `cargo clippy -p nidus-http --all-targets --all-features -- -D warnings`,
+`cargo test --workspace --all-features` (369 passed / 0 failed) — all clean.
 
 ## Appendix: verification commands (baseline)
 

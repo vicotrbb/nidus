@@ -383,3 +383,18 @@ Status: **implemented** (AD-3 cache) / **deferred with rationale** (F-CORE-3). S
 - **Verification:** `cargo test -p nidus-cache`; `cargo test --workspace --all-features`
   (367 passed); fmt/clippy/doc clean.
 - **Bench:** not required (adapter unit coverage, not a request hot path).
+
+---
+
+## Wave 13 — body-limit hardening: opt-in streaming cap (F-HTTP-2 / SEC-1)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 13" section.
+
+- **Files:** `crates/nidus-http/src/middleware/api_defaults.rs`; tests `production_api.rs`.
+- **Behavior change:** additive only — new `ApiDefaults::streaming_body_limit(max_bytes)` opt-in
+  layers `streaming_body_limit_layer` to cap headerless/chunked bodies as they are read. Default
+  stack unchanged (`Content-Length`-only); two-tier model documented.
+- **TDD:** documents-bypass (headerless body → 200) + caps-with-streaming (→ 413).
+- **Verification:** `cargo test -p nidus-http --test production_api` (27 passed); `cargo test
+  --workspace --all-features` (369 passed); fmt/clippy/doc clean.
+- **Bench:** not required — opt-in (default off); default production stack unchanged.
