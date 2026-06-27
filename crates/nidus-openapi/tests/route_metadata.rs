@@ -15,6 +15,54 @@ struct CreateUserDto {
 }
 
 #[test]
+fn openapi_document_emits_error_responses_for_guarded_validating_routes() {
+    // O-1: guarded/validating routes must advertise the error statuses they can
+    // return (401/403 for guards, 422 for validation), so clients can discover
+    // them from the spec instead of only seeing the success response.
+    let routes = [RouteMetadata::with_openapi_annotations(
+        "POST",
+        "/users",
+        Some("Create user"),
+        &["users"],
+        &["AuthGuard"],
+        &["ValidationPipe"],
+        true,
+    )];
+    let document = OpenApiDocument::from_route_metadata("Nidus API", "0.1.0", &routes);
+
+    let json = document.to_json_value();
+    let responses = &json["paths"]["/users"]["post"]["responses"];
+    assert_eq!(responses["401"]["description"], "Unauthorized");
+    assert_eq!(responses["403"]["description"], "Forbidden");
+    assert_eq!(responses["422"]["description"], "Validation failed");
+    // Success response is still present and untouched.
+    assert!(responses["200"].is_object());
+}
+
+#[test]
+fn openapi_document_omits_error_responses_for_plain_routes() {
+    // A route with no guards and no validation advertises only its success
+    // response (behavior unchanged by O-1).
+    let routes = [RouteMetadata::with_openapi_annotations(
+        "GET",
+        "/users/:id",
+        Some("Find user by ID"),
+        &["users"],
+        &[],
+        &[],
+        false,
+    )];
+    let document = OpenApiDocument::from_route_metadata("Nidus API", "0.1.0", &routes);
+
+    let json = document.to_json_value();
+    let responses = &json["paths"]["/users/{id}"]["get"]["responses"];
+    assert!(responses["200"].is_object());
+    assert!(responses["401"].is_null());
+    assert!(responses["403"].is_null());
+    assert!(responses["422"].is_null());
+}
+
+#[test]
 fn openapi_document_can_be_generated_from_route_metadata() {
     let routes = [RouteMetadata::with_openapi_annotations(
         "GET",

@@ -177,6 +177,19 @@ impl OpenApiRoute {
         let mut responses = serde_json::Map::new();
         responses.insert(self.response_status.as_u16().to_string(), success_response);
 
+        // O-1: advertise the error statuses a route can actually return, derived
+        // from its declared guards and validation, so clients can discover them.
+        if !self.guards.is_empty() {
+            responses.insert("401".to_owned(), json!({ "description": "Unauthorized" }));
+            responses.insert("403".to_owned(), json!({ "description": "Forbidden" }));
+        }
+        if self.validates {
+            responses.insert(
+                "422".to_owned(),
+                json!({ "description": "Validation failed" }),
+            );
+        }
+
         let mut operation = json!({
             "operationId": operation_id(&self.method, &self.path),
             "responses": responses
