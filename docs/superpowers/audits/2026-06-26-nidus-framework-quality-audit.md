@@ -365,7 +365,8 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 - **CLI-3 (~~P3~~ mitigated, Wave 16):** Generated projects now pass the requested project name to
   `ApiDefaults::production(...)`; `cargo_nidus_new_uses_project_name_for_service_name` covers a
   non-`hello-nidus` project.
-- **CLI-4 (P3):** `expand` silently requires `cargo-expand` to be installed (`main.rs:136-141`).
+- **CLI-4 (~~P3~~ mitigated, Wave 21):** `expand` now detects Cargo's missing-subcommand output
+  and reports `cargo install cargo-expand`; `docs/getting-started.md` documents the requirement.
 - **CLI-5 (P3):** `graph` only scans `src/{main,lib,modules/*.rs}` — controllers/services outside
   `src/modules/` are invisible to `nidus graph` (`graph.rs:29-48`).
 
@@ -1055,6 +1056,27 @@ Closed the deployment docs consistency gap D-2.
 ### Verification after this pass
 
 `git diff --check` and `cargo fmt --all --check` are clean.
+
+## Follow-up hardening — Wave 21 (2026-06-27, after commit `41ee6f7`)
+
+Closed the CLI expand dependency diagnostic gap CLI-4.
+
+### Implemented (TDD)
+
+- **CLI-4 mitigated — missing `cargo-expand` gets actionable guidance.** `cargo nidus expand`
+  now captures `cargo expand` output, detects Cargo's missing-subcommand error, and reports
+  `cargo-expand is not installed` with `cargo install cargo-expand` guidance. Successful `cargo
+  expand` output is still forwarded to stdout/stderr.
+  - **TDD:** `cargo_nidus_expand_reports_missing_cargo_expand` uses a fake `cargo` in `PATH` that
+    emits Cargo's `no such command: expand` error. RED: generic `cargo expand failed`; GREEN:
+    install guidance.
+  - **Bench:** not required — CLI diagnostics only.
+
+### Verification after this pass
+
+`cargo test -p cargo-nidus --test cli cargo_nidus_expand_reports_missing_cargo_expand`,
+`cargo test -p cargo-nidus --test cli`, `cargo test -p cargo-nidus`, and
+`cargo clippy -p cargo-nidus --all-targets --all-features -- -D warnings` are clean.
 
 ## Appendix: verification commands (baseline)
 

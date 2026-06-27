@@ -2,6 +2,9 @@ mod support;
 
 use std::{fs, process::Command};
 
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+
 use support::{temp_project_root, workspace_root};
 
 #[test]
@@ -231,4 +234,38 @@ fn cargo_nidus_expand_rejects_missing_manifest() {
     let stderr = String::from_utf8(expand.stderr).unwrap();
     assert!(stderr.contains("Nidus expand failed"));
     assert!(stderr.contains("Cargo.toml"));
+}
+
+#[test]
+#[cfg(unix)]
+fn cargo_nidus_expand_reports_missing_cargo_expand() {
+    let root = temp_project_root("expand_reports_missing_cargo_expand");
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    let fake_bin = root.join("fake-bin");
+    fs::create_dir_all(&fake_bin).unwrap();
+    let fake_cargo = fake_bin.join("cargo");
+    fs::write(
+        &fake_cargo,
+        "#!/bin/sh\nprintf 'error: no such command: `expand`\\n' >&2\nexit 101\n",
+    )
+    .unwrap();
+    let mut permissions = fs::metadata(&fake_cargo).unwrap().permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&fake_cargo, permissions).unwrap();
+
+    let expand = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "expand", "--path"])
+        .arg(&root)
+        .env("PATH", &fake_bin)
+        .output()
+        .unwrap();
+
+    assert!(!expand.status.success());
+    let stderr = String::from_utf8(expand.stderr).unwrap();
+    assert!(stderr.contains("cargo-expand is not installed"), "{stderr}");
+    assert!(stderr.contains("cargo install cargo-expand"), "{stderr}");
 }

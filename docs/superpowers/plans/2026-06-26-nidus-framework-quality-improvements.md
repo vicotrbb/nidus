@@ -486,3 +486,17 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 20" secti
   from opt-in metrics and rate limiting.
 - **Verification:** `git diff --check`; `cargo fmt --all --check`.
 - **Bench:** not required (docs-only).
+
+## Wave 21 — CLI diagnostics: missing cargo-expand guidance (CLI-4)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 21" section.
+
+- **Files:** `crates/cargo-nidus/src/main.rs`, `crates/cargo-nidus/tests/cli.rs`,
+  `docs/getting-started.md`; audit.
+- **Behavior change:** failed `cargo nidus expand` now recognizes Cargo's missing `expand`
+  subcommand output and tells users to install `cargo-expand`.
+- **TDD:** fake `cargo` in `PATH` emits `no such command: expand`; test was RED with generic
+  failure, GREEN with install guidance.
+- **Verification:** focused expand test; full `cli` test target; `cargo test -p cargo-nidus`;
+  `cargo clippy -p cargo-nidus --all-targets --all-features -- -D warnings`.
+- **Bench:** not required (CLI diagnostics only).

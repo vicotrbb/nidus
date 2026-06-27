@@ -1,6 +1,7 @@
 //! Command-line tooling for generating and inspecting Nidus projects.
 
 use std::{
+    io::{self, Write},
     path::{Path, PathBuf},
     process::Command as ProcessCommand,
 };
@@ -133,14 +134,29 @@ fn expand_project(root: &Path, dry_run: bool) -> Result<()> {
         return Ok(());
     }
 
-    let status = ProcessCommand::new("cargo")
+    let output = ProcessCommand::new("cargo")
         .arg("expand")
         .arg("--manifest-path")
         .arg(&manifest)
-        .status()
+        .output()
         .with_context(|| "running cargo expand")?;
-    if !status.success() {
-        bail!("cargo expand failed for {}", root.display());
+    if output.status.success() {
+        io::stdout().write_all(&output.stdout)?;
+        io::stderr().write_all(&output.stderr)?;
+        return Ok(());
     }
-    Ok(())
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if stderr.contains("no such command") && stderr.contains("expand") {
+        bail!(
+            "cargo-expand is not installed. Install it with `cargo install cargo-expand`, then rerun `cargo nidus expand --path {}`",
+            root.display()
+        );
+    }
+
+    bail!(
+        "cargo expand failed for {}\n{}",
+        root.display(),
+        stderr.trim()
+    );
 }
