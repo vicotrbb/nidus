@@ -258,16 +258,21 @@ impl ApiDefaults {
     /// the default production stack is (outermost first):
     ///
     /// 1. [`security_headers_layer`] response wrapper
-    /// 2. [`body_limit_layer`] `Content-Length` boundary
-    /// 3. [`validated_request_id_layer`]
-    /// 4. [`request_context_layer`]
-    /// 5. metrics, when configured
-    /// 6. [`ErrorEnvelopeLayer`]
-    /// 7. [`timeout_response_layer`]
+    /// 2. [`validated_request_id_layer`]
+    /// 3. [`request_context_layer`]
+    /// 4. metrics, when configured
+    /// 5. [`ErrorEnvelopeLayer`]
+    /// 6. [`timeout_response_layer`]
+    /// 7. [`body_limit_layer`] `Content-Length` boundary
     /// 8. rate limiting, when configured
     /// 9. [`catch_panic_layer`], when enabled (innermost — a handler panic is
     ///    caught and surfaced as a `500` through every outer layer)
     /// 10. route handlers
+    ///
+    /// `body_limit` sits inside the request-id, metrics, and error-envelope
+    /// layers so an oversized-body `413` is enveloped, metered, and carries a
+    /// request id (consistent with how `408` timeouts are observed), rather than
+    /// being rejected invisibly at the edge.
     ///
     /// Order matters when adding route-specific layers. Layers installed on a
     /// route before calling `apply` run inside these defaults, so they can see
@@ -285,6 +290,9 @@ impl ApiDefaults {
         if let Some(rate_limit) = self.rate_limit {
             router = router.layer(rate_limit.layer());
         }
+        if let Some(max_bytes) = self.body_limit {
+            router = router.layer(body_limit_layer(max_bytes));
+        }
         if let Some(timeout) = self.timeout {
             router = router.layer(timeout_response_layer(timeout));
         }
@@ -299,9 +307,6 @@ impl ApiDefaults {
         }
         if let Some(request_ids) = self.request_ids {
             router = router.layer(validated_request_id_layer(request_ids));
-        }
-        if let Some(max_bytes) = self.body_limit {
-            router = router.layer(body_limit_layer(max_bytes));
         }
         if self.security_headers {
             router = router.layer(security_headers_layer());

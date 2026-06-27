@@ -864,6 +864,65 @@ async fn production_defaults_envelope_meter_and_identify_handler_errors() {
 }
 
 #[tokio::test]
+async fn production_defaults_envelope_and_meter_body_limit_rejections() {
+    // F-HTTP-3: an oversized-body 413 must be enveloped, metered, and carry a
+    // request id — like a timeout (408) — instead of being silently rejected
+    // before the observability layers.
+    let metrics = PrometheusMetrics::new();
+    let app = ApiDefaults::production("users-api")
+        .metrics(metrics.clone())
+        .body_limit(4)
+        .apply(
+            Router::new()
+                .route("/echo", get(|| async { "ok" }))
+                .merge(metrics.routes()),
+        );
+
+    let oversized = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/echo")
+                .header("content-length", "5")
+                .body(Body::from("12345"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(oversized.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    assert!(
+        oversized.headers().contains_key("x-request-id"),
+        "413 must carry a request id"
+    );
+    assert_eq!(oversized.headers()["x-content-type-options"], "nosniff");
+    let body = response_json(oversized).await;
+    assert_eq!(body["error"]["statusCode"], 413, "413 must be enveloped");
+
+    let metrics_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let text = String::from_utf8(
+        to_bytes(metrics_response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert!(
+        text.contains(r#"status="413""#),
+        "413 must be metered: {text}"
+    );
+}
+
+#[tokio::test]
 async fn production_defaults_envelope_panic_as_500() {
     // F-HTTP-7: a panicking handler under the production stack must yield a
     // structured 500 envelope (with request-id) instead of an aborted
