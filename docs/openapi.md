@@ -98,12 +98,13 @@ let document = OpenApiDocument::new("Nidus API", "0.1.0")
 
 This keeps controller prefixes and route paths explicit while reusing the same
 normalization rules as the HTTP router.
-Use `try_from_route_metadata`, `try_from_controller_routes`, or
-`try_controller_routes` when composing metadata from generated or external
-sources where invalid paths or duplicate path/method operations should return
+Use `try_from_route_metadata`, `try_from_controller_routes`,
+`try_controller_routes`, `try_schema`, or `try_schemas_from_route_metadata`
+when composing metadata from generated or external sources where invalid paths,
+duplicate path/method operations, or schema registration failures should return
 an `OpenApiDocumentError` instead of panicking. The infallible builder methods
-panic on duplicate operations rather than silently overwriting an existing
-operation.
+panic on those errors rather than silently overwriting an existing operation or
+dropping schemas.
 
 Serve the generated OpenAPI document and interactive documentation from an
 Axum router:

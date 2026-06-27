@@ -179,7 +179,7 @@ Each wave is a separate atomic commit. Any wave can be reverted in isolation wit
 - F-HTTP-2 streaming body limit; F-HTTP-3 413 ordering; F-HTTP-5 graceful shutdown + ConnectInfo;
   F-HTTP-6 client_ip_identity hardening; F-HTTP-7 panic-catching layer; F-HTTP-8 prometheus series cap.
 - F-MAC-2 spanned diagnostics; O-1 OpenAPI error-response modeling; O-2 parity test (covered
-  partially by 2.1's probe); ERR-1 5xx code masking.
+  partially by 2.1's probe).
 - E-1/E-2/E-3 bounded event queues + observer offloading.
 - EX-2 auth-api guard realism; EX-4 orphan `sqlx-postgres` dir cleanup.
 - CLI coverage beyond CLI-1/CLI-2; AD-1/AD-2/AD-3 adapter registration + health wiring + coverage.
@@ -707,3 +707,27 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 33" secti
 - **Bench:** not required (example startup config error handling only; no hot path changed).
 - **EX-5 status:** mitigated for non-test example `main`/startup/handler paths. Remaining
   `.unwrap()`/`.expect()` hits in examples are test-only.
+
+---
+
+## Wave 34 — OpenAPI schema registration errors (ERR-2)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 34" section.
+
+- **Files:** `crates/nidus-http/src/router/metadata.rs`, `crates/nidus-macros/src/routes.rs`,
+  `crates/nidus/src/lib.rs`, `crates/nidus-openapi/src/document.rs`,
+  `crates/nidus-openapi/tests/route_metadata.rs`, `docs/openapi.md`, audit, plan.
+- **Behavior change:** generated schema registrars and the hidden facade schema-registration helper
+  now return `Result` instead of forcing schema serialization through an internal panic. Existing
+  infallible OpenAPI document builder methods remain available as compatibility wrappers; new
+  `try_schema` and `try_schemas_from_route_metadata` methods expose fallible composition.
+- **TDD:** route metadata schema registration test first expected `.expect(...)` on the registrar
+  return value and failed while callbacks returned `()`. After the registrar/API change, it passed.
+  Added direct coverage for `try_schema`.
+- **Verification:** `cargo test -p nidus-http`; `cargo test -p nidus-openapi`;
+  `cargo test -p nidus --test app_builder --features openapi`;
+  `cargo clippy -p nidus-http -p nidus-openapi -p nidus --all-targets --all-features -- -D warnings`;
+  `RUSTDOCFLAGS="-D warnings" cargo doc -p nidus-http -p nidus-openapi -p nidus --all-features --no-deps`;
+  `cargo fmt --all --check`.
+- **Manual curl:** not required; no server example changed.
+- **Bench:** not required (OpenAPI schema generation is build/startup-time, not a hot path).

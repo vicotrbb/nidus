@@ -309,7 +309,7 @@ fn schema_registrar(schema: &Option<syn::Path>) -> proc_macro2::TokenStream {
     quote!(
         ::std::option::Option::Some(
             |schemas| {
-                ::nidus::register_openapi_schema::<#schema>(schemas);
+                ::nidus::register_openapi_schema::<#schema>(schemas)
             }
         )
     )

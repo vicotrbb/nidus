@@ -119,9 +119,16 @@ fn openapi_document_registers_schemas_from_route_metadata() {
         Some(register_schema::<CreateUserDto>),
         Some(register_schema::<UserDto>),
     )];
+    let mut registered = Vec::new();
+    routes[0]
+        .request_schema_registrar()
+        .expect("request schema registrar should exist")(&mut registered)
+    .expect("request schema registrar should succeed");
+    assert!(registered.iter().any(|(name, _)| name == "CreateUserDto"));
 
     let document = OpenApiDocument::from_route_metadata("Nidus API", "0.1.0", &routes)
-        .schemas_from_route_metadata(&routes);
+        .try_schemas_from_route_metadata(&routes)
+        .expect("route schema registration should succeed");
 
     let json = document.to_json_value();
     assert_eq!(
@@ -134,6 +141,16 @@ fn openapi_document_registers_schemas_from_route_metadata() {
         "#/components/schemas/UserDto"
     );
     assert!(json["components"]["schemas"]["CreateUserDto"].is_object());
+    assert!(json["components"]["schemas"]["UserDto"].is_object());
+}
+
+#[test]
+fn openapi_document_try_schema_registers_utoipa_schema() {
+    let document = OpenApiDocument::new("Nidus API", "0.1.0")
+        .try_schema::<UserDto>()
+        .expect("schema registration should succeed");
+
+    let json = document.to_json_value();
     assert!(json["components"]["schemas"]["UserDto"].is_object());
 }
 
@@ -179,7 +196,9 @@ fn openapi_document_dedupes_route_schemas() {
     assert!(schemas.contains_key("UserDto"));
 }
 
-fn register_schema<T: utoipa::ToSchema>(schemas: &mut Vec<(String, serde_json::Value)>) {
+fn register_schema<T: utoipa::ToSchema>(
+    schemas: &mut Vec<(String, serde_json::Value)>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut entries = vec![(
         T::name().to_string(),
         <T as utoipa::PartialSchema>::schema(),
@@ -192,11 +211,12 @@ fn register_schema<T: utoipa::ToSchema>(schemas: &mut Vec<(String, serde_json::V
                 (
                     name,
                     serde_json::to_value(schema)
-                        .expect("utoipa schema serialization should not fail"),
+                        .expect("test schema serialization should not fail"),
                 )
             })
             .collect::<Vec<_>>(),
     );
+    Ok(())
 }
 
 #[test]

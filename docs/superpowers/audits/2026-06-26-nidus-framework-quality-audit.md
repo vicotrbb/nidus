@@ -469,8 +469,10 @@ example/bench code.
   taxonomy). The original code is still emitted to the structured server log (`tracing::error!`
   in `envelope_response`) for debugging. The pinning test was strengthened from asserting the
   leak to asserting the mask.
-- **ERR-2 (P3):** `register_openapi_schema` panics on serialization failure
-  (`crates/nidus/src/lib.rs:40`) instead of returning a `Result`.
+- **ERR-2 (~~P3~~ mitigated, Wave 34):** OpenAPI schema registration now has fallible `Result`
+  paths. The hidden `register_openapi_schema` helper returns an error instead of panicking, route
+  schema registrar callbacks are fallible, and `OpenApiDocument` exposes `try_schema` /
+  `try_schemas_from_route_metadata`.
 
 ## Async/runtime safety findings
 
@@ -1377,6 +1379,36 @@ Closed the remaining EX-5 startup panic path in the `realworld-api` server examp
 `cargo test -p nidus-example-realworld-api` (15 passed),
 `cargo clippy -p nidus-example-realworld-api --all-targets --all-features -- -D warnings`,
 `cargo check -p nidus-example-realworld-api`, and the manual curls above are clean.
+
+## Follow-up hardening — Wave 34 (2026-06-27, after commit `eede211`)
+
+Closed the OpenAPI schema registration panic gap ERR-2.
+
+### Implemented (TDD)
+
+- **ERR-2 mitigated — schema registration has fallible APIs.** `OpenApiSchemaRegistrar` now returns
+  `Result<(), Box<dyn std::error::Error + Send + Sync>>`; the hidden facade helper
+  `register_openapi_schema<T>` returns that result and uses `serde_json::to_value(schema)?`
+  instead of `expect("utoipa schema serialization should not fail")`. `OpenApiDocument` now offers
+  `try_schema<T>()` and `try_schemas_from_route_metadata(...)`, while the existing infallible
+  `schema(...)` / `schemas_from_route_metadata(...)` wrappers preserve compatibility by panicking
+  only when callers explicitly choose those wrappers.
+  - **TDD:** `openapi_document_registers_schemas_from_route_metadata` first called a generated
+    route schema registrar and expected `.expect(...)` on its return value. RED: the registrar
+    returned `()`; GREEN after making registrar callbacks fallible. Added
+    `openapi_document_try_schema_registers_utoipa_schema` for the direct `try_schema` path.
+  - **Docs:** `docs/openapi.md` now includes `try_schema` and `try_schemas_from_route_metadata` in
+    the fallible-builder guidance.
+  - **Bench:** not required — OpenAPI document/schema generation is build/startup-time, not a
+    request, routing, DI, metrics, or module hot path.
+
+### Verification after this pass
+
+`cargo test -p nidus-http`, `cargo test -p nidus-openapi`,
+`cargo test -p nidus --test app_builder --features openapi`,
+`cargo clippy -p nidus-http -p nidus-openapi -p nidus --all-targets --all-features -- -D warnings`,
+`RUSTDOCFLAGS="-D warnings" cargo doc -p nidus-http -p nidus-openapi -p nidus --all-features --no-deps`,
+and `cargo fmt --all --check` are clean.
 
 ## Appendix: verification commands (baseline)
 
