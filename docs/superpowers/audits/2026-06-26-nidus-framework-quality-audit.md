@@ -144,15 +144,19 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 
 ### nidus-macros (diagnostics)
 
-#### F-MAC-1 — `#[controller]` non-injectable fields defer to runtime error, not compile error (P2)
+#### F-MAC-1 — `#[controller]` non-injectable fields defer to runtime error, not compile error (not a defect / intentionally deferred, Wave 44 re-review)
 - **Evidence:** `crates/nidus-macros/src/controller.rs:42-67,97-116`. A field type that is not
   `Inject`/`Optional` becomes a generated method returning a runtime `NidusError::ApplicationBuild`
   rather than a `syn::Error::new_spanned` at expansion (contrast `injectable.rs:60-67` which does
-  emit compile errors for its fields).
+  emit compile errors for its fields). Wave 44 re-tested a compile-error implementation and found it
+  breaks supported manually constructed controller patterns.
 - **Files:** `crates/nidus-macros/src/controller.rs`
-- **Risk:** Structurally invalid controllers compile and fail at first instantiation.
-- **Fix:** Emit a spanned compile error for non-`Inject`/`Optional` named fields.
-- **Verification:** add a `tests/ui` compile-fail case (trybuild).
+- **Risk:** Structurally invalid DI-built controllers compile and fail at first instantiation.
+- **Decision:** Keep the runtime `try_from_container` error. A macro-time error breaks legitimate
+  route-only/app-specific construction patterns, including concrete manually constructed controllers
+  and generic route metadata controllers.
+- **Verification:** Wave 44 red/green investigation against `routes_generic_controller.rs` and
+  `controller_routes.rs`.
 
 #### F-MAC-2 — Attribute-level macro errors use `Span::call_site()` (~~P3~~ mitigated, Wave 42)
 - **Evidence:** parse-error and non-empty attribute argument diagnostics now use explicit spans via
@@ -570,7 +574,7 @@ example/bench code.
 | F-HTTP-6 | ~~P2~~ mitigated | `client_ip_identity` ignores XFF by default; trusted proxy XFF is explicit (Wave 43) | `nidus-http/src/context.rs` |
 | F-HTTP-7 | ~~P2~~ mitigated | Production stack catches handler panics (Wave 7) | `nidus-http/src/middleware/{api_defaults,catch_panic}.rs` |
 | F-HTTP-8 | ~~P2~~ mitigated | Opt-in Prometheus max-series overflow bucket (Wave 3) | `nidus-http/src/middleware/metrics.rs` |
-| F-MAC-1 | not a defect | Manual controller construction requires runtime field errors; compile-error attempt reverted (Wave 3) | `nidus-macros/src/controller.rs` |
+| F-MAC-1 | not a defect / deferred | Manual/app-specific controller construction requires runtime field errors; compile-error attempt breaks supported patterns (Wave 44 re-review) | `nidus-macros/src/controller.rs` |
 | F-MAC-2 | ~~P3~~ mitigated | Attribute parse diagnostics can target offending tokens (Wave 42) | `nidus-macros/src/diagnostics.rs`, `crates/nidus/tests/ui/` |
 | J-1 | ~~P2~~ mitigated | `ObservedJobRunner` panic recovery added (Wave 2) | `nidus-jobs/src/lib.rs` |
 | J-2 | ~~P2~~ mitigated | Job queues document retention and expose `clear` (Wave 2) | `nidus-jobs/src/lib.rs` |
@@ -1694,6 +1698,42 @@ Clean:
 - `cargo tree -d`
 - `cargo metadata --no-deps --format-version 1`
 - `cargo bench --bench request_lifecycle` (see benchmark note above)
+
+## Follow-up hardening — Wave 44 (2026-06-27, after commit `b82df7e`)
+
+Re-investigated F-MAC-1 and left it intentionally deferred.
+
+### Investigated and deferred (with evidence)
+
+- **Compile-error fix is not safe as a small hardening wave.** A new trybuild fixture for
+  `#[controller]` with a concrete plain field first proved the current behavior: the invalid
+  DI-built shape compiles and would fail through generated `try_from_container` at runtime.
+- **Broad compile-error implementation breaks supported patterns.** Making every unsupported
+  `#[controller]` field a macro-time error broke `routes_generic_controller.rs`, which is an
+  existing route-metadata pattern for app-specific construction. Narrowing to concrete unsupported
+  fields then broke `crates/nidus/tests/controller_routes.rs`, where a concrete controller is
+  manually constructed and converted into an executable router.
+- **Decision:** keep the generated runtime `ApplicationBuild` error for unsupported controller
+  dependency instantiation. That preserves manually constructed controllers and generic
+  route-metadata controllers. A future compile-time diagnostic would need a new opt-in DI-only
+  marker or another API distinction between DI-built and app-constructed controllers.
+  - **Docs:** audit and plan status updated so F-MAC-1 no longer appears as an actionable open P2.
+  - **Manual curl/bench:** not required — this was macro diagnostics investigation only; no
+    committed server route, runtime middleware, DI, routing hot path, request lifecycle, metrics, or
+    module graph runtime changed.
+
+### Verification after this pass
+
+Evidence from the reverted investigation:
+
+- `cargo test -p nidus --all-features --test macro_ui` passed after preserving the generic
+  controller path.
+- `cargo test -p nidus --all-features` failed under the narrowed concrete-field compile-error
+  attempt because `crates/nidus/tests/controller_routes.rs` is a supported manually constructed
+  concrete controller pattern. The code change and trybuild fixture were reverted before this note.
+- Post-revert focused checks are clean: `cargo test -p nidus --all-features --test macro_ui`,
+  `cargo test -p nidus --all-features --test controller_routes`, `cargo fmt --all --check`, and
+  `git diff --check`.
 
 ## Appendix: verification commands (baseline)
 

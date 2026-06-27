@@ -901,3 +901,25 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 43" secti
   identity boundary. Most scenarios improved or remained within noise; one unrelated metrics-only
   scenario (`nidus metrics record response`) reported a small outlier-heavy regression, while
   adjacent metrics scenarios were unchanged or within noise.
+
+---
+
+## Wave 44 — controller macro concrete-field diagnostics re-review (F-MAC-1)
+
+Status: **investigated and intentionally deferred**. See the audit's "Follow-up hardening —
+Wave 44" section.
+
+- **Files:** audit, plan. The attempted changes to `crates/nidus-macros/src/controller.rs`,
+  `crates/nidus/tests/macro_ui.rs`, and the temporary `controller_plain_field` trybuild fixture were
+  reverted after package-level evidence showed the compile-error approach breaks supported patterns.
+- **Decision:** keep the generated runtime `ApplicationBuild` error for unsupported controller
+  dependency instantiation. Compile-time rejection needs a future API distinction between DI-built
+  controllers and manually/app-specifically constructed controllers.
+- **Evidence:** the broad compile-error attempt broke `routes_generic_controller.rs`; a narrower
+  concrete-field attempt broke `crates/nidus/tests/controller_routes.rs`, a supported manually
+  constructed concrete controller.
+- **Verification:** the investigation produced a passing focused macro UI run after preserving the
+  generic route-metadata path, followed by a package-level failure proving the concrete-controller
+  regression. No code change was retained.
+- **Manual curl/bench:** not required (documentation/status-only; no server route or hot-path
+  HTTP/DI/routing/request lifecycle/metrics/module graph runtime changed).
