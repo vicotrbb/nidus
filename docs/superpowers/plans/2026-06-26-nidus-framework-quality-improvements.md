@@ -643,5 +643,23 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 30" secti
 - **Manual run:** printed `UsersModule` boundaries and `resolved user user-42@nidus.dev from
   tenant-primary`.
 - **Bench:** not required (CLI example error handling/package feature metadata only).
-- **Deferred:** remaining EX-5 paths are `rest-api` startup helper expects and `realworld-api`
-  config/handler expects.
+- **Deferred:** remaining EX-5 paths are realworld-api config/handler expects.
+
+---
+
+## Wave 31 — example robustness: rest-api startup registration (EX-5)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 31" section.
+
+- **Files:** `examples/rest-api/src/main.rs`, audit, plan.
+- **Behavior change:** the server's success path is unchanged, but app construction now returns
+  `Result<Router>` and propagates request-provider registration failures instead of panicking.
+- **TDD:** existing rest-api tests were first changed to `app().unwrap()`, which failed while
+  `app()` still returned `Router`; after converting `app()` to `Result<Router>`, tests passed.
+- **Verification:** `cargo check -p nidus-example-rest-api`; `cargo test -p nidus-example-rest-api`
+  (2 passed); `cargo clippy -p nidus-example-rest-api --all-targets --all-features -- -D warnings`.
+- **Manual curl:** `cargo run -p nidus-example-rest-api`; `GET /users/42` on `127.0.0.1:3000`
+  returned 200 with `{"id":42,"email":"user@nidus.dev","request_id":0}`; server stopped with
+  Ctrl-C.
+- **Bench:** not required (example startup error handling only; no hot path changed).
+- **Deferred:** remaining EX-5 paths are realworld-api config/handler expects.

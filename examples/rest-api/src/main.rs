@@ -27,20 +27,18 @@ struct RequestContext {
     request_id: Inject<RequestId>,
 }
 
-fn app() -> Router {
+fn app() -> nidus::prelude::Result<Router> {
     let mut container = Container::new();
     let request_ids = Arc::new(AtomicUsize::new(0));
-    container
-        .register_request::<RequestId, _>({
-            let request_ids = Arc::clone(&request_ids);
-            move |_container| Ok(RequestId(request_ids.fetch_add(1, Ordering::SeqCst)))
-        })
-        .expect("request id provider should register");
-    RequestContext::register_provider(&mut container).expect("request context should register");
+    container.register_request::<RequestId, _>({
+        let request_ids = Arc::clone(&request_ids);
+        move |_container| Ok(RequestId(request_ids.fetch_add(1, Ordering::SeqCst)))
+    })?;
+    RequestContext::register_provider(&mut container)?;
 
-    UsersController
+    Ok(UsersController
         .into_router()
-        .layer(request_scope_layer(Arc::new(container)))
+        .layer(request_scope_layer(Arc::new(container))))
 }
 
 #[controller("/users")]
@@ -65,7 +63,7 @@ impl UsersController {
 #[nidus::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Nidus::bootstrap::<AppModule>()?
-        .with_router(app())
+        .with_router(app()?)
         .listen("127.0.0.1:3000")
         .await?;
     Ok(())
@@ -82,7 +80,10 @@ mod tests {
 
     #[tokio::test]
     async fn rest_api_returns_user_by_id() {
-        let response = TestApp::from_router(app()).get("/users/42").send().await;
+        let response = TestApp::from_router(app().unwrap())
+            .get("/users/42")
+            .send()
+            .await;
 
         response.assert_json(json!({
             "id": 42,
@@ -93,7 +94,7 @@ mod tests {
 
     #[tokio::test]
     async fn rest_api_allocates_request_context_per_request() {
-        let app = TestApp::from_router(app());
+        let app = TestApp::from_router(app().unwrap());
 
         app.get("/users/1").send().await.assert_json(json!({
             "id": 1,

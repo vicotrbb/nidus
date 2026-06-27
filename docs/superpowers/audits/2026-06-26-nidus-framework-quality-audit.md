@@ -392,7 +392,7 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 | Example | Type | Default port | External svc | Notes |
 | --- | --- | --- | --- | --- |
 | `hello-world` | server | `127.0.0.1:3000` (hardcoded) | none | clean |
-| `rest-api` | server | `127.0.0.1:3000` (hardcoded) | none | `.expect()` in startup helper (`main.rs:38-39`) |
+| `rest-api` | server | `127.0.0.1:3000` (hardcoded) | none | app builder returns `Result`; startup provider registration propagates errors |
 | `auth-api` | server | `127.0.0.1:3000` (hardcoded) | none | guard is a toy route-label check, never reads a header (`main.rs:16-21`) |
 | `openapi` | **CLI (prints + exits)** | — | none | **not a server** despite docs implying `/openapi.json`+`/docs` are served |
 | `background-jobs` | CLI | — | none | clean |
@@ -417,9 +417,10 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 - **EX-4 (P3):** Orphaned empty dir `examples/sqlx-postgres/src/` — no `Cargo.toml`/`main.rs`, not a
   workspace member; leftover from the integrations migration. (Note: the `sqlx-postgres` package in
   `Cargo.lock` is sqlx's own transitive sub-crate, unrelated.)
-- **EX-5 (P3, partially mitigated Wave 30):** `.expect()`/`.unwrap()` in non-test example
-  `main`/startup paths. `modular-monolith` now returns `Result` from its main flow; remaining
-  follow-up: rest-api startup provider registration and realworld-api config/handler paths.
+- **EX-5 (P3, partially mitigated Waves 30-31):** `.expect()`/`.unwrap()` in non-test example
+  `main`/startup paths. `modular-monolith` now returns `Result` from its main flow, and
+  `rest-api` provider registration now propagates errors from `app()`. Remaining follow-up:
+  realworld-api config/handler paths.
 
 No example fails to compile against the current API (build is green). No `TODO/FIXME/panic!` in
 example/bench code.
@@ -1293,6 +1294,31 @@ Partially closed EX-5 and fixed a standalone compile issue in the `modular-monol
 `cargo check -p nidus-example-modular-monolith`, `cargo test -p nidus-example-modular-monolith`
 (4 passed), `cargo clippy -p nidus-example-modular-monolith --all-targets --all-features -- -D
 warnings`, and `cargo run -p nidus-example-modular-monolith` are clean.
+
+## Follow-up hardening — Wave 31 (2026-06-27, after commit `97bec5e`)
+
+Partially closed the remaining EX-5 startup panic path in the `rest-api` server example.
+
+### Implemented (TDD)
+
+- **EX-5 partially mitigated — rest-api app builder is fallible.** `app()` now returns
+  `nidus::prelude::Result<Router>`, uses `?` for request provider registration, and `main()`
+  passes the router through `with_router(app()?)`. The success path and request-scoped counter
+  behavior are unchanged.
+  - **TDD:** the existing rest-api tests were first updated to call `app().unwrap()`. RED:
+    `Router` had no `unwrap()` because `app()` was still infallible. GREEN after changing `app()`
+    to return `Result<Router>`.
+  - **Manual curl:** `cargo run -p nidus-example-rest-api` on `127.0.0.1:3000`, then
+    `GET /users/42` -> 200 `{"id":42,"email":"user@nidus.dev","request_id":0}`. Server stopped
+    cleanly with Ctrl-C.
+  - **Bench:** not required — example startup error handling only; no HTTP middleware/routing hot
+    path changed.
+
+### Verification after this pass
+
+`cargo check -p nidus-example-rest-api`, `cargo test -p nidus-example-rest-api` (2 passed),
+`cargo clippy -p nidus-example-rest-api --all-targets --all-features -- -D warnings`, and the
+manual curl above are clean.
 
 ## Appendix: verification commands (baseline)
 
