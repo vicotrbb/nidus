@@ -42,3 +42,18 @@ observed.publish_named("user.created", UserCreated { user_id: 42 });
 
 Use context attributes to propagate request IDs, tenant IDs, or job run IDs into
 event publication metrics and spans.
+
+When observation needs slower export work, use a channel-backed observer and
+process contexts away from the publish call:
+
+```rust
+let (observer, receiver) = event_observer_channel();
+let observed = ObservedEventBus::new(bus.clone(), observer);
+
+observed.publish_named("user.created", UserCreated { user_id: 42 });
+
+let context = receiver.recv()?;
+```
+
+The publish path only sends the `ObservedEventContext`; a dropped receiver does
+not fail event publication.

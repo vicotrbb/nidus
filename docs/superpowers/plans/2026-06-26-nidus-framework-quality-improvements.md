@@ -180,7 +180,8 @@ Each wave is a separate atomic commit. Any wave can be reverted in isolation wit
   F-HTTP-6 client_ip_identity hardening; F-HTTP-7 panic-catching layer; F-HTTP-8 prometheus series cap.
 - F-MAC-2 spanned diagnostics; O-1 OpenAPI error-response modeling; O-2 parity test (covered
   partially by 2.1's probe).
-- E-1/E-2/E-3 bounded event queues + observer offloading.
+- E-3 poisoned-mutex diagnostics. E-2 has an opt-in channel offload seam; direct observers remain
+  synchronous by design.
 - EX-2 auth-api guard realism.
 - CLI coverage beyond CLI-1/CLI-2; AD-2 live Postgres health coverage.
 - T-1 TestApp request-scope helper; T-2 spurious-async assertions.
@@ -803,3 +804,22 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 38" secti
   full `cargo test -p nidus-sqlx --all-features`; SQLx clippy/doc/fmt/diff checks.
 - **Manual curl/bench:** not required (test-only adapter config coverage; no server route or
   hot-path HTTP/DI/routing/request lifecycle/metrics/module graph change).
+
+---
+
+## Wave 39 — event observer channel offload seam (E-2)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 39" section.
+
+- **Files:** `crates/nidus-events/src/lib.rs`, `crates/nidus-events/tests/observed_events.rs`,
+  `docs/events.md`, audit, plan.
+- **Behavior change:** `event_observer_channel()` returns an `EventObserverChannel` and receiver.
+  The observer sends cloned `ObservedEventContext` values to the receiver and ignores closed
+  receivers, so event publication is not failed by telemetry shutdown.
+- **TDD:** observed-events test first failed on missing `event_observer_channel`; after adding the
+  helper, it proves subscriber delivery still works and the context is received with event name,
+  operation ID, and attributes.
+- **Verification:** `cargo test -p nidus-events --test observed_events`; full
+  `cargo test -p nidus-events`; events clippy/doc/fmt/diff checks.
+- **Manual curl/bench:** not required (local events API only; no server route or hot-path
+  HTTP/DI/routing/request lifecycle/metrics/module graph change).

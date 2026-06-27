@@ -326,10 +326,11 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 - **E-1 (~~P2~~ mitigated, Wave 3):** `EventBus::subscribe_with_capacity(cap)` adds an opt-in
   bounded subscriber queue with drop-oldest behavior. Default `subscribe()` remains unbounded by
   design for callers that prefer lossless in-process fan-out.
-- **E-2 (P3):** Observer runs synchronously on the publishing thread (`lib.rs:178-192`) —
-  blocking-in-async risk if the observer does I/O.
+- **E-2 (~~P3~~ partially mitigated, Wave 39):** Observer callbacks still run synchronously by
+  design, but `event_observer_channel()` now provides a built-in offload seam that only enqueues
+  `ObservedEventContext` on the publish path.
 - **E-3 (P3):** `lock_unpoisoned` silently absorbs poisoned-mutex state (`lib.rs:272-276`).
-- Sync, in-process, no spawns/channels — runtime-safe otherwise.
+- Sync and in-process by default; channel observer support is opt-in for telemetry/export offload.
 
 ### nidus-jobs
 
@@ -489,7 +490,8 @@ example/bench code.
   `Container::eagerly_resolve_singletons()` at startup (F-CORE-4); default lazy behavior unchanged.
 - **RT-3 (P2):** no graceful shutdown (F-HTTP-5).
 - **RT-4 (P3):** `ObservedJobRunner::run_async` no longer holds a tracing guard across `.await`
-  (J-4 mitigated); event observer blocking risk (E-2) remains.
+  (J-4 mitigated); event observer blocking risk is partially mitigated by the channel observer seam
+  (E-2).
 - No hidden global mutable state (the `RESOLUTION_STACK` thread-local is correctly scoped by `Drop`).
 
 ## Test coverage gaps
@@ -566,6 +568,7 @@ example/bench code.
 | J-2 | ~~P2~~ mitigated | Job queues document retention and expose `clear` (Wave 2) | `nidus-jobs/src/lib.rs` |
 | J-3 | ~~P3~~ mitigated | Job queues can run through `ObservedJobRunner` (Wave 37) | `nidus-jobs/src/lib.rs` |
 | E-1 | ~~P2~~ mitigated | Opt-in bounded subscriber queues added (Wave 3) | `nidus-events/src/lib.rs` |
+| E-2 | ~~P3~~ partial | Channel observer offload seam added; direct observers remain sync (Wave 39) | `nidus-events/src/lib.rs` |
 | O-1 | ~~P2~~ mitigated | OpenAPI emits error responses (Wave 9) | `nidus-openapi/src/route.rs` |
 | O-2 | ~~P2~~ covered | Route↔OpenAPI parity tests added (Wave 3) | `nidus-openapi/tests/` |
 | EX-1 | ~~P2~~ mitigated | `openapi` example is a runnable server with docs routes (Wave 2) | `examples/openapi/src/main.rs`; `docs/examples.md` |
@@ -1519,6 +1522,31 @@ Closed the deterministic Postgres adapter config coverage part of AD-3 / TG-8.
 `cargo test -p nidus-sqlx --all-features`,
 `cargo clippy -p nidus-sqlx --all-targets --all-features -- -D warnings`,
 `RUSTDOCFLAGS="-D warnings" cargo doc -p nidus-sqlx --all-features --no-deps`,
+`cargo fmt --all --check`, and `git diff --check` are clean.
+
+## Follow-up hardening — Wave 39 (2026-06-27, after commit `8bccead`)
+
+Partially closed the event observer blocking-risk gap E-2.
+
+### Implemented (TDD)
+
+- **E-2 partially mitigated — built-in channel observer offload seam.** `event_observer_channel()`
+  returns an `EventObserverChannel` plus `std::sync::mpsc::Receiver<ObservedEventContext>`.
+  `ObservedEventBus` can use that observer so the publish path only clones and sends context,
+  while slower export work can run on another thread or task. Closed receivers are ignored so
+  telemetry shutdown does not fail event publication. Direct custom observers remain synchronous by
+  design.
+  - **TDD:** `observed_event_bus_can_enqueue_context_for_off_thread_observers` first failed because
+    `event_observer_channel` did not exist. After adding the helper, the test proves subscriber
+    delivery still works and the receiver gets event name, operation ID, and attributes.
+  - **Bench/manual curl:** not required — local event-observer API only; no server route or
+    hot-path HTTP/DI/routing/request lifecycle/metrics/module graph behavior changed.
+
+### Verification after this pass
+
+`cargo test -p nidus-events --test observed_events`, `cargo test -p nidus-events`,
+`cargo clippy -p nidus-events --all-targets --all-features -- -D warnings`,
+`RUSTDOCFLAGS="-D warnings" cargo doc -p nidus-events --all-features --no-deps`,
 `cargo fmt --all --check`, and `git diff --check` are clean.
 
 ## Appendix: verification commands (baseline)

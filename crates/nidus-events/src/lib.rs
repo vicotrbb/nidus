@@ -8,6 +8,7 @@
 
 use std::{
     collections::BTreeMap,
+    sync::mpsc,
     sync::{Arc, Mutex, MutexGuard, Weak},
 };
 
@@ -140,6 +141,43 @@ where
     T: Clone + Send + Sync + 'static,
 {
     fn on_event_published(&self, _context: &ObservedEventContext) {}
+}
+
+/// Observer implementation that sends observed event contexts to a channel.
+///
+/// Use [`event_observer_channel`] when the publish path should only enqueue
+/// telemetry and another thread or task will do slower export work. Sending to
+/// the channel is best-effort: if the receiver has been dropped, publication
+/// still succeeds and the context is discarded.
+#[derive(Clone)]
+pub struct EventObserverChannel {
+    sender: mpsc::Sender<ObservedEventContext>,
+}
+
+impl EventObserverChannel {
+    /// Creates a channel observer from an existing sender.
+    pub fn new(sender: mpsc::Sender<ObservedEventContext>) -> Self {
+        Self { sender }
+    }
+}
+
+impl<T> EventObserver<T> for EventObserverChannel
+where
+    T: Clone + Send + Sync + 'static,
+{
+    fn on_event_published(&self, context: &ObservedEventContext) {
+        let _ = self.sender.send(context.clone());
+    }
+}
+
+/// Creates a channel-backed event observer and its receiver.
+///
+/// The returned observer can be passed to [`ObservedEventBus::new`]. The
+/// receiver yields [`ObservedEventContext`] values in publication order for a
+/// separate exporter thread or task.
+pub fn event_observer_channel() -> (EventObserverChannel, mpsc::Receiver<ObservedEventContext>) {
+    let (sender, receiver) = mpsc::channel();
+    (EventObserverChannel::new(sender), receiver)
 }
 
 /// Event bus wrapper that records publication context.
