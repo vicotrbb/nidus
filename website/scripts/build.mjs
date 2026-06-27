@@ -275,6 +275,20 @@ function markdownToHtml(markdown) {
   return html;
 }
 
+function extractToc(markdown) {
+  return markdown
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => /^(#{2,3})\s+(.+)$/.exec(line))
+    .filter(Boolean)
+    .slice(0, 8)
+    .map((match) => ({
+      level: match[1].length,
+      title: match[2].replace(/`/g, '').trim(),
+      id: slugify(match[2]),
+    }));
+}
+
 function apiReference() {
   const crates = [
     ['nidus', 'Facade crate and prelude'],
@@ -330,8 +344,41 @@ function loadDoc(doc) {
   return doc.markdown ?? read(doc.source);
 }
 
-function pageShell({ title, description, body, currentSlug, home = false }) {
-  const docLinks = docs.map((doc) => `<a href="${href(`${doc.slug}/`)}" ${doc.slug === currentSlug ? 'aria-current="page"' : ''}>${doc.title}</a>`).join('');
+function docsNav(currentSlug) {
+  const groups = [];
+  for (const doc of docs) {
+    let group = groups.find((entry) => entry.name === doc.group);
+    if (!group) {
+      group = { name: doc.group, docs: [] };
+      groups.push(group);
+    }
+    group.docs.push(doc);
+  }
+
+  return groups.map((group) => `<section class="docs-nav-group">
+    <h2>${escapeHtml(group.name)}</h2>
+    ${group.docs.map((doc) => `<a class="docs-link" href="${href(`${doc.slug}/`)}" data-title="${escapeHtml(doc.title.toLowerCase())}" data-summary="${escapeHtml(doc.summary.toLowerCase())}" ${doc.slug === currentSlug ? 'aria-current="page"' : ''}>
+      <span>${escapeHtml(doc.title)}</span>
+      <small>${escapeHtml(doc.summary)}</small>
+    </a>`).join('')}
+  </section>`).join('');
+}
+
+function docsPager(currentSlug) {
+  const index = docs.findIndex((doc) => doc.slug === currentSlug);
+  const prev = docs[index - 1];
+  const next = docs[index + 1];
+  return `<nav class="docs-pager" aria-label="Documentation pagination">
+    ${prev ? `<a href="${href(`${prev.slug}/`)}"><span>Previous</span><strong>${escapeHtml(prev.title)}</strong></a>` : '<span></span>'}
+    ${next ? `<a href="${href(`${next.slug}/`)}"><span>Next</span><strong>${escapeHtml(next.title)}</strong></a>` : '<span></span>'}
+  </nav>`;
+}
+
+function pageShell({ title, description, body, currentSlug, home = false, toc = [] }) {
+  const tocLinks = toc.length
+    ? toc.map((item) => `<a class="toc-level-${item.level}" href="#${item.id}">${escapeHtml(item.title)}</a>`).join('')
+    : '<span>No section headings</span>';
+
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -348,8 +395,8 @@ function pageShell({ title, description, body, currentSlug, home = false }) {
 </head>
 <body class="${home ? 'home' : 'doc-page'}">
   <header class="site-header">
-    <a class="brand" href="${href()}">
-      <img src="${asset('logo-mark-transparent.png')}" alt="" width="42" height="32">
+    <a class="brand" href="${href()}" aria-label="Nidus home">
+      <img src="${asset('logo-full-transparent.png')}" alt="" width="48" height="46">
       <span>Nidus</span>
     </a>
     <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
@@ -361,13 +408,24 @@ function pageShell({ title, description, body, currentSlug, home = false }) {
       <a href="https://github.com/victorbona/nidus">Source</a>
     </nav>
   </header>
-  ${home ? body : `<main class="docs-layout">
+  ${home ? body : `<main class="docs-frame">
     <aside class="docs-sidebar">
-      <label for="docs-filter">Search docs</label>
-      <input id="docs-filter" type="search" placeholder="Filter pages">
-      <nav class="docs-links" aria-label="Documentation">${docLinks}</nav>
+      <div class="docs-search">
+        <label for="docs-filter">Search docs</label>
+        <input id="docs-filter" type="search" placeholder="modules, guards, sqlx">
+      </div>
+      <nav class="docs-links" aria-label="Documentation">
+        ${docsNav(currentSlug)}
+        <p class="docs-empty" hidden>No matching docs.</p>
+      </nav>
     </aside>
-    <article class="doc-content">${body}</article>
+    <div class="docs-page-shell">
+      <article class="doc-content">${body}</article>
+      <aside class="docs-toc" aria-label="On this page">
+        <h2>On this page</h2>
+        ${tocLinks}
+      </aside>
+    </div>
   </main>`}
   <footer class="site-footer">
     <span>Nidus 1.0</span>
@@ -381,53 +439,113 @@ function pageShell({ title, description, body, currentSlug, home = false }) {
 }
 
 function homePage() {
-  const pillars = [
-    ['Organized Rust services', 'Modules, providers, controllers, guards, pipes, and OpenAPI metadata without runtime reflection.'],
-    ['Lean core, explicit adapters', 'SQLx and cache support ship as separate crates so backend vendors only compile when installed.'],
-    ['Production HTTP defaults', 'Request IDs, request context, health, metrics, CORS, body limits, timeouts, error envelopes, and structured tracing stay visible.'],
-    ['Proof-oriented workflow', 'CLI inspection, TestApp, compile-fail coverage, package dry-runs, and docs checks make release claims auditable.'],
+  const surfaces = [
+    ['Modules', 'docs/modules', 'Explicit imports, providers, controllers, exports, and graph validation.'],
+    ['Controllers', 'docs/controllers-routes', 'Axum-backed route composition with Nidus metadata where it matters.'],
+    ['Dependency injection', 'docs/providers-di', 'Typed providers, factories, request scope, optional dependencies, and overrides.'],
+    ['Guards', 'docs/guards', 'Authorization boundaries as Rust types instead of hidden decorators.'],
+    ['Validation', 'docs/pipes-validation', 'garde-backed DTO validation and stable error responses.'],
+    ['OpenAPI', 'docs/openapi', 'Inspectable route metadata and generated documents from source.'],
   ];
-  const docCards = docs.filter((doc) => ['docs/getting-started', 'docs/installation', 'docs/modules', 'docs/controllers-routes', 'docs/integrations-adapters', 'docs/production-deployment'].includes(doc.slug));
+
+  const proof = [
+    ['Install path', 'CLI install, facade dependency, and adapter crates are separated in docs.'],
+    ['Runtime defaults', 'Request IDs, context, health, metrics, CORS, limits, timeouts, security headers, tracing.'],
+    ['Examples', 'launchpad-api and realworld-api exercise modules, validation, OpenAPI, health, metrics, events, and jobs.'],
+    ['Release boundary', 'Local dry-runs prove packageability; crates.io and Pages deployment stay explicit external steps.'],
+  ];
+
+  const docsFor60Seconds = [
+    ['Install', 'docs/installation', 'Get the CLI and facade dependency shape.'],
+    ['Mental model', 'docs/mental-model', 'See what happens at build time, startup, and per request.'],
+    ['Examples', 'docs/examples', 'Jump to runnable services, including launchpad-api.'],
+    ['Production', 'docs/production-deployment', 'Inspect HTTP defaults and deployment boundaries.'],
+  ];
+
   const body = `<main>
     <section class="hero">
       <div class="hero-copy">
         <p class="eyebrow">Rust backend framework · 1.0 release track</p>
         <h1>Nidus</h1>
-        <p class="hero-text">NestJS-like application structure for Rust teams who want typed dependency injection, explicit modules, Axum routes, Tower middleware, and production defaults without hiding the ecosystem.</p>
+        <p class="hero-text">NestJS-like application organization for Rust services: explicit modules, typed DI, Axum routes, Tower middleware, validation, OpenAPI, and production defaults that stay inspectable.</p>
         <div class="hero-actions">
-          <a class="button primary" href="${href('docs/installation/')}">Install</a>
-          <a class="button secondary" href="${href('docs/')}">Read docs</a>
+          <a class="button primary" href="${href('docs/installation/')}">Install Nidus</a>
+          <a class="button secondary" href="${href('docs/')}">Open docs</a>
+          <a class="button ghost" href="${href('docs/examples/')}">Run examples</a>
         </div>
-        <pre class="install-snippet"><code>cargo install cargo-nidus
+      </div>
+      <div class="hero-proof" aria-label="Install commands">
+        <img src="${asset('logo-full-transparent.png')}" alt="Nidus logo" width="689" height="658">
+        <pre><code>cargo install cargo-nidus
 cargo nidus new hello-nidus
 cd hello-nidus
 cargo run</code></pre>
       </div>
-      <div class="hero-mark" aria-hidden="true">
-        <img src="${asset('logo-mark-transparent.png')}" alt="">
-      </div>
     </section>
 
-    <section class="quick-map" aria-label="Nidus feature map">
-      ${pillars.map(([title, text]) => `<article><h2>${title}</h2><p>${text}</p></article>`).join('')}
-    </section>
-
-    <section class="docs-preview">
-      <div class="section-heading">
-        <p class="eyebrow">Documentation-first</p>
-        <h2>Everything needed to evaluate the framework is one click away.</h2>
-      </div>
-      <div class="doc-card-grid">
-        ${docCards.map((doc) => `<a class="doc-card" href="${href(`${doc.slug}/`)}"><span>${doc.group}</span><strong>${doc.title}</strong><p>${doc.summary}</p></a>`).join('')}
-      </div>
-    </section>
-
-    <section class="ecosystem">
+    <section class="first-minute" aria-labelledby="first-minute-title">
       <div>
-        <p class="eyebrow">Facade plus adapters</p>
-        <h2>Core Nidus stays narrow.</h2>
+        <p class="eyebrow">Evaluation path</p>
+        <h2 id="first-minute-title">A senior Rust engineer should know where to start in under a minute.</h2>
       </div>
-      <div class="package-strip" aria-label="Package groups">
+      <div class="minute-links">
+        ${docsFor60Seconds.map(([title, slug, text], index) => `<a href="${href(`${slug}/`)}">
+          <span>0${index + 1}</span>
+          <strong>${title}</strong>
+          <small>${text}</small>
+        </a>`).join('')}
+      </div>
+    </section>
+
+    <section class="concept-model" aria-labelledby="model-title">
+      <div class="section-heading">
+        <p class="eyebrow">Core model</p>
+        <h2 id="model-title">Familiar organization, Rust-native mechanics.</h2>
+      </div>
+      <div class="model-flow">
+        <article>
+          <span>01</span>
+          <h3>Module graph</h3>
+          <p>Declare imports, providers, controllers, and exports in Rust. The graph stays visible to source inspection.</p>
+        </article>
+        <article>
+          <span>02</span>
+          <h3>Typed providers</h3>
+          <p>Register dependencies by type with singleton, transient, request-scoped, lazy, optional, and factory patterns.</p>
+        </article>
+        <article>
+          <span>03</span>
+          <h3>HTTP boundary</h3>
+          <p>Compose Axum routers, Tower layers, guards, validation pipes, OpenAPI metadata, and error envelopes.</p>
+        </article>
+        <article>
+          <span>04</span>
+          <h3>Runtime proof</h3>
+          <p>Use CLI inspectors and TestApp to verify route shape, module graph, OpenAPI output, and request behavior.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="surface-table" aria-labelledby="surfaces-title">
+      <div>
+        <p class="eyebrow">Framework surfaces</p>
+        <h2 id="surfaces-title">The 1.0 surface is broad, but not blurry.</h2>
+      </div>
+      <div class="surface-list">
+        ${surfaces.map(([title, slug, text]) => `<a href="${href(`${slug}/`)}">
+          <strong>${title}</strong>
+          <span>${text}</span>
+        </a>`).join('')}
+      </div>
+    </section>
+
+    <section class="adapter-story" aria-labelledby="adapter-title">
+      <div>
+        <p class="eyebrow">Lean core</p>
+        <h2 id="adapter-title">The facade stays narrow. Adapters opt in.</h2>
+        <p>Nidus does not smuggle vendor dependencies into every app. SQLx and cache support live in official crates with direct access to the underlying ecosystem clients.</p>
+      </div>
+      <div class="package-matrix" aria-label="Package groups">
         <span>nidus</span>
         <span>nidus-core</span>
         <span>nidus-http</span>
@@ -436,6 +554,27 @@ cargo run</code></pre>
         <span>nidus-sqlx</span>
         <span>nidus-cache</span>
         <span>cargo-nidus</span>
+      </div>
+    </section>
+
+    <section class="example-panel" aria-labelledby="example-title">
+      <div>
+        <p class="eyebrow">Example to inspect first</p>
+        <h2 id="example-title">launchpad-api is the compact 1.0 tour.</h2>
+        <p>It wires config, modules, authorization, validation, OpenAPI schemas, health, readiness, metrics, tracing context, cache-backed services, and deterministic tests into one runnable service.</p>
+        <a class="text-link" href="${href('docs/examples/')}">View all examples</a>
+      </div>
+      <pre><code>cargo run -p nidus-example-launchpad-api
+cargo test -p nidus-example-launchpad-api --all-targets</code></pre>
+    </section>
+
+    <section class="proof-band" aria-labelledby="proof-title">
+      <div class="section-heading">
+        <p class="eyebrow">Release proof</p>
+        <h2 id="proof-title">Trust comes from bounded claims.</h2>
+      </div>
+      <div class="proof-list">
+        ${proof.map(([title, text]) => `<article><h3>${title}</h3><p>${text}</p></article>`).join('')}
       </div>
     </section>
   </main>`;
@@ -449,12 +588,20 @@ cargo run</code></pre>
 }
 
 function docPage(doc) {
-  const content = markdownToHtml(loadDoc(doc));
+  const markdown = loadDoc(doc);
+  const content = markdownToHtml(markdown);
   return pageShell({
     title: doc.title,
     description: doc.summary,
     currentSlug: doc.slug,
-    body: `<div class="doc-kicker">${escapeHtml(doc.group)}</div>${content}`,
+    toc: extractToc(markdown),
+    body: `<header class="doc-hero">
+      <p class="doc-kicker">${escapeHtml(doc.group)}</p>
+      <h1>${escapeHtml(doc.title)}</h1>
+      <p>${escapeHtml(doc.summary)}</p>
+    </header>
+    <div class="doc-body">${content}</div>
+    ${docsPager(doc.slug)}`,
   });
 }
 
