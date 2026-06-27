@@ -367,8 +367,8 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
   non-`hello-nidus` project.
 - **CLI-4 (~~P3~~ mitigated, Wave 21):** `expand` now detects Cargo's missing-subcommand output
   and reports `cargo install cargo-expand`; `docs/getting-started.md` documents the requirement.
-- **CLI-5 (P3):** `graph` only scans `src/{main,lib,modules/*.rs}` — controllers/services outside
-  `src/modules/` are invisible to `nidus graph` (`graph.rs:29-48`).
+- **CLI-5 (~~P3~~ mitigated, Wave 22):** `graph` now recursively scans Rust sources under `src/`,
+  so generated controllers, services, and repositories outside `src/modules/` are visible.
 
 ### nidus-sqlx / nidus-cache (adapters)
 
@@ -1076,6 +1076,27 @@ Closed the CLI expand dependency diagnostic gap CLI-4.
 
 `cargo test -p cargo-nidus --test cli cargo_nidus_expand_reports_missing_cargo_expand`,
 `cargo test -p cargo-nidus --test cli`, `cargo test -p cargo-nidus`, and
+`cargo clippy -p cargo-nidus --all-targets --all-features -- -D warnings` are clean.
+
+## Follow-up hardening — Wave 22 (2026-06-27, after commit `1452280`)
+
+Closed the CLI graph discovery gap CLI-5.
+
+### Implemented (TDD)
+
+- **CLI-5 mitigated — graph scans generated feature directories.** `cargo nidus graph` now
+  recursively discovers `.rs` files under `src/` instead of only crate roots and
+  `src/modules/*.rs`, so generated controllers, services, and repositories appear in graph output.
+  Source paths are stored in a `BTreeSet` for deterministic ordering and deduplication.
+  - **TDD:** `cargo_nidus_graph_inspects_generated_feature_directories` generated controller,
+    service, and repository artifacts. RED: graph output omitted those structs; GREEN: output
+    includes `UsersController`, `UsersService`, and `UsersRepository`.
+  - **Bench:** not required — CLI source inspection only.
+
+### Verification after this pass
+
+`cargo test -p cargo-nidus --test cli_graph cargo_nidus_graph_inspects_generated_feature_directories`,
+`cargo test -p cargo-nidus --test cli_graph`, `cargo test -p cargo-nidus`, and
 `cargo clippy -p cargo-nidus --all-targets --all-features -- -D warnings` are clean.
 
 ## Appendix: verification commands (baseline)

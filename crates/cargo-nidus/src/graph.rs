@@ -1,4 +1,8 @@
-use std::{fs, path::Path};
+use std::{
+    collections::BTreeSet,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{Context, Result};
 use syn::{Expr, Item, Lit, Stmt};
@@ -27,25 +31,7 @@ pub(crate) fn inspect_graph(root: &Path) -> Result<()> {
 }
 
 fn discover_modules(root: &Path) -> Result<Vec<DiscoveredModule>> {
-    let mut sources = Vec::new();
-    for root_source in ["main.rs", "lib.rs"] {
-        let path = root.join("src").join(root_source);
-        if path.exists() {
-            sources.push(path);
-        }
-    }
-    let modules = root.join("src/modules");
-    if modules.exists() {
-        for entry in
-            fs::read_dir(&modules).with_context(|| format!("reading {}", modules.display()))?
-        {
-            let path = entry?.path();
-            if path.extension().and_then(|extension| extension.to_str()) == Some("rs") {
-                sources.push(path);
-            }
-        }
-    }
-    sources.sort();
+    let sources = discover_source_files(&root.join("src"))?;
 
     let mut discovered = Vec::new();
     for path in sources {
@@ -67,6 +53,30 @@ fn discover_modules(root: &Path) -> Result<Vec<DiscoveredModule>> {
     }
     discovered.sort_by(|left, right| left.name.cmp(&right.name));
     Ok(discovered)
+}
+
+fn discover_source_files(src: &Path) -> Result<Vec<PathBuf>> {
+    let mut sources = BTreeSet::new();
+    collect_source_files(src, &mut sources)?;
+    Ok(sources.into_iter().collect())
+}
+
+fn collect_source_files(directory: &Path, sources: &mut BTreeSet<PathBuf>) -> Result<()> {
+    if !directory.exists() {
+        return Ok(());
+    }
+
+    for entry in
+        fs::read_dir(directory).with_context(|| format!("reading {}", directory.display()))?
+    {
+        let path = entry?.path();
+        if path.is_dir() {
+            collect_source_files(&path, sources)?;
+        } else if path.extension().and_then(|extension| extension.to_str()) == Some("rs") {
+            sources.insert(path);
+        }
+    }
+    Ok(())
 }
 
 fn discover_modules_in_source(file: &syn::File) -> Vec<DiscoveredModule> {

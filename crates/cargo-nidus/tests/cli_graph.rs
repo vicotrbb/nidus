@@ -29,6 +29,31 @@ fn cargo_nidus_graph_inspects_crate_root_modules() {
 }
 
 #[test]
+fn cargo_nidus_graph_inspects_generated_feature_directories() {
+    let root = temp_project_root("graph_inspects_generated_feature_directories");
+    for kind in ["controller", "service", "repository"] {
+        let status = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+            .args(["nidus", "generate", kind, "users", "--path"])
+            .arg(&root)
+            .status()
+            .unwrap();
+        assert!(status.success(), "generate {kind} failed");
+    }
+
+    let graph = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "graph", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+
+    assert!(graph.status.success());
+    let stdout = String::from_utf8(graph.stdout).unwrap();
+    assert!(stdout.contains("UsersController"), "{stdout}");
+    assert!(stdout.contains("UsersService"), "{stdout}");
+    assert!(stdout.contains("UsersRepository"), "{stdout}");
+}
+
+#[test]
 fn cargo_nidus_graph_prints_module_builder_metadata() {
     let root = temp_project_root("graph_prints_module_builder_metadata");
     let modules = root.join("src/modules");

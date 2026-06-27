@@ -500,3 +500,16 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 21" secti
 - **Verification:** focused expand test; full `cli` test target; `cargo test -p cargo-nidus`;
   `cargo clippy -p cargo-nidus --all-targets --all-features -- -D warnings`.
 - **Bench:** not required (CLI diagnostics only).
+
+## Wave 22 — CLI graph discovery: recursive src scanning (CLI-5)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 22" section.
+
+- **Files:** `crates/cargo-nidus/src/graph.rs`, `crates/cargo-nidus/tests/cli_graph.rs`; audit.
+- **Behavior change:** `cargo nidus graph` now scans all `.rs` files below `src/`, so generated
+  controllers, services, and repositories outside `src/modules/` are visible.
+- **TDD:** generated feature-directories test RED when graph omitted `UsersController` /
+  `UsersService` / `UsersRepository`, GREEN after recursive source discovery.
+- **Verification:** focused graph test; full `cli_graph` target; `cargo test -p cargo-nidus`;
+  `cargo clippy -p cargo-nidus --all-targets --all-features -- -D warnings`.
+- **Bench:** not required (CLI source inspection only).
