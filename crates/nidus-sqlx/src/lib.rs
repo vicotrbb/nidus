@@ -5,7 +5,7 @@
 //! This crate is installed separately from the core `nidus` facade so SQLx
 //! dependencies are only compiled by applications that choose this adapter.
 
-use nidus_core::{Container, NidusError, ProviderRegistrant, Result as NidusResult};
+use nidus_core::{Container, NidusError};
 use thiserror::Error;
 
 /// Result type used by SQLx adapter operations.
@@ -30,7 +30,7 @@ pub enum SqlxError {
 
 #[cfg(feature = "sqlite")]
 mod sqlite {
-    use super::{Container, NidusResult, ProviderRegistrant, Result};
+    use super::{Container, Result};
 
     /// Typed configuration for a SQLx SQLite pool.
     #[derive(Clone, Debug, Eq, PartialEq)]
@@ -195,12 +195,6 @@ mod sqlite {
             })
         }
     }
-
-    impl ProviderRegistrant for SqlitePoolProvider {
-        fn register_provider(_container: &mut Container) -> NidusResult<()> {
-            Ok(())
-        }
-    }
 }
 
 #[cfg(feature = "sqlite")]
@@ -208,7 +202,7 @@ pub use sqlite::{SqlitePoolBuilder, SqlitePoolConfig, SqlitePoolProvider};
 
 #[cfg(feature = "postgres")]
 mod postgres {
-    use super::{Container, NidusResult, ProviderRegistrant, Result};
+    use super::{Container, Result};
 
     /// Typed configuration for a SQLx Postgres pool.
     #[derive(Clone, Debug, Eq, PartialEq)]
@@ -391,12 +385,6 @@ mod postgres {
                 let provider = std::sync::Arc::clone(&self);
                 async move { provider.health_status().await }
             })
-        }
-    }
-
-    impl ProviderRegistrant for PostgresPoolProvider {
-        fn register_provider(_container: &mut Container) -> NidusResult<()> {
-            Ok(())
         }
     }
 }

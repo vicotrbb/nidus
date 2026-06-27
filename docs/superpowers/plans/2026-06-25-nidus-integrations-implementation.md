@@ -154,7 +154,7 @@ async fn sqlite_config_from_nidus_config_uses_nested_database_url() {
 #[test]
 fn sqlite_module_declares_provider_and_export() {
     let module = ModuleBuilder::new("DatabaseModule")
-        .provider_typed::<SqlitePoolProvider>()
+        .provider("SqlitePoolProvider")
         .export_typed::<SqlitePoolProvider>()
         .build();
 
@@ -180,7 +180,9 @@ Implement in `crates/nidus-sqlx/src/lib.rs`:
 - `SqlxError` with `#[from] sqlx::Error` and config-preserving variants.
 - `SqlitePoolConfig` with `new`, `database_url`, `max_connections`, builder setters, and `from_config_path` behind `nidus-config`.
 - `SqlitePoolProvider` with `builder`, `pool`, `into_pool`, `connect`, and `register`.
-- `ProviderRegistrant` implementation that returns `Ok(())` so `ModuleBuilder` can declare metadata while runtime connection remains explicit.
+- Use metadata-only `ModuleBuilder::provider("SqlitePoolProvider")` for module declarations while
+  runtime connection remains explicit. Wave 36 removed the earlier no-op `ProviderRegistrant`
+  implementation because it was misleading.
 
 - [ ] **Step 4: Verify GREEN**
 
@@ -211,7 +213,7 @@ fn postgres_provider_preserves_raw_sqlx_options_and_module_metadata() {
     assert_eq!(config.min_connections(), Some(1));
 
     let module = ModuleBuilder::new("DatabaseModule")
-        .provider_typed::<PostgresPoolProvider>()
+        .provider("PostgresPoolProvider")
         .export_typed::<PostgresPoolProvider>()
         .build();
 
@@ -237,7 +239,9 @@ Implement in `crates/nidus-sqlx/src/lib.rs`:
 - `PostgresPoolConfig`
 - `PostgresPoolProvider`
 - `PostgresPoolBuilder`
-- `ProviderRegistrant` for `PostgresPoolProvider`
+- metadata-only `ModuleBuilder::provider("PostgresPoolProvider")` declarations. Wave 36 removed
+  the earlier no-op `ProviderRegistrant` implementation because Postgres pool creation is
+  configured and async.
 - direct accessors returning `&sqlx::PgPool`
 
 Do not add a default live Postgres test.

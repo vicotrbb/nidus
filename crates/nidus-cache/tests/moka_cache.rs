@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use nidus_cache::{CacheConfig, MokaCacheProvider};
-use nidus_core::Container;
+use nidus_core::{Container, ProviderRegistrant};
 
 #[cfg(feature = "health")]
 use {nidus_http::health::HealthRegistry, std::sync::Arc};
@@ -32,6 +32,17 @@ async fn moka_cache_registers_in_container() {
         .config(config)
         .register(&mut container)
         .unwrap();
+
+    let cache = container.resolve::<MokaCacheProvider>().unwrap();
+    cache.insert("abc", b"token".to_vec()).await;
+    assert_eq!(cache.get("abc").await.unwrap(), b"token".to_vec());
+}
+
+#[tokio::test]
+async fn moka_cache_provider_registrant_installs_default_cache() {
+    let mut container = Container::new();
+
+    MokaCacheProvider::register_provider(&mut container).unwrap();
 
     let cache = container.resolve::<MokaCacheProvider>().unwrap();
     cache.insert("abc", b"token".to_vec()).await;

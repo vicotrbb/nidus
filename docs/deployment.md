@@ -155,6 +155,12 @@ let database = container.resolve::<nidus_sqlx::SqlitePoolProvider>()?;
 let health = database.register_ready_check(HealthRegistry::new(), "database");
 ```
 
+For configured async adapters such as SQLx, register the provider explicitly
+with its builder or a module async initializer before resolving it from the
+container. `ModuleBuilder::provider_typed` is only appropriate for providers
+that implement synchronous default registration, such as the local Moka cache
+provider.
+
 Keep startup validation strict so a bad config, missing provider, invalid module
 graph, or failed lifecycle hook prevents serving traffic.
 

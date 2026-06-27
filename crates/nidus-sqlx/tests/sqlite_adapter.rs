@@ -38,12 +38,16 @@ async fn sqlite_config_from_nidus_config_uses_nested_database_url() {
 #[test]
 fn sqlite_module_declares_provider_and_export() {
     let module = ModuleBuilder::new("DatabaseModule")
-        .provider_typed::<SqlitePoolProvider>()
+        .provider("SqlitePoolProvider")
         .export_typed::<SqlitePoolProvider>()
         .build();
 
     assert_eq!(module.providers(), ["SqlitePoolProvider"]);
     assert_eq!(module.exports(), ["SqlitePoolProvider"]);
+    assert!(
+        module.provider_registrars().is_empty(),
+        "SQLx pools require explicit async builder/initializer registration"
+    );
 }
 
 #[cfg(feature = "health")]

@@ -241,7 +241,8 @@ mod moka_backend {
     }
 
     impl ProviderRegistrant for MokaCacheProvider {
-        fn register_provider(_container: &mut Container) -> NidusResult<()> {
+        fn register_provider(container: &mut Container) -> NidusResult<()> {
+            container.register_singleton(Self::builder().build())?;
             Ok(())
         }
     }

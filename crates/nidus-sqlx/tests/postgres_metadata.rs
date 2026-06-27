@@ -12,10 +12,14 @@ fn postgres_provider_preserves_raw_sqlx_options_and_module_metadata() {
     assert_eq!(config.min_connections(), Some(1));
 
     let module = ModuleBuilder::new("DatabaseModule")
-        .provider_typed::<PostgresPoolProvider>()
+        .provider("PostgresPoolProvider")
         .export_typed::<PostgresPoolProvider>()
         .build();
 
     assert_eq!(module.providers(), ["PostgresPoolProvider"]);
     assert_eq!(module.exports(), ["PostgresPoolProvider"]);
+    assert!(
+        module.provider_registrars().is_empty(),
+        "SQLx pools require explicit async builder/initializer registration"
+    );
 }

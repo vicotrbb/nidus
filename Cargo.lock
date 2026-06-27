@@ -1530,6 +1530,7 @@ dependencies = [
  "sqlx",
  "thiserror",
  "tokio",
+ "trybuild",
 ]
 
 [[package]]

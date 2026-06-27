@@ -43,7 +43,9 @@ Every official adapter crate should document and test this shape:
 Third-party adapters should follow the same shape. They do not need a core
 framework trait unless they are sharing behavior with another crate; current
 Nidus extension points are `Container`, `ProviderRegistrant`, `ModuleBuilder`,
-`Config`, `HealthRegistry`, and lifecycle hooks.
+`Config`, `HealthRegistry`, and lifecycle hooks. Use `ProviderRegistrant` only
+when a provider can be built synchronously from safe defaults; configured or
+async adapters should register through a builder or module async initializer.
 
 ## SQLx
 
@@ -54,8 +56,11 @@ nidus = { version = "0.1", features = ["http", "config"] }
 nidus-sqlx = { version = "0.1", features = ["sqlite"] }
 ```
 
-The adapter registers typed providers such as `SqlitePoolProvider` and
-`PostgresPoolProvider`. Those providers expose the real SQLx pool:
+The adapter exposes typed providers such as `SqlitePoolProvider` and
+`PostgresPoolProvider`. SQLx pools are configured and connected asynchronously,
+so they must be registered explicitly through the builder API or from a module
+async initializer; `ModuleBuilder::provider_typed` is intentionally unsupported
+for these providers. Once registered, the providers expose the real SQLx pool:
 
 ```rust
 let mut container = nidus::prelude::Container::new();
@@ -104,6 +109,11 @@ cache.insert("42", b"Ada".to_vec()).await;
 let value = cache.get("42").await;
 let raw = cache.inner();
 ```
+
+`MokaCacheProvider` also supports `ModuleBuilder::provider_typed` and registers
+a default local cache when no custom builder configuration is needed. Use the
+builder's `register` method when the application needs a namespace, TTL, or
+capacity limit.
 
 The local provider is deterministic and tested without external services. Redis
 is reserved for feature-gated distributed cache support; default tests must not

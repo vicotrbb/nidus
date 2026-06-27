@@ -182,7 +182,7 @@ Each wave is a separate atomic commit. Any wave can be reverted in isolation wit
   partially by 2.1's probe).
 - E-1/E-2/E-3 bounded event queues + observer offloading.
 - EX-2 auth-api guard realism.
-- CLI coverage beyond CLI-1/CLI-2; AD-1/AD-2/AD-3 adapter registration + health wiring + coverage.
+- CLI coverage beyond CLI-1/CLI-2; AD-2/AD-3 adapter health wiring + coverage.
 - T-1 TestApp request-scope helper; T-2 spurious-async assertions.
 - BENCH-1 baseline locking.
 
@@ -745,3 +745,24 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 35" secti
   `cargo metadata --no-deps --format-version 1` has no `examples/sqlx-postgres` workspace member;
   `cargo fmt --all --check`; `git diff --check`.
 - **Manual curl/bench:** not required (no code/server change).
+
+---
+
+## Wave 36 — adapter registration semantics (AD-1/API-2)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 36" section.
+
+- **Files:** `crates/nidus-cache/src/lib.rs`, `crates/nidus-cache/tests/moka_cache.rs`,
+  `crates/nidus-sqlx/src/lib.rs`, `crates/nidus-sqlx/tests/*`,
+  `examples/integrations-production/src/main.rs`, `docs/integrations.md`, `docs/deployment.md`,
+  audit, plan.
+- **Behavior change:** `MokaCacheProvider::register_provider` now installs a default local cache.
+  SQLx pool providers no longer implement synchronous `ProviderRegistrant`, so
+  `ModuleBuilder::provider_typed::<SqlitePoolProvider/PostgresPoolProvider>()` fails at compile
+  time instead of silently declaring metadata without registering a pool.
+- **TDD:** cache focused test failed with `MissingProvider`; SQLx trybuild compile-fail test first
+  failed because the invalid typed registration compiled. Both pass after the implementation.
+- **Verification:** focused adapter tests, full adapter/example tests, clippy/doc/fmt/diff checks.
+- **Manual curl:** not required; no server example route behavior changed.
+- **Bench:** not required (adapter startup/registration semantics only; no hot-path HTTP, DI
+  resolution, routing, request lifecycle, metrics, or module graph algorithm change).

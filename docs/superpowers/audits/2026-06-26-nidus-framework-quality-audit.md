@@ -377,8 +377,10 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 
 - **Clean boundaries.** Depend only on `nidus-core` (+ optional `nidus-http`/`nidus-config`/`moka`/
   `sqlx`); not pulled into the facade, as designed. No panics/unwrap in source.
-- **AD-1 (P3):** Both implement `ProviderRegistrant` as a **no-op** (`nidus-sqlx/lib.rs:182-186`,
-  `nidus-cache/lib.rs:229-233`) — registration is imperative via `Builder::register`. Misleading.
+- **AD-1 (~~P3~~ mitigated, Wave 36):** Adapter registration semantics are now explicit.
+  `MokaCacheProvider` implements real synchronous default registration, while SQLx pool providers
+  no longer implement `ProviderRegistrant`; configured async pool registration remains imperative
+  via `Builder::register` or module async initializers.
 - **AD-2 (~~P3~~ partially mitigated, Wave 25):** `health_status()` now has `HealthRegistry`
   readiness bridge helpers for SQLx and cache providers. SQLite and Moka bridges are tested
   locally; live Postgres health remains intentionally out of scope without a Postgres service.
@@ -454,7 +456,8 @@ example/bench code.
 - `Inject<T>`, `Optional<T>`, `Lazy<T>`, `Factory<T>`, `Scoped<T>` all exist and are documented.
 - **API-1 (~~P3~~ mitigated, Wave 24):** README now distinguishes auto-wired `Inject<T>` /
   `Optional<T>` from request-scope `Scoped<T>` and manual `Lazy<T>` / `Factory<T>` helpers.
-- **API-2 (P3):** Adapter `ProviderRegistrant` no-op impls are misleading (AD-1).
+- **API-2 (~~P3~~ mitigated, Wave 36):** Adapter registration semantics now avoid no-op
+  `ProviderRegistrant` implementations (AD-1).
 - **API-3 (~~P3~~ mitigated, Wave 23):** `assert_text`/`assert_json` no longer return unused
   futures (T-2).
 
@@ -566,6 +569,7 @@ example/bench code.
 | CLI-1 | ~~P2~~ mitigated | All-four-artifact end-to-end compile test (Wave 11) | `cargo-nidus/tests/cli_generate.rs` |
 | CLI-2 | ~~P2~~ covered | Default `nidus="0.1"` branch tested (Wave 15) | `cargo-nidus/tests/cli_new.rs` |
 | ERR-1 | ~~P2~~ mitigated | 5xx `code` now masked to generic value (Wave 6) | `nidus-http/src/error.rs` |
+| AD-1 | ~~P3~~ mitigated | Cache typed registration is real; SQLx typed registration is compile-rejected (Wave 36) | `nidus-cache`, `nidus-sqlx` tests/ |
 | AD-3 | ~~P2~~ mitigated (cache) | nidus-cache invalidate/from_cache covered (Wave 12); sqlx health/postgres need live DB | `nidus-sqlx`, `nidus-cache` tests/ |
 | T-1 | ~~P2~~ mitigated | TestApp `with_request_scope` installs request scope layer (Wave 10) | `nidus-testing/src/app.rs` |
 | (many) | P3 | diagnostics spans, naming, async assertions, cleanup, etc. | see sections above |
@@ -1430,6 +1434,37 @@ Closed the orphan local example-directory cleanup item EX-4.
 
 `test ! -e examples/sqlx-postgres` succeeds,
 `cargo metadata --no-deps --format-version 1` has no `examples/sqlx-postgres` workspace member,
+`cargo fmt --all --check`, and `git diff --check` are clean.
+
+## Follow-up hardening — Wave 36 (2026-06-27, after commit `e604ad9`)
+
+Closed the adapter registration semantics gap AD-1 / API-2.
+
+### Implemented (TDD)
+
+- **AD-1/API-2 mitigated — adapter registration is no longer silently no-op.**
+  `MokaCacheProvider::register_provider` now installs a default local cache, so
+  `ModuleBuilder::provider_typed::<MokaCacheProvider>()` and direct `ProviderRegistrant` usage have
+  real behavior. SQLx pool providers no longer implement synchronous `ProviderRegistrant`, because
+  pool creation is configured and async; SQLx module metadata now uses
+  `ModuleBuilder::provider("SqlitePoolProvider")` / `provider("PostgresPoolProvider")` while
+  runtime wiring stays explicit through builders or module async initializers.
+  - **TDD:** `moka_cache_provider_registrant_installs_default_cache` first failed with
+    `MissingProvider`, proving the no-op registration. `sqlx_providers_do_not_support_sync_typed_registration`
+    first failed because invalid SQLx typed registration compiled. Both pass after the change.
+  - **Docs/examples:** `docs/integrations.md`, `docs/deployment.md`, the older integration plan,
+    and `examples/integrations-production` now distinguish metadata-only SQLx declarations from
+    default synchronous cache registration.
+  - **Bench/manual curl:** not required — adapter startup/registration semantics only; no server
+    route behavior or hot-path HTTP/DI/routing/request lifecycle/metrics/module graph algorithm
+    changed.
+
+### Verification after this pass
+
+`cargo test -p nidus-cache`, `cargo test -p nidus-sqlx --all-features`,
+`cargo test -p nidus-example-integrations-production`,
+`cargo clippy -p nidus-cache -p nidus-sqlx -p nidus-example-integrations-production --all-targets --all-features -- -D warnings`,
+`RUSTDOCFLAGS="-D warnings" cargo doc -p nidus-cache -p nidus-sqlx -p nidus-example-integrations-production --all-features --no-deps`,
 `cargo fmt --all --check`, and `git diff --check` are clean.
 
 ## Appendix: verification commands (baseline)

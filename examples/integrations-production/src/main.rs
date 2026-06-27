@@ -16,7 +16,7 @@ struct AppModule;
 impl Module for AppModule {
     fn definition() -> ModuleDefinition {
         ModuleBuilder::new("AppModule")
-            .provider_typed::<SqlitePoolProvider>()
+            .provider("SqlitePoolProvider")
             .provider_typed::<MokaCacheProvider>()
             .export_typed::<SqlitePoolProvider>()
             .export_typed::<MokaCacheProvider>()

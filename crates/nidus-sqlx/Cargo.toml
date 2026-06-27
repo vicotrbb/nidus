@@ -25,3 +25,4 @@ thiserror.workspace = true
 [dev-dependencies]
 nidus-config = { path = "../nidus-config", version = "0.1.0" }
 tokio = { workspace = true, features = ["time"] }
+trybuild.workspace = true
