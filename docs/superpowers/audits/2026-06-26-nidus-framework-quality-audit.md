@@ -118,7 +118,14 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 - **Risk:** Under contention a Tokio worker thread blocks on the condvar; many stalls starve the
   runtime.
 - **Fix:** Eagerly resolve singletons at bootstrap, or document; reserve the wait for the sync API.
-- **Verification:** `cargo bench --bench dependency_resolution` before/after any change.
+- **Mitigation (Wave 14):** `Container::eagerly_resolve_singletons()` is now an opt-in method that
+  pre-constructs every singleton and caches it, so the lazy `Condvar` wait is never reached from an
+  async request handler when called at startup. Default behavior stays lazy (no API/behavior change
+  for existing apps); the wait remains for the sync API. A failing/panicking singleton factory now
+  also fails startup fast.
+- **Verification:** `eagerly_resolve_singletons_constructs_each_singleton_once_and_caches`,
+  `eagerly_resolve_singletons_skips_transient_and_request_providers`,
+  `eagerly_resolve_singletons_propagates_factory_errors`. Default unchanged → no bench required.
 
 #### F-CORE-5 — `register_request` providers cannot chain request-scoped deps (P2)
 - **Evidence:** `container/mod.rs:84-90` registers only the container factory;
@@ -451,7 +458,8 @@ example/bench code.
 - **Mostly clean.** No `Mutex` held across `.await` in nidus-http layers; health `tokio::spawn`s are
   joined; no unbounded channels anywhere.
 - **RT-1 (P1):** singleton panic-stuck (F-CORE-1) — a panic during lazy resolution deadlocks.
-- **RT-2 (P2):** blocking `Condvar` waits reachable from async (F-CORE-4).
+- **RT-2 (~~P2~~ mitigated, Wave 14):** blocking `Condvar` waits are avoidable via opt-in
+  `Container::eagerly_resolve_singletons()` at startup (F-CORE-4); default lazy behavior unchanged.
 - **RT-3 (P2):** no graceful shutdown (F-HTTP-5).
 - **RT-4 (P3):** `ObservedJobRunner::run_async` `!Send` future (J-4); event observer blocking risk (E-2).
 - No hidden global mutable state (the `RESOLUTION_STACK` thread-local is correctly scoped by `Drop`).
@@ -509,7 +517,7 @@ example/bench code.
 | F-CORE-1 | **P1** | Panicking singleton factory permanently deadlocks provider | `nidus-core/src/provider/mod.rs:136-154` |
 | F-CORE-2 | **P1** | Core `Nidus::bootstrap` yields empty container | `nidus-core/src/app/mod.rs:56-69` vs `nidus/src/app.rs:99-109` |
 | F-CORE-3 | P2 | Graph keyed by short name, not TypeId | `nidus-core/src/module/mod.rs:230-236,271-277` |
-| F-CORE-4 | P2 | Blocking Condvar reachable from async | `nidus-core/src/provider/mod.rs:134` |
+| F-CORE-4 | ~~P2~~ mitigated | Opt-in `eagerly_resolve_singletons` avoids async-blocking wait (Wave 14) | `nidus-core/src/{provider,container}/mod.rs` |
 | F-CORE-5 | P2 | `register_request` can't chain request deps | `nidus-core/src/container/mod.rs:84-90` |
 | F-HTTP-2 | ~~P2~~ mitigated | Opt-in `streaming_body_limit` + two-tier docs (Wave 13) | `nidus-http/src/middleware/{security,api_defaults}.rs` |
 | F-HTTP-3 | ~~P2~~ mitigated | 413 now enveloped/metered/request-id'd (Wave 8) | `nidus-http/src/middleware/api_defaults.rs` |
@@ -895,6 +903,27 @@ Closed F-HTTP-2 (chunked body-limit bypass) and SEC-1.
 
 `cargo fmt --all --check`, `cargo clippy -p nidus-http --all-targets --all-features -- -D warnings`,
 `cargo test --workspace --all-features` (369 passed / 0 failed) — all clean.
+
+## Follow-up hardening — Wave 14 (2026-06-27, after commit `1f8e9ae`)
+
+Closed the async-safety gap F-CORE-4 (RT-2).
+
+### Implemented (TDD, atomic commits)
+
+- **F-CORE-4 mitigated — opt-in `Container::eagerly_resolve_singletons()`.** Pre-constructs and
+  caches every singleton so the lazy `Condvar` wait in `resolve_singleton` is never reached from an
+  async request handler when invoked at startup. Default behavior stays lazy (no change for existing
+  apps); the wait remains for the sync API. A failing/panicking singleton factory fails startup fast.
+  - **TDD:** `eagerly_resolve_singletons_constructs_each_singleton_once_and_caches` (RED: method
+    missing → GREEN: each singleton built once, later resolves reuse), `..._skips_transient_and_
+    request_providers`, `..._propagates_factory_errors`.
+  - **Bench:** not required — opt-in (default lazy resolution unchanged); the opt-in runs at startup,
+    not on the request hot path.
+
+### Verification after this pass
+
+`cargo fmt --all --check`, `cargo clippy -p nidus-core --all-targets --all-features -- -D warnings`,
+`cargo test --workspace --all-features` (372 passed / 0 failed) — all clean.
 
 ## Appendix: verification commands (baseline)
 

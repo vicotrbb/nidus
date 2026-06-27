@@ -398,3 +398,19 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 13" secti
 - **Verification:** `cargo test -p nidus-http --test production_api` (27 passed); `cargo test
   --workspace --all-features` (369 passed); fmt/clippy/doc clean.
 - **Bench:** not required — opt-in (default off); default production stack unchanged.
+
+---
+
+## Wave 14 — async safety: opt-in eager singleton resolution (F-CORE-4 / RT-2)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 14" section.
+
+- **Files:** `crates/nidus-core/src/container/mod.rs`; tests `tests/core_di.rs`.
+- **Behavior change:** additive only — new `Container::eagerly_resolve_singletons()` pre-constructs
+  every singleton at startup so the lazy `Condvar` wait is never reached from async handlers. Default
+  lazy resolution unchanged.
+- **TDD:** constructs-once-and-caches (RED: method missing → GREEN) + skips-transient/request +
+  propagates-factory-errors.
+- **Verification:** `cargo test -p nidus-core`; `cargo test --workspace --all-features`
+  (372 passed); fmt/clippy/doc clean.
+- **Bench:** not required (opt-in, default unchanged; runs at startup, not request hot path).
