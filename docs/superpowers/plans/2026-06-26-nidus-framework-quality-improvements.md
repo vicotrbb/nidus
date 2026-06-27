@@ -621,3 +621,27 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 29" secti
   `GET /health/live`, `/health/ready`, `/users/1`, and `/metrics` all returned 200; `/users/1`
   preserved the supplied UUID request id in both the response header and JSON body.
 - **Bench:** not required (metadata/docs only; no hot path changed).
+
+---
+
+## Wave 30 — example robustness: modular-monolith main flow (EX-5)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 30" section.
+
+- **Files:** `examples/modular-monolith/Cargo.toml`, `examples/modular-monolith/src/main.rs`,
+  audit, plan.
+- **Behavior change:** the example's happy path is unchanged, but failures now return
+  `NidusError` through `main() -> Result<()>` instead of panicking through non-test unwraps. The
+  package also enables `nidus/http`, which its route macros already require.
+- **TDD:** `main_flow_returns_resolved_profile` failed before `run_example()` existed and also
+  exposed the standalone compile failure from missing `http` feature exports; after the helper and
+  feature fix, the test passed.
+- **Verification:** `cargo check -p nidus-example-modular-monolith`;
+  `cargo test -p nidus-example-modular-monolith` (4 passed);
+  `cargo clippy -p nidus-example-modular-monolith --all-targets --all-features -- -D warnings`;
+  `cargo run -p nidus-example-modular-monolith`.
+- **Manual run:** printed `UsersModule` boundaries and `resolved user user-42@nidus.dev from
+  tenant-primary`.
+- **Bench:** not required (CLI example error handling/package feature metadata only).
+- **Deferred:** remaining EX-5 paths are `rest-api` startup helper expects and `realworld-api`
+  config/handler expects.

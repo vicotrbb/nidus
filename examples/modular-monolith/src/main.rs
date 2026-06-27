@@ -118,9 +118,13 @@ fn build_container() -> Result<Container> {
     Ok(container)
 }
 
-fn main() {
-    let graph = build_graph().unwrap();
-    let users = graph.get("UsersModule").unwrap();
+fn run_example() -> Result<UserProfile> {
+    let graph = build_graph()?;
+    let users = graph
+        .get("UsersModule")
+        .ok_or_else(|| NidusError::ApplicationBuild {
+            message: "UsersModule should be present in the example graph".to_owned(),
+        })?;
     println!(
         "module={} imports={:?} providers={:?} controllers={:?} exports={:?}",
         users.name(),
@@ -130,9 +134,15 @@ fn main() {
         users.exports()
     );
 
-    let container = build_container().unwrap();
-    let profile = container.resolve::<UsersService>().unwrap().profile(42);
+    let container = build_container()?;
+    let profile = container.resolve::<UsersService>()?.profile(42);
     println!("resolved user {} from {}", profile.email, profile.tenant);
+    Ok(profile)
+}
+
+fn main() -> Result<()> {
+    let _profile = run_example()?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -167,6 +177,20 @@ mod tests {
         let container = build_container().unwrap();
 
         let profile = container.resolve::<UsersService>().unwrap().profile(42);
+
+        assert_eq!(
+            profile,
+            UserProfile {
+                id: 42,
+                email: "user-42@nidus.dev".to_owned(),
+                tenant: "tenant-primary",
+            }
+        );
+    }
+
+    #[test]
+    fn main_flow_returns_resolved_profile() {
+        let profile = run_example().unwrap();
 
         assert_eq!(
             profile,

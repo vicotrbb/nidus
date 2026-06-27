@@ -396,7 +396,7 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 | `auth-api` | server | `127.0.0.1:3000` (hardcoded) | none | guard is a toy route-label check, never reads a header (`main.rs:16-21`) |
 | `openapi` | **CLI (prints + exits)** | — | none | **not a server** despite docs implying `/openapi.json`+`/docs` are served |
 | `background-jobs` | CLI | — | none | clean |
-| `modular-monolith` | CLI | — | none | 4× `.unwrap()` in `main()` (`main.rs:122,123,133,134`) |
+| `modular-monolith` | CLI | — | none | main flow returns `Result`; package compile-tested standalone |
 | `realworld-api` | server | `127.0.0.1:3000` (`NIDUS_BIND_ADDR`) | none (sqlite::memory:) | `.expect()` in request handler path (`ops.rs:127,137,144,267,271`); deterministic |
 | `production-api` | server | `127.0.0.1:3000` (`NIDUS_ADDR`) | none | package `nidus-example-production-api`; production defaults example |
 | `sqlx-app` | CLI | — | none (sqlite::memory:) | clean |
@@ -417,8 +417,9 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 - **EX-4 (P3):** Orphaned empty dir `examples/sqlx-postgres/src/` — no `Cargo.toml`/`main.rs`, not a
   workspace member; leftover from the integrations migration. (Note: the `sqlx-postgres` package in
   `Cargo.lock` is sqlx's own transitive sub-crate, unrelated.)
-- **EX-5 (P3):** `.expect()`/`.unwrap()` in non-test example `main`/startup paths (rest-api,
-  modular-monolith, realworld-api config + handler).
+- **EX-5 (P3, partially mitigated Wave 30):** `.expect()`/`.unwrap()` in non-test example
+  `main`/startup paths. `modular-monolith` now returns `Result` from its main flow; remaining
+  follow-up: rest-api startup provider registration and realworld-api config/handler paths.
 
 No example fails to compile against the current API (build is green). No `TODO/FIXME/panic!` in
 example/bench code.
@@ -1267,6 +1268,31 @@ Closed the production example package-name consistency gap EX-3.
 `cargo clippy -p nidus-example-production-api --all-targets --all-features -- -D warnings`,
 `cargo metadata --no-deps --format-version 1`, `cargo fmt --all --check`, and `git diff --check`
 are clean.
+
+## Follow-up hardening — Wave 30 (2026-06-27, after commit `a12b5b5`)
+
+Partially closed EX-5 and fixed a standalone compile issue in the `modular-monolith` example.
+
+### Implemented (TDD)
+
+- **EX-5 partially mitigated — modular-monolith main path no longer unwraps.**
+  `main()` now returns `Result<()>` and delegates to a testable `run_example() -> Result<UserProfile>`.
+  The module lookup reports `NidusError::ApplicationBuild` instead of panicking, while graph and
+  container failures propagate their existing framework errors. The example also enables the
+  `nidus/http` feature it already requires for `#[routes]`, `Path`, and generated route metadata.
+  - **TDD:** `main_flow_returns_resolved_profile` first referenced the missing `run_example()`.
+    RED also exposed the pre-existing standalone package compile failure for the route/http macros.
+    After adding the helper and the explicit `http` feature, the test passed.
+  - **Manual run:** `cargo run -p nidus-example-modular-monolith` printed the `UsersModule` imports,
+    providers, controllers, and exports, then printed `resolved user user-42@nidus.dev from
+    tenant-primary`.
+  - **Bench:** not required — CLI example error handling/package feature metadata only.
+
+### Verification after this pass
+
+`cargo check -p nidus-example-modular-monolith`, `cargo test -p nidus-example-modular-monolith`
+(4 passed), `cargo clippy -p nidus-example-modular-monolith --all-targets --all-features -- -D
+warnings`, and `cargo run -p nidus-example-modular-monolith` are clean.
 
 ## Appendix: verification commands (baseline)
 
