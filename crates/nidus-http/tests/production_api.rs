@@ -9,9 +9,9 @@ use std::{
 
 use axum::{
     Json, Router,
-    body::{Body, to_bytes},
+    body::{Body, Bytes, to_bytes},
     extract::MatchedPath,
-    routing::get,
+    routing::{get, post},
 };
 use http::{HeaderValue, Method, Request, Response, StatusCode};
 use nidus_http::{
@@ -860,6 +860,67 @@ async fn production_defaults_envelope_meter_and_identify_handler_errors() {
     assert!(
         text.contains(r#"nidus_http_requests_total{method="GET",route="/boom",status="500"} 1"#),
         "{text}"
+    );
+}
+
+#[tokio::test]
+async fn body_limit_without_streaming_cap_is_bypassed_without_content_length() {
+    // F-HTTP-2 (documents the gap): the default body_limit checks the
+    // Content-Length header only, so a body without that header (chunked-transfer
+    // shape) is not rejected even when it exceeds the configured limit. The body
+    // reaches the handler, which reads it in full here.
+    let app = ApiDefaults::production("users-api")
+        .body_limit(4)
+        .apply(Router::new().route(
+            "/echo",
+            post(|bytes: Bytes| async move { bytes.len().to_string() }),
+        ));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/echo")
+                // Intentionally no `content-length` header.
+                .body(Body::from(vec![b'a'; 1024]))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "a headerless body bypasses the Content-Length-only limit"
+    );
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(&*body, b"1024");
+}
+
+#[tokio::test]
+async fn streaming_body_limit_caps_bodies_without_content_length() {
+    // F-HTTP-2 (the opt-in fix): streaming_body_limit wraps the request body and
+    // caps bytes as they are read, so a headerless/chunked body that bypasses
+    // body_limit is still rejected when the handler reads past the cap.
+    let app = ApiDefaults::production("users-api")
+        .body_limit(4)
+        .streaming_body_limit(4)
+        .apply(Router::new().route("/echo", post(|_bytes: Bytes| async move { "ok" })));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/echo")
+                // Intentionally no `content-length` header.
+                .body(Body::from(vec![b'a'; 1024]))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        response.status(),
+        StatusCode::PAYLOAD_TOO_LARGE,
+        "streaming_body_limit must cap a headerless body as it is read"
     );
 }
 

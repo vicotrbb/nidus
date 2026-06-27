@@ -7,8 +7,8 @@ use crate::{
     health::HealthRegistry,
     middleware::{
         PrometheusMetrics, RateLimitConfig, RequestIdConfig, body_limit_layer, catch_panic_layer,
-        request_context_layer, security_headers_layer, timeout_response_layer,
-        validated_request_id_layer,
+        request_context_layer, security_headers_layer, streaming_body_limit_layer,
+        timeout_response_layer, validated_request_id_layer,
     },
 };
 
@@ -57,6 +57,7 @@ pub struct ApiDefaults {
     rate_limit: Option<RateLimitConfig>,
     security_headers: bool,
     body_limit: Option<u64>,
+    streaming_body_limit: Option<usize>,
     timeout: Option<Duration>,
     catch_panic: bool,
 }
@@ -94,6 +95,7 @@ impl ApiDefaults {
             rate_limit: None,
             security_headers: true,
             body_limit: Some(1024 * 1024),
+            streaming_body_limit: None,
             timeout: Some(Duration::from_secs(30)),
             catch_panic: true,
         }
@@ -203,9 +205,26 @@ impl ApiDefaults {
     ///
     /// The built-in layer checks the declared `Content-Length` header only. It
     /// rejects declared oversized bodies with `413 Payload Too Large`; it does
-    /// not count streamed bytes when the header is absent or invalid.
+    /// not count streamed bytes when the header is absent or invalid (e.g.
+    /// chunked-transfer clients). For a hard read-time cap across streaming
+    /// bodies, also enable [`Self::streaming_body_limit`].
     pub fn body_limit(mut self, max_bytes: u64) -> Self {
         self.body_limit = Some(max_bytes);
+        self
+    }
+
+    /// Enables a streaming request body limit that counts bytes as they are read.
+    ///
+    /// Unlike [`Self::body_limit`] (which inspects only the declared
+    /// `Content-Length`), this wraps the request body and enforces `max_bytes`
+    /// even when `Content-Length` is absent — closing the chunked-transfer
+    /// bypass. The cap is applied as the downstream extractor or handler reads
+    /// the body, so a request is rejected only once it actually reads past the
+    /// limit. This is opt-in because it wraps every request body; pair it with
+    /// [`Self::body_limit`] for an early `Content-Length` rejection plus a hard
+    /// streaming cap.
+    pub fn streaming_body_limit(mut self, max_bytes: usize) -> Self {
+        self.streaming_body_limit = Some(max_bytes);
         self
     }
 
@@ -292,6 +311,9 @@ impl ApiDefaults {
         }
         if let Some(max_bytes) = self.body_limit {
             router = router.layer(body_limit_layer(max_bytes));
+        }
+        if let Some(max_bytes) = self.streaming_body_limit {
+            router = router.layer(streaming_body_limit_layer(max_bytes));
         }
         if let Some(timeout) = self.timeout {
             router = router.layer(timeout_response_layer(timeout));
