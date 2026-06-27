@@ -35,8 +35,8 @@ The current benchmark surface covers:
 - guard middleware
 - validation extraction
 - request-scoped dependency resolution through HTTP
-- per-layer middleware: security headers, body limit, validated request ID,
-  request context, error envelope, and timeout response
+- per-layer middleware: security headers, body limit, legacy request ID,
+  validated request ID, request context, error envelope, and timeout response
 - production default stack with and without in-process metrics
 - Prometheus metrics record-response, record-error, and render-text paths
 
@@ -54,6 +54,11 @@ regressions/improvements versus local saved history, including raw or unrelated
 benchmarks moving in different directions. Treat the table as a current
 reference point, not publish-grade proof.
 
+One request-lifecycle scenario was added after that full-table capture:
+`Nidus middleware legacy request ID request`. Its row is from the later Wave 28
+`cargo bench --bench request_lifecycle` run and should be rerun with the full
+surface before publishing updated performance claims.
+
 | Benchmark | Central estimate | Notes |
 | --- | ---: | --- |
 | Nidus singleton dependency resolution | 24.944 ns | direct container lookup |
@@ -70,6 +75,7 @@ reference point, not publish-grade proof.
 | Nidus request-scoped route | 1.5848 us | request-scoped provider resolution |
 | Nidus middleware security headers request | 1.1748 us | response header layer |
 | Nidus middleware body limit request | 858.22 ns | declared `Content-Length` check |
+| Nidus middleware legacy request ID request | 1.4592 us | Wave 28 follow-up run; legacy generated UUID layer |
 | Nidus middleware validated request ID request | 1.6663 us | strict UUID request ID layer |
 | Nidus middleware request context request | 1.3570 us | request context layer |
 | Nidus middleware error envelope success request | 1.0651 us | success path through envelope layer |

@@ -184,7 +184,8 @@ Each wave is a separate atomic commit. Any wave can be reverted in isolation wit
 - EX-2 auth-api guard realism.
 - CLI coverage beyond CLI-1/CLI-2; AD-2 live Postgres health coverage.
 - T-1 TestApp request-scope helper; T-2 spurious-async assertions.
-- BENCH-1 baseline locking.
+- Fresh benchmark reruns/release-machine result baselines for BENCH-1 after Wave 41's source/docs
+  drift guard.
 
 These are tracked in the audit backlog and will be addressed in follow-up phases.
 
@@ -839,3 +840,21 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 40" secti
   events clippy/doc/fmt/diff checks.
 - **Manual curl/bench:** not required (local event diagnostics only; no server route or hot-path
   HTTP/DI/routing/request lifecycle/metrics/module graph change).
+
+---
+
+## Wave 41 — benchmark docs surface guard (BENCH-1)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 41" section.
+
+- **Files:** `tests/performance_docs.rs`, `docs/performance.md`, audit, plan.
+- **Behavior change:** none. This is test/docs coverage for the benchmark documentation surface.
+- **TDD:** `cargo test -p nidus-workspace --test performance_docs` first failed because
+  `docs/performance.md` did not mention the existing
+  `nidus middleware legacy request id request` Criterion scenario. After documenting the scenario,
+  the focused test passes.
+- **Verification:** focused root test, root all-features test, full workspace test, full workspace
+  clippy/doc/fmt/diff checks, and dependency hygiene checks.
+- **Manual curl/bench:** not required (test/docs-only benchmark surface guard; no server route or
+  hot-path HTTP/DI/routing/request lifecycle/metrics/module graph implementation changed, and no new
+  performance claim was produced).

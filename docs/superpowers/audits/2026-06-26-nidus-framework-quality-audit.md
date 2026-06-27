@@ -524,9 +524,11 @@ example/bench code.
 - 3 Criterion benches (`routing`, `dependency_resolution`, `request_lifecycle`) are correctly
   registered (`harness = false`) and **compile against the current API** (no drift; every imported
   symbol verified present).
-- `request_lifecycle.rs` is comprehensive (18 scenarios incl. individual middleware layers).
-- **BENCH-1 (P3):** no assertion/baseline file locks bench numbers; "benchmark drift" is only
-  guarded by manual review. (Criterion reports are non-deterministic by nature.)
+- `request_lifecycle.rs` is comprehensive (21 scenarios incl. individual middleware layers).
+- **BENCH-1 (~~P3~~ partially mitigated, Wave 41):** the current Criterion benchmark surface is
+  now locked against `docs/performance.md` with a root integration test, reducing source/docs drift.
+  Fresh benchmark result baselines remain manually reviewed because Criterion reports are
+  non-deterministic by nature.
 - **BENCH-2 (P2):** any change touching F-CORE-1/F-CORE-4 (resolution path) or the HTTP middleware
   stack must re-run `dependency_resolution` / `request_lifecycle` per the optimization rules.
 
@@ -1573,6 +1575,40 @@ Closed the event-bus poisoned-mutex diagnostics gap E-3.
 `cargo test -p nidus-events`, `cargo clippy -p nidus-events --all-targets --all-features -- -D warnings`,
 `RUSTDOCFLAGS="-D warnings" cargo doc -p nidus-events --all-features --no-deps`,
 `cargo fmt --all --check`, and `git diff --check` are clean.
+
+## Follow-up hardening — Wave 41 (2026-06-27, after commit `cd2873b`)
+
+Partially mitigated BENCH-1 by adding a regression guard for benchmark source/docs drift.
+
+### Implemented (test/docs only)
+
+- **BENCH-1 partially mitigated — current benchmark surface is locked against performance docs.**
+  `tests/performance_docs.rs` extracts the current `Criterion::bench_function` labels from
+  `benches/dependency_resolution.rs`, `benches/routing.rs`, and `benches/request_lifecycle.rs`,
+  compares them to the expected benchmark surface, and asserts every current benchmark has a matching
+  display label in `docs/performance.md`. This prevents adding or renaming a Criterion scenario
+  without updating the performance docs.
+  - **TDD:** `cargo test -p nidus-workspace --test performance_docs` first failed because
+    `docs/performance.md` did not mention `Nidus middleware legacy request ID request`, even though
+    `request_lifecycle.rs` includes the `nidus middleware legacy request id request` scenario added
+    during Wave 28. After documenting that row as a Wave 28 follow-up measurement, the focused test
+    passes.
+  - **Remaining BENCH-1 scope:** fresh release-machine benchmark result baselines remain intentionally
+    deferred. Criterion timing numbers are still reviewed manually, and this wave does not claim a
+    new full-table performance run.
+  - **Bench/manual curl:** not required — this wave changes only tests and docs for benchmark-surface
+    drift. No server route or hot-path HTTP/DI/routing/request lifecycle/metrics/module graph
+    implementation changed.
+
+### Verification after this pass
+
+`cargo test -p nidus-workspace --test performance_docs`, `cargo test -p nidus-workspace
+--all-features`, `cargo test --workspace --all-features`, `cargo clippy --workspace
+--all-targets --all-features -- -D warnings`, `RUSTDOCFLAGS="-D warnings" cargo doc
+--workspace --all-features --no-deps`, `cargo fmt --all --check`, `git diff --check`,
+`cargo deny check`, `cargo machete`, and `cargo tree -d` are clean. `cargo audit` reports one
+allowed warning for unmaintained `proc-macro-error2` (`RUSTSEC-2026-0173`) and no vulnerability
+failure.
 
 ## Appendix: verification commands (baseline)
 
