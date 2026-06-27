@@ -141,6 +141,8 @@ where supported, otherwise pick a free port. Capture command + HTTP status + bod
 - `hello-world`: `cargo run -p nidus-example-hello-world` → `curl -i http://127.0.0.1:3000/`
 - `rest-api`: `cargo run -p nidus-example-rest-api` → `curl -i http://127.0.0.1:3000/users/1`
 - `auth-api`: `cargo run -p nidus-example-auth-api` → `curl -i http://127.0.0.1:3000/me`
+  without a key (401), with `x-api-key: wrong` (401), and with
+  `x-api-key: nidus-dev-secret` (200)
 - `openapi` (after 2.4): `cargo run -p nidus-example-openapi` → `curl -i http://127.0.0.1:3000/openapi.json` and `/docs`
 - `production-api`: `NIDUS_ADDR=127.0.0.1:<port> cargo run -p nidus-example-production-api` → curl `/health/live`,
   `/health/ready`, `/metrics`, `/users/1`
@@ -962,3 +964,21 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 46" secti
 - **Verification:** focused performance-doc test, then standard docs/test/dependency gates for this
   docs/test wave.
 - **Manual curl:** not required (benchmark docs/tests only; no server routes changed).
+
+---
+
+## Wave 47 — auth-api manual curl evidence refresh (EX-2 / manual evidence)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 47" section.
+
+- **Files:** `tests/manual_evidence_docs.rs`,
+  `docs/superpowers/audits/2026-06-26-manual-example-curl-evidence.md`, audit, plan.
+- **Behavior change:** none. This is manual evidence and docs-test hygiene.
+- **TDD:** `cargo test --test manual_evidence_docs` first failed because the manual evidence still
+  claimed `auth-api` returned 200 without an API key. After refreshing the artifact with current
+  no-key / wrong-key / valid-key outcomes, the test passes.
+- **Manual curl:** `cargo run -p nidus-example-auth-api`; `GET /me` without `x-api-key` -> 401,
+  with `x-api-key: wrong` -> 401, with `x-api-key: nidus-dev-secret` -> 200 `authorized`; server
+  stopped cleanly and port 3000 was free afterward.
+- **Bench:** not required (manual evidence/docs-test only; no hot-path HTTP/DI/routing/request
+  lifecycle/metrics/module graph runtime changed).

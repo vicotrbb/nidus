@@ -406,7 +406,7 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 | --- | --- | --- | --- | --- |
 | `hello-world` | server | `127.0.0.1:3000` (hardcoded) | none | clean |
 | `rest-api` | server | `127.0.0.1:3000` (hardcoded) | none | app builder returns `Result`; startup provider registration propagates errors |
-| `auth-api` | server | `127.0.0.1:3000` (hardcoded) | none | guard is a toy route-label check, never reads a header (`main.rs:16-21`) |
+| `auth-api` | server | `127.0.0.1:3000` (hardcoded) | none | header-based `x-api-key` guard (`nidus-dev-secret`) |
 | `openapi` | **CLI (prints + exits)** | — | none | **not a server** despite docs implying `/openapi.json`+`/docs` are served |
 | `background-jobs` | CLI | — | none | clean |
 | `modular-monolith` | CLI | — | none | main flow returns `Result`; package compile-tested standalone |
@@ -713,7 +713,7 @@ ports clear):
 | --- | --- | --- |
 | `hello-world` | `GET /` | 200 `hello from nidus` |
 | `rest-api` | `GET /users/42` | 200 `{"id":42,"email":"user@nidus.dev","request_id":0}` |
-| `auth-api` | `GET /me` | 200 `authorized` (guard passes route label) |
+| `auth-api` | `GET /me` no key; wrong key; valid `x-api-key: nidus-dev-secret` | 401 / 401 / 200 `authorized` |
 | `openapi` | `GET /openapi.json`; `GET /docs`; `GET /users/7`; `POST /users` | 200 / 200 (`<title>Nidus Example API Documentation</title>`) / 200 / 201 |
 | `production-api` | `GET /health/live`; `/health/ready`; `/users/1`; `/metrics` | 200 / 200 / 200 (UUID `x-request-id`) / 200 (route labels present) |
 | `production-api` (Wave 4) | `GET /limited` #1; `GET /limited` #2 with `X-Forwarded-For: 1.2.3.4` | **200 then 429** — 429 on #2 proves the real peer IP (via ConnectInfo) overrides the spoofed XFF, so the `client_ip_identity` limiter can no longer be evaded |
@@ -1817,6 +1817,46 @@ Clean:
 - `cargo machete`
 - `cargo tree -d`
 - `cargo metadata --no-deps --format-version 1`
+
+## Follow-up hardening — Wave 47 (2026-06-27, after commit `996d42f`)
+
+Refreshed stale manual `auth-api` curl evidence after the example guard became header-based.
+
+### Implemented (TDD, docs/test only)
+
+- **Manual evidence drift guard added.** `tests/manual_evidence_docs.rs` now asserts that the manual
+  curl evidence records all current `auth-api` header-guard outcomes: no key -> 401, wrong key ->
+  401, valid `x-api-key: nidus-dev-secret` -> 200.
+  - **TDD:** `cargo test --test manual_evidence_docs` first failed because
+    `docs/superpowers/audits/2026-06-26-manual-example-curl-evidence.md` still claimed
+    `GET /me` returned 200 without a key. After refreshing the evidence, the focused test passes.
+  - **Manual curl:** `cargo run -p nidus-example-auth-api` on `127.0.0.1:3000`; `GET /me` without
+    `x-api-key` -> `401 Unauthorized` JSON `{"error":{"code":"unauthorized","message":"missing or invalid x-api-key"}}`;
+    `GET /me` with `x-api-key: wrong` -> `401 Unauthorized` with the same JSON; `GET /me` with
+    `x-api-key: nidus-dev-secret` -> `200 OK` text `authorized`. The server was stopped with Ctrl-C
+    and `lsof -nP -iTCP:3000 -sTCP:LISTEN` showed no listener afterward.
+  - **Bench:** not required — manual evidence/docs/test-only; no hot-path HTTP, DI, routing,
+    request lifecycle, metrics, or module runtime changed.
+
+### Verification after this pass
+
+Clean:
+
+- `cargo test --test manual_evidence_docs`
+- `cargo fmt --all --check`
+- `cargo test --workspace --all-features`
+- `cargo clippy --workspace --all-targets --all-features -- -D warnings`
+- `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps`
+- `git diff --check`
+- `cargo deny check`
+- `cargo machete`
+- `cargo tree -d`
+- `cargo metadata --no-deps --format-version 1 >/tmp/nidus-wave47-metadata.json`
+
+Known allowed warning:
+
+- `cargo audit` exited 0 and reported the allowed `proc-macro-error2` unmaintained advisory
+  (`RUSTSEC-2026-0173`).
 
 ## Appendix: verification commands (baseline)
 

@@ -16,8 +16,15 @@ working tree (commits up to `1e8d6c8`).
 
 ## auth-api  (`cargo run -p nidus-example-auth-api`, 127.0.0.1:3000)
 
-- `GET /me` → `HTTP/1.1 200 OK`, `content-type: text/plain; charset=utf-8`, body `authorized`.
-- Validates the `guard_layer` fix (Wave 1.1) in a live server.
+- `GET /me` without `x-api-key` -> `HTTP/1.1 401 Unauthorized`,
+  `content-type: application/json`,
+  body `{"error":{"code":"unauthorized","message":"missing or invalid x-api-key"}}`.
+- `GET /me` with `x-api-key: wrong` -> `HTTP/1.1 401 Unauthorized`,
+  `content-type: application/json`,
+  body `{"error":{"code":"unauthorized","message":"missing or invalid x-api-key"}}`.
+- `GET /me` with `x-api-key: nidus-dev-secret` -> `HTTP/1.1 200 OK`,
+  `content-type: text/plain; charset=utf-8`, body `authorized`.
+- Validates the public `guard_layer` header propagation path in a live server.
 
 ## openapi  (`cargo run -p nidus-example-openapi`, 127.0.0.1:3000)
 
