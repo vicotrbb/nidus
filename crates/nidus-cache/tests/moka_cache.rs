@@ -34,3 +34,34 @@ async fn moka_cache_registers_in_container() {
     cache.insert("abc", b"token".to_vec()).await;
     assert_eq!(cache.get("abc").await.unwrap(), b"token".to_vec());
 }
+
+#[tokio::test]
+async fn moka_cache_invalidate_removes_only_the_targeted_key() {
+    let cache = MokaCacheProvider::builder().namespace("users").build();
+    cache.insert("42", b"Ada".to_vec()).await;
+    cache.insert("43", b"Bob".to_vec()).await;
+
+    cache.invalidate("42").await;
+
+    assert!(
+        cache.get("42").await.is_none(),
+        "target key must be removed"
+    );
+    assert_eq!(
+        cache.get("43").await.unwrap(),
+        b"Bob".to_vec(),
+        "other keys must be untouched"
+    );
+}
+
+#[tokio::test]
+async fn moka_cache_from_cache_wraps_an_existing_moka_instance() {
+    // AD-3: from_cache wraps a caller-owned Moka cache and applies the namespace
+    // to logical keys, so pre-populated values are reachable through the provider.
+    let raw = moka::future::Cache::<String, Vec<u8>>::builder().build();
+    raw.insert("users:42".to_owned(), b"Ada".to_vec()).await;
+
+    let cache = MokaCacheProvider::from_cache(raw, Some("users".to_owned()));
+    assert_eq!(cache.namespace(), Some("users"));
+    assert_eq!(cache.get("42").await.unwrap(), b"Ada".to_vec());
+}
