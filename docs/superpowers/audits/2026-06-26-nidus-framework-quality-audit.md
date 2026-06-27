@@ -1858,6 +1858,45 @@ Known allowed warning:
 - `cargo audit` exited 0 and reported the allowed `proc-macro-error2` unmaintained advisory
   (`RUSTSEC-2026-0173`).
 
+## Follow-up hardening — Wave 48 (2026-06-27, after commit `6c99836`)
+
+Removed stale deferred-backlog claims from the improvement plan and added a root docs guard so
+mitigated wave items are not relisted as deferred work.
+
+### Implemented (TDD, docs/test only)
+
+- **Deferred backlog consistency guard added.** `tests/improvement_plan_docs.rs` now extracts the
+  plan's `Deferred items` section and rejects mitigated IDs such as `F-CORE-4`, `F-HTTP-5`, `O-1`,
+  `EX-2`, and `T-1` if they reappear there.
+  - **TDD:** `cargo test --test improvement_plan_docs` first failed because
+    `docs/superpowers/plans/2026-06-26-nidus-framework-quality-improvements.md` still relisted
+    `F-CORE-4` and other later-mitigated work in the deferred section.
+  - **Docs:** the plan now limits current intentional deferrals to `F-CORE-3`, `F-MAC-1`, `E-2`,
+    `AD-2` / `AD-3` live external health proof, and `BENCH-1` release-machine baselines.
+  - **Manual curl:** not required — no server example changed.
+  - **Bench:** not required — docs/test-only; no hot-path HTTP, DI, routing, request lifecycle,
+    metrics, module graph runtime, or benchmark code changed.
+
+### Verification after this pass
+
+Clean:
+
+- `cargo test --test improvement_plan_docs`
+- `cargo fmt --all --check`
+- `cargo test --workspace --all-features`
+- `cargo clippy --workspace --all-targets --all-features -- -D warnings`
+- `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps`
+- `git diff --check`
+- `cargo deny check`
+- `cargo machete`
+- `cargo tree -d`
+- `cargo metadata --no-deps --format-version 1 >/tmp/nidus-wave48-metadata.json`
+
+Known allowed warning:
+
+- `cargo audit` exited 0 and reported the allowed `proc-macro-error2` unmaintained advisory
+  (`RUSTSEC-2026-0173`).
+
 ## Appendix: verification commands (baseline)
 
 ```

@@ -176,20 +176,24 @@ Each wave is a separate atomic commit. Any wave can be reverted in isolation wit
 `git revert <commit>` without affecting the others or the audit/plan documents. The audit (commit
 `a63a2b9`) is independent and stays regardless.
 
-## Deferred items (intentionally out of scope for this plan)
+## Deferred items (current after Wave 48)
 
-- F-CORE-3 graph TypeId re-keying; F-CORE-4 eager singleton resolution; F-CORE-5 request-dep docs.
-- F-HTTP-2 streaming body limit; F-HTTP-3 413 ordering; F-HTTP-5 graceful shutdown + ConnectInfo;
-  F-HTTP-7 panic-catching layer; F-HTTP-8 prometheus series cap.
-- O-1 OpenAPI error-response modeling; O-2 parity test (covered partially by 2.1's probe).
-- E-2 has an opt-in channel offload seam; direct observers remain synchronous by design.
-- EX-2 auth-api guard realism.
-- CLI coverage beyond CLI-1/CLI-2; AD-2 live Postgres health coverage.
-- T-1 TestApp request-scope helper; T-2 spurious-async assertions.
-- Fresh release-machine result baselines for BENCH-1 after Wave 46's local benchmark result
-  artifacts.
+Most items originally listed here were handled in later waves. Current intentional deferrals are:
 
-These are tracked in the audit backlog and will be addressed in follow-up phases.
+- **F-CORE-3:** graph TypeId re-keying remains deferred because the correct fix is a public API or
+  structural identity change; DI runtime resolution is already `TypeId`-keyed.
+- **F-MAC-1:** compile-time rejection for concrete controller fields remains deferred because the
+  attempted compile-error approach broke supported manually constructed controller patterns.
+- **E-2:** direct event observers remain synchronous by design; `event_observer_channel()` is the
+  opt-in offload seam for observers that should not run inline.
+- **AD-2 / AD-3:** live external adapter health proof remains deferred until a real Postgres service
+  is intentionally provided; deterministic cache health and Postgres config behavior are locally
+  covered.
+- **BENCH-1:** fresh release-machine benchmark baselines remain deferred after Wave 46's local
+  benchmark result artifacts; current local artifacts are directional, not release-machine claims.
+
+The root docs test `tests/improvement_plan_docs.rs` now guards this section against relisting items
+that the audit backlog already marks mitigated.
 
 ---
 
@@ -982,3 +986,19 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 47" secti
   stopped cleanly and port 3000 was free afterward.
 - **Bench:** not required (manual evidence/docs-test only; no hot-path HTTP/DI/routing/request
   lifecycle/metrics/module graph runtime changed).
+
+---
+
+## Wave 48 — deferred backlog consistency guard (docs/test)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 48" section.
+
+- **Files:** `tests/improvement_plan_docs.rs`,
+  `docs/superpowers/plans/2026-06-26-nidus-framework-quality-improvements.md`, audit.
+- **Behavior change:** none. This is plan/audit consistency hygiene.
+- **TDD:** `cargo test --test improvement_plan_docs` first failed because the `Deferred items`
+  section still relisted mitigated work beginning with `F-CORE-4`. After refreshing the section to
+  current intentional deferrals, the focused test passes.
+- **Manual curl:** not required; no server examples changed.
+- **Bench:** not required; no hot-path HTTP, DI, routing, request lifecycle, metrics, module graph,
+  or benchmark code changed.
