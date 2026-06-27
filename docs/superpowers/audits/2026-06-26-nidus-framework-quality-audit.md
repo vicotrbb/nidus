@@ -274,9 +274,10 @@ Dependency direction is clean and inward: facade → core/macros/http/...; adapt
 - **Fix:** Bound series (LRU/cap with `route="<overflow>"`), or enforce pattern-only labels.
 - **Verification:** `cargo test -p nidus-http --test production_api`.
 
-#### F-HTTP-9 — Legacy `request_id_layer` generates non-unique `nidus-<nanos>` ids (P3)
-- **Evidence:** `crates/nidus-http/src/middleware/request_id.rs:78-85` (wall-clock nanos).
-  Production path uses UUID v4. **Confirmed safe** otherwise (request id hardening verified).
+#### F-HTTP-9 — Legacy `request_id_layer` generated non-unique `nidus-<nanos>` ids (~~P3~~ mitigated, Wave 28)
+- **Evidence:** legacy `request_id_layer()` now generates UUID v4 values when no incoming or
+  handler-provided response ID exists. It still does not validate incoming IDs or populate
+  `RequestContext`; production APIs should continue to prefer `validated_request_id_layer(...)`.
 
 ### nidus-config
 
@@ -1212,6 +1213,33 @@ Closed the CLI OpenAPI metadata gap O-3.
 `cargo test -p cargo-nidus --test cli_openapi cargo_nidus_openapi_accepts_document_title_and_version`
 is clean. `cargo test -p cargo-nidus --test cli_openapi`, `cargo test -p cargo-nidus`, and
 `cargo clippy -p cargo-nidus --all-targets --all-features -- -D warnings` are also clean.
+
+## Follow-up hardening — Wave 28 (2026-06-27, after commit `eff73ca`)
+
+Closed the legacy request ID generation gap F-HTTP-9.
+
+### Implemented (TDD)
+
+- **F-HTTP-9 mitigated — legacy generated request IDs are UUID v4.** `request_id_layer()` now uses
+  UUID v4 values when generating a response ID. Existing semantics are unchanged for incoming
+  request IDs and handler-provided response IDs. `docs/interceptors.md` documents that this layer
+  remains legacy: it does not validate incoming IDs or populate `RequestContext`. The
+  `request_lifecycle` benchmark now includes a dedicated legacy request-id scenario.
+  - **TDD:** `request_id_layer_generates_uuid_v4_response_id` first parsed the generated response
+    header as a UUID v4. RED: the old `nidus-<nanos>` value failed UUID parsing; GREEN: generated
+    value parsed as `Version::Random`.
+  - **Bench:** request lifecycle benchmark required because this touches HTTP request middleware.
+    `nidus middleware legacy request id request` measured `[1.4519 µs, 1.4592 µs, 1.4681 µs]`
+    on its first run, so Criterion had no prior baseline for that new scenario. The broader run
+    reported mixed results and some unrelated middleware/metrics regressions, so this wave makes
+    no broad performance-improvement claim.
+
+### Verification after this pass
+
+`cargo test -p nidus-http --test middleware request_id_layer_generates_uuid_v4_response_id` is
+clean. `cargo test -p nidus-http`, `cargo clippy -p nidus-http --all-targets --all-features -- -D warnings`,
+`cargo clippy --bench request_lifecycle -- -D warnings`, and `cargo bench --bench request_lifecycle`
+completed.
 
 ## Appendix: verification commands (baseline)
 

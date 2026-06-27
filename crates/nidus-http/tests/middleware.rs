@@ -18,6 +18,7 @@ use nidus_http::{
 };
 use tokio::time::sleep;
 use tower::{Service, ServiceBuilder, ServiceExt, service_fn};
+use uuid::{Uuid, Version};
 
 #[derive(Debug, PartialEq, Eq)]
 struct RequestId(usize);
@@ -42,6 +43,26 @@ async fn request_id_layer_adds_response_header() {
             .headers()
             .contains_key(HeaderName::from_static("x-request-id"))
     );
+}
+
+#[tokio::test]
+async fn request_id_layer_generates_uuid_v4_response_id() {
+    let service = ServiceBuilder::new()
+        .layer(request_id_layer())
+        .service(service_fn(|_request: Request<()>| async {
+            Ok::<_, Infallible>(Response::new(()))
+        }));
+
+    let response = service.oneshot(Request::new(())).await.unwrap();
+    let request_id = response
+        .headers()
+        .get("x-request-id")
+        .unwrap()
+        .to_str()
+        .unwrap();
+    let parsed = Uuid::parse_str(request_id).unwrap();
+
+    assert_eq!(parsed.get_version(), Some(Version::Random));
 }
 
 #[tokio::test]

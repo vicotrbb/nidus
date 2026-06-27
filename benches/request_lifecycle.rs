@@ -12,8 +12,8 @@ use nidus_http::{
     error::ErrorEnvelopeLayer,
     middleware::{
         ApiDefaults, HttpMetricsHook, PrometheusMetrics, RequestIdConfig, body_limit_layer,
-        request_context_layer, request_scope_layer, security_headers_layer, timeout_response_layer,
-        validated_request_id_layer,
+        request_context_layer, request_id_layer, request_scope_layer, security_headers_layer,
+        timeout_response_layer, validated_request_id_layer,
     },
     router::RouteDefinition,
 };
@@ -129,6 +129,7 @@ fn request_lifecycle_setup(c: &mut Criterion) {
     let body_limit_router = middleware_base_router
         .clone()
         .layer(body_limit_layer(1024 * 1024));
+    let legacy_request_id_router = middleware_base_router.clone().layer(request_id_layer());
     let request_id_router = middleware_base_router
         .clone()
         .layer(validated_request_id_layer(RequestIdConfig::production()));
@@ -263,6 +264,19 @@ fn request_lifecycle_setup(c: &mut Criterion) {
             let response = runtime
                 .block_on(
                     body_limit_router
+                        .clone()
+                        .oneshot(get_request("/middleware")),
+                )
+                .unwrap();
+            black_box(response.status());
+        });
+    });
+
+    c.bench_function("nidus middleware legacy request id request", |b| {
+        b.iter(|| {
+            let response = runtime
+                .block_on(
+                    legacy_request_id_router
                         .clone()
                         .oneshot(get_request("/middleware")),
                 )

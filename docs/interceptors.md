@@ -22,7 +22,8 @@ let app = router.layer(route_trace_layer("/users/{id}"));
 
 `request_id_layer()` propagates an incoming `x-request-id` response header when
 present, preserves a handler-provided response ID, and generates one only when
-neither exists.
+neither exists. Generated IDs are UUID v4 values, but this legacy layer does
+not validate incoming IDs or populate `RequestContext`.
 
 Production APIs should prefer `validated_request_id_layer(...)`, which validates
 incoming IDs, generates UUID v4 values by default, stores the final ID in

@@ -583,3 +583,21 @@ Status: **implemented**. See the audit's "Follow-up hardening — Wave 27" secti
 - **Verification:** focused metadata flag test; full `cli_openapi` target; `cargo test -p
   cargo-nidus`; cargo-nidus clippy.
 - **Bench:** not required (CLI metadata only).
+
+## Wave 28 — legacy request ID UUID generation (F-HTTP-9)
+
+Status: **implemented**. See the audit's "Follow-up hardening — Wave 28" section.
+
+- **Files:** `crates/nidus-http/src/middleware/request_id.rs`,
+  `crates/nidus-http/tests/middleware.rs`, `benches/request_lifecycle.rs`, `docs/interceptors.md`;
+  audit.
+- **Behavior change:** `request_id_layer()` now generates UUID v4 values instead of
+  `nidus-<nanos>` when no request or response ID is present. It still propagates arbitrary incoming
+  IDs and preserves handler response IDs.
+- **TDD:** new middleware test failed while generated IDs used the `nidus-` timestamp format, then
+  passed after switching to UUID v4 generation.
+- **Verification:** focused middleware test; full `middleware` test target; `cargo test -p
+  nidus-http`; nidus-http clippy; request-lifecycle bench clippy.
+- **Bench:** `cargo bench --bench request_lifecycle` with a new legacy request-id scenario. First
+  legacy scenario measurement has no prior baseline; broader run was mixed, so no performance
+  improvement is claimed.

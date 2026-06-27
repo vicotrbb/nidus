@@ -3,7 +3,6 @@ use std::{
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 use axum::{body::Body, response::IntoResponse};
@@ -18,7 +17,7 @@ use crate::context::RequestContext;
 ///
 /// Incoming request IDs are propagated to the response unless the inner service
 /// already set a response ID. Requests without an ID receive a generated
-/// `nidus-<timestamp>` value.
+/// UUID v4 value.
 ///
 /// This layer does not validate inbound IDs and does not populate
 /// [`RequestContext`]. Prefer [`validated_request_id_layer`] for production API
@@ -76,11 +75,7 @@ fn request_id_header() -> HeaderName {
 }
 
 fn new_request_id() -> HeaderValue {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    HeaderValue::from_str(&format!("nidus-{nanos}"))
+    HeaderValue::from_str(&Uuid::new_v4().to_string())
         .expect("generated request id contains only valid header characters")
 }
 
