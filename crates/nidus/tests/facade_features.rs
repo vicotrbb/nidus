@@ -70,10 +70,50 @@ fn prelude_exports_optional_feature_crates() {
     let _route_metrics_layer: MetricsLayer<NoopMetrics> =
         route_metrics_layer("/health", NoopMetrics);
     let _metrics_service: Option<MetricsService<(), NoopMetrics>> = None;
+    let observability = Observability::production("facade-test")
+        .prometheus()
+        .max_series(10);
+    let _adapter_observer: ObservabilityAdapterObserver = observability.adapter_observer();
+    let _event_observer: ObservabilityEventObserver = observability.event_observer();
+    let _job_observer: ObservabilityJobObserver = observability.job_observer();
+    let _status = OperationStatus::Success;
 
     jobs.run_all();
     events.subscribe();
     assert_eq!(response.status(), StatusCode::OK);
+}
+
+#[module]
+struct ObservabilityTestModule;
+
+#[tokio::test]
+async fn module_builder_applies_observability_routes_and_metrics() {
+    let observability = Observability::production("facade-test")
+        .version("1.0.0")
+        .environment("test")
+        .prometheus()
+        .tracing();
+
+    let app = Nidus::create::<ObservabilityTestModule>()
+        .with_observability(observability)
+        .build()
+        .await
+        .unwrap();
+
+    let test = TestApp::from_router(app.into_router());
+    test.get("/metrics")
+        .send()
+        .await
+        .assert_status(StatusCode::OK);
+    let metrics = test.get("/metrics").send().await;
+    let body = metrics.text().unwrap();
+    assert!(body.contains("# TYPE nidus_http_requests_total counter"));
+    assert!(
+        body.contains(
+            r#"nidus_lifecycle_total{operation="module.graph.validate",status="success"} 1"#
+        ),
+        "{body}"
+    );
 }
 
 #[allow(dead_code)]

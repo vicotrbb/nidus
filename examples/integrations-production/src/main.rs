@@ -1,6 +1,6 @@
 use nidus::prelude::{
     Application, Config, Container, HealthRegistry, Module, ModuleBuilder, ModuleDefinition,
-    ModuleGraph, NidusError,
+    ModuleGraph, NidusError, Observability,
 };
 use nidus_cache::{CacheConfig, MokaCacheProvider};
 use nidus_sqlx::SqlitePoolProvider;
@@ -24,11 +24,15 @@ impl Module for AppModule {
     }
 }
 
-async fn build_app(config: AppConfig) -> nidus::prelude::Result<Application> {
+async fn build_app(
+    config: AppConfig,
+    observability: &Observability,
+) -> nidus::prelude::Result<Application> {
     let mut container = Container::new();
     SqlitePoolProvider::builder()
         .database_url(config.database_url)
         .max_connections(1)
+        .observability(observability.adapter_observer())
         .register(&mut container)
         .await
         .map_err(|error| NidusError::ApplicationBuild {
@@ -40,6 +44,7 @@ async fn build_app(config: AppConfig) -> nidus::prelude::Result<Application> {
                 .namespace(config.cache_namespace)
                 .max_capacity(10_000),
         )
+        .observability(observability.adapter_observer())
         .register(&mut container)
         .map_err(|error| NidusError::ApplicationBuild {
             message: error.to_string(),
@@ -82,7 +87,11 @@ fn test_config() -> AppConfig {
 #[tokio::main]
 async fn main() -> nidus::prelude::Result<()> {
     let config = Config::from_env_prefix("APP");
-    let app = build_app(config_from_nidus_config(config)?).await?;
+    let observability = Observability::production("nidus-integrations-production")
+        .environment("example")
+        .prometheus()
+        .tracing();
+    let app = build_app(config_from_nidus_config(config)?, &observability).await?;
     let _health = health_registry(app.container())?;
     Ok(())
 }
@@ -93,9 +102,17 @@ mod tests {
 
     #[tokio::test]
     async fn example_wires_production_integrations() {
-        let app = build_app(test_config()).await.unwrap();
+        let observability = Observability::production("test-integrations")
+            .prometheus()
+            .max_series(10);
+        let app = build_app(test_config(), &observability).await.unwrap();
         assert!(app.container().resolve::<SqlitePoolProvider>().is_ok());
         assert!(app.container().resolve::<MokaCacheProvider>().is_ok());
         assert!(health_registry(app.container()).is_ok());
+        assert!(
+            observability
+                .render_prometheus()
+                .contains(r#"nidus_adapter_operations_total{adapter="nidus-sqlx",operation="connect",status="success"} 1"#)
+        );
     }
 }

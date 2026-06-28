@@ -16,11 +16,13 @@ postgres = ["sqlx/postgres"]
 sqlite = ["sqlx/sqlite"]
 nidus-config = ["dep:nidus-config"]
 health = ["dep:nidus-http"]
+observability = ["dep:nidus-observability"]
 
 [dependencies]
 nidus-core = { path = "../nidus-core", version = "1.0.0" }
 nidus-config = { path = "../nidus-config", version = "1.0.0", optional = true }
 nidus-http = { path = "../nidus-http", version = "1.0.0", optional = true }
+nidus-observability = { path = "../nidus-observability", version = "1.0.0", optional = true }
 serde.workspace = true
 sqlx.workspace = true
 thiserror.workspace = true

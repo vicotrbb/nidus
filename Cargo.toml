@@ -4,6 +4,7 @@ members = [
   "crates/nidus",
   "crates/nidus-core",
   "crates/nidus-http",
+  "crates/nidus-observability",
   "crates/nidus-macros",
   "crates/nidus-config",
   "crates/nidus-openapi",
@@ -64,6 +65,7 @@ criterion.workspace = true
 nidus-auth = { path = "crates/nidus-auth", version = "1.0.0" }
 nidus-core = { path = "crates/nidus-core", version = "1.0.0" }
 nidus-http = { path = "crates/nidus-http", version = "1.0.0" }
+nidus-observability = { path = "crates/nidus-observability", version = "1.0.0" }
 nidus-validation = { path = "crates/nidus-validation", version = "1.0.0" }
 serde.workspace = true
 serde_json.workspace = true

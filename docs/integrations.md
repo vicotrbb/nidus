@@ -35,6 +35,7 @@ Every official adapter crate should document and test this shape:
 - direct access to the underlying client
 - lifecycle behavior where the backend needs explicit shutdown
 - health check integration where useful
+- explicit observability hooks for adapter-owned operations where useful
 - deterministic tests that avoid external services by default
 - feature flags for backend-specific dependencies
 - errors that preserve source errors
@@ -53,7 +54,7 @@ Install `nidus-sqlx` directly:
 
 ```toml
 nidus = { version = "1.0", features = ["http", "config"] }
-nidus-sqlx = { version = "1.0", features = ["sqlite"] }
+nidus-sqlx = { version = "1.0", features = ["sqlite", "observability"] }
 ```
 
 The adapter exposes typed providers such as `SqlitePoolProvider` and
@@ -67,6 +68,7 @@ let mut container = nidus::prelude::Container::new();
 nidus_sqlx::SqlitePoolProvider::builder()
     .database_url("sqlite::memory:")
     .max_connections(1)
+    .observability(observability.adapter_observer())
     .register(&mut container)
     .await?;
 
@@ -86,13 +88,17 @@ let database = container.resolve::<nidus_sqlx::SqlitePoolProvider>()?;
 let health = database.register_ready_check(HealthRegistry::new(), "database");
 ```
 
+The SQLx adapter records pool connection and adapter health operations when an
+observer is configured. Direct `provider.pool()` access remains raw SQLx; Nidus
+does not claim automatic tracing for arbitrary application SQL queries.
+
 ## Cache
 
 Install `nidus-cache` directly:
 
 ```toml
 nidus = { version = "1.0" }
-nidus-cache = { version = "1.0", features = ["moka"] }
+nidus-cache = { version = "1.0", features = ["moka", "observability"] }
 ```
 
 `MokaCacheProvider` is a local in-memory cache provider with namespace, TTL, and
@@ -103,6 +109,7 @@ let cache = nidus_cache::MokaCacheProvider::builder()
     .namespace("users")
     .time_to_live(std::time::Duration::from_secs(60))
     .max_capacity(10_000)
+    .observability(observability.adapter_observer())
     .build();
 
 cache.insert("42", b"Ada".to_vec()).await;
@@ -126,6 +133,10 @@ readiness checks to a `HealthRegistry`:
 let cache = container.resolve::<nidus_cache::MokaCacheProvider>()?;
 let health = cache.register_ready_check(HealthRegistry::new(), "cache");
 ```
+
+The Moka adapter records provider-owned `insert`, `get`, `invalidate`, and
+health operations when an observer is configured. Direct calls on `inner()` are
+raw Moka usage and are not automatically instrumented by Nidus.
 
 ## Migration From `sqlx-postgres`
 
@@ -158,5 +169,5 @@ the adapter.
   without requiring live external services.
 - `nidus-cache` currently proves local Moka cache wiring. Distributed Redis
   semantics are not part of the default verified behavior yet.
-- `nidus-auth-jwt`, `nidus-queue`, `nidus-observability`, `nidus-storage`,
-  `nidus-search`, and `nidus-email` are future adapter families.
+- `nidus-auth-jwt`, `nidus-queue`, `nidus-storage`, `nidus-search`, and
+  `nidus-email` are future adapter families.

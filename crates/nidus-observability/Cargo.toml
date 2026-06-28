@@ -1,0 +1,37 @@
+[package]
+name = "nidus-observability"
+version.workspace = true
+edition.workspace = true
+description = "Production observability composition layer for Nidus applications."
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[features]
+default = ["http", "events", "jobs"]
+http = ["dep:axum", "dep:http", "dep:nidus-http", "dep:tower"]
+events = ["dep:nidus-events"]
+jobs = ["dep:nidus-jobs"]
+otel = ["nidus-http?/otel"]
+
+[dependencies]
+axum = { workspace = true, optional = true }
+http = { workspace = true, optional = true }
+nidus-events = { path = "../nidus-events", version = "1.0.0", optional = true }
+nidus-http = { path = "../nidus-http", version = "1.0.0", optional = true }
+nidus-jobs = { path = "../nidus-jobs", version = "1.0.0", optional = true }
+tower = { workspace = true, optional = true }
+tracing.workspace = true
+
+[dev-dependencies]
+async-trait.workspace = true
+axum.workspace = true
+http.workspace = true
+nidus-events = { path = "../nidus-events", version = "1.0.0" }
+nidus-http = { path = "../nidus-http", version = "1.0.0" }
+nidus-jobs = { path = "../nidus-jobs", version = "1.0.0" }
+tokio.workspace = true
+tower.workspace = true

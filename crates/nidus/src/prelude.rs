@@ -47,6 +47,11 @@ pub use nidus_http::otel::{
     OtelConfig, OtelShutdown, TraceContext, extract_trace_context, inject_trace_context,
     record_exception, shutdown_otel, with_observed_span,
 };
+#[cfg(feature = "observability")]
+pub use nidus_observability::{
+    ApiDefaultsObservabilityExt, Observability, ObservabilityAdapterObserver,
+    ObservabilityEventObserver, ObservabilityJobObserver, OperationStatus,
+};
 
 #[cfg(feature = "auth")]
 pub use nidus_auth::{

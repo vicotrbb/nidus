@@ -14,8 +14,8 @@ use axum::{
 use nidus::prelude::{
     AsyncJob, AsyncJobQueue, EventBus, EventObserver, HttpError, Job, JobObserver, JobQueue,
     JobResultStatus, Json, ObservedEventBus, ObservedEventContext, ObservedJobContext,
-    ObservedJobRunner, PrometheusMetrics, RateLimitConfig, RequestContext, RequestScoped, Router,
-    api_key_identity, timeout_response_layer, webhook_body_limit_layer,
+    ObservedJobRunner, RateLimitConfig, RequestContext, RequestScoped, Router, api_key_identity,
+    timeout_response_layer, webhook_body_limit_layer,
 };
 use serde::Serialize;
 
@@ -24,7 +24,7 @@ use crate::config::AppConfig;
 #[derive(Debug)]
 pub struct ScopedRequestNumber(pub u64);
 
-pub fn router(_config: &AppConfig, metrics: &PrometheusMetrics) -> Router {
+pub fn router(_config: &AppConfig) -> Router {
     Router::new()
         .route("/context", axum_get(context))
         .route(
@@ -46,7 +46,6 @@ pub fn router(_config: &AppConfig, metrics: &PrometheusMetrics) -> Router {
         )
         .route("/ops/fail", axum_get(fail))
         .route("/ops/workflows/observed", axum_post(observed_workflow))
-        .merge(metrics.routes())
 }
 
 pub fn request_scope_container() -> nidus::prelude::Result<Arc<nidus::prelude::Container>> {

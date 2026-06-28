@@ -14,7 +14,7 @@ use std::time::Duration;
 use axum::http::HeaderValue;
 use nidus::prelude::{
     ApiDefaults, HealthRegistry, HealthStatus, HttpApplication, Nidus, NidusApplicationExt,
-    PrometheusMetrics, RequestIdConfig, RequestIdMode, cors_origin_layer, request_scope_layer,
+    Observability, RequestIdConfig, RequestIdMode, cors_origin_layer, request_scope_layer,
 };
 
 use crate::{config::AppConfig, modules::AppModule};
@@ -31,7 +31,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn app(config: AppConfig) -> nidus::prelude::Result<HttpApplication> {
-    let metrics = PrometheusMetrics::new();
+    let observability = Observability::production("nidus-realworld-api")
+        .version(env!("CARGO_PKG_VERSION"))
+        .environment(config.environment.clone())
+        .prometheus()
+        .tracing()
+        .otel_from_env();
     let health = HealthRegistry::new()
         .live_check_sync("process", HealthStatus::up)
         .ready_check("database", || async { HealthStatus::up() })
@@ -42,12 +47,12 @@ async fn app(config: AppConfig) -> nidus::prelude::Result<HttpApplication> {
         }
     })?;
     let request_scope = ops::request_scope_container()?;
-    let ops_router = ops::router(&config, &metrics);
+    let ops_router = ops::router(&config);
 
     Nidus::create::<AppModule>()
         .with_singleton(config)?
         .with_openapi("Nidus Real-World Team Tasks API", "1.0.0")
-        .with_tracing()
+        .with_observability(observability)
         .build()
         .await
         .map(|app| {
@@ -58,7 +63,6 @@ async fn app(config: AppConfig) -> nidus::prelude::Result<HttpApplication> {
                 ApiDefaults::production("nidus-realworld-api")
                     .version(env!("CARGO_PKG_VERSION"))
                     .environment("example")
-                    .metrics(metrics)
                     .health(health)
                     .request_ids(RequestIdConfig::production().mode(RequestIdMode::Strict))
                     .body_limit(1024 * 1024)

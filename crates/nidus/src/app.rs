@@ -9,6 +9,8 @@ use nidus_http::{
     Router,
     server::{ApplicationHttpExt, HttpApplication},
 };
+#[cfg(feature = "observability")]
+use nidus_observability::{Observability, OperationStatus};
 #[cfg(feature = "openapi")]
 use nidus_openapi::OpenApiDocument;
 
@@ -37,6 +39,8 @@ where
     container: Container,
     openapi: Option<OpenApiOptions>,
     tracing: bool,
+    #[cfg(feature = "observability")]
+    observability: Option<Observability>,
     #[cfg(feature = "openapi")]
     schemas: Vec<fn(OpenApiDocument) -> OpenApiDocument>,
     _module: std::marker::PhantomData<M>,
@@ -51,6 +55,8 @@ where
             container: Container::new(),
             openapi: None,
             tracing: false,
+            #[cfg(feature = "observability")]
+            observability: None,
             #[cfg(feature = "openapi")]
             schemas: Vec::new(),
             _module: std::marker::PhantomData,
@@ -91,10 +97,35 @@ where
         self
     }
 
+    /// Applies production observability to the composed HTTP application.
+    ///
+    /// This merges observability routes such as `/metrics`, applies HTTP
+    /// metrics when enabled, and applies the default HTTP tracing layer when
+    /// [`Observability::tracing`] was configured.
+    #[cfg(feature = "observability")]
+    pub fn with_observability(mut self, observability: Observability) -> Self {
+        self.observability = Some(observability);
+        self
+    }
+
     /// Builds a composed HTTP application.
     #[cfg(feature = "http")]
     pub async fn build(mut self) -> Result<HttpApplication> {
-        let graph = ModuleGraph::from_root::<M>()?;
+        #[cfg(feature = "observability")]
+        let started_at = std::time::Instant::now();
+        let graph_result = ModuleGraph::from_root::<M>();
+        #[cfg(feature = "observability")]
+        if let Some(observability) = &self.observability {
+            observability.record_module_graph_validation(
+                if graph_result.is_ok() {
+                    OperationStatus::Success
+                } else {
+                    OperationStatus::Failure
+                },
+                started_at.elapsed(),
+            );
+        }
+        let graph = graph_result?;
 
         for module in graph.modules() {
             for registrar in module.provider_registrars() {
@@ -163,6 +194,32 @@ where
                 document = schema(document);
             }
             router = router.merge(document.into_router());
+        }
+
+        #[cfg(feature = "observability")]
+        if let Some(observability) = &self.observability {
+            router = router.merge(observability.routes());
+            if observability.http_metrics_enabled() {
+                router = router.layer(observability.http_layer());
+            }
+        }
+
+        #[cfg(feature = "observability")]
+        if let Some(observability) = &self.observability
+            && observability.tracing_enabled()
+        {
+            let mut logging =
+                nidus_http::logging::LoggingConfig::production(observability.service_name());
+            if let Some(version) = observability.version_label() {
+                logging = logging.version(version);
+            }
+            if let Some(environment) = observability.environment_label() {
+                logging = logging.environment(environment);
+            }
+            return Ok(router.layer(
+                tower_http::trace::TraceLayer::new_for_http()
+                    .make_span_with(nidus_http::logging::StructuredMakeSpan::new(logging)),
+            ));
         }
 
         if self.tracing {

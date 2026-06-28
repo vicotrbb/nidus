@@ -32,6 +32,8 @@ impl ModuleGraph {
 
     /// Builds and validates a module graph.
     pub fn from_modules(modules: impl IntoIterator<Item = ModuleDefinition>) -> Result<Self> {
+        let span = tracing::info_span!("module.graph.validate");
+        let _entered = span.enter();
         let mut registered = BTreeMap::new();
         for module in modules {
             let name = module.name.clone();

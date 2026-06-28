@@ -27,6 +27,12 @@ Application dependencies stay explicit:
 nidus = { version = "1.0", features = ["http", "config", "openapi", "validation"] }
 ```
 
+For production observability through the facade:
+
+```toml
+nidus = { version = "1.0", features = ["observability", "events", "jobs", "otel"] }
+```
+
 Official integrations are separate crates:
 
 ```toml
@@ -73,12 +79,36 @@ async fn main() -> nidus::Result<()> {
 - **Guards and pipes:** explicit authorization and validation boundaries.
 - **Config:** typed configuration from JSON, files, pairs, and environment variables.
 - **OpenAPI:** route metadata, schemas, and generated documents.
+- **Observability:** additive production setup for HTTP metrics, traces, events, jobs, lifecycle validation, and official adapter operations.
 - **Events and jobs:** in-process event buses, sync/async queues, and observed runners.
 - **Testing:** `nidus_testing::TestApp` for in-memory request tests and provider overrides.
 
 ## Production Defaults
 
 `nidus-http` provides opt-in production API defaults for request IDs, request context, health, readiness checks, metrics, CORS, body limits, timeout responses, security headers, structured logging, error envelopes, and OpenTelemetry trace-context helpers. The defaults return normal Axum routers and Tower layers, so applications can replace or reorder the boundary.
+
+Recommended production observability is additive:
+
+```rust
+use nidus::prelude::*;
+
+let observability = Observability::production("users-api")
+    .version(env!("CARGO_PKG_VERSION"))
+    .environment("prod")
+    .prometheus()
+    .tracing()
+    .otel_from_env();
+
+let app = Nidus::create::<AppModule>()
+    .with_observability(observability.clone())
+    .build()
+    .await?;
+```
+
+Automatic instrumentation applies where Nidus owns the integration point:
+HTTP middleware, `ObservedEventBus`, `ObservedJobRunner`, module validation, and
+official adapter builders. Raw SQLx queries, raw cache clients, ORMs, queues,
+and HTTP clients remain explicit application instrumentation.
 
 ## Adapter Story
 
@@ -89,7 +119,7 @@ The `nidus` facade stays lean. SQLx and cache integration live in `nidus-sqlx` a
 - `examples/hello-world`: minimal server.
 - `examples/openapi`: OpenAPI JSON and docs routes.
 - `examples/production-api`: production middleware defaults.
-- `examples/realworld-api`: team tasks API with modules, SQLite, validation, OpenAPI, health, metrics, request IDs, guards, CORS, limits, timeouts, events, and jobs.
+- `examples/realworld-api`: team tasks API with modules, SQLite, validation, OpenAPI, health, observability, request IDs, guards, CORS, limits, timeouts, events, and jobs.
 - `examples/sqlx-app` and `examples/cache-app`: official adapter wiring.
 
 Run an example:

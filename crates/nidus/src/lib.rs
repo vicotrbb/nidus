@@ -48,6 +48,8 @@ pub use nidus_events as events;
 pub use nidus_http as http;
 #[cfg(feature = "jobs")]
 pub use nidus_jobs as jobs;
+#[cfg(feature = "observability")]
+pub use nidus_observability as observability;
 #[cfg(feature = "openapi")]
 pub use nidus_openapi as openapi;
 #[cfg(feature = "testing")]

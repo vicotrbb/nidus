@@ -65,13 +65,17 @@ additional Tower layers.
 ```rust
 use nidus::prelude::*;
 
-let metrics = PrometheusMetrics::new();
+let observability = Observability::production("users-api")
+    .version("1.2.3")
+    .environment("prod")
+    .prometheus()
+    .tracing();
 let app = ApiDefaults::production("users-api")
-    .metrics(metrics.clone())
+    .observability(&observability)
     .request_ids(RequestIdConfig::production().mode(RequestIdMode::Strict))
     .body_limit(1024 * 1024)
     .timeout(std::time::Duration::from_secs(30))
-    .apply(router.merge(metrics.routes()));
+    .apply(router.merge(observability.routes()));
 ```
 
 Default-on concerns have an opt-out or replacement hook:
@@ -86,8 +90,9 @@ Default-on concerns have an opt-out or replacement hook:
 
 Metrics and rate limiting are opt-in:
 
-- `metrics(PrometheusMetrics::new())` installs request recording; merge
-  `metrics.routes()` separately to expose `/metrics`
+- `observability(&observability)` installs request recording when Prometheus
+  is enabled; merge `observability.routes()` separately to expose `/metrics`
+- `metrics(PrometheusMetrics::new())` remains available as the lower-level HTTP-only path
 - `rate_limit(RateLimitConfig::...)` installs rate limiting
 
 The built-in `listen` and `serve` helpers populate Axum `ConnectInfo`, so

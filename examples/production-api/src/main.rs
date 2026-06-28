@@ -14,7 +14,11 @@ struct UserDto {
 }
 
 fn app() -> Router {
-    let metrics = PrometheusMetrics::new();
+    let observability = Observability::production("nidus-production-api")
+        .version(env!("CARGO_PKG_VERSION"))
+        .environment("example")
+        .prometheus()
+        .tracing();
     let health = HealthRegistry::new()
         .live_check_sync("process", HealthStatus::up)
         .ready_check("database", || async { HealthStatus::up() })
@@ -38,7 +42,7 @@ fn app() -> Router {
 
     ApiDefaults::production("nidus-production-api")
         .health(health)
-        .metrics(metrics.clone())
+        .observability(&observability)
         .request_ids(RequestIdConfig::production().mode(RequestIdMode::Strict))
         .timeout(Duration::from_millis(50))
         .apply(
@@ -46,7 +50,7 @@ fn app() -> Router {
                 .into_router()
                 .merge(limited)
                 .merge(slow)
-                .merge(metrics.routes()),
+                .merge(observability.routes()),
         )
 }
 

@@ -47,6 +47,17 @@ observed.publish_named("user.created", UserCreated { user_id: 42 });
 Use context attributes to propagate request IDs, tenant IDs, or job run IDs into
 event publication metrics and spans.
 
+For the recommended production path, pass `Observability::event_observer()`:
+
+```rust
+let observability = Observability::production("users-api").prometheus();
+let observed = ObservedEventBus::new(EventBus::new(), observability.event_observer());
+observed.publish_named("user.created", UserCreated { user_id: 42 });
+```
+
+Only publications through `ObservedEventBus` are instrumented. Plain
+`EventBus::publish` keeps its existing behavior and emits no metrics.
+
 When observation needs slower export work, use a channel-backed observer and
 process contexts away from the publish call:
 

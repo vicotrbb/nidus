@@ -105,6 +105,9 @@ impl CacheKey {
 
 #[cfg(feature = "moka")]
 mod moka_backend {
+    #[cfg(feature = "observability")]
+    use std::time::Instant;
+
     use nidus_core::{Container, ProviderRegistrant, Result as NidusResult};
 
     use super::{CacheConfig, CacheKey, Result};
@@ -113,6 +116,8 @@ mod moka_backend {
     #[derive(Clone, Debug, Default)]
     pub struct MokaCacheBuilder {
         config: CacheConfig,
+        #[cfg(feature = "observability")]
+        observer: Option<nidus_observability::ObservabilityAdapterObserver>,
     }
 
     impl MokaCacheBuilder {
@@ -145,6 +150,16 @@ mod moka_backend {
             self
         }
 
+        /// Instruments adapter-owned cache operations with Nidus observability.
+        #[cfg(feature = "observability")]
+        pub fn observability(
+            mut self,
+            observer: nidus_observability::ObservabilityAdapterObserver,
+        ) -> Self {
+            self.observer = Some(observer);
+            self
+        }
+
         /// Builds a Moka cache provider.
         pub fn build(self) -> MokaCacheProvider {
             let mut builder = moka::future::Cache::builder();
@@ -157,6 +172,8 @@ mod moka_backend {
             MokaCacheProvider {
                 namespace: self.config.namespace,
                 cache: builder.build(),
+                #[cfg(feature = "observability")]
+                observer: self.observer,
             }
         }
 
@@ -172,6 +189,8 @@ mod moka_backend {
     pub struct MokaCacheProvider {
         namespace: Option<String>,
         cache: moka::future::Cache<String, Vec<u8>>,
+        #[cfg(feature = "observability")]
+        observer: Option<nidus_observability::ObservabilityAdapterObserver>,
     }
 
     impl MokaCacheProvider {
@@ -185,24 +204,54 @@ mod moka_backend {
             cache: moka::future::Cache<String, Vec<u8>>,
             namespace: Option<String>,
         ) -> Self {
-            Self { namespace, cache }
+            Self {
+                namespace,
+                cache,
+                #[cfg(feature = "observability")]
+                observer: None,
+            }
         }
 
         /// Inserts a value by logical key.
         pub async fn insert(&self, key: impl AsRef<str>, value: Vec<u8>) {
+            #[cfg(feature = "observability")]
+            let started_at = Instant::now();
             self.cache
                 .insert(self.cache_key(key).into_string(), value)
                 .await;
+            #[cfg(feature = "observability")]
+            self.record(
+                "insert",
+                nidus_observability::OperationStatus::Success,
+                started_at,
+            );
         }
 
         /// Returns a value by logical key.
         pub async fn get(&self, key: impl AsRef<str>) -> Option<Vec<u8>> {
-            self.cache.get(self.cache_key(key).as_str()).await
+            #[cfg(feature = "observability")]
+            let started_at = Instant::now();
+            let result = self.cache.get(self.cache_key(key).as_str()).await;
+            #[cfg(feature = "observability")]
+            self.record(
+                "get",
+                nidus_observability::OperationStatus::Success,
+                started_at,
+            );
+            result
         }
 
         /// Invalidates a value by logical key.
         pub async fn invalidate(&self, key: impl AsRef<str>) {
+            #[cfg(feature = "observability")]
+            let started_at = Instant::now();
             self.cache.invalidate(self.cache_key(key).as_str()).await;
+            #[cfg(feature = "observability")]
+            self.record(
+                "invalidate",
+                nidus_observability::OperationStatus::Success,
+                started_at,
+            );
         }
 
         /// Returns direct access to the underlying Moka cache.
@@ -218,6 +267,14 @@ mod moka_backend {
         /// Returns a local health status for this in-memory provider.
         #[cfg(feature = "health")]
         pub fn health_status(&self) -> nidus_http::health::HealthStatus {
+            #[cfg(feature = "observability")]
+            let started_at = Instant::now();
+            #[cfg(feature = "observability")]
+            self.record(
+                "health",
+                nidus_observability::OperationStatus::Success,
+                started_at,
+            );
             nidus_http::health::HealthStatus::up()
         }
 
@@ -237,6 +294,18 @@ mod moka_backend {
 
         fn cache_key(&self, key: impl AsRef<str>) -> CacheKey {
             CacheKey::new(self.namespace.as_deref(), key)
+        }
+
+        #[cfg(feature = "observability")]
+        fn record(
+            &self,
+            operation: &'static str,
+            status: nidus_observability::OperationStatus,
+            started_at: Instant,
+        ) {
+            if let Some(observer) = &self.observer {
+                observer.record("nidus-cache", operation, status, started_at.elapsed());
+            }
         }
     }
 

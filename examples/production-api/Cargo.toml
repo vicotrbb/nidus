@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 axum.workspace = true
-nidus = { path = "../../crates/nidus" }
+nidus = { path = "../../crates/nidus", features = ["observability"] }
 serde.workspace = true
 tokio.workspace = true
 

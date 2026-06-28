@@ -85,3 +85,14 @@ runner.run(&SendDigest)?;
 Observers are replaceable, so applications can record Prometheus metrics, emit
 events, or forward data to an external worker system without changing the job
 trait.
+
+For the recommended production path, pass `Observability::job_observer()`:
+
+```rust
+let observability = Observability::production("users-api").prometheus();
+let runner = ObservedJobRunner::new(observability.job_observer());
+runner.run(&SendDigest)?;
+```
+
+Only runs that go through `ObservedJobRunner` emit job metrics. Plain queue
+execution stays available for applications that do not want instrumentation.

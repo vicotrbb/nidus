@@ -41,6 +41,8 @@ impl LifecycleRunner {
 
     /// Runs startup hooks in registration order.
     pub async fn startup(&self) -> Result<()> {
+        let span = tracing::info_span!("lifecycle.startup", hook_count = self.hooks.len());
+        let _entered = span.enter();
         let mut started: Vec<usize> = Vec::new();
 
         tracing::debug!(hook_count = self.hooks.len(), "lifecycle startup begin");
@@ -87,6 +89,8 @@ impl LifecycleRunner {
 
     /// Runs shutdown hooks in reverse registration order.
     pub async fn shutdown(&self) -> Result<()> {
+        let span = tracing::info_span!("lifecycle.shutdown", hook_count = self.hooks.len());
+        let _entered = span.enter();
         tracing::debug!(hook_count = self.hooks.len(), "lifecycle shutdown begin");
         for (index, hook) in self.hooks.iter().enumerate().rev() {
             tracing::debug!(hook_index = index, "lifecycle shutdown hook begin");

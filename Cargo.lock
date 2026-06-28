@@ -1280,6 +1280,7 @@ dependencies = [
  "nidus-http",
  "nidus-jobs",
  "nidus-macros",
+ "nidus-observability",
  "nidus-openapi",
  "nidus-testing",
  "nidus-validation",
@@ -1287,6 +1288,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tower",
+ "tower-http",
  "trybuild",
  "utoipa",
 ]
@@ -1312,6 +1314,7 @@ dependencies = [
  "moka",
  "nidus-core",
  "nidus-http",
+ "nidus-observability",
  "thiserror",
  "tokio",
 ]
@@ -1528,6 +1531,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "nidus-observability"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "http",
+ "nidus-events",
+ "nidus-http",
+ "nidus-jobs",
+ "tokio",
+ "tower",
+ "tracing",
+]
+
+[[package]]
 name = "nidus-openapi"
 version = "1.0.0"
 dependencies = [
@@ -1548,6 +1566,7 @@ dependencies = [
  "nidus-config",
  "nidus-core",
  "nidus-http",
+ "nidus-observability",
  "serde",
  "sqlx",
  "thiserror",
@@ -1597,6 +1616,7 @@ dependencies = [
  "nidus-auth",
  "nidus-core",
  "nidus-http",
+ "nidus-observability",
  "nidus-validation",
  "serde",
  "serde_json",

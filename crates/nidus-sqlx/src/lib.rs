@@ -30,6 +30,9 @@ pub enum SqlxError {
 
 #[cfg(feature = "sqlite")]
 mod sqlite {
+    #[cfg(feature = "observability")]
+    use std::time::Instant;
+
     use super::Result;
     use nidus_core::Container;
 
@@ -91,6 +94,8 @@ mod sqlite {
     #[derive(Clone, Debug)]
     pub struct SqlitePoolBuilder {
         config: SqlitePoolConfig,
+        #[cfg(feature = "observability")]
+        observer: Option<nidus_observability::ObservabilityAdapterObserver>,
     }
 
     impl SqlitePoolBuilder {
@@ -98,6 +103,8 @@ mod sqlite {
         pub fn new() -> Self {
             Self {
                 config: SqlitePoolConfig::new("sqlite::memory:"),
+                #[cfg(feature = "observability")]
+                observer: None,
             }
         }
 
@@ -119,14 +126,40 @@ mod sqlite {
             self
         }
 
+        /// Instruments adapter-owned SQLx pool operations with Nidus observability.
+        #[cfg(feature = "observability")]
+        pub fn observability(
+            mut self,
+            observer: nidus_observability::ObservabilityAdapterObserver,
+        ) -> Self {
+            self.observer = Some(observer);
+            self
+        }
+
         /// Connects and returns a provider wrapping the real SQLx pool.
         pub async fn connect(self) -> Result<SqlitePoolProvider> {
+            #[cfg(feature = "observability")]
+            let observer = self.observer;
             let mut options = sqlx::sqlite::SqlitePoolOptions::new();
             if let Some(max_connections) = self.config.max_connections {
                 options = options.max_connections(max_connections);
             }
-            let pool = options.connect(&self.config.database_url).await?;
-            Ok(SqlitePoolProvider { pool })
+            #[cfg(feature = "observability")]
+            let started_at = Instant::now();
+            let pool = options.connect(&self.config.database_url).await;
+            #[cfg(feature = "observability")]
+            record_adapter_operation(
+                &observer,
+                "connect",
+                nidus_observability::OperationStatus::from(pool.is_ok()),
+                started_at,
+            );
+            let pool = pool?;
+            Ok(SqlitePoolProvider {
+                pool,
+                #[cfg(feature = "observability")]
+                observer,
+            })
         }
 
         /// Connects a provider and registers it as a Nidus singleton.
@@ -147,6 +180,8 @@ mod sqlite {
     #[derive(Clone, Debug)]
     pub struct SqlitePoolProvider {
         pool: sqlx::SqlitePool,
+        #[cfg(feature = "observability")]
+        observer: Option<nidus_observability::ObservabilityAdapterObserver>,
     }
 
     impl SqlitePoolProvider {
@@ -157,7 +192,11 @@ mod sqlite {
 
         /// Creates a provider from an existing SQLx SQLite pool.
         pub fn from_pool(pool: sqlx::SqlitePool) -> Self {
-            Self { pool }
+            Self {
+                pool,
+                #[cfg(feature = "observability")]
+                observer: None,
+            }
         }
 
         /// Returns direct access to the underlying SQLx pool.
@@ -173,7 +212,17 @@ mod sqlite {
         /// Executes a lightweight readiness query.
         #[cfg(feature = "health")]
         pub async fn health_status(&self) -> nidus_http::health::HealthStatus {
-            match sqlx::query("SELECT 1").execute(&self.pool).await {
+            #[cfg(feature = "observability")]
+            let started_at = Instant::now();
+            let result = sqlx::query("SELECT 1").execute(&self.pool).await;
+            #[cfg(feature = "observability")]
+            record_adapter_operation(
+                &self.observer,
+                "health",
+                nidus_observability::OperationStatus::from(result.is_ok()),
+                started_at,
+            );
+            match result {
                 Ok(_) => nidus_http::health::HealthStatus::up(),
                 Err(error) => nidus_http::health::HealthStatus::down(error.to_string()),
             }
@@ -196,6 +245,18 @@ mod sqlite {
             })
         }
     }
+
+    #[cfg(feature = "observability")]
+    fn record_adapter_operation(
+        observer: &Option<nidus_observability::ObservabilityAdapterObserver>,
+        operation: &'static str,
+        status: nidus_observability::OperationStatus,
+        started_at: Instant,
+    ) {
+        if let Some(observer) = observer {
+            observer.record("nidus-sqlx", operation, status, started_at.elapsed());
+        }
+    }
 }
 
 #[cfg(feature = "sqlite")]
@@ -203,6 +264,9 @@ pub use sqlite::{SqlitePoolBuilder, SqlitePoolConfig, SqlitePoolProvider};
 
 #[cfg(feature = "postgres")]
 mod postgres {
+    #[cfg(feature = "observability")]
+    use std::time::Instant;
+
     use super::Result;
     use nidus_core::Container;
 
@@ -281,6 +345,8 @@ mod postgres {
     #[derive(Clone, Debug)]
     pub struct PostgresPoolBuilder {
         config: PostgresPoolConfig,
+        #[cfg(feature = "observability")]
+        observer: Option<nidus_observability::ObservabilityAdapterObserver>,
     }
 
     impl PostgresPoolBuilder {
@@ -288,6 +354,8 @@ mod postgres {
         pub fn new(database_url: impl Into<String>) -> Self {
             Self {
                 config: PostgresPoolConfig::new(database_url),
+                #[cfg(feature = "observability")]
+                observer: None,
             }
         }
 
@@ -315,8 +383,20 @@ mod postgres {
             self
         }
 
+        /// Instruments adapter-owned SQLx pool operations with Nidus observability.
+        #[cfg(feature = "observability")]
+        pub fn observability(
+            mut self,
+            observer: nidus_observability::ObservabilityAdapterObserver,
+        ) -> Self {
+            self.observer = Some(observer);
+            self
+        }
+
         /// Connects and returns a provider wrapping the real SQLx pool.
         pub async fn connect(self) -> Result<PostgresPoolProvider> {
+            #[cfg(feature = "observability")]
+            let observer = self.observer;
             let mut options = sqlx::postgres::PgPoolOptions::new();
             if let Some(max_connections) = self.config.max_connections {
                 options = options.max_connections(max_connections);
@@ -324,8 +404,22 @@ mod postgres {
             if let Some(min_connections) = self.config.min_connections {
                 options = options.min_connections(min_connections);
             }
-            let pool = options.connect(&self.config.database_url).await?;
-            Ok(PostgresPoolProvider { pool })
+            #[cfg(feature = "observability")]
+            let started_at = Instant::now();
+            let pool = options.connect(&self.config.database_url).await;
+            #[cfg(feature = "observability")]
+            record_adapter_operation(
+                &observer,
+                "connect",
+                nidus_observability::OperationStatus::from(pool.is_ok()),
+                started_at,
+            );
+            let pool = pool?;
+            Ok(PostgresPoolProvider {
+                pool,
+                #[cfg(feature = "observability")]
+                observer,
+            })
         }
 
         /// Connects a provider and registers it as a Nidus singleton.
@@ -340,6 +434,8 @@ mod postgres {
     #[derive(Clone, Debug)]
     pub struct PostgresPoolProvider {
         pool: sqlx::PgPool,
+        #[cfg(feature = "observability")]
+        observer: Option<nidus_observability::ObservabilityAdapterObserver>,
     }
 
     impl PostgresPoolProvider {
@@ -350,7 +446,11 @@ mod postgres {
 
         /// Creates a provider from an existing SQLx Postgres pool.
         pub fn from_pool(pool: sqlx::PgPool) -> Self {
-            Self { pool }
+            Self {
+                pool,
+                #[cfg(feature = "observability")]
+                observer: None,
+            }
         }
 
         /// Returns direct access to the underlying SQLx pool.
@@ -366,7 +466,17 @@ mod postgres {
         /// Executes a lightweight readiness query.
         #[cfg(feature = "health")]
         pub async fn health_status(&self) -> nidus_http::health::HealthStatus {
-            match sqlx::query("SELECT 1").execute(&self.pool).await {
+            #[cfg(feature = "observability")]
+            let started_at = Instant::now();
+            let result = sqlx::query("SELECT 1").execute(&self.pool).await;
+            #[cfg(feature = "observability")]
+            record_adapter_operation(
+                &self.observer,
+                "health",
+                nidus_observability::OperationStatus::from(result.is_ok()),
+                started_at,
+            );
+            match result {
                 Ok(_) => nidus_http::health::HealthStatus::up(),
                 Err(error) => nidus_http::health::HealthStatus::down(error.to_string()),
             }
@@ -387,6 +497,18 @@ mod postgres {
                 let provider = std::sync::Arc::clone(&self);
                 async move { provider.health_status().await }
             })
+        }
+    }
+
+    #[cfg(feature = "observability")]
+    fn record_adapter_operation(
+        observer: &Option<nidus_observability::ObservabilityAdapterObserver>,
+        operation: &'static str,
+        status: nidus_observability::OperationStatus,
+        started_at: Instant,
+    ) {
+        if let Some(observer) = observer {
+            observer.record("nidus-sqlx", operation, status, started_at.elapsed());
         }
     }
 }

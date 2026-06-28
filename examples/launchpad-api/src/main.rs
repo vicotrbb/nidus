@@ -17,11 +17,11 @@ use nidus::prelude::{
     ApiDefaults, AsyncJob, AsyncJobQueue, Config, Container, EventBus, EventObserver, Guard,
     GuardContext, GuardError, HealthRegistry, HealthStatus, HttpApplication, HttpError, Inject,
     Job, JobObserver, JobQueue, JobResultStatus, Json, Module, ModuleBuilder, ModuleDefinition,
-    Nidus, NidusApplicationExt, NidusError, ObservedEventBus, ObservedEventContext,
-    ObservedJobContext, ObservedJobRunner, Path, PrometheusMetrics, RequestContext,
-    RequestIdConfig, Router, StatusCode, ValidatedJson, controller, cors_origin_layer, get, guard,
-    injectable, module, openapi, patch, post, request_context_layer, request_scope_layer, routes,
-    validate, webhook_body_limit_layer,
+    Nidus, NidusApplicationExt, NidusError, Observability, ObservedEventBus, ObservedEventContext,
+    ObservedJobContext, ObservedJobRunner, Path, RequestContext, RequestIdConfig, Router,
+    StatusCode, ValidatedJson, controller, cors_origin_layer, get, guard, injectable, module,
+    openapi, patch, post, request_context_layer, request_scope_layer, routes, validate,
+    webhook_body_limit_layer,
 };
 use nidus_cache::{CacheConfig, MokaCacheProvider};
 use nidus_sqlx::SqlitePoolProvider;
@@ -69,7 +69,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn app(config: AppConfig) -> nidus::prelude::Result<HttpApplication> {
-    let metrics = PrometheusMetrics::new();
+    let observability = Observability::production("nidus-launchpad-api")
+        .version(env!("CARGO_PKG_VERSION"))
+        .environment("example")
+        .prometheus()
+        .tracing()
+        .otel_from_env();
     let health = HealthRegistry::new()
         .live_check_sync("process", HealthStatus::up)
         .ready_check("sqlite", || async { HealthStatus::up() })
@@ -77,22 +82,21 @@ async fn app(config: AppConfig) -> nidus::prelude::Result<HttpApplication> {
 
     Nidus::create::<AppModule>()
         .with_singleton(config)?
+        .with_singleton(observability.clone())?
         .with_openapi("Nidus Launchpad API", "1.0.0")
         .with_schema::<WorkflowDto>()
-        .with_tracing()
+        .with_observability(observability)
         .build()
         .await
         .map(|app| {
             app.map_router(|router| {
                 let router = router
                     .merge(ops_router())
-                    .merge(metrics.routes())
                     .layer(request_context_layer())
                     .layer(request_scope_layer(Arc::new(Container::new())));
                 ApiDefaults::production("nidus-launchpad-api")
                     .version(env!("CARGO_PKG_VERSION"))
                     .environment("example")
-                    .metrics(metrics)
                     .health(health)
                     .request_ids(RequestIdConfig::development())
                     .body_limit(1024 * 1024)
@@ -172,9 +176,11 @@ fn initialize_infrastructure(
 ) -> Pin<Box<dyn Future<Output = nidus::prelude::Result<()>> + Send + '_>> {
     Box::pin(async move {
         let config = container.resolve::<AppConfig>()?;
+        let observability = container.resolve::<Observability>()?;
         SqlitePoolProvider::builder()
             .database_url(&config.database_url)
             .max_connections(1)
+            .observability(observability.adapter_observer())
             .register(container)
             .await
             .map_err(|error| NidusError::ApplicationBuild {
@@ -187,6 +193,7 @@ fn initialize_infrastructure(
                     .max_capacity(1_000)
                     .time_to_live(Duration::from_secs(60)),
             )
+            .observability(observability.adapter_observer())
             .register(container)
             .map_err(|error| NidusError::ApplicationBuild {
                 message: error.to_string(),
