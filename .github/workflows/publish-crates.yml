@@ -50,6 +50,14 @@ jobs:
           key: cargo-publish-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             cargo-publish-${{ runner.os }}-
+      - name: Check crates.io token is configured
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          if [ -z "${CARGO_REGISTRY_TOKEN:-}" ]; then
+            echo "CARGO_REGISTRY_TOKEN is not configured." >&2
+            exit 1
+          fi
       - name: Format
         run: cargo fmt --all --check
       - name: Clippy
