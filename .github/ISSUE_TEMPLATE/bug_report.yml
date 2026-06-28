@@ -1,0 +1,50 @@
+name: Bug Report
+description: Report a reproducible problem in Nidus.
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a Nidus issue. Please include enough detail for maintainers to reproduce it locally.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Minimal code, commands, or repository link that reproduces the issue.
+      placeholder: |
+        cargo nidus new repro
+        cargo test ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should have happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Rust version, OS, crate versions, and enabled Nidus features.
+      placeholder: |
+        rustc --version
+        cargo --version
+        uname -a
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or Output
+      description: Compiler errors, test output, panic logs, or HTTP responses.
+      render: text

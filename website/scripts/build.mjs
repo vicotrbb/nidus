@@ -406,7 +406,7 @@ function pageShell({ title, description, body, currentSlug, home = false, toc = 
       <a href="${href('docs/installation/')}">Install</a>
       <a href="${href('docs/examples/')}">Examples</a>
       <a href="${href('docs/api-reference/')}">API</a>
-      <a href="https://github.com/victorbona/nidus">Source</a>
+      <a href="https://github.com/vicotrbb/nidus">Source</a>
     </nav>
   </header>
   ${home ? body : `<main class="docs-frame">

@@ -1,0 +1,32 @@
+name: Feature Request
+description: Propose a focused improvement for Nidus.
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user or maintainer problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the API, CLI, docs, or behavior change.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Existing ecosystem crates, current workarounds, or designs considered.
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope Check
+      options:
+        - label: This can be implemented without hidden global state or runtime reflection.
+        - label: This preserves explicit Rust types and normal Cargo workflows.
+        - label: I am willing to help with tests or documentation.
