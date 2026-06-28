@@ -101,7 +101,23 @@ jobs:
 
           is_published() {
             local crate="$1"
-            cargo search "${crate}" --limit 1 | grep -Eq "^${crate} = \"${version}\""
+            local response
+            response="$(
+              curl \
+                --fail \
+                --silent \
+                --show-error \
+                --header "User-Agent: nidus-release" \
+                "https://crates.io/api/v1/crates/${crate}" 2>/dev/null || true
+            )"
+
+            if [ -z "${response}" ]; then
+              return 1
+            fi
+
+            jq -e --arg version "${version}" \
+              '.versions[]? | select(.num == $version and (.yanked | not))' \
+              >/dev/null <<<"${response}"
           }
 
           wait_for_crate() {
