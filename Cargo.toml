@@ -104,7 +104,7 @@ thiserror = "2"
 time = { version = "0.3", features = ["formatting"] }
 tokio = { version = "1", features = ["macros", "net", "rt-multi-thread"] }
 tower = { version = "0.5", features = ["limit", "timeout", "util"] }
-tower-http = { version = "0.6", features = ["compression-gzip", "cors", "limit", "trace"] }
+tower-http = { version = "0.7", features = ["compression-gzip", "cors", "limit", "trace"] }
 tracing = "0.1"
 tracing-core = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
