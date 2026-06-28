@@ -49,7 +49,7 @@ Applications depend on the facade crate and opt into feature groups explicitly:
 
 \`\`\`toml
 [dependencies]
-nidus = { version = "1.0", features = ["http", "config", "openapi", "validation"] }
+nidus = { package = "nidus-rs", version = "1.0", features = ["http", "config", "openapi", "validation"] }
 \`\`\`
 
 Official adapters are separate crates, so the core facade stays lean:
@@ -292,22 +292,22 @@ function extractToc(markdown) {
 
 function apiReference() {
   const crates = [
-    ['nidus', 'Facade crate and prelude'],
-    ['nidus-core', 'Modules, DI, lifecycle, and app bootstrap'],
-    ['nidus-http', 'Controllers, routing, middleware, health, metrics, logging, OTel helpers'],
-    ['nidus-macros', 'Controller, route, module, provider, guard, pipe, and entrypoint macros'],
-    ['nidus-config', 'Typed configuration values and loaders'],
-    ['nidus-openapi', 'OpenAPI route metadata and document generation'],
-    ['nidus-validation', 'Validation pipes and JSON extractors backed by garde'],
-    ['nidus-auth', 'Guard traits, combinators, and Tower layers'],
-    ['nidus-events', 'Event bus and observed event dispatch'],
-    ['nidus-jobs', 'Job queues and observed job runners'],
-    ['nidus-testing', 'TestApp request harness and provider overrides'],
-    ['nidus-sqlx', 'Official SQLx adapter'],
-    ['nidus-cache', 'Official Moka cache adapter'],
-    ['cargo-nidus', 'CLI generator and source inspector'],
+    ['nidus-rs', 'nidus', 'Facade crate and prelude'],
+    ['nidus-core', 'nidus_core', 'Modules, DI, lifecycle, and app bootstrap'],
+    ['nidus-http', 'nidus_http', 'Controllers, routing, middleware, health, metrics, logging, OTel helpers'],
+    ['nidus-macros', 'nidus_macros', 'Controller, route, module, provider, guard, pipe, and entrypoint macros'],
+    ['nidus-config', 'nidus_config', 'Typed configuration values and loaders'],
+    ['nidus-openapi', 'nidus_openapi', 'OpenAPI route metadata and document generation'],
+    ['nidus-validation', 'nidus_validation', 'Validation pipes and JSON extractors backed by garde'],
+    ['nidus-auth', 'nidus_auth', 'Guard traits, combinators, and Tower layers'],
+    ['nidus-events', 'nidus_events', 'Event bus and observed event dispatch'],
+    ['nidus-jobs', 'nidus_jobs', 'Job queues and observed job runners'],
+    ['nidus-testing', 'nidus_testing', 'TestApp request harness and provider overrides'],
+    ['nidus-sqlx', 'nidus_sqlx', 'Official SQLx adapter'],
+    ['nidus-cache', 'nidus_cache', 'Official Moka cache adapter'],
+    ['cargo-nidus', 'cargo_nidus', 'CLI generator and source inspector'],
   ];
-  const rows = crates.map(([name, summary]) => `| \`${name}\` | ${summary} | https://docs.rs/${name}/1.0.0/${name.replaceAll('-', '_')}/ |`).join('\n');
+  const rows = crates.map(([packageName, crateName, summary]) => `| \`${packageName}\` | ${summary} | https://docs.rs/${packageName}/1.0.0/${crateName}/ |`).join('\n');
   return `# API Reference
 
 The release website links to generated Rust API references on docs.rs once the crates are published. During local launch verification, build the same reference set with:
@@ -331,7 +331,7 @@ Nidus 1.0 is the first stable release target for the framework surface in this r
 ## Highlights
 
 - Modular Rust application structure with modules, controllers, providers, guards, validation, config, OpenAPI, events, jobs, testing, and production HTTP defaults.
-- Lean \`nidus\` facade with SQLx and cache integrations delivered as separately installable official adapters.
+- Lean \`nidus-rs\` facade package, imported as \`nidus\` in Rust code, with SQLx and cache integrations delivered as separately installable official adapters.
 - \`cargo-nidus\` project generation plus source inspection commands for routes, module graphs, macro expansion, checks, and OpenAPI.
 - Validation now uses \`garde\`, removing the unmaintained \`proc-macro-error2\` advisory path without suppressing the advisory.
 - Logo assets and documentation website are generated from repository sources.

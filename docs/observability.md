@@ -22,7 +22,7 @@ It is additive. The lower-level APIs remain available:
 Enable the facade feature when using `nidus::prelude::*`:
 
 ```toml
-nidus = { version = "1.0", features = ["observability", "events", "jobs", "otel"] }
+nidus = { package = "nidus-rs", version = "1.0", features = ["observability", "events", "jobs", "otel"] }
 ```
 
 Official adapters expose observability hooks behind their own feature flags:

@@ -166,7 +166,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-nidus = {{ path = {:?} }}
+nidus = {{ package = "nidus-rs", path = {:?} }}
 "#,
             workspace_root().join("crates/nidus").display().to_string()
         ),
@@ -224,7 +224,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-nidus = {{ path = {:?} }}
+nidus = {{ package = "nidus-rs", path = {:?} }}
 "#,
             workspace_root().join("crates/nidus").display().to_string()
         ),

@@ -13,8 +13,13 @@ pub(crate) fn create_project(name: &str, root: &Path, nidus_path: Option<&Path>)
     let src = project.join("src");
     fs::create_dir_all(&src).with_context(|| format!("creating {}", src.display()))?;
     let nidus_dependency = nidus_path
-        .map(|path| format!("{{ path = {:?} }}", path.display().to_string()))
-        .unwrap_or_else(|| "\"0.1\"".to_owned());
+        .map(|path| {
+            format!(
+                "{{ package = \"nidus-rs\", path = {:?} }}",
+                path.display().to_string()
+            )
+        })
+        .unwrap_or_else(|| "{ package = \"nidus-rs\", version = \"1.0\" }".to_owned());
     write(
         &project.join("Cargo.toml"),
         &format!(

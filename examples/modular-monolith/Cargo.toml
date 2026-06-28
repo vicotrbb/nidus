@@ -5,4 +5,4 @@ edition = "2024"
 publish = false
 
 [dependencies]
-nidus = { path = "../../crates/nidus", version = "1.0.0", default-features = false, features = ["http"] }
+nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.0", default-features = false, features = ["http"] }

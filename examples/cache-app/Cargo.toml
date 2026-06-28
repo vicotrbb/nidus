@@ -5,6 +5,6 @@ edition = "2024"
 publish = false
 
 [dependencies]
-nidus = { path = "../../crates/nidus", version = "1.0.0" }
+nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.0" }
 nidus-cache = { path = "../../crates/nidus-cache", version = "1.0.0" }
 tokio.workspace = true

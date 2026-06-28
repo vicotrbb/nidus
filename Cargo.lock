@@ -1268,32 +1268,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nidus"
-version = "1.0.0"
-dependencies = [
- "async-trait",
- "axum",
- "nidus-auth",
- "nidus-config",
- "nidus-core",
- "nidus-events",
- "nidus-http",
- "nidus-jobs",
- "nidus-macros",
- "nidus-observability",
- "nidus-openapi",
- "nidus-testing",
- "nidus-validation",
- "serde",
- "serde_json",
- "tokio",
- "tower",
- "tower-http",
- "trybuild",
- "utoipa",
-]
-
-[[package]]
 name = "nidus-auth"
 version = "1.0.0"
 dependencies = [
@@ -1356,7 +1330,7 @@ version = "1.0.0"
 dependencies = [
  "async-trait",
  "axum",
- "nidus",
+ "nidus-rs",
  "nidus-testing",
  "serde_json",
  "tokio",
@@ -1375,8 +1349,8 @@ dependencies = [
 name = "nidus-example-cache-app"
 version = "1.0.0"
 dependencies = [
- "nidus",
  "nidus-cache",
+ "nidus-rs",
  "tokio",
 ]
 
@@ -1384,7 +1358,7 @@ dependencies = [
 name = "nidus-example-hello-world"
 version = "1.0.0"
 dependencies = [
- "nidus",
+ "nidus-rs",
  "nidus-testing",
  "tokio",
 ]
@@ -1393,8 +1367,8 @@ dependencies = [
 name = "nidus-example-integrations-production"
 version = "1.0.0"
 dependencies = [
- "nidus",
  "nidus-cache",
+ "nidus-rs",
  "nidus-sqlx",
  "tokio",
 ]
@@ -1406,8 +1380,8 @@ dependencies = [
  "async-trait",
  "axum",
  "garde",
- "nidus",
  "nidus-cache",
+ "nidus-rs",
  "nidus-sqlx",
  "nidus-testing",
  "serde",
@@ -1422,15 +1396,15 @@ dependencies = [
 name = "nidus-example-modular-monolith"
 version = "1.0.0"
 dependencies = [
- "nidus",
+ "nidus-rs",
 ]
 
 [[package]]
 name = "nidus-example-openapi"
 version = "1.0.0"
 dependencies = [
- "nidus",
  "nidus-openapi",
+ "nidus-rs",
  "nidus-testing",
  "serde",
  "serde_json",
@@ -1443,7 +1417,7 @@ name = "nidus-example-production-api"
 version = "1.0.0"
 dependencies = [
  "axum",
- "nidus",
+ "nidus-rs",
  "nidus-testing",
  "serde",
  "tokio",
@@ -1457,7 +1431,7 @@ dependencies = [
  "async-trait",
  "axum",
  "garde",
- "nidus",
+ "nidus-rs",
  "nidus-testing",
  "serde",
  "serde_json",
@@ -1471,7 +1445,7 @@ dependencies = [
 name = "nidus-example-rest-api"
 version = "1.0.0"
 dependencies = [
- "nidus",
+ "nidus-rs",
  "nidus-testing",
  "serde",
  "serde_json",
@@ -1482,7 +1456,7 @@ dependencies = [
 name = "nidus-example-sqlx-app"
 version = "1.0.0"
 dependencies = [
- "nidus",
+ "nidus-rs",
  "nidus-sqlx",
  "sqlx",
  "tokio",
@@ -1556,6 +1530,32 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tokio",
+ "utoipa",
+]
+
+[[package]]
+name = "nidus-rs"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "nidus-auth",
+ "nidus-config",
+ "nidus-core",
+ "nidus-events",
+ "nidus-http",
+ "nidus-jobs",
+ "nidus-macros",
+ "nidus-observability",
+ "nidus-openapi",
+ "nidus-testing",
+ "nidus-validation",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower",
+ "tower-http",
+ "trybuild",
  "utoipa",
 ]
 

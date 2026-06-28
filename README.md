@@ -24,13 +24,13 @@ Application dependencies stay explicit:
 
 ```toml
 [dependencies]
-nidus = { version = "1.0", features = ["http", "config", "openapi", "validation"] }
+nidus = { package = "nidus-rs", version = "1.0", features = ["http", "config", "openapi", "validation"] }
 ```
 
 For production observability through the facade:
 
 ```toml
-nidus = { version = "1.0", features = ["observability", "events", "jobs", "otel"] }
+nidus = { package = "nidus-rs", version = "1.0", features = ["observability", "events", "jobs", "otel"] }
 ```
 
 Official integrations are separate crates:

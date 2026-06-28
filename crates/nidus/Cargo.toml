@@ -1,5 +1,5 @@
 [package]
-name = "nidus"
+name = "nidus-rs"
 version.workspace = true
 edition.workspace = true
 description = "Public facade crate for the Nidus modular Rust backend framework."
@@ -9,6 +9,10 @@ homepage.workspace = true
 rust-version.workspace = true
 keywords.workspace = true
 categories.workspace = true
+
+[lib]
+name = "nidus"
+path = "src/lib.rs"
 
 [features]
 default = ["http", "config", "tracing"]

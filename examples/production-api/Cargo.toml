@@ -7,9 +7,9 @@ publish = false
 
 [dependencies]
 axum.workspace = true
-nidus = { path = "../../crates/nidus", features = ["observability"] }
+nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.0", features = ["observability"] }
 serde.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
-nidus-testing = { path = "../../crates/nidus-testing" }
+nidus-testing = { path = "../../crates/nidus-testing", version = "1.0.0" }

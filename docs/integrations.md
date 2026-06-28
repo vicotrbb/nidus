@@ -53,7 +53,7 @@ async adapters should register through a builder or module async initializer.
 Install `nidus-sqlx` directly:
 
 ```toml
-nidus = { version = "1.0", features = ["http", "config"] }
+nidus = { package = "nidus-rs", version = "1.0", features = ["http", "config"] }
 nidus-sqlx = { version = "1.0", features = ["sqlite", "observability"] }
 ```
 
@@ -97,7 +97,7 @@ does not claim automatic tracing for arbitrary application SQL queries.
 Install `nidus-cache` directly:
 
 ```toml
-nidus = { version = "1.0" }
+nidus = { package = "nidus-rs", version = "1.0" }
 nidus-cache = { version = "1.0", features = ["moka", "observability"] }
 ```
 
@@ -140,16 +140,16 @@ raw Moka usage and are not automatically instrumented by Nidus.
 
 ## Migration From `sqlx-postgres`
 
-The old pre-1.0 facade feature:
+The old pre-1.0 facade feature in local workspace manifests:
 
 ```toml
-nidus = { version = "<1.0", features = ["sqlx-postgres"] }
+nidus = { path = "../crates/nidus", features = ["sqlx-postgres"] }
 ```
 
 has been replaced by a separate adapter dependency:
 
 ```toml
-nidus = { version = "1.0", features = ["http", "config"] }
+nidus = { package = "nidus-rs", version = "1.0", features = ["http", "config"] }
 nidus-sqlx = { version = "1.0", features = ["postgres"] }
 ```
 
