@@ -68,22 +68,24 @@ pub trait HttpMetricsHook: Clone + Send + Sync + 'static {
 /// # Label cardinality
 ///
 /// By default the collector records every distinct route label it observes, so
-/// the caller is responsible for keeping cardinality bounded — prefer route
-/// patterns (e.g. `"/users/:id"`) over concrete paths. To harden against
+/// the caller is responsible for keeping cardinality bounded. Prefer route
+/// patterns (e.g. `"/users/{id}"`) over concrete paths. To harden against
 /// accidental high-cardinality labels (which would grow memory without bound in
 /// a long-running process), apply [`PrometheusMetrics::with_max_series`]: once
 /// the configured number of distinct route labels has been admitted, every
 /// further distinct label collapses into a single `"<overflow>"` route.
 ///
-/// ```ignore
+/// ```
 /// use axum::{Router, routing::get};
 /// use nidus_http::middleware::{PrometheusMetrics, route_metrics_layer};
+/// # async fn show_user() -> &'static str { "user" }
 ///
 /// let metrics = PrometheusMetrics::new();
 /// let app = Router::new()
-///     .route("/users/:id", get(show_user))
-///     .route_layer(route_metrics_layer("/users/:id", metrics.clone()))
+///     .route("/users/{id}", get(show_user))
+///     .route_layer(route_metrics_layer("/users/{id}", metrics.clone()))
 ///     .merge(metrics.routes());
+/// # let _: Router = app;
 /// ```
 #[derive(Clone, Debug)]
 pub struct PrometheusMetrics {

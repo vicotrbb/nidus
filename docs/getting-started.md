@@ -1,6 +1,6 @@
 # Getting Started
 
-Install the CLI after the 1.0 crate is published:
+Install the CLI from crates.io:
 
 ```bash
 cargo install cargo-nidus
@@ -20,6 +20,24 @@ cd hello-nidus
 cargo run
 ```
 
+For an application that starts from an existing manifest, install the facade
+crate directly:
+
+```toml
+[dependencies]
+nidus = { package = "nidus-rs", version = "1.0.1", features = ["http"] }
+```
+
+Use `nidus-rs` for applications, `cargo-nidus` for the CLI, and adapter crates
+such as `nidus-sqlx` or `nidus-cache` only when the app chooses those backends.
+Feature groups keep the facade explicit:
+
+```toml
+nidus = { package = "nidus-rs", version = "1.0.1", features = ["http", "config", "openapi", "validation"] }
+nidus-sqlx = { version = "1.0.1", features = ["sqlite"] }
+nidus-cache = { version = "1.0.1", features = ["moka"] }
+```
+
 `cargo nidus new` refuses to overwrite an existing destination directory.
 Generated artifacts are written under their feature directory, the matching `mod.rs` index is updated, and the feature directory is declared from `src/main.rs` or `src/lib.rs`.
 Artifact names must start with an ASCII letter after normalization; names such as `user.profile` are normalized to Rust module filenames such as `user_profile.rs` and Rust types such as `UserProfileService`.
@@ -30,9 +48,10 @@ does the same discovery in the other direction. Hand-written module bodies are
 left untouched.
 
 The generated project starts as a small Nidus HTTP server with a macro-defined
-root `AppModule`. Applications can define controllers and executable routes with
-`#[controller]`, `#[routes]`, and HTTP method attributes, while still dropping
-down to explicit `Controller` and `RouteDefinition` builders when useful.
+root `AppModule`, one controller, and one injected service. Applications can
+define controllers and executable routes with `#[controller]`, `#[routes]`, and
+HTTP method attributes, while still dropping down to explicit `Controller` and
+`RouteDefinition` builders when useful.
 
 Inspect generated controller metadata:
 
@@ -53,3 +72,11 @@ cargo nidus check
 `src/main.rs` or `src/lib.rs` as the crate root, catches stale generated
 `mod.rs` index entries, and verifies that generated feature directories are
 declared from a crate root.
+
+From hello world to a real app, keep the path incremental:
+
+1. Run the generated server and curl `/`.
+2. Inspect routes and the module graph before adding features.
+3. Generate one controller or service for the first domain boundary.
+4. Add config, validation, OpenAPI, or auth only when a route needs it.
+5. Add SQLx or cache adapter crates only after choosing those backends.

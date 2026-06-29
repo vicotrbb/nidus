@@ -3,7 +3,7 @@
 //! [`ApiKeyGuard`] reads the `x-api-key` header and authorizes only when it
 //! matches the expected key. It is wired through the public [`guard_layer`],
 //! which (since the header-passing fix) populates the guard context with the
-//! request headers — so this is a genuine header-token guard, not a route-label
+//! request headers, so this is a genuine header-token guard, not a route-label
 //! check.
 
 use async_trait::async_trait;

@@ -1,6 +1,12 @@
 #![deny(missing_docs)]
 
 //! Procedural macros for Nidus modules, providers, controllers, and routes.
+//!
+//! The examples in this crate are marked `ignore` because application-facing
+//! macro use goes through the `nidus` facade crate, which depends on this
+//! proc-macro crate. Adding a reverse doctest dependency here would create a
+//! crate cycle. Macro expansion behavior is covered by the facade UI and CLI
+//! tests instead.
 
 mod controller;
 mod diagnostics;

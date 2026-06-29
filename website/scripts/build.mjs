@@ -31,7 +31,7 @@ const docs = [
     group: 'Start',
     markdown: `# Installation
 
-Install the Nidus CLI after the 1.0 crates are published:
+Install the Nidus CLI from crates.io:
 
 \`\`\`bash
 cargo install cargo-nidus
@@ -49,17 +49,19 @@ Applications depend on the facade crate and opt into feature groups explicitly:
 
 \`\`\`toml
 [dependencies]
-nidus = { package = "nidus-rs", version = "1.0", features = ["http", "config", "openapi", "validation"] }
+nidus = { package = "nidus-rs", version = "1.0.1", features = ["http", "config", "openapi", "validation"] }
 \`\`\`
 
 Official adapters are separate crates, so the core facade stays lean:
 
 \`\`\`toml
-nidus-sqlx = { version = "1.0", features = ["sqlite"] }
-nidus-cache = { version = "1.0", features = ["moka"] }
+nidus-sqlx = { version = "1.0.1", features = ["sqlite"] }
+nidus-cache = { version = "1.0.1", features = ["moka"] }
 \`\`\`
 
-The current repository state has local package dry-run proof. Publishing still requires crates.io credentials and the correct dependency-order publish sequence.`,
+Use \`cargo-nidus\` for project generation and source inspection, \`nidus-rs\` as the application facade, and adapter crates such as \`nidus-sqlx\` or \`nidus-cache\` only when the application chooses those backends.
+
+Nidus 1.0.0 established the public crate set. The current release track is 1.0.1, focused on launch hygiene, documentation, starter project depth, example proof, and package verification across every publishable crate.`,
     summary: 'Install the CLI, facade crate, and optional adapters.',
   },
   {
@@ -307,7 +309,7 @@ function apiReference() {
     ['nidus-cache', 'nidus_cache', 'Official Moka cache adapter'],
     ['cargo-nidus', 'cargo_nidus', 'CLI generator and source inspector'],
   ];
-  const rows = crates.map(([packageName, crateName, summary]) => `| \`${packageName}\` | ${summary} | https://docs.rs/${packageName}/1.0.0/${crateName}/ |`).join('\n');
+  const rows = crates.map(([packageName, crateName, summary]) => `| \`${packageName}\` | ${summary} | https://docs.rs/${packageName}/1.0.1/${crateName}/ |`).join('\n');
   return `# API Reference
 
 The release website links to generated Rust API references on docs.rs once the crates are published. During local launch verification, build the same reference set with:

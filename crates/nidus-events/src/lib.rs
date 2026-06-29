@@ -62,7 +62,7 @@ type SubscriberList<T> = Arc<Mutex<Vec<SubscriberHandle<T>>>>;
 /// calls [`EventSubscriber::drain`]. Dropped subscribers are pruned on the next
 /// publish or subscriber-count check.
 ///
-/// ```ignore
+/// ```
 /// use nidus_events::EventBus;
 ///
 /// #[derive(Clone, Debug, PartialEq, Eq)]
@@ -186,25 +186,28 @@ pub fn event_observer_channel() -> (EventObserverChannel, mpsc::Receiver<Observe
 /// [`EventBus::publish`]. It does not change delivery semantics: publication is
 /// still in-process, non-durable fan-out to current subscribers.
 ///
-/// ```ignore
+/// ```
+/// use std::sync::{Arc, Mutex};
 /// use nidus_events::{EventBus, EventObserver, ObservedEventBus, ObservedEventContext};
 ///
 /// #[derive(Clone)]
 /// struct UserCreated;
 ///
 /// #[derive(Clone)]
-/// struct Observer;
+/// struct Observer(Arc<Mutex<Vec<String>>>);
 ///
 /// impl EventObserver<UserCreated> for Observer {
 ///     fn on_event_published(&self, context: &ObservedEventContext) {
-///         tracing::info!(event = context.event_name(), operation_id = context.operation_id());
+///         self.0.lock().unwrap().push(context.event_name().to_owned());
 ///     }
 /// }
 ///
-/// let observed = ObservedEventBus::new(EventBus::new(), Observer)
+/// let events = Arc::new(Mutex::new(Vec::new()));
+/// let observed = ObservedEventBus::new(EventBus::new(), Observer(Arc::clone(&events)))
 ///     .context("service", "users-api");
 ///
 /// observed.publish_named("user.created", UserCreated);
+/// assert_eq!(events.lock().unwrap().as_slice(), ["user.created"]);
 /// ```
 #[derive(Clone)]
 pub struct ObservedEventBus<T, O = ()>

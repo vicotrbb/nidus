@@ -211,17 +211,19 @@ impl Default for RequestIdConfig {
 /// [`RequestContext`] in request extensions, and mirrors the same header onto
 /// the response when the inner service has not already set it.
 ///
-/// ```ignore
+/// ```
 /// use axum::{Router, routing::get};
 /// use nidus_http::middleware::{
 ///     RequestIdConfig, RequestIdMode, validated_request_id_layer,
 /// };
+/// # async fn handler() -> &'static str { "user" }
 ///
 /// let app = Router::new()
-///     .route("/users/:id", get(handler))
+///     .route("/users/{id}", get(handler))
 ///     .layer(validated_request_id_layer(
 ///         RequestIdConfig::production().mode(RequestIdMode::Strict),
 ///     ));
+/// # let _: Router = app;
 /// ```
 pub fn validated_request_id_layer(config: RequestIdConfig) -> ValidatedRequestIdLayer {
     ValidatedRequestIdLayer::new(config)

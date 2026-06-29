@@ -58,7 +58,7 @@ impl UsersController {
 fn document() -> OpenApiDocument {
     OpenApiDocument::from_controller_routes(
         "Nidus Example API",
-        "1.0.0",
+        env!("CARGO_PKG_VERSION"),
         UsersController::controller_prefix(),
         &UsersController::routes(),
     )
@@ -137,7 +137,7 @@ mod tests {
             "openapi": "3.1.0",
             "info": {
                 "title": "Nidus Example API",
-                "version": "1.0.0"
+                "version": "1.0.1"
             },
             "paths": {
                 "/users": {

@@ -49,8 +49,8 @@ impl ClientKind {
 /// - `route`: Axum's [`axum::extract::MatchedPath`] when it is available at the
 ///   point the context layer runs
 ///
-/// ```ignore
-/// use nidus_http::{Json, middleware::RequestContext};
+/// ```
+/// use nidus_http::{Json, context::RequestContext};
 ///
 /// async fn handler(context: RequestContext) -> Json<serde_json::Value> {
 ///     Json(serde_json::json!({

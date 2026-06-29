@@ -927,7 +927,7 @@ async fn streaming_body_limit_caps_bodies_without_content_length() {
 #[tokio::test]
 async fn production_defaults_envelope_and_meter_body_limit_rejections() {
     // F-HTTP-3: an oversized-body 413 must be enveloped, metered, and carry a
-    // request id — like a timeout (408) — instead of being silently rejected
+    // request id, like a timeout (408), instead of being silently rejected
     // before the observability layers.
     let metrics = PrometheusMetrics::new();
     let app = ApiDefaults::production("users-api")

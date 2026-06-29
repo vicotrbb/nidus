@@ -41,22 +41,8 @@ jobs:
         run: cargo test --workspace --all-features
       - name: Docs
         run: cargo doc --workspace --all-features --no-deps
-      - name: Package registry-independent crates
-        run: |
-          set -euo pipefail
-          crates=(
-            nidus-core
-            nidus-macros
-            nidus-config
-            nidus-auth
-            nidus-events
-            nidus-jobs
-            nidus-validation
-            cargo-nidus
-          )
-          for crate in "${crates[@]}"; do
-            cargo package -p "${crate}"
-          done
+      - name: List package files for publishable crates
+        run: bash scripts/package-publishable-crates.sh --list-only
 
   policy:
     name: dependency policy

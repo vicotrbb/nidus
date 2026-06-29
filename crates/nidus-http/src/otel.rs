@@ -78,7 +78,7 @@ impl OtelConfig {
 /// `traceparent` shape `00-<32 lower-hex trace id>-<16 lower-hex span id>-<2
 /// lower-hex flags>`. All-zero trace IDs or span IDs are rejected.
 ///
-/// ```ignore
+/// ```
 /// use http::HeaderMap;
 /// use nidus_http::otel::{TraceContext, extract_trace_context, inject_trace_context};
 ///

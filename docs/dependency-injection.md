@@ -87,7 +87,7 @@ another request-lifetime provider. The factory receives the active
 instances.
 
 A `register_request` factory receives only `&Container` (not the request
-scope), so it cannot resolve other request-lifetime providers — a
+scope), so it cannot resolve other request-lifetime providers. A
 `container.inject::<OtherRequest>()` inside it returns `RequestScopeRequired`.
 Use `register_request_scoped` whenever a request provider needs to chain
 request-lifetime dependencies.

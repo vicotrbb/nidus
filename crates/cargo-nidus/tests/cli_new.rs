@@ -35,26 +35,27 @@ fn cargo_nidus_new_generates_compilable_nidus_project() {
     assert!(main_rs.contains("#[controller(\"/\")]"));
     assert!(main_rs.contains("#[routes]"));
     assert!(main_rs.contains("#[get(\"/\")]"));
-    assert!(main_rs.contains("HelloController.into_router()"));
+    assert!(main_rs.contains("Nidus::create::<AppModule>()"));
+    assert!(main_rs.contains("GreetingService"));
+    assert!(main_rs.contains("greeting: Inject<GreetingService>"));
     assert!(main_rs.contains("ApiDefaults::production(\"hello-nidus\")"));
     assert!(main_rs.contains(".without_metrics()"));
-    assert!(main_rs.contains("Nidus::bootstrap::<AppModule>()"));
     assert!(main_rs.contains("NIDUS_ADDR"));
-    assert!(main_rs.contains("#[module]"));
+    assert!(main_rs.contains("#[module("));
+    assert!(main_rs.contains("providers(GreetingService)"));
+    assert!(main_rs.contains("controllers(HelloController)"));
     assert!(main_rs.contains("struct AppModule;"));
     assert!(!main_rs.contains("impl Module for AppModule"));
-    assert!(main_rs.contains(".with_router("));
+    assert!(main_rs.contains(".map_router("));
     assert!(main_rs.contains(".listen(address)"));
-    assert!(
-        fs::read_to_string(project.join("README.md"))
-            .unwrap()
-            .contains("hello-nidus")
-    );
-    assert!(
-        fs::read_to_string(project.join("README.md"))
-            .unwrap()
-            .contains("NIDUS_ADDR")
-    );
+    let readme = fs::read_to_string(project.join("README.md")).unwrap();
+    assert!(readme.contains("hello-nidus"));
+    assert!(readme.contains("NIDUS_ADDR"));
+    assert!(readme.contains("cargo test"));
+    assert!(readme.contains("cargo nidus generate controller users"));
+    assert!(readme.contains("cargo nidus routes"));
+    assert!(readme.contains("curl http://127.0.0.1:3000/"));
+    assert!(readme.contains("Next steps"));
 
     let check = Command::new("cargo")
         .arg("check")
@@ -76,7 +77,7 @@ fn cargo_nidus_new_defaults_to_published_nidus_dependency() {
 
     assert!(status.success());
     let cargo_toml = fs::read_to_string(project.join("Cargo.toml")).unwrap();
-    assert!(cargo_toml.contains(r#"nidus = { package = "nidus-rs", version = "1.0" }"#));
+    assert!(cargo_toml.contains(r#"nidus = { package = "nidus-rs", version = "1.0.1" }"#));
     assert!(!cargo_toml.contains("nidus = { path ="));
 }
 

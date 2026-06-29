@@ -1,11 +1,11 @@
 [package]
 name = "nidus-example-integrations-production"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2024"
 publish = false
 
 [dependencies]
-nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.0", features = ["http", "config", "observability"] }
-nidus-cache = { path = "../../crates/nidus-cache", version = "1.0.0", features = ["health", "observability"] }
-nidus-sqlx = { path = "../../crates/nidus-sqlx", version = "1.0.0", features = ["sqlite", "health", "observability"] }
+nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.1", features = ["http", "config", "observability"] }
+nidus-cache = { path = "../../crates/nidus-cache", version = "1.0.1", features = ["health", "observability"] }
+nidus-sqlx = { path = "../../crates/nidus-sqlx", version = "1.0.1", features = ["sqlite", "health", "observability"] }
 tokio.workspace = true

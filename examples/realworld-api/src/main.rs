@@ -51,7 +51,7 @@ async fn app(config: AppConfig) -> nidus::prelude::Result<HttpApplication> {
 
     Nidus::create::<AppModule>()
         .with_singleton(config)?
-        .with_openapi("Nidus Real-World Team Tasks API", "1.0.0")
+        .with_openapi("Nidus Real-World Team Tasks API", env!("CARGO_PKG_VERSION"))
         .with_observability(observability)
         .build()
         .await

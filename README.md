@@ -4,7 +4,7 @@ Nidus is a modular Rust backend framework for teams that want NestJS-like applic
 
 ## Install
 
-After the 1.0 crates are published:
+Install the Nidus CLI from crates.io:
 
 ```bash
 cargo install cargo-nidus
@@ -24,21 +24,37 @@ Application dependencies stay explicit:
 
 ```toml
 [dependencies]
-nidus = { package = "nidus-rs", version = "1.0", features = ["http", "config", "openapi", "validation"] }
+nidus = { package = "nidus-rs", version = "1.0.1", features = ["http", "config", "openapi", "validation"] }
 ```
 
 For production observability through the facade:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0", features = ["observability", "events", "jobs", "otel"] }
+nidus = { package = "nidus-rs", version = "1.0.1", features = ["observability", "events", "jobs", "otel"] }
 ```
 
 Official integrations are separate crates:
 
 ```toml
-nidus-sqlx = { version = "1.0", features = ["sqlite"] }
-nidus-cache = { version = "1.0", features = ["moka"] }
+nidus-sqlx = { version = "1.0.1", features = ["sqlite"] }
+nidus-cache = { version = "1.0.1", features = ["moka"] }
 ```
+
+## Which Crate Do I Install?
+
+- Use `cargo-nidus` for `cargo nidus new`, route inspection, graph inspection, and OpenAPI generation.
+- Use `nidus-rs` as the application facade. Import it as `nidus` in `Cargo.toml`.
+- Enable facade features such as `http`, `config`, `openapi`, `validation`, `auth`, `events`, `jobs`, `observability`, and `otel` only when the app needs them.
+- Add `nidus-sqlx` or `nidus-cache` when choosing those official adapters.
+- Depend on lower-level crates such as `nidus-core` or `nidus-http` only when building framework extensions.
+
+## Learning Path
+
+1. Run `cargo nidus new hello-nidus` and start the generated server.
+2. Inspect the generated module, controller, and service with `cargo nidus routes` and `cargo nidus graph`.
+3. Add one feature controller or service with `cargo nidus generate`.
+4. Add `config`, `validation`, or `openapi` when the first real route needs it.
+5. Add `nidus-sqlx` or `nidus-cache` only after the application has a real persistence or cache boundary.
 
 ## Quickstart
 
@@ -141,9 +157,9 @@ cd website
 npm run verify
 ```
 
-## 1.0 Status
+## Release Status
 
-This repository is preparing the Nidus 1.0 launch. Local dry-runs prove packageability; actual crates.io publishing and GitHub Pages deployment require external credentials or repository settings and should be reported separately when they are not performed.
+Nidus 1.0.0 established the public crate set. The current release track is 1.0.1, focused on launch hygiene, documentation, starter project depth, example proof, and package verification across every publishable crate. Publishing still requires crates.io credentials and should be reported with exact evidence when it is not performed.
 
 ## Contributing
 

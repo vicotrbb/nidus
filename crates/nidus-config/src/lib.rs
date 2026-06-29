@@ -19,17 +19,17 @@ use value::{insert_path, merge_maps, parse_scalar, prefixed_key_start};
 /// Sources are explicit and merge in the order you choose. Later sources
 /// override earlier values, while nested objects merge recursively.
 ///
-/// ```ignore
+/// ```
 /// use nidus_config::Config;
 /// use serde::Deserialize;
 ///
-/// #[derive(Deserialize)]
+/// #[derive(Deserialize, Debug, PartialEq, Eq)]
 /// struct Settings {
 ///     port: u16,
 ///     database: DatabaseSettings,
 /// }
 ///
-/// #[derive(Deserialize)]
+/// #[derive(Deserialize, Debug, PartialEq, Eq)]
 /// struct DatabaseSettings {
 ///     url: String,
 ///     pool_size: u32,
@@ -47,6 +47,7 @@ use value::{insert_path, merge_maps, parse_scalar, prefixed_key_start};
 ///
 /// let settings: Settings = file.merge(env).deserialize()?;
 /// assert_eq!(settings.port, 8080);
+/// assert_eq!(settings.database.url, "postgres://localhost/app");
 /// assert_eq!(settings.database.pool_size, 10);
 /// # Ok::<(), nidus_config::ConfigError>(())
 /// ```

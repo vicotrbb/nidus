@@ -130,7 +130,7 @@ W3C `traceparent` extraction/injection, observed span helpers, exception
 recording, and shutdown hooks.
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0", features = ["otel"] }
+nidus = { package = "nidus-rs", version = "1.0.1", features = ["otel"] }
 ```
 
 ```rust

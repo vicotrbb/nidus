@@ -25,12 +25,13 @@ use crate::{
 /// does not currently emit those labels to logs, metrics, headers, or health
 /// responses.
 ///
-/// ```ignore
+/// ```
 /// use axum::{Router, routing::get};
 /// use nidus_http::{
 ///     health::{HealthRegistry, HealthStatus},
 ///     middleware::{ApiDefaults, PrometheusMetrics, RequestIdConfig},
 /// };
+/// # async fn list_users() -> &'static str { "users" }
 ///
 /// let metrics = PrometheusMetrics::new();
 /// let health = HealthRegistry::new()
@@ -43,6 +44,7 @@ use crate::{
 ///     .request_ids(RequestIdConfig::production())
 ///     .apply(router)
 ///     .merge(metrics.routes());
+/// # let _: Router = app;
 /// ```
 #[derive(Clone)]
 pub struct ApiDefaults {
@@ -217,7 +219,7 @@ impl ApiDefaults {
     ///
     /// Unlike [`Self::body_limit`] (which inspects only the declared
     /// `Content-Length`), this wraps the request body and enforces `max_bytes`
-    /// even when `Content-Length` is absent — closing the chunked-transfer
+    /// even when `Content-Length` is absent, closing the chunked-transfer
     /// bypass. The cap is applied as the downstream extractor or handler reads
     /// the body, so a request is rejected only once it actually reads past the
     /// limit. This is opt-in because it wraps every request body; pair it with
@@ -284,7 +286,7 @@ impl ApiDefaults {
     /// 6. [`timeout_response_layer`]
     /// 7. [`body_limit_layer`] `Content-Length` boundary
     /// 8. rate limiting, when configured
-    /// 9. [`catch_panic_layer`], when enabled (innermost — a handler panic is
+    /// 9. [`catch_panic_layer`], when enabled (innermost, a handler panic is
     ///    caught and surfaced as a `500` through every outer layer)
     /// 10. route handlers
     ///

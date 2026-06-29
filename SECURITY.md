@@ -1,12 +1,18 @@
 # Security Policy
 
-Nidus is pre-release software, but security reports are still handled as
-private issues until a fix is available.
+Nidus accepts private vulnerability reports for the framework crates, CLI,
+generated starter template, examples, and documentation that could affect safe
+use of the published crates.
 
 ## Supported Versions
 
-Only the current `main` branch is supported before the first published release.
-After release, supported versions will be listed here.
+| Version | Supported |
+| --- | --- |
+| `1.0.x` | Yes |
+| `< 1.0.0` | No |
+
+Patch releases in the `1.0.x` line are expected to receive security fixes. Users
+should upgrade to the latest `1.0.x` patch when a fix is released.
 
 ## Reporting a Vulnerability
 

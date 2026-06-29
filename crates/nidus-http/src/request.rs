@@ -23,7 +23,7 @@ use serde::Serialize;
 /// [`Self::into_inject`] when passing the value to APIs that expect Nidus'
 /// [`Inject<T>`] wrapper.
 ///
-/// ```ignore
+/// ```
 /// use std::sync::Arc;
 /// use axum::{Router, routing::get};
 /// use nidus_core::Container;
@@ -43,6 +43,7 @@ use serde::Serialize;
 /// let app = Router::new()
 ///     .route("/tenant", get(handler))
 ///     .layer(request_scope_layer(Arc::new(container)));
+/// # let _: Router = app;
 /// # Ok::<(), nidus_core::NidusError>(())
 /// ```
 #[derive(Clone, Debug)]

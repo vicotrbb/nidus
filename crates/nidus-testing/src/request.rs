@@ -16,9 +16,13 @@ use crate::response::TestResponse;
 /// request-construction failures; use [`Self::try_send`] when testing invalid
 /// headers or URIs.
 ///
-/// ```ignore
+/// ```
+/// # use axum::{Router, routing::post};
 /// use nidus_testing::TestApp;
 /// use serde_json::json;
+/// # #[tokio::main]
+/// # async fn main() {
+/// # let app = TestApp::from_router(Router::new().route("/users", post(|| async { "ok" })));
 ///
 /// let response = app
 ///     .post("/users")
@@ -27,6 +31,8 @@ use crate::response::TestResponse;
 ///     .json(&json!({ "name": "Ada" }))
 ///     .send()
 ///     .await;
+/// # assert_eq!(response.status(), http::StatusCode::OK);
+/// # }
 /// ```
 pub struct TestRequest {
     router: Router,

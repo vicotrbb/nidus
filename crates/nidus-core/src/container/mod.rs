@@ -150,7 +150,7 @@ impl Container {
     /// uses a blocking `Condvar` wait when two callers race to construct the
     /// same provider. Calling this at startup pre-constructs each singleton so
     /// later resolutions (including from async request handlers) hit the cached
-    /// value and never reach that wait — avoiding an async-runtime worker
+    /// value and never reach that wait, avoiding an async-runtime worker
     /// stalling on first use. Transient and request-lifetime providers are
     /// skipped.
     ///

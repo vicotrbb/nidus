@@ -128,7 +128,8 @@ impl JobObserver for () {
 /// The runner creates a tracing span and calls a [`JobObserver`] before and
 /// after a single job run. It does not enqueue, retry, or schedule jobs.
 ///
-/// ```ignore
+/// ```
+/// use std::sync::{Arc, Mutex};
 /// use nidus_jobs::{
 ///     Job, JobObserver, JobResultStatus, ObservedJobContext, ObservedJobRunner,
 /// };
@@ -141,21 +142,21 @@ impl JobObserver for () {
 /// }
 ///
 /// #[derive(Clone)]
-/// struct Observer;
+/// struct Observer(Arc<Mutex<Vec<JobResultStatus>>>);
 ///
 /// impl JobObserver for Observer {
-///     fn on_job_started(&self, context: &ObservedJobContext) {
-///         tracing::info!(job = context.job_name(), run_id = context.run_id());
-///     }
+///     fn on_job_started(&self, _context: &ObservedJobContext) {}
 ///
-///     fn on_job_finished(&self, context: &ObservedJobContext, status: JobResultStatus) {
-///         tracing::info!(job = context.job_name(), ?status);
+///     fn on_job_finished(&self, _context: &ObservedJobContext, status: JobResultStatus) {
+///         self.0.lock().unwrap().push(status);
 ///     }
 /// }
 ///
-/// ObservedJobRunner::new(Observer)
+/// let statuses = Arc::new(Mutex::new(Vec::new()));
+/// ObservedJobRunner::new(Observer(Arc::clone(&statuses)))
 ///     .context("service", "users-api")
 ///     .run(&ReindexUsers)?;
+/// assert_eq!(statuses.lock().unwrap().as_slice(), [JobResultStatus::Success]);
 /// # Ok::<(), nidus_jobs::JobError>(())
 /// ```
 #[derive(Clone)]
@@ -303,7 +304,7 @@ impl Error for JobError {}
 /// Jobs are retained after [`Self::run_all`], so calling `run_all` again runs
 /// the same jobs again. Execution is sequential and in insertion order.
 ///
-/// ```ignore
+/// ```
 /// use nidus_jobs::{Job, JobQueue};
 ///
 /// struct SendDigest;

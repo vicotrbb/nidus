@@ -16,7 +16,7 @@ use crate::request::TestRequest;
 /// path, so no TCP listener is started. Use it for handler, middleware, module,
 /// and provider integration tests.
 ///
-/// ```ignore
+/// ```
 /// use axum::{Json, Router, routing::get};
 /// use http::StatusCode;
 /// use nidus_testing::TestApp;

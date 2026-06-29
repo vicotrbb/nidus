@@ -11,15 +11,23 @@ use std::str;
 /// assertion failures, while `try_json`, `text`, and `header_str` expose
 /// fallible parsing.
 ///
-/// ```ignore
+/// ```
+/// # use axum::{Json, Router, routing::get};
 /// use http::StatusCode;
+/// # use nidus_testing::TestApp;
 /// use serde_json::json;
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), http::header::ToStrError> {
+/// # let app = TestApp::from_router(
+/// #     Router::new().route("/health", get(|| async { Json(json!({ "ok": true })) })),
+/// # );
 ///
 /// let response = app.get("/health").send().await;
 /// response.assert_status(StatusCode::OK);
 /// assert_eq!(response.header_str("content-type")?.unwrap(), "application/json");
 /// response.assert_json(json!({ "ok": true }));
-/// # Ok::<(), http::header::ToStrError>(())
+/// # Ok(())
+/// # }
 /// ```
 pub struct TestResponse {
     status: StatusCode,

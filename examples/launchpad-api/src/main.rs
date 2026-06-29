@@ -83,7 +83,7 @@ async fn app(config: AppConfig) -> nidus::prelude::Result<HttpApplication> {
     Nidus::create::<AppModule>()
         .with_singleton(config)?
         .with_singleton(observability.clone())?
-        .with_openapi("Nidus Launchpad API", "1.0.0")
+        .with_openapi("Nidus Launchpad API", env!("CARGO_PKG_VERSION"))
         .with_schema::<WorkflowDto>()
         .with_observability(observability)
         .build()

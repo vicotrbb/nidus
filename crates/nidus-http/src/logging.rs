@@ -30,7 +30,7 @@ pub enum LoggingFormat {
 /// with `tower_http::trace::TraceLayer` and [`StructuredMakeSpan`] for request
 /// spans.
 ///
-/// ```ignore
+/// ```no_run
 /// use nidus_http::logging::{LoggingConfig, StructuredMakeSpan};
 /// use tower_http::trace::TraceLayer;
 ///

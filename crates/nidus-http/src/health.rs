@@ -68,7 +68,7 @@ pub enum HealthState {
 /// Checks are in-process async closures; this helper does not provide service
 /// discovery or external health storage.
 ///
-/// ```ignore
+/// ```
 /// use std::time::Duration;
 /// use nidus_http::health::{HealthRegistry, HealthStatus};
 ///
@@ -78,6 +78,7 @@ pub enum HealthState {
 ///     .timeout(Duration::from_secs(1));
 ///
 /// let routes = health.routes();
+/// # let _: axum::Router = routes;
 /// ```
 #[derive(Clone)]
 pub struct HealthRegistry {

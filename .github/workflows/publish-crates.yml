@@ -66,25 +66,11 @@ jobs:
         run: cargo test --workspace --all-features
       - name: Docs
         run: cargo doc --workspace --all-features --no-deps
-      - name: Package registry-independent crates
-        run: |
-          set -euo pipefail
-          crates=(
-            nidus-core
-            nidus-macros
-            nidus-config
-            nidus-auth
-            nidus-events
-            nidus-jobs
-            nidus-validation
-            cargo-nidus
-          )
-          for crate in "${crates[@]}"; do
-            cargo package -p "${crate}"
-          done
+      - name: List package files for publishable crates
+        run: bash scripts/package-publishable-crates.sh --list-only
       - name: Stop after dry run
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
-        run: echo "Dry run requested; validation and registry-independent package preflight completed without publishing."
+        run: echo "Dry run requested; validation and package file-list preflight completed without publishing."
       - name: Publish crates
         if: ${{ github.event_name != 'workflow_dispatch' || !inputs.dry_run }}
         env:
