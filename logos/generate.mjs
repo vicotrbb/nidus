@@ -20,6 +20,12 @@ const OUT = __dirname;
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 const FAVICON_SIZES = [16, 32, 48, 96, 180, 192, 512];
 const BRANDED_SIZES = [16, 32, 48, 96, 180, 192, 512];
+const VIOLET_DARK = [16, 9, 32, 255];
+const VIOLET_DEEP = [28, 12, 58, 255];
+const VIOLET_MID = [112, 42, 230, 255];
+const VIOLET_HOT = [190, 93, 255, 255];
+const TEXT_BRIGHT = [247, 241, 255, 255];
+const TEXT_MUTED = [190, 171, 224, 255];
 
 const crcTable = new Uint32Array(256);
 for (let n = 0; n < 256; n++) {
@@ -177,17 +183,18 @@ function chromaKey(image) {
   const out = cloneImage(image);
   let removed = 0;
 
-  const inner = 74;
-  const outer = 154;
+  const inner = 84;
+  const outer = 176;
   for (let i = 0; i < out.data.length; i += 4) {
     const r = out.data[i];
     const g = out.data[i + 1];
     const b = out.data[i + 2];
     const greenDominance = g - Math.max(r, b);
     const dist = Math.hypot(r - kr, g - kg, b - kb);
-    const isGreenScreen = g > 70 && greenDominance > 28 && g > r * 1.12 && g > b * 1.12;
+    const isGreenScreen = g > 64 && greenDominance > 22 && g > r * 1.08 && g > b * 1.08;
+    const isEdgeSpill = g > 80 && greenDominance > 12 && dist < outer * 1.25;
 
-    if (dist < inner || isGreenScreen) {
+    if (dist < inner || isGreenScreen || isEdgeSpill) {
       out.data[i] = 0;
       out.data[i + 1] = 0;
       out.data[i + 2] = 0;
@@ -202,6 +209,84 @@ function chromaKey(image) {
   }
 
   console.log(`key rgb(${kr}, ${kg}, ${kb}); removed ${removed.toLocaleString()} pixels`);
+  return out;
+}
+
+function softenTransparentEdges(image) {
+  const out = cloneImage(image);
+  for (let y = 1; y < image.height - 1; y++) {
+    for (let x = 1; x < image.width - 1; x++) {
+      const i = (y * image.width + x) * 4;
+      const a = image.data[i + 3];
+      if (a === 0 || a === 255) continue;
+
+      let neighborAlpha = 0;
+      for (let oy = -1; oy <= 1; oy++) {
+        for (let ox = -1; ox <= 1; ox++) {
+          neighborAlpha += image.data[((y + oy) * image.width + x + ox) * 4 + 3];
+        }
+      }
+      const coverage = neighborAlpha / (255 * 9);
+      out.data[i + 3] = Math.round(a * Math.max(0.35, coverage));
+      out.data[i + 1] = Math.min(out.data[i + 1], Math.max(out.data[i], out.data[i + 2]) + 12);
+    }
+  }
+  return out;
+}
+
+function removeTinyAlphaIslands(image, minPixels = 22) {
+  const out = cloneImage(image);
+  const visited = new Uint8Array(image.width * image.height);
+  const stack = [];
+  const component = [];
+
+  for (let y = 0; y < image.height; y++) {
+    for (let x = 0; x < image.width; x++) {
+      const start = y * image.width + x;
+      if (visited[start] || image.data[start * 4 + 3] <= 10) continue;
+
+      let count = 0;
+      stack.length = 0;
+      component.length = 0;
+      stack.push(start);
+      visited[start] = 1;
+
+      while (stack.length) {
+        const index = stack.pop();
+        component.push(index);
+        count++;
+        const px = index % image.width;
+        const py = Math.floor(index / image.width);
+        const neighbors = [
+          index - 1,
+          index + 1,
+          index - image.width,
+          index + image.width,
+        ];
+
+        for (const next of neighbors) {
+          if (next < 0 || next >= visited.length || visited[next]) continue;
+          const nx = next % image.width;
+          const ny = Math.floor(next / image.width);
+          if (Math.abs(nx - px) + Math.abs(ny - py) !== 1) continue;
+          if (image.data[next * 4 + 3] <= 10) continue;
+          visited[next] = 1;
+          stack.push(next);
+        }
+      }
+
+      if (count < minPixels) {
+        for (const index of component) {
+          const i = index * 4;
+          out.data[i] = 0;
+          out.data[i + 1] = 0;
+          out.data[i + 2] = 0;
+          out.data[i + 3] = 0;
+        }
+      }
+    }
+  }
+
   return out;
 }
 
@@ -264,6 +349,14 @@ function resizeContain(image, width, height, background = [0, 0, 0, 0], scale = 
   return out;
 }
 
+function resizeCover(image, width, height) {
+  const scale = Math.max(width / image.width, height / image.height);
+  const w = Math.max(1, Math.round(image.width * scale));
+  const h = Math.max(1, Math.round(image.height * scale));
+  const resized = resize(image, w, h);
+  return crop(resized, Math.floor((w - width) / 2), Math.floor((h - height) / 2), width, height);
+}
+
 function resize(image, width, height) {
   const out = { width, height, data: new Uint8Array(width * height * 4) };
   const xRatio = image.width / width;
@@ -304,6 +397,106 @@ function solid(width, height, color) {
   return out;
 }
 
+function clamp(value, min = 0, max = 255) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function mix(a, b, t) {
+  return Math.round(a + (b - a) * t);
+}
+
+function blendPixel(image, x, y, color, alpha = 1) {
+  if (x < 0 || y < 0 || x >= image.width || y >= image.height) return;
+  const i = (y * image.width + x) * 4;
+  const a = clamp((color[3] / 255) * alpha, 0, 1);
+  const inv = 1 - a;
+  image.data[i] = Math.round(color[0] * a + image.data[i] * inv);
+  image.data[i + 1] = Math.round(color[1] * a + image.data[i + 1] * inv);
+  image.data[i + 2] = Math.round(color[2] * a + image.data[i + 2] * inv);
+  image.data[i + 3] = Math.round(255 * (a + (image.data[i + 3] / 255) * inv));
+}
+
+function gradient(width, height) {
+  const out = solid(width, height, VIOLET_DARK);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      const nx = x / (width - 1);
+      const ny = y / (height - 1);
+      const leftGlow = Math.max(0, 1 - Math.hypot((nx - 0.25) / 0.58, (ny - 0.38) / 0.74));
+      const rightGlow = Math.max(0, 1 - Math.hypot((nx - 0.86) / 0.42, (ny - 0.2) / 0.52));
+      const base = 0.22 + leftGlow * 0.62 + rightGlow * 0.34 + (1 - ny) * 0.08;
+      out.data[i] = mix(VIOLET_DARK[0], VIOLET_DEEP[0], base);
+      out.data[i + 1] = mix(VIOLET_DARK[1], VIOLET_DEEP[1], base);
+      out.data[i + 2] = mix(VIOLET_DARK[2], VIOLET_DEEP[2], base);
+      out.data[i + 3] = 255;
+    }
+  }
+  return out;
+}
+
+function drawRadialGlow(image, cx, cy, radius, color, strength = 1) {
+  const minX = Math.max(0, Math.floor(cx - radius));
+  const maxX = Math.min(image.width - 1, Math.ceil(cx + radius));
+  const minY = Math.max(0, Math.floor(cy - radius));
+  const maxY = Math.min(image.height - 1, Math.ceil(cy + radius));
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const d = Math.hypot(x - cx, y - cy) / radius;
+      if (d > 1) continue;
+      blendPixel(image, x, y, color, (1 - d) * (1 - d) * strength);
+    }
+  }
+}
+
+function drawRing(image, cx, cy, radius, thickness, color, alpha = 1, start = 0, end = Math.PI * 2) {
+  const minX = Math.max(0, Math.floor(cx - radius - thickness));
+  const maxX = Math.min(image.width - 1, Math.ceil(cx + radius + thickness));
+  const minY = Math.max(0, Math.floor(cy - radius - thickness));
+  const maxY = Math.min(image.height - 1, Math.ceil(cy + radius + thickness));
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const angle = Math.atan2(y - cy, x - cx);
+      const normalized = angle < 0 ? angle + Math.PI * 2 : angle;
+      const inArc = start <= end ? normalized >= start && normalized <= end : normalized >= start || normalized <= end;
+      if (!inArc) continue;
+      const d = Math.abs(Math.hypot(x - cx, y - cy) - radius);
+      if (d > thickness) continue;
+      blendPixel(image, x, y, color, (1 - d / thickness) * alpha);
+    }
+  }
+}
+
+function drawRoundedRect(image, left, top, width, height, radius, color, alpha = 1) {
+  for (let y = top; y < top + height; y++) {
+    for (let x = left; x < left + width; x++) {
+      const dx = x < left + radius ? left + radius - x : x >= left + width - radius ? x - (left + width - radius - 1) : 0;
+      const dy = y < top + radius ? top + radius - y : y >= top + height - radius ? y - (top + height - radius - 1) : 0;
+      if (Math.hypot(dx, dy) <= radius) blendPixel(image, x, y, color, alpha);
+    }
+  }
+}
+
+function drawLine(image, x1, y1, x2, y2, color, alpha = 1, thickness = 1) {
+  const steps = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1));
+  for (let s = 0; s <= steps; s++) {
+    const t = steps === 0 ? 0 : s / steps;
+    const x = Math.round(x1 + (x2 - x1) * t);
+    const y = Math.round(y1 + (y2 - y1) * t);
+    for (let oy = -thickness; oy <= thickness; oy++) {
+      for (let ox = -thickness; ox <= thickness; ox++) {
+        if (Math.hypot(ox, oy) <= thickness) blendPixel(image, x + ox, y + oy, color, alpha);
+      }
+    }
+  }
+}
+
+function drawTextBars(image, left, top, widths, color, alpha = 1) {
+  widths.forEach((width, index) => {
+    drawRoundedRect(image, left, top + index * 32, width, 11, 4, color, alpha);
+  });
+}
+
 function composite(base, overlay, left, top) {
   for (let y = 0; y < overlay.height; y++) {
     for (let x = 0; x < overlay.width; x++) {
@@ -329,7 +522,7 @@ function write(name, image) {
 
 function main() {
   const source = readPng(SRC);
-  const transparent = trim(chromaKey(source), 4);
+  const transparent = trim(removeTinyAlphaIslands(softenTransparentEdges(chromaKey(source))), 10);
   const mark = extractMark(transparent);
   const squareMark = resizeContain(mark, Math.max(mark.width, mark.height), Math.max(mark.width, mark.height));
 
@@ -339,23 +532,39 @@ function main() {
 
   for (const size of FAVICON_SIZES) {
     const name = size === 180 ? 'apple-touch-icon.png' : size >= 192 ? `icon-${size}.png` : `favicon-${size}.png`;
-    write(name, resizeContain(squareMark, size, size, [0, 0, 0, 0], 0.88));
+    write(name, resizeContain(squareMark, size, size, [0, 0, 0, 0], 0.84));
   }
 
   for (const size of BRANDED_SIZES) {
-    write(`favicon-branded-${size}.png`, resizeContain(squareMark, size, size, [34, 16, 72, 255], 0.72));
+    write(`favicon-branded-${size}.png`, resizeContain(squareMark, size, size, [24, 10, 50, 255], 0.76));
   }
 
   write('logo-on-light.png', resizeContain(transparent, 1024, 1024, [247, 244, 255, 255], 0.9));
   write('logo-on-dark.png', resizeContain(transparent, 1024, 1024, [18, 12, 34, 255], 0.9));
-  write('site-logo-light.png', resizeContain(transparent, 960, 320, [0, 0, 0, 0], 0.92));
-  write('site-logo-dark.png', resizeContain(transparent, 960, 320, [0, 0, 0, 0], 0.92));
+  write('site-logo-light.png', resizeContain(transparent, 960, 320, [0, 0, 0, 0], 0.86));
+  write('site-logo-dark.png', resizeContain(transparent, 960, 320, [0, 0, 0, 0], 0.86));
 
-  const og = solid(1200, 630, [18, 12, 34, 255]);
-  const ogMark = resizeContain(mark, 520, 520, [0, 0, 0, 0], 0.9);
-  const ogLogo = resizeContain(transparent, 560, 250, [0, 0, 0, 0], 0.95);
-  composite(og, ogMark, 70, 55);
-  composite(og, ogLogo, 560, 120);
+  const og = gradient(1200, 630);
+  drawRadialGlow(og, 340, 330, 420, [116, 45, 255, 255], 0.5);
+  drawRadialGlow(og, 975, 95, 280, [189, 94, 255, 255], 0.22);
+  drawRing(og, 376, 326, 260, 2.5, VIOLET_HOT, 0.44, 3.65, 6.05);
+  drawRing(og, 376, 326, 315, 1.8, VIOLET_MID, 0.36, 3.78, 0.32);
+  drawRing(og, 376, 326, 374, 1.5, VIOLET_HOT, 0.22, 3.96, 0.12);
+  drawLine(og, 760, 145, 1070, 145, [119, 48, 233, 255], 0.34, 1);
+  drawLine(og, 760, 493, 1088, 493, [119, 48, 233, 255], 0.3, 1);
+  drawRoundedRect(og, 692, 178, 420, 274, 18, [11, 7, 24, 255], 0.66);
+  drawRoundedRect(og, 711, 199, 382, 44, 10, [35, 18, 70, 255], 0.9);
+  drawRoundedRect(og, 734, 217, 15, 15, 7, [255, 95, 132, 255], 0.8);
+  drawRoundedRect(og, 760, 217, 15, 15, 7, [255, 196, 87, 255], 0.78);
+  drawRoundedRect(og, 786, 217, 15, 15, 7, [81, 230, 154, 255], 0.76);
+  drawTextBars(og, 730, 276, [292, 238, 326, 198], TEXT_MUTED, 0.5);
+  drawTextBars(og, 730, 290, [180, 318, 252, 284], VIOLET_HOT, 0.18);
+  drawRoundedRect(og, 728, 408, 206, 14, 6, TEXT_BRIGHT, 0.72);
+  const ogGhost = resizeCover(mark, 1120, 1120);
+  for (let i = 3; i < ogGhost.data.length; i += 4) ogGhost.data[i] = Math.round(ogGhost.data[i] * 0.08);
+  composite(og, ogGhost, -170, -245);
+  const ogMark = resizeContain(mark, 570, 570, [0, 0, 0, 0], 0.94);
+  composite(og, ogMark, 76, 29);
   write('og-image.png', og);
 }
 
