@@ -134,8 +134,32 @@ jobs:
             exit 1
           }
 
+          sleep_for_rate_limit() {
+            local output="$1"
+            local retry_after
+            local target_epoch
+            local now_epoch
+            local sleep_seconds
+
+            retry_after="$(sed -n 's/.*Please try again after \(.* GMT\) and see.*/\1/p' <<<"${output}" | tail -n 1)"
+            if [ -n "${retry_after}" ]; then
+              target_epoch="$(date -u -d "${retry_after}" +%s 2>/dev/null || true)"
+              now_epoch="$(date -u +%s)"
+              if [ -n "${target_epoch}" ] && [ "${target_epoch}" -gt "${now_epoch}" ]; then
+                sleep_seconds=$((target_epoch - now_epoch + 15))
+                echo "Sleeping ${sleep_seconds}s until after crates.io retry window (${retry_after})."
+                sleep "${sleep_seconds}"
+                return 0
+              fi
+            fi
+
+            echo "Sleeping 60s before retrying crates.io publish."
+            sleep 60
+          }
+
           publish_one() {
             local crate="$1"
+            local max_attempts=20
             echo "::group::Publishing ${crate}"
             if is_published "${crate}"; then
               echo "${crate} ${version} is already published; skipping upload."
@@ -143,7 +167,7 @@ jobs:
               return 0
             fi
 
-            for attempt in {1..10}; do
+            for attempt in $(seq 1 "${max_attempts}"); do
               set +e
               output="$(cargo publish -p "${crate}" 2>&1)"
               status="$?"
@@ -163,8 +187,11 @@ jobs:
               fi
 
               if printf '%s\n' "${output}" | grep -q "Too Many Requests"; then
-                echo "crates.io rate limit hit while publishing ${crate}; retrying (${attempt}/10)."
-                sleep 30
+                echo "crates.io rate limit hit while publishing ${crate}; retrying (${attempt}/${max_attempts})."
+                if [ "${attempt}" -ge "${max_attempts}" ]; then
+                  break
+                fi
+                sleep_for_rate_limit "${output}"
                 continue
               fi
 
