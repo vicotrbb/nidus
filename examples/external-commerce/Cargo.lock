@@ -860,9 +860,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-cache"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "656fac7035191cd7d3c3b6a9e779e61ef7e0f4a07d1b263075834107c0ca4153"
+checksum = "6ad92e8c3ed2ee82b32e53533d27e7d0da2c195d6eb68f4761fbae646766384a"
 dependencies = [
  "moka",
  "nidus-core",
@@ -873,9 +873,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-config"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d66778f836584a2147903a64a2650ff37afebd01e82d0335454778cbd32cb1a2"
+checksum = "9cfa113ee5925a706de8653fd5ae7b86162a274d29c3dd77b0497ae59ab53938"
 dependencies = [
  "serde",
  "serde_json",
@@ -884,9 +884,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-core"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d292e7bbd03a01d610bdd656fd929cde82948fed6f904d28af7e03cea4a21bf9"
+checksum = "db55b74990ec89282af443a43103fa87f935a7c2baa3f71902152aa4e41a648a"
 dependencies = [
  "async-trait",
  "thiserror",
@@ -896,9 +896,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-events"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9d8cbb0ab25d0500f150c5887d0a2de44136485075a0c96955239c94e505c83"
+checksum = "26163ca2d681c75598ecd4b7b85d7494f064aaf834e2debf492ec80df387a065"
 dependencies = [
  "tracing",
  "uuid",
@@ -920,9 +920,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-http"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c4b9c68d88e6435f1da5c9daa5b243368dda607ff39a8207a55e0fb296af7f2"
+checksum = "eae6dbc619f94988c30603e80c736cd02be27cf588edf3e9871e6824b5ac643d"
 dependencies = [
  "axum",
  "futures-util",
@@ -942,9 +942,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-jobs"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fa61823f8ef49a54b64c04ed4c61917d54dd963206fcf2185e46d258c8b41d4"
+checksum = "de87b8963a0447cfb330b2250911832ba7bce998de8091de4d59d3be6a52c2bb"
 dependencies = [
  "async-trait",
  "futures-util",
@@ -955,9 +955,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-macros"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b171daa7fd990abac69e59b72d9dcfec6b6139223506f2fafcda1321963db0d4"
+checksum = "bbed39db66eddb5484a40897e14449415fe4c8ae1bb3556d5c069a4320615491"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -966,9 +966,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-observability"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5326addd9dff623400906c96a17c064c0e77615dac90d63a73c8fa3b51344a43"
+checksum = "c85d04e29a98b6b6001eb8cc13cb7b00b588a0f65e68e9a0362e8b091c8d3b40"
 dependencies = [
  "axum",
  "http",
@@ -981,9 +981,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-rs"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05519fbccebaa942317989e1bbf119b9889f47b1169464a60d5604ec0752f203"
+checksum = "a466e92095ddb4d54c1b5920d0e989636c6d6531a2a66a2d6989973c3bed5b47"
 dependencies = [
  "nidus-config",
  "nidus-core",
@@ -998,9 +998,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-sqlx"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31a0bd414c6b169604757d8b4ccb29cf5d8952cfb627a2a1a3918c3c8f3cfce6"
+checksum = "19cf4dd79634a3871a3abe833a3830ad134413063957589fc7eb2ea554524f3c"
 dependencies = [
  "nidus-core",
  "nidus-http",
@@ -1012,9 +1012,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-testing"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "946a77c6a248c55aacf63d1c2c8a2462301131127e6f9b7086ab9db05d3745d9"
+checksum = "e3b06e5ba33f47dbe86f21a539ba8c312ff67fb40aee34df94f40bfef4d2cda1"
 dependencies = [
  "axum",
  "http",

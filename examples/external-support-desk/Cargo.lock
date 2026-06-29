@@ -424,9 +424,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-config"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d66778f836584a2147903a64a2650ff37afebd01e82d0335454778cbd32cb1a2"
+checksum = "9cfa113ee5925a706de8653fd5ae7b86162a274d29c3dd77b0497ae59ab53938"
 dependencies = [
  "serde",
  "serde_json",
@@ -435,9 +435,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-core"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d292e7bbd03a01d610bdd656fd929cde82948fed6f904d28af7e03cea4a21bf9"
+checksum = "db55b74990ec89282af443a43103fa87f935a7c2baa3f71902152aa4e41a648a"
 dependencies = [
  "async-trait",
  "thiserror",
@@ -458,9 +458,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-http"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c4b9c68d88e6435f1da5c9daa5b243368dda607ff39a8207a55e0fb296af7f2"
+checksum = "eae6dbc619f94988c30603e80c736cd02be27cf588edf3e9871e6824b5ac643d"
 dependencies = [
  "axum",
  "futures-util",
@@ -480,9 +480,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-macros"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b171daa7fd990abac69e59b72d9dcfec6b6139223506f2fafcda1321963db0d4"
+checksum = "bbed39db66eddb5484a40897e14449415fe4c8ae1bb3556d5c069a4320615491"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -491,9 +491,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-rs"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05519fbccebaa942317989e1bbf119b9889f47b1169464a60d5604ec0752f203"
+checksum = "a466e92095ddb4d54c1b5920d0e989636c6d6531a2a66a2d6989973c3bed5b47"
 dependencies = [
  "nidus-config",
  "nidus-core",
@@ -507,9 +507,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-testing"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "946a77c6a248c55aacf63d1c2c8a2462301131127e6f9b7086ab9db05d3745d9"
+checksum = "e3b06e5ba33f47dbe86f21a539ba8c312ff67fb40aee34df94f40bfef4d2cda1"
 dependencies = [
  "axum",
  "http",
