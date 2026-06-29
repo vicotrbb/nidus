@@ -32,7 +32,7 @@ let router = Controller::new("/users")
 ```
 
 `RouteDefinition` supports `get`, `post`, `put`, `patch`, and `delete`.
-Nidus accepts Nest-style `:id` route parameters and normalizes them to Axum-compatible `{id}` paths. Parameter segments must include a non-empty name after `:`.
+Nidus accepts colon-style `:id` route parameters and normalizes them to Axum-compatible `{id}` paths. Parameter segments must include a non-empty name after `:`.
 Use `try_get`, `try_post`, `try_put`, `try_patch`, `try_delete`, or `try_into_router`
 when route paths come from generated or external input and invalid paths should return
 a `RoutePathError` instead of panicking.

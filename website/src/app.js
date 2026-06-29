@@ -1,5 +1,21 @@
 const toggle = document.querySelector('.nav-toggle');
 const nav = document.querySelector('.site-nav');
+const copyButtons = [...document.querySelectorAll('[data-copy]')];
+
+for (const button of copyButtons) {
+  button.addEventListener('click', async () => {
+    const value = button.getAttribute('data-copy') ?? '';
+    try {
+      await navigator.clipboard.writeText(value);
+      button.textContent = 'Copied';
+      setTimeout(() => {
+        button.textContent = 'Copy';
+      }, 1400);
+    } catch {
+      button.textContent = 'Select';
+    }
+  });
+}
 
 if (toggle && nav) {
   const closeNav = () => {

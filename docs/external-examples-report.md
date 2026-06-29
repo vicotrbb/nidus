@@ -2,7 +2,7 @@
 
 ## Summary
 
-This change hardens Nidus 1.0.1 developer experience around extension traits and
+This change hardens Nidus 1.0.2 developer experience around extension traits and
 adds two copyable external-user examples that use crates.io-style dependencies:
 
 - `examples/external-support-desk`
@@ -100,6 +100,10 @@ Fresh results recorded during implementation:
 - `bash scripts/verify-external-examples.sh`: pass, including formatting,
   starter regression, standalone example tests, live server startup, curl checks,
   and external path dependency scan.
+- `NIDUS_EXTERNAL_EXAMPLES_LOCAL_PATCH=1 bash scripts/verify-external-examples.sh`:
+  pre-publish proof mode for release candidates whose crates are not on
+  crates.io yet. The script copies both examples to a temp directory and adds
+  temporary `[patch.crates-io]` entries there only.
 - `rg -n "path *=.*nidus|/Users/victorbona/Daedalus/nidus" examples scripts docs README.md crates/cargo-nidus || true`:
   reports existing internal workspace examples and the verification script's
   guard pattern. It does not report the new `examples/external-support-desk` or

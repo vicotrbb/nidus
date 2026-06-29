@@ -2,8 +2,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SUPPORT_DIR="$ROOT/examples/external-support-desk"
-COMMERCE_DIR="$ROOT/examples/external-commerce"
+ORIGINAL_SUPPORT_DIR="$ROOT/examples/external-support-desk"
+ORIGINAL_COMMERCE_DIR="$ROOT/examples/external-commerce"
+SUPPORT_DIR="$ORIGINAL_SUPPORT_DIR"
+COMMERCE_DIR="$ORIGINAL_COMMERCE_DIR"
+LOCAL_PATCH="${NIDUS_EXTERNAL_EXAMPLES_LOCAL_PATCH:-0}"
 SUPPORT_PORT=4301
 COMMERCE_PORT=4302
 SUPPORT_PID=""
@@ -29,10 +32,39 @@ run() {
 }
 
 assert_no_external_path_dependencies() {
-  if rg -n 'path *=.*nidus|/Users/victorbona/Daedalus/nidus' "$SUPPORT_DIR" "$COMMERCE_DIR"; then
+  if rg -n 'path *=.*nidus|/Users/victorbona/Daedalus/nidus' "$ORIGINAL_SUPPORT_DIR" "$ORIGINAL_COMMERCE_DIR"; then
     printf 'external examples must not contain local Nidus path dependencies\n' >&2
     exit 1
   fi
+}
+
+prepare_local_patch_examples() {
+  if [ "$LOCAL_PATCH" != "1" ]; then
+    return
+  fi
+
+  SUPPORT_DIR="$TEMP_DIR/external-support-desk"
+  COMMERCE_DIR="$TEMP_DIR/external-commerce"
+  cp -R "$ORIGINAL_SUPPORT_DIR" "$SUPPORT_DIR"
+  cp -R "$ORIGINAL_COMMERCE_DIR" "$COMMERCE_DIR"
+
+  cat >>"$SUPPORT_DIR/Cargo.toml" <<EOF_PATCH
+
+[patch.crates-io]
+nidus-rs = { path = "$ROOT/crates/nidus" }
+nidus-testing = { path = "$ROOT/crates/nidus-testing" }
+EOF_PATCH
+
+  cat >>"$COMMERCE_DIR/Cargo.toml" <<EOF_PATCH
+
+[patch.crates-io]
+nidus-rs = { path = "$ROOT/crates/nidus" }
+nidus-cache = { path = "$ROOT/crates/nidus-cache" }
+nidus-sqlx = { path = "$ROOT/crates/nidus-sqlx" }
+nidus-testing = { path = "$ROOT/crates/nidus-testing" }
+EOF_PATCH
+
+  printf '\n==> using temporary local [patch.crates-io] entries for unpublished Nidus 1.0.2 crates\n'
 }
 
 wait_for_http() {
@@ -83,6 +115,7 @@ run cd "$ROOT"
 run cargo fmt --all --check
 run cargo test -p cargo-nidus cargo_nidus_new_generates_compilable_nidus_project --all-features
 assert_no_external_path_dependencies
+prepare_local_patch_examples
 
 run cargo fmt --manifest-path "$SUPPORT_DIR/Cargo.toml" --check
 run cargo test --manifest-path "$SUPPORT_DIR/Cargo.toml"

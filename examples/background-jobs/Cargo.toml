@@ -1,10 +1,10 @@
 [package]
 name = "nidus-example-background-jobs"
-version = "1.0.1"
+version = "1.0.2"
 edition = "2024"
 publish = false
 
 [dependencies]
 async-trait.workspace = true
-nidus-jobs = { path = "../../crates/nidus-jobs", version = "1.0.1" }
+nidus-jobs = { path = "../../crates/nidus-jobs", version = "1.0.2" }
 tokio.workspace = true

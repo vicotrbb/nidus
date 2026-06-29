@@ -4,6 +4,13 @@
 
 - No unreleased changes yet.
 
+## 1.0.2 - 2026-06-29
+
+- Public website refresh for standalone Nidus positioning, docs-first navigation, and 1.0.2 launch evaluation.
+- GitHub Pages build alignment for the `rustnidus.com` custom-domain root while preserving project-base verification.
+- Documentation expansion for installation, CLI, concepts, runtime surfaces, production boundaries, official adapters, examples, API reference, and release proof.
+- Version alignment across package metadata, snippets, generated starter defaults, examples, and website docs.
+
 ## 1.0.1 - 2026-06-29
 
 - 1.0.1 release hygiene and package proof improvements.

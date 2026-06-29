@@ -11,6 +11,40 @@ Recommended production defaults:
 
 Nidus should not impose a hosting platform.
 
+## Public Website Deployment
+
+The canonical public documentation domain is `https://rustnidus.com/`.
+Repository-side Pages builds use `NIDUS_SITE_BASE=/` and
+`NIDUS_SITE_DOMAIN=rustnidus.com`, which emits `website/dist/CNAME` and root
+asset links for the custom-domain deployment.
+
+Verify the canonical output locally:
+
+```bash
+npm run verify:domain --prefix website
+```
+
+The static generator also supports the GitHub project-page base for fallback or
+diagnostics:
+
+```bash
+npm run verify:project --prefix website
+```
+
+GitHub Pages still requires repository settings outside this checkout: Pages
+must be enabled for the Actions workflow, the custom domain must be set to
+`rustnidus.com`, and DNS must point the domain at GitHub Pages through the
+provider that manages `rustnidus.com`.
+
+After the crates are published, verify the external package surface before
+announcing the release:
+
+```bash
+bash scripts/verify-published-release.sh 1.0.2
+```
+
+The verifier checks crates.io, docs.rs, and the standalone external examples.
+
 ## Build
 
 Build release binaries with Cargo:
@@ -155,7 +189,7 @@ W3C `traceparent` extraction/injection, observed span helpers, exception
 recording, and shutdown hooks.
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.1", features = ["otel"] }
+nidus = { package = "nidus-rs", version = "1.0.2", features = ["otel"] }
 ```
 
 ```rust

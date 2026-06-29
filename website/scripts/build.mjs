@@ -9,14 +9,23 @@ const WEBSITE = path.join(ROOT, 'website');
 const SRC = path.join(WEBSITE, 'src');
 const DIST = path.join(WEBSITE, 'dist');
 const BASE = normalizeBase(process.env.NIDUS_SITE_BASE ?? '/');
+const SITE_DOMAIN = (process.env.NIDUS_SITE_DOMAIN ?? '').trim();
+const RELEASE_VERSION = '1.0.2';
 
 const docs = [
   {
-    title: 'Docs',
+    title: 'Overview',
     slug: 'docs',
     group: 'Start',
     source: 'docs/README.md',
-    summary: 'Guide index for the Nidus 1.0 framework surface.',
+    summary: 'Standalone overview of the Nidus framework surface.',
+  },
+  {
+    title: 'Installation',
+    slug: 'docs/installation',
+    group: 'Start',
+    source: 'docs/installation.md',
+    summary: 'Install the CLI, facade crate, and optional adapters.',
   },
   {
     title: 'Getting Started',
@@ -26,100 +35,49 @@ const docs = [
     summary: 'Create and inspect a Nidus application.',
   },
   {
-    title: 'Installation',
-    slug: 'docs/installation',
-    group: 'Start',
-    markdown: `# Installation
-
-Install the Nidus CLI from crates.io:
-
-\`\`\`bash
-cargo install cargo-nidus
-cargo nidus new hello-nidus
-\`\`\`
-
-During local framework development, install directly from this checkout:
-
-\`\`\`bash
-cargo install --path crates/cargo-nidus
-cargo nidus new hello-nidus
-\`\`\`
-
-Applications depend on the facade crate and opt into feature groups explicitly:
-
-\`\`\`toml
-[dependencies]
-nidus = { package = "nidus-rs", version = "1.0.1", features = ["http", "config", "openapi", "validation"] }
-\`\`\`
-
-Official adapters are separate crates, so the core facade stays lean:
-
-\`\`\`toml
-nidus-sqlx = { version = "1.0.1", features = ["sqlite"] }
-nidus-cache = { version = "1.0.1", features = ["moka"] }
-\`\`\`
-
-Use \`cargo-nidus\` for project generation and source inspection, \`nidus-rs\` as the application facade, and adapter crates such as \`nidus-sqlx\` or \`nidus-cache\` only when the application chooses those backends.
-
-Nidus 1.0.0 established the public crate set. The current release track is 1.0.1, focused on launch hygiene, documentation, starter project depth, example proof, and package verification across every publishable crate.`,
-    summary: 'Install the CLI, facade crate, and optional adapters.',
-  },
-  {
     title: 'CLI',
     slug: 'docs/cli',
     group: 'Start',
-    markdown: `# CLI
-
-\`cargo-nidus\` provides project generation and source inspection commands:
-
-\`\`\`bash
-cargo nidus new hello-nidus
-cargo nidus check
-cargo nidus routes
-cargo nidus graph
-cargo nidus openapi
-cargo nidus expand --dry-run
-\`\`\`
-
-Use \`check\` before committing generated applications. It validates expected project files, module indexes, and generated feature declarations.
-
-Use \`routes\`, \`graph\`, and \`openapi\` to inspect the Rust source that Nidus macros annotate. These commands are intentionally source-driven and keep framework behavior inspectable.`,
+    source: 'docs/cli.md',
     summary: 'Project generation and inspection commands.',
   },
   { title: 'Mental Model', slug: 'docs/mental-model', group: 'Concepts', source: 'docs/mental-model.md', summary: 'How Nidus maps modules, providers, controllers, guards, and pipes to Rust.' },
   { title: 'Architecture', slug: 'docs/architecture', group: 'Concepts', source: 'docs/architecture.md', summary: 'Workspace crates and dependency boundaries.' },
   { title: 'Modules', slug: 'docs/modules', group: 'Concepts', source: 'docs/modules.md', summary: 'Module imports, providers, controllers, exports, and graph validation.' },
   { title: 'Providers / DI', slug: 'docs/providers-di', group: 'Concepts', source: 'docs/dependency-injection.md', summary: 'Typed dependency injection, factories, optional dependencies, and request scope.' },
-  { title: 'Providers', slug: 'docs/providers', group: 'Concepts', source: 'docs/providers.md', summary: 'Provider design, lifetimes, and registration patterns.' },
-  { title: 'Controllers / Routes', slug: 'docs/controllers-routes', group: 'HTTP', source: 'docs/controllers.md', summary: 'Controller macros, route definitions, metadata, and Axum composition.' },
-  { title: 'Guards', slug: 'docs/guards', group: 'HTTP', source: 'docs/guards.md', summary: 'Authorization guards and guard layers.' },
-  { title: 'Pipes / Validation', slug: 'docs/pipes-validation', group: 'HTTP', source: 'docs/pipes.md', summary: 'Validation pipes, DTO validation, and stable 422 responses.' },
-  { title: 'Interceptors', slug: 'docs/interceptors', group: 'HTTP', source: 'docs/interceptors.md', summary: 'Tower-first interception and middleware guidance.' },
-  { title: 'Error Handling', slug: 'docs/error-handling', group: 'HTTP', source: 'docs/error-handling.md', summary: 'HTTP errors and production error envelopes.' },
+  { title: 'Controllers / Routes', slug: 'docs/controllers-routes', group: 'Concepts', source: 'docs/controllers.md', summary: 'Controller macros, route definitions, metadata, and Axum composition.' },
+  { title: 'Guards', slug: 'docs/guards', group: 'Concepts', source: 'docs/guards.md', summary: 'Authorization guards and guard layers.' },
+  { title: 'Validation / Pipes', slug: 'docs/pipes-validation', group: 'Concepts', source: 'docs/pipes.md', summary: 'Validation pipes, DTO validation, and stable 422 responses.' },
+  { title: 'Interceptors / Tower Middleware', slug: 'docs/interceptors', group: 'Concepts', source: 'docs/interceptors.md', summary: 'Tower-first interception and middleware guidance.' },
   { title: 'Config', slug: 'docs/config', group: 'Runtime', source: 'docs/config.md', summary: 'Typed config from pairs, JSON, files, and environment variables.' },
+  { title: 'Error Handling', slug: 'docs/error-handling', group: 'Runtime', source: 'docs/error-handling.md', summary: 'HTTP errors and production error envelopes.' },
   { title: 'OpenAPI', slug: 'docs/openapi', group: 'Runtime', source: 'docs/openapi.md', summary: 'OpenAPI route metadata and document rendering.' },
   { title: 'Observability', slug: 'docs/observability', group: 'Runtime', source: 'docs/observability.md', summary: 'Production logs, traces, metrics, events, jobs, lifecycle, and adapter instrumentation.' },
   { title: 'Events', slug: 'docs/events', group: 'Runtime', source: 'docs/events.md', summary: 'In-process event bus and observed events.' },
   { title: 'Jobs', slug: 'docs/jobs', group: 'Runtime', source: 'docs/jobs.md', summary: 'Sync and async job queues with observed runners.' },
   { title: 'Testing', slug: 'docs/testing', group: 'Runtime', source: 'docs/testing.md', summary: 'TestApp request helpers and provider overrides.' },
-  { title: 'Integrations / Adapters', slug: 'docs/integrations-adapters', group: 'Ecosystem', source: 'docs/integrations.md', summary: 'Separately installable SQLx and cache adapters.' },
-  { title: 'Production / Deployment', slug: 'docs/production-deployment', group: 'Ecosystem', source: 'docs/deployment.md', summary: 'Production defaults, logging, OTel helpers, health, and deployment boundaries.' },
+  { title: 'Production Defaults', slug: 'docs/production-defaults', group: 'Production', source: 'docs/production-defaults.md', summary: 'HTTP defaults, observability defaults, and what remains explicit.' },
+  { title: 'Deployment', slug: 'docs/deployment', group: 'Production', source: 'docs/deployment.md', summary: 'Deployment boundaries, logging, OTel helpers, health, and release setup.' },
+  { title: 'Security Notes', slug: 'docs/security-notes', group: 'Production', source: 'docs/security-notes.md', summary: 'Security responsibilities, defaults, and limits.' },
+  { title: 'Performance', slug: 'docs/performance', group: 'Production', source: 'docs/performance.md', summary: 'Benchmark surfaces and local result boundaries.' },
+  { title: 'Official Adapters', slug: 'docs/official-adapters', group: 'Ecosystem', source: 'docs/official-adapters.md', summary: 'Separately installable adapter model and dependency boundaries.' },
+  { title: 'SQLx', slug: 'docs/sqlx', group: 'Ecosystem', source: 'docs/sqlx.md', summary: 'SQLx adapter features, pool registration, health, and observability.' },
+  { title: 'Cache', slug: 'docs/cache', group: 'Ecosystem', source: 'docs/cache.md', summary: 'Moka cache adapter features, health, and observability.' },
+  { title: 'Integration Contract', slug: 'docs/integrations', group: 'Ecosystem', source: 'docs/integrations.md', summary: 'Adapter contract, backend feature flags, and current limitations.' },
   { title: 'Examples', slug: 'docs/examples', group: 'Ecosystem', source: 'docs/examples.md', summary: 'Workspace examples and validation commands.' },
-  { title: 'Performance', slug: 'docs/performance', group: 'Ecosystem', source: 'docs/performance.md', summary: 'Benchmark surfaces and local result boundaries.' },
-  { title: 'Migration From NestJS', slug: 'docs/migration-from-nestjs', group: 'Ecosystem', source: 'docs/migration-from-nestjs.md', summary: 'Concept mapping without runtime metadata cloning.' },
   {
     title: 'API Reference',
     slug: 'docs/api-reference',
     group: 'Reference',
-    markdown: apiReference(),
+    source: 'docs/api-reference.md',
     summary: 'Crate map and generated Rust API reference entry points.',
   },
   {
-    title: 'Release 1.0',
-    slug: 'docs/release-1-0',
+    title: 'Release 1.0.2',
+    slug: 'docs/release-1-0-2',
     group: 'Reference',
-    markdown: releaseNotes(),
-    summary: 'Nidus 1.0 release notes and proof boundaries.',
+    source: 'docs/release-1-0-2.md',
+    summary: 'Nidus 1.0.2 release notes and proof boundaries.',
   },
 ];
 
@@ -307,15 +265,26 @@ function apiReference() {
     ['nidus-testing', 'nidus_testing', 'TestApp request harness and provider overrides'],
     ['nidus-sqlx', 'nidus_sqlx', 'Official SQLx adapter'],
     ['nidus-cache', 'nidus_cache', 'Official Moka cache adapter'],
-    ['cargo-nidus', 'cargo_nidus', 'CLI generator and source inspector'],
+    ['cargo-nidus', '', 'CLI generator and source inspector'],
   ];
-  const rows = crates.map(([packageName, crateName, summary]) => `| \`${packageName}\` | ${summary} | https://docs.rs/${packageName}/1.0.1/${crateName}/ |`).join('\n');
+  const rows = crates.map(([packageName, crateName, summary]) => {
+    const reference = crateName
+      ? `https://docs.rs/${packageName}/${RELEASE_VERSION}/${crateName}/`
+      : `https://docs.rs/${packageName}/${RELEASE_VERSION}/`;
+    return `| \`${packageName}\` | ${summary} | ${reference} |`;
+  }).join('\n');
   return `# API Reference
 
 The release website links to generated Rust API references on docs.rs once the crates are published. During local launch verification, build the same reference set with:
 
 \`\`\`bash
 RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps
+\`\`\`
+
+After publishing, verify the docs.rs pages with:
+
+\`\`\`bash
+bash scripts/verify-published-release.sh ${RELEASE_VERSION}
 \`\`\`
 
 | Crate | Surface | Reference |
@@ -326,21 +295,29 @@ The facade crate keeps core Nidus ergonomic, while SQLx and cache integrations r
 }
 
 function releaseNotes() {
-  return `# Release 1.0
+  return `# Release ${RELEASE_VERSION}
 
-Nidus 1.0 is the first stable release target for the framework surface in this repository.
+Nidus ${RELEASE_VERSION} is the public website, documentation, and launch-surface release for the framework surface in this repository.
 
 ## Highlights
 
-- Modular Rust application structure with modules, controllers, providers, guards, validation, config, OpenAPI, events, jobs, testing, and production HTTP defaults.
+- Standalone modular Rust application structure with modules, controllers, providers, guards, validation, config, OpenAPI, events, jobs, testing, and production HTTP defaults.
 - Lean \`nidus-rs\` facade package, imported as \`nidus\` in Rust code, with SQLx and cache integrations delivered as separately installable official adapters.
 - \`cargo-nidus\` project generation plus source inspection commands for routes, module graphs, macro expansion, checks, and OpenAPI.
-- Validation now uses \`garde\`, removing the unmaintained \`proc-macro-error2\` advisory path without suppressing the advisory.
-- Logo assets and documentation website are generated from repository sources.
+- Custom-domain website output for \`rustnidus.com\`, including root-base asset paths, generated \`CNAME\`, link checks, docs search, and a generated 404 page.
+- Expanded public docs for installation, CLI, concepts, runtime surfaces, production boundaries, official adapters, examples, API reference, and release proof.
 
 ## Proof Boundary
 
-Local verification can prove package dry-runs, tests, docs, website output, link checks, and runtime examples. Actual crates.io publishing and GitHub Pages deployment require credentials or repository settings outside local code execution, so those steps must be reported separately when blocked.`;
+Local verification can prove package dry-runs, tests, docs, website output, link checks, visual rendering, and runtime examples. Actual crates.io publishing, docs.rs rendering, GitHub Pages deployment settings, and DNS state require credentials or external repository settings, so those steps must be reported separately when blocked.
+
+After publishing the crates, verify the public package and documentation state:
+
+\`\`\`bash
+bash scripts/verify-published-release.sh ${RELEASE_VERSION}
+\`\`\`
+
+That command checks every publishable crate on crates.io, waits for each docs.rs package page, and then runs the external examples against their checked-in crates.io dependencies.`;
 }
 
 function loadDoc(doc) {
@@ -375,6 +352,208 @@ function docsPager(currentSlug) {
     ${prev ? `<a href="${href(`${prev.slug}/`)}"><span>Previous</span><strong>${escapeHtml(prev.title)}</strong></a>` : '<span></span>'}
     ${next ? `<a href="${href(`${next.slug}/`)}"><span>Next</span><strong>${escapeHtml(next.title)}</strong></a>` : '<span></span>'}
   </nav>`;
+}
+
+function installationDoc() {
+  return `# Installation
+
+Install the Nidus CLI from crates.io:
+
+\`\`\`bash
+cargo install cargo-nidus --version ${RELEASE_VERSION}
+cargo nidus new hello-nidus
+cd hello-nidus
+cargo run
+\`\`\`
+
+During local framework development, install directly from this checkout:
+
+\`\`\`bash
+cargo install --path crates/cargo-nidus
+cargo nidus new hello-nidus
+\`\`\`
+
+Applications depend on the facade crate and opt into feature groups explicitly:
+
+\`\`\`toml
+[dependencies]
+nidus = { package = "nidus-rs", version = "${RELEASE_VERSION}", features = ["http", "config", "openapi", "validation"] }
+\`\`\`
+
+Official adapters are separate crates, so the core facade stays lean:
+
+\`\`\`toml
+nidus-sqlx = { version = "${RELEASE_VERSION}", features = ["sqlite"] }
+nidus-cache = { version = "${RELEASE_VERSION}", features = ["moka"] }
+\`\`\`
+
+## Feature Flags
+
+Enable only the surfaces your application owns:
+
+| Feature | Use when |
+| --- | --- |
+| \`http\` | composing Axum routers, controllers, middleware, health, metrics, and server defaults |
+| \`config\` | loading typed app settings from JSON, files, pairs, or environment values |
+| \`openapi\` | collecting route metadata and rendering OpenAPI JSON |
+| \`validation\` | validating DTOs through garde-backed pipes and extractors |
+| \`auth\` | defining guard traits, guard combinators, or Tower guard layers |
+| \`events\` | dispatching in-process application events |
+| \`jobs\` | running sync or async job queues |
+| \`observability\` | wiring logs, metrics, traces, lifecycle validation, and adapter instrumentation |
+| \`otel\` | enabling OpenTelemetry trace-context helpers through the HTTP surface |
+
+## Imports
+
+Use the prelude in application entrypoints:
+
+\`\`\`rust
+use nidus::prelude::*;
+\`\`\`
+
+The prelude keeps extension traits such as \`ApplicationHttpExt\`, \`NidusApplicationExt\`, and \`ApiDefaultsObservabilityExt\` in scope. If a fluent method is missing, check the feature flag and import first.
+
+## Ownership Boundary
+
+Nidus owns the framework composition points: module metadata, provider registration, controller metadata, guard and pipe hooks, OpenAPI route metadata, production HTTP defaults, observed events, observed jobs, and official adapter builders.
+
+Axum, Tower, Tokio, serde, garde, utoipa, SQLx, Moka, and tracing remain normal Rust ecosystem tools. Raw SQL queries, cache-client behavior, business authorization policy, persistence migrations, deployment manifests, and external queues stay application-owned unless the app chooses an adapter or middleware boundary.`;
+}
+
+function cliDoc() {
+  return `# CLI
+
+\`cargo-nidus\` provides project generation and source inspection commands:
+
+\`\`\`bash
+cargo nidus new hello-nidus
+cargo nidus check
+cargo nidus routes
+cargo nidus graph
+cargo nidus openapi
+cargo nidus expand --dry-run
+\`\`\`
+
+| Command | Purpose | Expected output |
+| --- | --- | --- |
+| \`cargo nidus new <name>\` | create a starter service | a Cargo project with \`src/main.rs\`, one module, one controller, and one injected service |
+| \`cargo nidus check\` | validate generated project structure | success when crate roots, generated modules, and feature directories are consistent |
+| \`cargo nidus routes\` | inspect controller route metadata | HTTP methods, normalized paths, summaries, guards, pipes, and validation markers when present |
+| \`cargo nidus graph\` | inspect module metadata | root and feature modules plus imports, providers, controllers, and exports |
+| \`cargo nidus openapi\` | render OpenAPI JSON from route metadata | a JSON document with configurable title and version |
+| \`cargo nidus expand --dry-run\` | show the macro expansion command | the \`cargo expand\` invocation without running it |
+
+The CLI is source-driven. It inspects Rust files and macro metadata rather than depending on hidden runtime registration. Use it before commits when route shape, module graph shape, or OpenAPI output matters.`;
+}
+
+function productionDefaultsDoc() {
+  return `# Production Defaults
+
+Nidus production defaults are opt-in composition helpers over Axum and Tower. They return normal routers and layers so applications can inspect, replace, or reorder the boundary.
+
+\`\`\`rust
+use nidus::prelude::*;
+
+let app = Nidus::create::<AppModule>()
+    .build()
+    .await?
+    .map_router(|router| {
+        ApiDefaults::production("orders-api")
+            .without_metrics()
+            .apply(router)
+    });
+\`\`\`
+
+## Included HTTP Defaults
+
+- request IDs and request context
+- health and readiness routes
+- Prometheus-style metrics route when enabled
+- CORS, body limits, timeout responses, security headers, and structured logging
+- production error envelopes
+- OpenTelemetry trace-context helpers when the \`otel\` feature is enabled
+
+## Observability Defaults
+
+\`\`\`rust
+let observability = Observability::production("orders-api")
+    .version(env!("CARGO_PKG_VERSION"))
+    .environment("prod")
+    .prometheus()
+    .tracing()
+    .otel_from_env();
+\`\`\`
+
+Automatic instrumentation applies where Nidus owns the integration point: HTTP middleware, \`ObservedEventBus\`, \`ObservedJobRunner\`, module validation, and official adapter builders. Raw SQLx queries, raw cache clients, ORMs, queues, and HTTP clients remain explicit application instrumentation.`;
+}
+
+function securityNotesDoc() {
+  return `# Security Notes
+
+Nidus provides framework boundaries that help keep service behavior inspectable, but it does not replace application security design.
+
+## Provided Boundaries
+
+- guard traits, guard combinators, and Tower guard layers for authorization boundaries
+- typed validation pipes and stable validation error responses
+- production HTTP defaults for security headers, body limits, timeouts, request IDs, and error envelopes
+- explicit feature flags so optional surfaces and dependencies remain visible in Cargo manifests
+- source-driven CLI inspection for routes and module graphs
+
+## Application Responsibilities
+
+- authentication protocol selection, key management, session policy, and credential storage
+- authorization rules and tenant isolation semantics
+- SQL migrations, query review, transaction boundaries, and data-retention policy
+- cache key design and cache invalidation semantics
+- deployment TLS, DNS, secrets, network policy, and runtime sandboxing
+- security review of any raw Axum/Tower layers added outside the Nidus defaults
+
+## Release Boundary
+
+Local verification can prove tests, docs, package dry-runs, and example runtime behavior. crates.io publication, docs.rs rendering, GitHub Pages settings, and DNS state are external systems and must be verified after release.`;
+}
+
+function officialAdaptersDoc() {
+  return `# Official Adapters
+
+Official adapters are separately installable crates. The facade stays lean, and vendor dependencies enter the application only when the application chooses that backend.
+
+\`\`\`toml
+nidus = { package = "nidus-rs", version = "${RELEASE_VERSION}", features = ["http", "config"] }
+nidus-sqlx = { version = "${RELEASE_VERSION}", features = ["sqlite", "health", "observability"] }
+nidus-cache = { version = "${RELEASE_VERSION}", features = ["moka", "health", "observability"] }
+\`\`\`
+
+Adapters should register typed providers, expose health/readiness hooks when useful, add observability at adapter-owned boundaries, and still leave direct access to the underlying ecosystem client.`;
+}
+
+function sqlxDoc() {
+  return `# SQLx
+
+\`nidus-sqlx\` provides official SQLx adapter primitives for pool registration, optional config loading, health checks, and observability hooks.
+
+\`\`\`toml
+nidus-sqlx = { version = "${RELEASE_VERSION}", features = ["sqlite", "nidus-config", "health", "observability"] }
+\`\`\`
+
+Use \`sqlite\` or \`postgres\` to select the SQLx backend. Add \`nidus-config\` when pool settings should come from Nidus config, \`health\` when readiness should validate database connectivity, and \`observability\` when adapter-owned operations should emit framework observability.
+
+Nidus does not own your schema migrations, query design, ORM layer, or transaction policy. Those stay in SQLx and application code.`;
+}
+
+function cacheDoc() {
+  return `# Cache
+
+\`nidus-cache\` provides official cache adapter primitives, including Moka-backed cache modules.
+
+\`\`\`toml
+nidus-cache = { version = "${RELEASE_VERSION}", features = ["moka", "health", "observability"] }
+\`\`\`
+
+Use \`moka\` for the default async cache backend. Add \`health\` when readiness should expose cache-state checks, and \`observability\` when adapter-owned operations should emit framework observability.
+
+Nidus does not decide cache keys, TTL policy, invalidation semantics, or data consistency guarantees. Those remain application architecture decisions.`;
 }
 
 function pageShell({ title, description, body, currentSlug, home = false, toc = [] }) {
@@ -431,10 +610,10 @@ function pageShell({ title, description, body, currentSlug, home = false, toc = 
     </div>
   </main>`}
   <footer class="site-footer">
-    <span>Nidus 1.0</span>
-    <a href="${href('docs/release-1-0/')}">Release notes</a>
-    <a href="${href('docs/production-deployment/')}">Production</a>
-    <a href="${href('docs/integrations-adapters/')}">Adapters</a>
+    <span>Nidus ${RELEASE_VERSION}</span>
+    <a href="${href('docs/release-1-0-2/')}">Release notes</a>
+    <a href="${href('docs/production-defaults/')}">Production</a>
+    <a href="${href('docs/official-adapters/')}">Adapters</a>
   </footer>
   <script src="${href('app.js')}" type="module"></script>
 </body>
@@ -455,34 +634,59 @@ function homePage() {
     ['Install path', 'CLI install, facade dependency, and adapter crates are separated in docs.'],
     ['Runtime defaults', 'Request IDs, context, health, metrics, CORS, limits, timeouts, security headers, tracing.'],
     ['Examples', 'launchpad-api and realworld-api exercise modules, validation, OpenAPI, health, metrics, events, and jobs.'],
-    ['Release boundary', 'Local dry-runs prove packageability; crates.io and Pages deployment stay explicit external steps.'],
+    ['Release boundary', 'Local dry-runs prove packageability; crates.io, docs.rs, and Pages deployment stay explicit external steps.'],
   ];
 
   const docsFor60Seconds = [
     ['Install', 'docs/installation', 'Get the CLI and facade dependency shape.'],
     ['Mental model', 'docs/mental-model', 'See what happens at build time, startup, and per request.'],
     ['Examples', 'docs/examples', 'Jump to runnable services, including launchpad-api.'],
-    ['Production', 'docs/production-deployment', 'Inspect HTTP defaults and deployment boundaries.'],
+    ['Production', 'docs/production-defaults', 'Inspect HTTP defaults and deployment boundaries.'],
   ];
 
   const body = `<main>
     <section class="hero">
       <div class="hero-copy">
-        <p class="eyebrow">Rust backend framework · 1.0 release track</p>
+        <p class="eyebrow">Rust backend framework · ${RELEASE_VERSION}</p>
         <h1>Nidus</h1>
-        <p class="hero-text">NestJS-like application organization for Rust services: explicit modules, typed DI, Axum routes, Tower middleware, validation, OpenAPI, and production defaults that stay inspectable.</p>
+        <p class="hero-text">A modular Rust backend framework for explicit services: typed dependency injection, module graphs, Axum routes, Tower middleware, validation, OpenAPI, observability, testing, and installable adapters.</p>
         <div class="hero-actions">
-          <a class="button primary" href="${href('docs/installation/')}">Install Nidus</a>
-          <a class="button secondary" href="${href('docs/')}">Open docs</a>
-          <a class="button ghost" href="${href('docs/examples/')}">Run examples</a>
+          <a class="button primary" href="${href('docs/installation/')}">Get started</a>
+          <a class="button secondary" href="${href('docs/')}">Docs</a>
+          <a class="button ghost" href="${href('docs/examples/')}">Examples</a>
+          <a class="button ghost" href="https://github.com/vicotrbb/nidus">GitHub</a>
         </div>
       </div>
-      <div class="hero-proof" aria-label="Install commands">
+      <div class="hero-proof" aria-label="Install and code sample">
         <img src="${asset('logo-full-transparent.png')}" alt="Nidus logo" width="689" height="658">
-        <pre><code>cargo install cargo-nidus
+        <div class="install-command">
+          <code>cargo install cargo-nidus --version ${RELEASE_VERSION}</code>
+          <button type="button" data-copy="cargo install cargo-nidus --version ${RELEASE_VERSION}">Copy</button>
+        </div>
+        <pre><code>cargo install cargo-nidus --version ${RELEASE_VERSION}
 cargo nidus new hello-nidus
 cd hello-nidus
 cargo run</code></pre>
+        <pre class="code-panel"><code>use nidus::prelude::*;
+
+#[controller("/users")]
+struct UsersController {
+    service: Inject&lt;UsersService&gt;,
+}
+
+#[routes]
+impl UsersController {
+    #[get("/:id")]
+    async fn find_one(&self, Path(id): Path&lt;i64&gt;) -> Json&lt;UserDto&gt; {
+        Json(self.service.find_one(id).await)
+    }
+}
+
+#[module(
+    providers(UsersService),
+    controllers(UsersController)
+)]
+struct AppModule;</code></pre>
       </div>
     </section>
 
@@ -503,7 +707,7 @@ cargo run</code></pre>
     <section class="concept-model" aria-labelledby="model-title">
       <div class="section-heading">
         <p class="eyebrow">Core model</p>
-        <h2 id="model-title">Familiar organization, Rust-native mechanics.</h2>
+        <h2 id="model-title">Framework structure without hidden runtime magic.</h2>
       </div>
       <div class="model-flow">
         <article>
@@ -563,12 +767,13 @@ cargo run</code></pre>
     <section class="example-panel" aria-labelledby="example-title">
       <div>
         <p class="eyebrow">Example to inspect first</p>
-        <h2 id="example-title">launchpad-api is the compact 1.0 tour.</h2>
-        <p>It wires config, modules, authorization, validation, OpenAPI schemas, health, readiness, metrics, tracing context, cache-backed services, and deterministic tests into one runnable service.</p>
+        <h2 id="example-title">launchpad-api and realworld-api are proof surfaces, not side demos.</h2>
+        <p><code>launchpad-api</code> is the compact framework tour. <code>realworld-api</code> exercises modules, SQLite, validation, OpenAPI, health, observability, request IDs, guards, CORS, limits, timeouts, events, and jobs. External examples show copyable crates.io-style manifests.</p>
         <a class="text-link" href="${href('docs/examples/')}">View all examples</a>
       </div>
       <pre><code>cargo run -p nidus-example-launchpad-api
-cargo test -p nidus-example-launchpad-api --all-targets</code></pre>
+cargo run -p nidus-example-realworld-api
+bash scripts/verify-external-examples.sh</code></pre>
     </section>
 
     <section class="proof-band" aria-labelledby="proof-title">
@@ -608,6 +813,27 @@ function docPage(doc) {
   });
 }
 
+function notFoundPage() {
+  const body = `<main class="not-found">
+    <p class="eyebrow">404</p>
+    <h1>Page not found</h1>
+    <p>The Nidus documentation moved or the route is incomplete. Start at the docs index, installation guide, examples, or API reference.</p>
+    <div class="hero-actions">
+      <a class="button primary" href="${href('docs/')}">Docs</a>
+      <a class="button secondary" href="${href('docs/installation/')}">Install</a>
+      <a class="button ghost" href="${href('docs/examples/')}">Examples</a>
+      <a class="button ghost" href="${href('docs/api-reference/')}">API</a>
+    </div>
+  </main>`;
+  return pageShell({
+    title: 'Page not found',
+    description: 'Nidus documentation route not found.',
+    body,
+    currentSlug: '',
+    home: true,
+  });
+}
+
 function copyAsset(name) {
   fs.copyFileSync(path.join(ROOT, 'logos', name), path.join(DIST, 'assets', name));
 }
@@ -637,8 +863,12 @@ function main() {
   for (const doc of docs) {
     writeHtml(doc.slug, docPage(doc));
   }
-  fs.writeFileSync(path.join(DIST, 'site-map.json'), JSON.stringify({ base: BASE, pages: ['', ...docs.map((doc) => doc.slug)] }, null, 2));
-  console.log(`Built Nidus site at ${path.relative(ROOT, DIST)} with base ${BASE}`);
+  fs.writeFileSync(path.join(DIST, '404.html'), notFoundPage());
+  if (SITE_DOMAIN) {
+    fs.writeFileSync(path.join(DIST, 'CNAME'), `${SITE_DOMAIN}\n`);
+  }
+  fs.writeFileSync(path.join(DIST, 'site-map.json'), JSON.stringify({ base: BASE, domain: SITE_DOMAIN || null, pages: ['', ...docs.map((doc) => doc.slug)] }, null, 2));
+  console.log(`Built Nidus site at ${path.relative(ROOT, DIST)} with base ${BASE}${SITE_DOMAIN ? ` and domain ${SITE_DOMAIN}` : ''}`);
 }
 
 main();

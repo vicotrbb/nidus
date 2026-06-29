@@ -1,6 +1,6 @@
 # Nidus
 
-Nidus is a modular Rust backend framework for teams that want NestJS-like application organization with Rust-native explicitness. It composes Axum, Tower, Tokio, serde, tracing, garde, utoipa, SQLx adapters, cache adapters, and normal Cargo workflows instead of replacing them.
+Nidus is a modular Rust backend framework for building explicit, production-ready services with typed dependency injection, module graphs, Axum routes, Tower middleware, validation, OpenAPI, observability, testing, and separately installable adapters. It composes Axum, Tower, Tokio, serde, tracing, garde, utoipa, SQLx adapters, cache adapters, and normal Cargo workflows instead of replacing them.
 
 ## Install
 
@@ -24,20 +24,20 @@ Application dependencies stay explicit:
 
 ```toml
 [dependencies]
-nidus = { package = "nidus-rs", version = "1.0.1", features = ["http", "config", "openapi", "validation"] }
+nidus = { package = "nidus-rs", version = "1.0.2", features = ["http", "config", "openapi", "validation"] }
 ```
 
 For production observability through the facade:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.1", features = ["observability", "events", "jobs", "otel"] }
+nidus = { package = "nidus-rs", version = "1.0.2", features = ["observability", "events", "jobs", "otel"] }
 ```
 
 Official integrations are separate crates:
 
 ```toml
-nidus-sqlx = { version = "1.0.1", features = ["sqlite"] }
-nidus-cache = { version = "1.0.1", features = ["moka"] }
+nidus-sqlx = { version = "1.0.2", features = ["sqlite"] }
+nidus-cache = { version = "1.0.2", features = ["moka"] }
 ```
 
 ## Which Crate Do I Install?
@@ -175,7 +175,16 @@ cargo run -p nidus-example-realworld-api
 The `external-*` examples are standalone Cargo packages with their own
 `[workspace]` tables. Verify them from their folders or with
 `bash scripts/verify-external-examples.sh`; they intentionally do not use local
-workspace path dependencies.
+workspace path dependencies. Before `1.0.2` is published to crates.io, verify
+the same examples against temporary local patches:
+
+```bash
+NIDUS_EXTERNAL_EXAMPLES_LOCAL_PATCH=1 bash scripts/verify-external-examples.sh
+```
+
+That mode copies the external examples to a temp directory and appends
+temporary `[patch.crates-io]` entries there only. The checked-in examples stay
+copyable crates.io-style manifests.
 
 ## Documentation
 
@@ -192,7 +201,7 @@ npm run verify
 
 ## Release Status
 
-Nidus 1.0.0 established the public crate set. The current release track is 1.0.1, focused on launch hygiene, documentation, starter project depth, example proof, and package verification across every publishable crate. Publishing still requires crates.io credentials and should be reported with exact evidence when it is not performed.
+Nidus 1.0.0 established the public crate set. The current release track is 1.0.2, focused on launch hygiene, documentation, starter project depth, example proof, and package verification across every publishable crate. Publishing still requires crates.io credentials and should be reported with exact evidence when it is not performed.
 
 ## Contributing
 

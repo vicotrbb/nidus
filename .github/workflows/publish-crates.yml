@@ -205,3 +205,6 @@ jobs:
           publish_one nidus-cache
           publish_one nidus-sqlx
           publish_one cargo-nidus
+      - name: Verify published release
+        if: ${{ github.event_name != 'workflow_dispatch' || !inputs.dry_run }}
+        run: bash scripts/verify-published-release.sh

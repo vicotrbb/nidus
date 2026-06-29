@@ -24,9 +24,7 @@ jobs:
           node-version: '24'
       - name: Build site
         working-directory: website
-        env:
-          NIDUS_SITE_BASE: /nidus/
-        run: npm run verify
+        run: npm run verify:domain
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

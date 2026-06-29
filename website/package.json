@@ -1,11 +1,13 @@
 {
   "name": "nidus-website",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
     "check-links": "node scripts/check-links.mjs",
-    "verify": "npm run build && npm run check-links"
+    "verify": "npm run build && npm run check-links",
+    "verify:domain": "NIDUS_SITE_BASE=/ NIDUS_SITE_DOMAIN=rustnidus.com npm run verify",
+    "verify:project": "NIDUS_SITE_BASE=/nidus/ npm run verify"
   }
 }

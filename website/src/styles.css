@@ -2,19 +2,19 @@
 
 :root {
   color-scheme: dark;
-  --bg: oklch(13% 0.034 294);
-  --bg-strong: oklch(9% 0.03 294);
-  --panel: oklch(18% 0.04 294);
-  --panel-2: oklch(22% 0.046 294);
-  --panel-3: oklch(26% 0.052 294);
-  --line: oklch(35% 0.058 294);
-  --line-soft: oklch(28% 0.045 294);
-  --text: oklch(93% 0.018 294);
-  --ink: oklch(98% 0.012 294);
-  --muted: oklch(75% 0.034 294);
-  --soft: oklch(62% 0.048 294);
-  --brand: oklch(64% 0.22 302);
-  --brand-soft: oklch(74% 0.16 308);
+  --bg: oklch(12% 0.018 255);
+  --bg-strong: oklch(8% 0.016 255);
+  --panel: oklch(17% 0.021 255);
+  --panel-2: oklch(21% 0.024 255);
+  --panel-3: oklch(26% 0.028 255);
+  --line: oklch(34% 0.035 255);
+  --line-soft: oklch(27% 0.028 255);
+  --text: oklch(92% 0.014 255);
+  --ink: oklch(98% 0.008 255);
+  --muted: oklch(75% 0.025 255);
+  --soft: oklch(62% 0.034 255);
+  --brand: oklch(64% 0.16 302);
+  --brand-soft: oklch(76% 0.105 306);
   --rose: oklch(69% 0.16 348);
   --copper: oklch(73% 0.13 72);
   --ice: oklch(78% 0.08 226);
@@ -62,7 +62,7 @@ body::before {
   pointer-events: none;
   background:
     linear-gradient(180deg, transparent 0, var(--bg) 72%),
-    linear-gradient(135deg, color-mix(in oklch, var(--brand), transparent 90%), transparent 36rem);
+    linear-gradient(135deg, color-mix(in oklch, var(--brand), transparent 94%), transparent 36rem);
 }
 
 a {
@@ -150,7 +150,7 @@ pre {
 .hero {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.72fr);
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.92fr);
   align-items: center;
   gap: var(--space-4xl);
   width: min(var(--max), calc(100% - 32px));
@@ -303,6 +303,42 @@ h3 {
   margin: 0;
   padding: var(--space-lg);
   font-size: 0.92rem;
+}
+
+.hero-proof .code-panel {
+  width: min(100%, 560px);
+  font-size: 0.8rem;
+}
+
+.install-command {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-sm);
+  width: min(100%, 560px);
+  border: 1px solid color-mix(in oklch, var(--copper), transparent 34%);
+  border-radius: var(--radius);
+  background: color-mix(in oklch, var(--panel), var(--copper) 5%);
+  padding: var(--space-sm);
+}
+
+.install-command code {
+  min-width: 0;
+  overflow-x: auto;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.install-command button {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 760;
+  cursor: pointer;
 }
 
 .first-minute,
@@ -781,6 +817,24 @@ a:focus-visible {
   text-decoration: none;
 }
 
+.not-found {
+  width: min(760px, calc(100% - 32px));
+  min-height: 58vh;
+  margin: 0 auto;
+  padding: var(--space-5xl) 0;
+}
+
+.not-found h1 {
+  max-width: none;
+  font-size: clamp(3.4rem, 10vw, 7rem);
+}
+
+.not-found p {
+  max-width: 62ch;
+  color: var(--muted);
+  font-size: 1.2rem;
+}
+
 @media (max-width: 1120px) {
   h1 {
     font-size: 6rem;
@@ -923,6 +977,16 @@ a:focus-visible {
     width: 100%;
     font-size: 0.82rem;
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .install-command {
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+
+  .install-command code {
+    white-space: normal;
     overflow-wrap: anywhere;
   }
 

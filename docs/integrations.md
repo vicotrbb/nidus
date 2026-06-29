@@ -9,7 +9,7 @@ applications only compile the vendors they choose.
 
 ## Philosophy
 
-Official adapters should provide Nest-like organization with Rust-native
+Official adapters should provide modular service organization with Rust-native
 explicitness:
 
 - register dependencies by Rust type, not string token
@@ -53,8 +53,8 @@ async adapters should register through a builder or module async initializer.
 Install `nidus-sqlx` directly:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.1", features = ["http", "config"] }
-nidus-sqlx = { version = "1.0.1", features = ["sqlite", "observability"] }
+nidus = { package = "nidus-rs", version = "1.0.2", features = ["http", "config"] }
+nidus-sqlx = { version = "1.0.2", features = ["sqlite", "observability"] }
 ```
 
 The adapter exposes typed providers such as `SqlitePoolProvider` and
@@ -97,8 +97,8 @@ does not claim automatic tracing for arbitrary application SQL queries.
 Install `nidus-cache` directly:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.1" }
-nidus-cache = { version = "1.0.1", features = ["moka", "observability"] }
+nidus = { package = "nidus-rs", version = "1.0.2" }
+nidus-cache = { version = "1.0.2", features = ["moka", "observability"] }
 ```
 
 `MokaCacheProvider` is a local in-memory cache provider with namespace, TTL, and
@@ -149,8 +149,8 @@ nidus = { path = "../crates/nidus", features = ["sqlx-postgres"] }
 has been replaced by a separate adapter dependency:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.1", features = ["http", "config"] }
-nidus-sqlx = { version = "1.0.1", features = ["postgres"] }
+nidus = { package = "nidus-rs", version = "1.0.2", features = ["http", "config"] }
+nidus-sqlx = { version = "1.0.2", features = ["postgres"] }
 ```
 
 Imports move from the `nidus` prelude or `nidus::sqlx` to `nidus_sqlx` and

@@ -1,34 +1,55 @@
 # Nidus Documentation
 
-Nidus is a modular Rust backend framework that keeps framework behavior explicit while providing NestJS-like project organization. It uses Axum, Tower, Tokio, serde, garde, utoipa, and tracing directly instead of replacing the Rust web ecosystem.
+Nidus is a modular Rust backend framework that keeps framework behavior explicit while providing typed dependency injection, module graphs, Axum routes, Tower middleware, validation, OpenAPI, observability, testing, and separately installable adapters. It uses Axum, Tower, Tokio, serde, garde, utoipa, and tracing directly instead of replacing the Rust web ecosystem.
 
-## Guides
+## Start
 
+- [Installation](installation.md)
 - [Getting Started](getting-started.md)
+- [CLI](cli.md)
+
+## Concepts
+
 - [Mental Model](mental-model.md)
-- [Architecture](architecture.md)
 - [Modules](modules.md)
-- [Dependency Injection](dependency-injection.md)
-- [Providers](providers.md)
-- [Controllers](controllers.md)
+- [Providers / DI](dependency-injection.md)
+- [Controllers / Routes](controllers.md)
 - [Guards](guards.md)
-- [Pipes](pipes.md)
-- [Interceptors](interceptors.md)
+- [Validation / Pipes](pipes.md)
+- [Interceptors / Tower Middleware](interceptors.md)
+
+## Runtime
+
 - [Config](config.md)
-- [Integrations](integrations.md)
 - [Error Handling](error-handling.md)
 - [OpenAPI](openapi.md)
 - [Observability](observability.md)
-- [Testing](testing.md)
 - [Events](events.md)
 - [Jobs](jobs.md)
-- [Performance](performance.md)
+- [Testing](testing.md)
+
+## Production
+
+- [Production Defaults](production-defaults.md)
 - [Deployment](deployment.md)
+- [Security Notes](security-notes.md)
+- [Performance](performance.md)
+
+## Ecosystem
+
+- [Official Adapters](official-adapters.md)
+- [SQLx](sqlx.md)
+- [Cache](cache.md)
 - [Examples](examples.md)
-- [Migration From NestJS Concepts](migration-from-nestjs.md)
+
+## Reference
+
+- [Architecture](architecture.md)
+- [API Reference](api-reference.md)
+- [Release 1.0.2](release-1-0-2.md)
 
 ## Current Status
 
-Nidus 1.0.0 established the public crate set. The current release track is 1.0.1, with work focused on launch hygiene, documentation, starter project depth, example proof, and package verification across every publishable crate.
+Nidus 1.0.0 established the public crate set. The current release track is 1.0.2, with work focused on launch hygiene, documentation, starter project depth, example proof, and package verification across every publishable crate.
 
 Use the README for the shortest quickstart, these guides for the deeper mental model, and `website/` for the generated GitHub Pages portal.
