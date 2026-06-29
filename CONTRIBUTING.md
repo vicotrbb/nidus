@@ -13,11 +13,31 @@ cargo test --workspace --all-features
 cargo doc --workspace --all-features --no-deps
 cargo audit
 cargo deny check
+bash scripts/package-publishable-crates.sh --list-only
 ```
 
 Run focused tests while iterating, then run the full gate before opening a
 pull request. `cargo miri test` is also useful for unsafe or low-level changes
 when the active Rust toolchain provides Miri.
+
+## Release Readiness Checks
+
+Before a release, run the optional integrity checks that mirror the scheduled
+GitHub Actions workflows:
+
+```bash
+cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info
+bash scripts/semver-check-publishable-crates.sh
+cargo sbom --output-format=cyclone_dx_json_1_6 > sbom.cdx.json
+```
+
+Install the matching tools if they are not already available:
+
+```bash
+cargo install cargo-llvm-cov --locked
+cargo install cargo-semver-checks --locked
+cargo install cargo-sbom --locked
+```
 
 ## Change Guidelines
 

@@ -1,0 +1,68 @@
+name: release integrity
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "43 5 * * 1"
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  sbom:
+    name: sbom
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal
+          rustup default 1.96.0
+      - name: Install cargo-sbom
+        run: cargo install cargo-sbom --locked
+      - name: Generate SBOM
+        run: cargo sbom --output-format=cyclone_dx_json_1_6 > sbom.cdx.json
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: nidus-sbom
+          path: sbom.cdx.json
+
+  coverage:
+    name: coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal
+          rustup default 1.96.0
+          rustup component add llvm-tools-preview
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov --locked
+      - name: Generate LCOV
+        run: cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: nidus-lcov
+          path: lcov.info
+
+  semver:
+    name: semver
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal
+          rustup default 1.96.0
+      - name: Install cargo-semver-checks
+        run: cargo install cargo-semver-checks --locked
+      - name: Check publishable crate APIs
+        run: bash scripts/semver-check-publishable-crates.sh

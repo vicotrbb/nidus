@@ -33,8 +33,16 @@ for crate in "${crates[@]}"; do
   if [ "${list_only}" -eq 1 ]; then
     # CI uses the file-list preflight because full cargo package cannot walk
     # the 1.0.1 internal dependency chain until earlier crates are published.
-    cargo package -p "${crate}" --list "${args[@]}" >/dev/null
+    if [ "${#args[@]}" -gt 0 ]; then
+      cargo package -p "${crate}" --list --allow-dirty "${args[@]}" >/dev/null
+    else
+      cargo package -p "${crate}" --list --allow-dirty >/dev/null
+    fi
   else
-    cargo package -p "${crate}" "${args[@]}"
+    if [ "${#args[@]}" -gt 0 ]; then
+      cargo package -p "${crate}" "${args[@]}"
+    else
+      cargo package -p "${crate}"
+    fi
   fi
 done

@@ -1,0 +1,51 @@
+name: security
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 5 * * 1"
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  codeql:
+    name: codeql
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: rust
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v4
+      - name: Analyze
+        uses: github/codeql-action/analyze@v4
+
+  scorecard:
+    name: openssf scorecard
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run OpenSSF Scorecard
+        uses: ossf/scorecard-action@v2.4.3
+        continue-on-error: true
+        with:
+          results_file: scorecard.sarif
+          results_format: sarif
+          publish_results: true
+      - name: Upload Scorecard SARIF
+        if: ${{ always() && hashFiles('scorecard.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: scorecard.sarif

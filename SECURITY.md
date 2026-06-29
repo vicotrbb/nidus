@@ -17,15 +17,19 @@ should upgrade to the latest `1.0.x` patch when a fix is released.
 ## Reporting a Vulnerability
 
 Do not open a public issue for suspected vulnerabilities. Report privately to
-the maintainers with:
+the maintainers with GitHub private vulnerability reporting for this repository.
+Use the repository's **Security** tab and choose **Report a vulnerability**.
+
+Include:
 
 - Affected crate, feature, or generated project template.
 - Steps to reproduce.
 - Expected impact.
 - Any relevant logs, requests, generated code, or configuration.
 
-The project should acknowledge valid reports, assess impact, prepare a fix, and
-coordinate disclosure once users have a reasonable upgrade path.
+The project aims to acknowledge valid reports within 3 business days. The
+maintainers will assess impact, prepare a fix or mitigation path, and coordinate
+public disclosure after users have a reasonable upgrade path.
 
 ## Scope
 
