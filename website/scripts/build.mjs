@@ -560,6 +560,35 @@ function pageShell({ title, description, body, currentSlug, home = false, toc = 
   const tocLinks = toc.length
     ? toc.map((item) => `<a class="toc-level-${item.level}" href="#${item.id}">${escapeHtml(item.title)}</a>`).join('')
     : '<span>No section headings</span>';
+  const footerColumns = [
+    {
+      title: 'Learn',
+      links: [
+        ['Docs', href('docs/')],
+        ['Install', href('docs/installation/')],
+        ['Examples', href('docs/examples/')],
+        ['API reference', href('docs/api-reference/')],
+      ],
+    },
+    {
+      title: 'Framework',
+      links: [
+        ['Modules', href('docs/modules/')],
+        ['Production defaults', href('docs/production-defaults/')],
+        ['Official adapters', href('docs/official-adapters/')],
+        ['Release notes', href('docs/release-1-0-2/')],
+      ],
+    },
+    {
+      title: 'Project',
+      links: [
+        ['GitHub', 'https://github.com/vicotrbb/nidus'],
+        ['crates.io', 'https://crates.io/crates/nidus-rs'],
+        ['docs.rs', `https://docs.rs/nidus-rs/${RELEASE_VERSION}/nidus/`],
+        ['Security', href('docs/security-notes/')],
+      ],
+    },
+  ];
 
   return `<!doctype html>
 <html lang="en">
@@ -610,10 +639,28 @@ function pageShell({ title, description, body, currentSlug, home = false, toc = 
     </div>
   </main>`}
   <footer class="site-footer">
-    <span>Nidus ${RELEASE_VERSION}</span>
-    <a href="${href('docs/release-1-0-2/')}">Release notes</a>
-    <a href="${href('docs/production-defaults/')}">Production</a>
-    <a href="${href('docs/official-adapters/')}">Adapters</a>
+    <div class="footer-inner">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <a class="footer-brand-link" href="${href()}" aria-label="Nidus home">
+            <img src="${asset('logo-mark-transparent.png')}" alt="" width="40" height="40">
+            <span>Nidus</span>
+          </a>
+          <p>A modular Rust backend framework for explicit services, inspectable modules, typed dependency injection, and separately installable adapters.</p>
+        </div>
+        <div class="footer-columns">
+          ${footerColumns.map((column) => `<nav class="footer-column" aria-label="${column.title}">
+            <h2>${column.title}</h2>
+            ${column.links.map(([label, url]) => `<a href="${url}">${label}</a>`).join('')}
+          </nav>`).join('')}
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>Nidus ${RELEASE_VERSION}</span>
+        <span>Apache-2.0 OR MIT</span>
+        <a href="https://github.com/vicotrbb/nidus">Source</a>
+      </div>
+    </div>
   </footer>
   <script src="${href('app.js')}" type="module"></script>
 </body>
@@ -621,6 +668,12 @@ function pageShell({ title, description, body, currentSlug, home = false, toc = 
 }
 
 function homePage() {
+  const starterCommand = `cargo install cargo-nidus --version ${RELEASE_VERSION}
+cargo nidus new hello-nidus
+cd hello-nidus
+cargo run`;
+  const starterCommandAttr = escapeHtml(starterCommand).replaceAll('\n', '&#10;');
+  const trustChips = ['Typed DI', 'Axum routes', 'OpenAPI', 'Production defaults', `Release ${RELEASE_VERSION}`];
   const surfaces = [
     ['Modules', 'docs/modules', 'Explicit imports, providers, controllers, exports, and graph validation.'],
     ['Controllers', 'docs/controllers-routes', 'Axum-backed route composition with Nidus metadata where it matters.'],
@@ -643,6 +696,12 @@ function homePage() {
     ['Examples', 'docs/examples', 'Jump to runnable services, including launchpad-api.'],
     ['Production', 'docs/production-defaults', 'Inspect HTTP defaults and deployment boundaries.'],
   ];
+  const examplePaths = [
+    ['Start small', 'hello-world and launchpad-api show the first controller, module, and server loop.'],
+    ['Build real services', 'realworld-api and production-api cover validation, health, metrics, guards, limits, events, and jobs.'],
+    ['Add adapters', 'sqlx-app, cache-app, and integrations-production show optional official crates without bloating core.'],
+    ['Copy from outside', 'external-support-desk and external-commerce use crates.io-style manifests for app-shaped examples.'],
+  ];
 
   const body = `<main>
     <section class="hero">
@@ -656,30 +715,24 @@ function homePage() {
           <a class="button ghost" href="${href('docs/examples/')}">Examples</a>
           <a class="button ghost" href="https://github.com/vicotrbb/nidus">GitHub</a>
         </div>
+        <ul class="trust-row" aria-label="Framework properties">
+          ${trustChips.map((chip) => `<li>${chip}</li>`).join('')}
+        </ul>
       </div>
       <div class="hero-proof" aria-label="Install and code sample">
         <img src="${asset('logo-full-transparent.png')}" alt="Nidus logo" width="689" height="658">
         <div class="install-command">
-          <code>cargo install cargo-nidus --version ${RELEASE_VERSION}</code>
-          <button type="button" data-copy="cargo install cargo-nidus --version ${RELEASE_VERSION}">Copy</button>
+          <div>
+            <span>Starter flow</span>
+            <pre><code>${escapeHtml(starterCommand)}</code></pre>
+          </div>
+          <button type="button" data-copy="${starterCommandAttr}">Copy</button>
         </div>
-        <pre><code>cargo install cargo-nidus --version ${RELEASE_VERSION}
-cargo nidus new hello-nidus
-cd hello-nidus
-cargo run</code></pre>
         <pre class="code-panel"><code>use nidus::prelude::*;
 
 #[controller("/users")]
 struct UsersController {
     service: Inject&lt;UsersService&gt;,
-}
-
-#[routes]
-impl UsersController {
-    #[get("/:id")]
-    async fn find_one(&self, Path(id): Path&lt;i64&gt;) -> Json&lt;UserDto&gt; {
-        Json(self.service.find_one(id).await)
-    }
 }
 
 #[module(
@@ -766,14 +819,17 @@ struct AppModule;</code></pre>
 
     <section class="example-panel" aria-labelledby="example-title">
       <div>
-        <p class="eyebrow">Example to inspect first</p>
-        <h2 id="example-title">launchpad-api and realworld-api are proof surfaces, not side demos.</h2>
-        <p><code>launchpad-api</code> is the compact framework tour. <code>realworld-api</code> exercises modules, SQLite, validation, OpenAPI, health, observability, request IDs, guards, CORS, limits, timeouts, events, and jobs. External examples show copyable crates.io-style manifests.</p>
+        <p class="eyebrow">Examples</p>
+        <h2 id="example-title">Learn the framework from runnable services.</h2>
+        <p>The examples move from a first controller to production-shaped services, adapter wiring, and external app templates. Use them as a guided tour of the public crates before choosing your own service shape.</p>
         <a class="text-link" href="${href('docs/examples/')}">View all examples</a>
       </div>
-      <pre><code>cargo run -p nidus-example-launchpad-api
-cargo run -p nidus-example-realworld-api
-bash scripts/verify-external-examples.sh</code></pre>
+      <div class="example-paths">
+        ${examplePaths.map(([title, text]) => `<article>
+          <h3>${title}</h3>
+          <p>${text}</p>
+        </article>`).join('')}
+      </div>
     </section>
 
     <section class="proof-band" aria-labelledby="proof-title">

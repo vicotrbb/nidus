@@ -1,23 +1,28 @@
 @import url("https://fonts.googleapis.com/css2?family=Afacad+Flux:wght@400;520;650;760&family=Bricolage+Grotesque:wght@500;700;800&display=swap");
 
 :root {
-  color-scheme: dark;
-  --bg: oklch(12% 0.018 255);
-  --bg-strong: oklch(8% 0.016 255);
-  --panel: oklch(17% 0.021 255);
-  --panel-2: oklch(21% 0.024 255);
-  --panel-3: oklch(26% 0.028 255);
-  --line: oklch(34% 0.035 255);
-  --line-soft: oklch(27% 0.028 255);
-  --text: oklch(92% 0.014 255);
-  --ink: oklch(98% 0.008 255);
-  --muted: oklch(75% 0.025 255);
-  --soft: oklch(62% 0.034 255);
-  --brand: oklch(64% 0.16 302);
-  --brand-soft: oklch(76% 0.105 306);
-  --rose: oklch(69% 0.16 348);
-  --copper: oklch(73% 0.13 72);
-  --ice: oklch(78% 0.08 226);
+  color-scheme: light;
+  --bg: oklch(97.5% 0.012 304);
+  --bg-strong: oklch(15% 0.026 286);
+  --panel: oklch(99% 0.006 304);
+  --panel-2: oklch(94.5% 0.021 304);
+  --panel-3: oklch(90.5% 0.033 304);
+  --line: oklch(82% 0.034 304);
+  --line-soft: oklch(88% 0.025 304);
+  --text: oklch(30% 0.029 286);
+  --ink: oklch(17% 0.036 286);
+  --muted: oklch(43% 0.03 286);
+  --soft: oklch(55% 0.035 286);
+  --brand: oklch(47% 0.17 296);
+  --brand-soft: oklch(39% 0.15 296);
+  --brand-tint: oklch(92% 0.052 303);
+  --rose: oklch(54% 0.15 348);
+  --copper: oklch(50% 0.105 74);
+  --ice: oklch(45% 0.09 225);
+  --code-bg: oklch(15% 0.026 286);
+  --code-panel: oklch(19% 0.03 286);
+  --code-line: oklch(32% 0.04 286);
+  --code-text: oklch(93% 0.014 286);
   --max: 1180px;
   --doc-max: 1480px;
   --radius: 8px;
@@ -36,6 +41,17 @@
   box-sizing: border-box;
 }
 
+main,
+section,
+article,
+div,
+nav,
+aside,
+header,
+footer {
+  min-width: 0;
+}
+
 html {
   scroll-behavior: smooth;
 }
@@ -44,10 +60,10 @@ body {
   margin: 0;
   overflow-x: clip;
   background:
-    linear-gradient(90deg, color-mix(in oklch, var(--line), transparent 90%) 1px, transparent 1px),
-    linear-gradient(color-mix(in oklch, var(--line), transparent 92%) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklch, var(--line), transparent 72%) 1px, transparent 1px),
+    linear-gradient(color-mix(in oklch, var(--line), transparent 78%) 1px, transparent 1px),
     var(--bg);
-  background-size: 76px 76px, 76px 76px, auto;
+  background-size: 88px 88px, 88px 88px, auto;
   color: var(--text);
   font-family: "Afacad Flux", "Segoe UI", sans-serif;
   font-size: 17px;
@@ -61,8 +77,8 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    linear-gradient(180deg, transparent 0, var(--bg) 72%),
-    linear-gradient(135deg, color-mix(in oklch, var(--brand), transparent 94%), transparent 36rem);
+    linear-gradient(180deg, color-mix(in oklch, var(--brand-tint), transparent 18%) 0, transparent 32rem),
+    linear-gradient(135deg, color-mix(in oklch, var(--panel), transparent 6%), transparent 42rem);
 }
 
 a {
@@ -92,8 +108,9 @@ pre {
   gap: var(--space-xl);
   width: min(var(--doc-max), calc(100% - 32px));
   margin: 0 auto;
+  border-bottom: 1px solid color-mix(in oklch, var(--line), transparent 34%);
   padding: var(--space-md) 0;
-  background: color-mix(in oklch, var(--bg), transparent 8%);
+  background: color-mix(in oklch, var(--bg), transparent 5%);
   backdrop-filter: blur(18px);
 }
 
@@ -150,13 +167,13 @@ pre {
 .hero {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.92fr);
+  grid-template-columns: minmax(0, 0.96fr) minmax(360px, 0.88fr);
   align-items: center;
-  gap: var(--space-4xl);
+  gap: var(--space-3xl);
   width: min(var(--max), calc(100% - 32px));
-  min-height: 610px;
+  min-height: 560px;
   margin: 0 auto;
-  padding: var(--space-4xl) 0 var(--space-3xl);
+  padding: var(--space-3xl) 0 var(--space-2xl);
 }
 
 .hero::after,
@@ -165,17 +182,17 @@ pre {
   content: "";
   position: absolute;
   pointer-events: none;
-  border: 1px solid color-mix(in oklch, var(--brand), transparent 62%);
+  border: 1px solid color-mix(in oklch, var(--brand), transparent 72%);
   border-radius: 48% 52% 44% 56%;
   transform: rotate(-10deg);
 }
 
 .hero::after {
   right: 28%;
-  bottom: 10%;
-  width: 260px;
+  bottom: 8%;
+  width: 220px;
   aspect-ratio: 0.9;
-  opacity: 0.55;
+  opacity: 0.32;
 }
 
 .hero-copy,
@@ -209,7 +226,7 @@ h4 {
 h1 {
   margin: var(--space-sm) 0 var(--space-xl);
   max-width: 8ch;
-  font-size: 7.6rem;
+  font-size: 7rem;
   line-height: 0.92;
 }
 
@@ -232,6 +249,7 @@ h3 {
   color: var(--muted);
   font-size: 1.35rem;
   line-height: 1.55;
+  overflow-wrap: break-word;
 }
 
 .hero-actions {
@@ -239,6 +257,25 @@ h3 {
   flex-wrap: wrap;
   gap: var(--space-md);
   margin-top: var(--space-2xl);
+}
+
+.trust-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin: var(--space-xl) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trust-row li {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--panel), var(--brand-tint) 38%);
+  padding: var(--space-xs) var(--space-md);
+  color: var(--muted);
+  font-size: 0.94rem;
+  font-weight: 650;
 }
 
 .button {
@@ -255,13 +292,15 @@ h3 {
 }
 
 .button.primary {
-  border-color: color-mix(in oklch, var(--brand), white 12%);
-  background: var(--brand);
-  color: oklch(12% 0.035 294);
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--bg);
 }
 
 .button.secondary {
-  background: var(--panel-2);
+  border-color: color-mix(in oklch, var(--brand), var(--line) 36%);
+  background: var(--brand-tint);
+  color: var(--brand-soft);
 }
 
 .button.ghost {
@@ -278,28 +317,29 @@ h3 {
 
 .hero-proof {
   display: grid;
-  gap: var(--space-lg);
+  gap: var(--space-md);
   justify-items: end;
 }
 
 .hero-proof img {
-  width: min(100%, 390px);
+  width: min(100%, 360px);
   height: auto;
   object-fit: contain;
+  filter: drop-shadow(0 28px 38px oklch(28% 0.08 296 / 0.16));
 }
 
 .hero-proof pre,
 .example-panel pre,
 .doc-content pre {
   overflow-x: auto;
-  border: 1px solid var(--line);
+  border: 1px solid var(--code-line);
   border-radius: var(--radius);
-  background: var(--bg-strong);
-  color: var(--text);
+  background: var(--code-bg);
+  color: var(--code-text);
 }
 
 .hero-proof pre {
-  width: min(100%, 440px);
+  width: 100%;
   margin: 0;
   padding: var(--space-lg);
   font-size: 0.92rem;
@@ -307,33 +347,50 @@ h3 {
 
 .hero-proof .code-panel {
   width: min(100%, 560px);
-  font-size: 0.8rem;
+  background: var(--code-panel);
+  font-size: 0.78rem;
 }
 
 .install-command {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+  align-items: start;
   gap: var(--space-sm);
   width: min(100%, 560px);
-  border: 1px solid color-mix(in oklch, var(--copper), transparent 34%);
+  border: 1px solid color-mix(in oklch, var(--copper), transparent 28%);
   border-radius: var(--radius);
-  background: color-mix(in oklch, var(--panel), var(--copper) 5%);
-  padding: var(--space-sm);
+  background: color-mix(in oklch, var(--panel), var(--copper) 4%);
+  padding: var(--space-md);
+}
+
+.install-command div {
+  min-width: 0;
+}
+
+.install-command span {
+  display: block;
+  margin-bottom: var(--space-sm);
+  color: var(--copper);
+  font-weight: 760;
+}
+
+.install-command pre {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  padding: 0;
 }
 
 .install-command code {
-  min-width: 0;
-  overflow-x: auto;
-  color: var(--ink);
-  white-space: nowrap;
+  color: inherit;
+  white-space: pre;
 }
 
 .install-command button {
-  min-height: 34px;
-  border: 1px solid var(--line);
+  min-height: 38px;
+  border: 1px solid color-mix(in oklch, var(--line), var(--ink) 8%);
   border-radius: 6px;
-  background: var(--panel-2);
+  background: var(--panel);
   color: var(--ink);
   font: inherit;
   font-size: 0.88rem;
@@ -441,6 +498,10 @@ h3 {
   padding: var(--space-2xl) var(--space-xl);
 }
 
+.model-flow article:nth-child(2n) {
+  background: color-mix(in oklch, var(--panel), var(--brand-tint) 32%);
+}
+
 .model-flow article + article {
   border-left: 1px solid var(--line-soft);
 }
@@ -523,15 +584,37 @@ h3 {
 
 .example-panel {
   display: grid;
-  grid-template-columns: minmax(260px, 0.72fr) minmax(0, 0.8fr);
+  grid-template-columns: minmax(260px, 0.54fr) minmax(0, 1fr);
   gap: var(--space-3xl);
-  align-items: end;
+  align-items: start;
 }
 
 .example-panel pre {
   margin: 0;
   padding: var(--space-xl);
   font-size: 0.96rem;
+}
+
+.example-paths {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-lg);
+}
+
+.example-paths article {
+  min-height: 168px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: color-mix(in oklch, var(--panel), transparent 4%);
+  padding: var(--space-xl);
+}
+
+.example-paths article:nth-child(1) {
+  background: color-mix(in oklch, var(--brand-tint), var(--panel) 48%);
+}
+
+.example-paths article:nth-child(4) {
+  background: color-mix(in oklch, var(--panel-2), var(--panel) 42%);
 }
 
 .text-link {
@@ -712,6 +795,10 @@ a:focus-visible {
   color: var(--ink);
 }
 
+.doc-content pre code {
+  color: var(--code-text);
+}
+
 .doc-content :not(pre) > code {
   border: 1px solid color-mix(in oklch, var(--line), transparent 28%);
   border-radius: 6px;
@@ -800,21 +887,92 @@ a:focus-visible {
 }
 
 .site-footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-lg);
+  margin-top: var(--space-3xl);
+  border-top: 1px solid var(--line);
+  background: color-mix(in oklch, var(--panel-2), var(--bg) 54%);
+  color: var(--soft);
+}
+
+.footer-inner {
   width: min(var(--doc-max), calc(100% - 32px));
   margin: 0 auto;
-  border-top: 1px solid var(--line);
-  padding: var(--space-2xl) 0;
-  color: var(--soft);
+  padding: var(--space-3xl) 0 var(--space-2xl);
+}
+
+.footer-top {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.42fr) minmax(0, 1fr);
+  gap: var(--space-4xl);
+  align-items: start;
+}
+
+.footer-brand {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.footer-brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--ink);
+  font-family: "Bricolage Grotesque", "Afacad Flux", sans-serif;
+  font-size: 1.35rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.footer-brand-link img {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+}
+
+.footer-brand p {
+  max-width: 38ch;
+  margin: 0;
+  color: var(--muted);
+}
+
+.footer-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2xl);
+}
+
+.footer-column {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.footer-column h2 {
+  margin: 0 0 var(--space-xs);
+  color: var(--ink);
+  font-size: 1rem;
+  line-height: 1.2;
 }
 
 .site-footer a {
   color: var(--muted);
   text-decoration: none;
+}
+
+.site-footer a:hover,
+.site-footer a:focus-visible {
+  color: var(--brand-soft);
+}
+
+.footer-bottom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  margin-top: var(--space-3xl);
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-xl);
+  color: var(--soft);
+  font-size: 0.94rem;
 }
 
 .not-found {
@@ -826,7 +984,7 @@ a:focus-visible {
 
 .not-found h1 {
   max-width: none;
-  font-size: clamp(3.4rem, 10vw, 7rem);
+  font-size: 5.5rem;
 }
 
 .not-found p {
@@ -858,8 +1016,14 @@ a:focus-visible {
 
   .minute-links,
   .model-flow,
+  .example-paths,
   .proof-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .footer-top {
+    grid-template-columns: 1fr;
+    gap: var(--space-2xl);
   }
 
   .minute-links a:nth-child(3) {
@@ -897,7 +1061,8 @@ a:focus-visible {
   }
 
   .site-header {
-    width: min(var(--doc-max), calc(100% - 24px));
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
   }
 
   .nav-toggle {
@@ -929,8 +1094,9 @@ a:focus-visible {
   .example-panel,
   .proof-band,
   .docs-frame,
-  .site-footer {
-    width: min(100% - 24px, var(--max));
+  .footer-inner {
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
   }
 
   .hero {
@@ -973,7 +1139,8 @@ a:focus-visible {
   }
 
   .hero-proof pre,
-  .example-panel pre {
+  .example-panel pre,
+  .doc-content pre {
     width: 100%;
     font-size: 0.82rem;
     white-space: pre-wrap;
@@ -986,12 +1153,13 @@ a:focus-visible {
   }
 
   .install-command code {
-    white-space: normal;
+    white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
 
   .minute-links,
   .model-flow,
+  .example-paths,
   .proof-list {
     grid-template-columns: 1fr;
   }
@@ -1033,9 +1201,29 @@ a:focus-visible {
   .doc-content h2 {
     font-size: 1.9rem;
   }
+
+  .footer-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 520px) {
+  .site-header,
+  .hero,
+  .first-minute,
+  .concept-model,
+  .surface-table,
+  .adapter-story,
+  .example-panel,
+  .proof-band,
+  .docs-frame,
+  .footer-inner {
+    width: min(366px, calc(100vw - 24px));
+    max-width: 366px;
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+
   .brand {
     font-size: 1.12rem;
   }
@@ -1059,6 +1247,7 @@ a:focus-visible {
 
   .button {
     width: 100%;
+    flex: 0 0 auto;
   }
 
   .concept-model,
@@ -1081,6 +1270,19 @@ a:focus-visible {
 
   .docs-pager a:last-child {
     text-align: left;
+  }
+
+  .not-found h1 {
+    font-size: 3.4rem;
+  }
+
+  .footer-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .footer-bottom {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 
