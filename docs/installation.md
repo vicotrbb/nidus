@@ -3,7 +3,7 @@
 Install the Nidus CLI from crates.io:
 
 ```bash
-cargo install cargo-nidus --version 1.0.2
+cargo install cargo-nidus --version 1.0.3
 cargo nidus new hello-nidus
 cd hello-nidus
 cargo run
@@ -20,14 +20,14 @@ Applications depend on the facade crate and opt into feature groups explicitly:
 
 ```toml
 [dependencies]
-nidus = { package = "nidus-rs", version = "1.0.2", features = ["http", "config", "openapi", "validation"] }
+nidus = { package = "nidus-rs", version = "1.0.3", features = ["http", "config", "openapi", "validation"] }
 ```
 
 Official adapters are separate crates, so the core facade stays lean:
 
 ```toml
-nidus-sqlx = { version = "1.0.2", features = ["sqlite"] }
-nidus-cache = { version = "1.0.2", features = ["moka"] }
+nidus-sqlx = { version = "1.0.3", features = ["sqlite"] }
+nidus-cache = { version = "1.0.3", features = ["moka"] }
 ```
 
 ## Feature Flags
@@ -52,8 +52,10 @@ Use the prelude in application entrypoints:
 use nidus::prelude::*;
 ```
 
-The prelude keeps extension traits such as `ApplicationHttpExt`,
-`NidusApplicationExt`, and `ApiDefaultsObservabilityExt` in scope.
+The prelude keeps app-composition traits such as `NidusApplicationExt`,
+`ApplicationHttpExt`, and `ApiDefaultsObservabilityExt` in scope. Prefer the
+facade builder path, `Nidus::create::<AppModule>().with_router(router)`, when
+composing manual Axum routes with module routes.
 
 ## Ownership Boundary
 

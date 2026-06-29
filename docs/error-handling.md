@@ -53,3 +53,15 @@ production client-facing shape:
 The layer reads `RequestContext` from request extensions when present, masks
 server-error messages, and preserves the ability for applications to return
 custom Axum responses by simply not applying the layer.
+
+`not_found_fallback` is the first-party unmatched-route helper. Production
+defaults install it automatically:
+
+```rust
+let app = ApiDefaults::production("users-api").apply(router);
+```
+
+Missing routes then return the same production envelope as
+`HttpError::not_found(...)`, with `code: "not_found"` and `message:
+"route not found"`. Use `without_not_found_fallback()` when an application
+needs a custom Axum fallback.

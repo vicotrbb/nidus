@@ -73,8 +73,9 @@ fn app() -> Router {
 
 #[nidus::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    Nidus::bootstrap::<AppModule>()?
-        .with_router(app())
+    Nidus::create::<AppModule>()
+        .build_with_router(app())
+        .await?
         .listen("127.0.0.1:3000")
         .await?;
     Ok(())
@@ -137,7 +138,7 @@ mod tests {
             "openapi": "3.1.0",
             "info": {
                 "title": "Nidus Example API",
-                "version": "1.0.2"
+                "version": "1.0.3"
             },
             "paths": {
                 "/users": {

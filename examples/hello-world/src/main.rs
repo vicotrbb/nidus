@@ -19,8 +19,9 @@ impl HelloController {
 
 #[nidus::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    Nidus::bootstrap::<AppModule>()?
-        .with_router(app())
+    Nidus::create::<AppModule>()
+        .build_with_router(app())
+        .await?
         .listen("127.0.0.1:3000")
         .await?;
     Ok(())

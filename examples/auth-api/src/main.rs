@@ -9,7 +9,7 @@
 use async_trait::async_trait;
 use axum::Router;
 use nidus::prelude::{
-    ApplicationHttpExt, Controller, Guard, GuardContext, GuardError, Nidus, RouteDefinition,
+    Controller, Guard, GuardContext, GuardError, Nidus, NidusApplicationExt, RouteDefinition,
     guard_layer, module,
 };
 
@@ -23,11 +23,7 @@ struct ApiKeyGuard;
 #[async_trait]
 impl Guard<()> for ApiKeyGuard {
     async fn check(&self, ctx: GuardContext<()>) -> Result<(), GuardError> {
-        match ctx
-            .headers()
-            .get("x-api-key")
-            .and_then(|value| value.to_str().ok())
-        {
+        match ctx.api_key("x-api-key")? {
             Some(key) if key == EXPECTED_API_KEY => Ok(()),
             _ => Err(GuardError::unauthorized("missing or invalid x-api-key")),
         }
@@ -47,8 +43,9 @@ async fn me() -> &'static str {
 
 #[nidus::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    Nidus::bootstrap::<AppModule>()?
-        .with_router(app())
+    Nidus::create::<AppModule>()
+        .build_with_router(app())
+        .await?
         .listen("127.0.0.1:3000")
         .await?;
     Ok(())

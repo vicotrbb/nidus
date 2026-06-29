@@ -17,13 +17,13 @@ use std::{
 use tracing::Instrument;
 
 #[cfg(feature = "events")]
-use nidus_events::{EventObserver, ObservedEventContext};
+use nidus_events::{EventBus, EventObserver, ObservedEventBus, ObservedEventContext};
 #[cfg(feature = "http")]
 use nidus_http::middleware::{
     ApiDefaults, HttpMetricsHook, MetricsLayer, PrometheusMetrics, metrics_layer,
 };
 #[cfg(feature = "jobs")]
-use nidus_jobs::{JobObserver, JobResultStatus, ObservedJobContext};
+use nidus_jobs::{JobObserver, JobResultStatus, ObservedJobContext, ObservedJobRunner};
 
 /// Production observability configuration and in-process metrics state.
 #[derive(Clone, Debug)]
@@ -229,12 +229,27 @@ impl Observability {
         }
     }
 
+    /// Creates an observed in-process event bus wired to this observability object.
+    #[cfg(feature = "events")]
+    pub fn observed_event_bus<T>(&self) -> ObservedEventBus<T, ObservabilityEventObserver>
+    where
+        T: Clone + Send + Sync + 'static,
+    {
+        EventBus::new().observed(self.event_observer())
+    }
+
     /// Creates a job observer for [`nidus_jobs::ObservedJobRunner`].
     #[cfg(feature = "jobs")]
     pub fn job_observer(&self) -> ObservabilityJobObserver {
         ObservabilityJobObserver {
             observability: self.clone(),
         }
+    }
+
+    /// Creates an observed job runner wired to this observability object.
+    #[cfg(feature = "jobs")]
+    pub fn job_runner(&self) -> ObservedJobRunner<ObservabilityJobObserver> {
+        ObservedJobRunner::new(self.job_observer())
     }
 
     /// Creates an adapter observer for Nidus-owned adapter operations.

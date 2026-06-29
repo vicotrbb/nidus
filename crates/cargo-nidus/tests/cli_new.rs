@@ -18,47 +18,57 @@ fn cargo_nidus_new_generates_compilable_nidus_project() {
 
     assert!(status.success());
     assert!(project.join("Cargo.toml").exists());
+    assert!(project.join("src/lib.rs").exists());
     assert!(project.join("src/main.rs").exists());
+    assert!(project.join("tests/http.rs").exists());
     let cargo_toml = fs::read_to_string(project.join("Cargo.toml")).unwrap();
     assert!(!cargo_toml.contains("axum ="));
-    assert!(!cargo_toml.contains("tokio ="));
+    assert!(
+        cargo_toml
+            .contains(r#"tokio = { version = "1", features = ["macros", "rt-multi-thread"] }"#)
+    );
+    assert!(cargo_toml.contains(r#"features = ["testing"]"#));
+    let lib_rs = fs::read_to_string(project.join("src/lib.rs")).unwrap();
+    assert!(lib_rs.contains("use nidus::prelude::*;"));
+    assert!(lib_rs.contains("pub async fn build_app()"));
+    assert!(lib_rs.contains("Nidus::create::<AppModule>()"));
+    assert!(lib_rs.contains("GreetingService"));
+    assert!(lib_rs.contains("greeting: Inject<GreetingService>"));
+    assert!(lib_rs.contains("ApiDefaults::production(\"hello-nidus\")"));
+    assert!(!lib_rs.contains(".without_metrics()"));
+    assert!(lib_rs.contains("#[module("));
+    assert!(lib_rs.contains("providers(GreetingService)"));
+    assert!(lib_rs.contains("controllers(HelloController)"));
+    assert!(lib_rs.contains("pub struct AppModule;"));
+    assert!(!lib_rs.contains("impl Module for AppModule"));
     let main_rs = fs::read_to_string(project.join("src/main.rs")).unwrap();
-    assert!(main_rs.contains("use nidus::prelude::*;"));
-    assert!(!main_rs.contains("use nidus::{"));
     assert!(main_rs.contains("#[nidus::main]"));
     assert!(!main_rs.contains("#[tokio::main]"));
-    assert!(main_rs.contains("#[controller(\"/\")]"));
-    assert!(main_rs.contains("#[routes]"));
-    assert!(main_rs.contains("#[get(\"/\")]"));
-    assert!(main_rs.contains("Nidus::create::<AppModule>()"));
-    assert!(main_rs.contains("GreetingService"));
-    assert!(main_rs.contains("greeting: Inject<GreetingService>"));
-    assert!(main_rs.contains("ApiDefaults::production(\"hello-nidus\")"));
-    assert!(main_rs.contains(".without_metrics()"));
     assert!(main_rs.contains("NIDUS_ADDR"));
-    assert!(main_rs.contains("#[module("));
-    assert!(main_rs.contains("providers(GreetingService)"));
-    assert!(main_rs.contains("controllers(HelloController)"));
-    assert!(main_rs.contains("struct AppModule;"));
-    assert!(!main_rs.contains("impl Module for AppModule"));
-    assert!(main_rs.contains(".map_router("));
+    assert!(main_rs.contains("hello_nidus::build_app().await?"));
     assert!(main_rs.contains(".listen(address)"));
+    let http_rs = fs::read_to_string(project.join("tests/http.rs")).unwrap();
+    assert!(http_rs.contains("use nidus::prelude::{StatusCode, TestApp};"));
+    assert!(http_rs.contains("hello_nidus::build_app().await.unwrap()"));
+    assert!(http_rs.contains("root_route_returns_greeting"));
+    assert!(http_rs.contains("health_and_readiness_routes_are_available"));
+    assert!(http_rs.contains("/health/live"));
+    assert!(http_rs.contains("/health/ready"));
     let readme = fs::read_to_string(project.join("README.md")).unwrap();
     assert!(readme.contains("hello-nidus"));
     assert!(readme.contains("NIDUS_ADDR"));
     assert!(readme.contains("cargo test"));
+    assert!(readme.contains("src/lib.rs"));
+    assert!(readme.contains("tests/http.rs"));
+    assert!(readme.contains("curl http://127.0.0.1:3000/health/ready"));
     assert!(readme.contains("cargo nidus generate controller users"));
     assert!(readme.contains("cargo nidus routes"));
     assert!(readme.contains("curl http://127.0.0.1:3000/"));
-    assert!(readme.contains("## Common imports and extension traits"));
+    assert!(readme.contains("## Router composition"));
     assert!(readme.contains("use nidus::prelude::*;"));
-    assert!(readme.contains("ApplicationHttpExt"));
     assert!(readme.contains("NidusApplicationExt"));
-    assert!(readme.contains("ApiDefaultsObservabilityExt"));
-    assert!(readme.contains("## Common compile errors"));
-    assert!(readme.contains("no method named `with_router`"));
-    assert!(readme.contains("no method named `listen`"));
-    assert!(readme.contains("no method named `observability`"));
+    assert!(readme.contains("with_router"));
+    assert!(readme.contains("build_with_router"));
     assert!(readme.contains("Next steps"));
 
     let check = Command::new("cargo")
@@ -67,6 +77,13 @@ fn cargo_nidus_new_generates_compilable_nidus_project() {
         .status()
         .unwrap();
     assert!(check.success());
+
+    let test = Command::new("cargo")
+        .arg("test")
+        .current_dir(&project)
+        .status()
+        .unwrap();
+    assert!(test.success());
 }
 
 #[test]
@@ -81,7 +98,9 @@ fn cargo_nidus_new_defaults_to_published_nidus_dependency() {
 
     assert!(status.success());
     let cargo_toml = fs::read_to_string(project.join("Cargo.toml")).unwrap();
-    assert!(cargo_toml.contains(r#"nidus = { package = "nidus-rs", version = "1.0.2" }"#));
+    assert!(cargo_toml.contains(
+        r#"nidus = { package = "nidus-rs", version = "1.0.3", features = ["testing"] }"#
+    ));
     assert!(!cargo_toml.contains("nidus = { path ="));
 }
 
@@ -98,9 +117,9 @@ fn cargo_nidus_new_uses_project_name_for_service_name() {
         .unwrap();
 
     assert!(status.success());
-    let main_rs = fs::read_to_string(project.join("src/main.rs")).unwrap();
-    assert!(main_rs.contains("ApiDefaults::production(\"team-api\")"));
-    assert!(!main_rs.contains("ApiDefaults::production(\"hello-nidus\")"));
+    let lib_rs = fs::read_to_string(project.join("src/lib.rs")).unwrap();
+    assert!(lib_rs.contains("ApiDefaults::production(\"team-api\")"));
+    assert!(!lib_rs.contains("ApiDefaults::production(\"hello-nidus\")"));
 }
 
 #[test]

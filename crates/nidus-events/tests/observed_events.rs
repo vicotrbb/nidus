@@ -63,3 +63,18 @@ fn observed_event_bus_can_enqueue_context_for_off_thread_observers() {
     assert_eq!(context.operation_id(), "event-run-2");
     assert_eq!(context.attributes().get("request_id").unwrap(), "req-456");
 }
+
+#[test]
+fn event_bus_observed_wraps_bus_without_repeating_type_names() {
+    let bus = EventBus::<UserCreated>::new();
+    let subscriber = bus.subscribe();
+    let observer = RecordingObserver::default();
+    let observed = bus
+        .observed(observer.clone())
+        .operation_id_generator(|| "event-run-3".to_owned());
+
+    observed.publish_named("user.created", UserCreated(44));
+
+    assert_eq!(subscriber.drain(), vec![UserCreated(44)]);
+    assert_eq!(observer.events(), ["published user.created event-run-3"]);
+}

@@ -39,6 +39,8 @@ where
     container: Container,
     openapi: Option<OpenApiOptions>,
     tracing: bool,
+    #[cfg(feature = "http")]
+    routers: Vec<Router>,
     #[cfg(feature = "observability")]
     observability: Option<Observability>,
     #[cfg(feature = "openapi")]
@@ -55,6 +57,8 @@ where
             container: Container::new(),
             openapi: None,
             tracing: false,
+            #[cfg(feature = "http")]
+            routers: Vec::new(),
             #[cfg(feature = "observability")]
             observability: None,
             #[cfg(feature = "openapi")]
@@ -108,6 +112,28 @@ where
         self
     }
 
+    /// Merges an Axum router into the application built from the root module.
+    ///
+    /// This is the ergonomic builder-path equivalent of attaching a router
+    /// through [`ApplicationHttpExt`] after bootstrapping an [`Application`].
+    /// Routes declared by controllers and routes from every router passed here
+    /// are composed before tracing, observability, or other builder-owned HTTP
+    /// layers are applied.
+    #[cfg(feature = "http")]
+    pub fn with_router(mut self, router: Router) -> Self {
+        self.routers.push(router);
+        self
+    }
+
+    /// Builds the application after merging an Axum router.
+    ///
+    /// This is a convenience for `Nidus::create::<AppModule>()
+    /// .with_router(router).build().await`.
+    #[cfg(feature = "http")]
+    pub async fn build_with_router(self, router: Router) -> Result<HttpApplication> {
+        self.with_router(router).build().await
+    }
+
     /// Builds a composed HTTP application.
     #[cfg(feature = "http")]
     pub async fn build(mut self) -> Result<HttpApplication> {
@@ -144,7 +170,7 @@ where
     }
 
     #[cfg(feature = "http")]
-    fn build_router(&self, graph: &ModuleGraph) -> Result<Router> {
+    fn build_router(&mut self, graph: &ModuleGraph) -> Result<Router> {
         let mut router = Router::new();
         let mut seen_routes = BTreeSet::new();
 
@@ -186,6 +212,10 @@ where
                 let controller_router = downcast_router(controller.build_router(&self.container)?)?;
                 router = router.merge(controller_router);
             }
+        }
+
+        for manual_router in self.routers.drain(..) {
+            router = router.merge(manual_router);
         }
 
         #[cfg(feature = "openapi")]

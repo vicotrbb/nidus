@@ -22,14 +22,14 @@ It is additive. The lower-level APIs remain available:
 Enable the facade feature when using `nidus::prelude::*`:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.2", features = ["observability", "events", "jobs", "otel"] }
+nidus = { package = "nidus-rs", version = "1.0.3", features = ["observability", "events", "jobs", "otel"] }
 ```
 
 Official adapters expose observability hooks behind their own feature flags:
 
 ```toml
-nidus-sqlx = { version = "1.0.2", features = ["sqlite", "health", "observability"] }
-nidus-cache = { version = "1.0.2", features = ["health", "observability"] }
+nidus-sqlx = { version = "1.0.3", features = ["sqlite", "health", "observability"] }
+nidus-cache = { version = "1.0.3", features = ["health", "observability"] }
 ```
 
 ## Common Imports And Extension Traits
@@ -42,16 +42,20 @@ use nidus::prelude::*;
 
 The prelude imports:
 
-- `ApplicationHttpExt`, which enables `.with_router(...)`.
-- `NidusApplicationExt`, which enables `Nidus::create::<AppModule>()`,
-  `.listen(...)`, and `.into_router()`.
+- `NidusApplicationExt`, which enables `Nidus::create::<AppModule>()`.
+- The facade builder supports `.with_router(router)` and
+  `.build_with_router(router)` for composing manual Axum routes with module
+  routes.
+- `ApplicationHttpExt`, which remains available for lower-level
+  `Nidus::bootstrap::<AppModule>()?.with_router(router)` composition.
 - `ApiDefaultsObservabilityExt`, which enables
   `.observability(&observability)` and observability-aware API defaults.
 
 Common compile errors:
 
-- `no method named with_router`: import `ApplicationHttpExt` or
-  `nidus::prelude::*`.
+- `no method named with_router` after `Nidus::bootstrap`: import
+  `ApplicationHttpExt` or `nidus::prelude::*`; after `Nidus::create`, call the
+  builder's `.with_router(router)` before `.build().await`.
 - `no method named listen` or `no method named into_router`: import
   `NidusApplicationExt` or `nidus::prelude::*`.
 - `no method named observability`: import `ApiDefaultsObservabilityExt` or
@@ -156,13 +160,10 @@ IDs, raw URLs, SQL text, cache keys, or tenant-controlled strings into labels.
 Use Nidus-owned wrappers to get event and job metrics:
 
 ```rust
-let observed = ObservedEventBus::new(
-    EventBus::<UserCreated>::new(),
-    observability.event_observer(),
-);
+let observed = observability.observed_event_bus::<UserCreated>();
 observed.publish_named("user.created", UserCreated { id: 42 });
 
-let runner = ObservedJobRunner::new(observability.job_observer());
+let runner = observability.job_runner();
 runner.run(&SendDigest)?;
 ```
 

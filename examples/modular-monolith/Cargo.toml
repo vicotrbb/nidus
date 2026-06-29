@@ -1,8 +1,8 @@
 [package]
 name = "nidus-example-modular-monolith"
-version = "1.0.2"
+version = "1.0.3"
 edition = "2024"
 publish = false
 
 [dependencies]
-nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.2", default-features = false, features = ["http"] }
+nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.3", default-features = false, features = ["http"] }

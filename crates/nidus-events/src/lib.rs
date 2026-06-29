@@ -327,6 +327,15 @@ where
         }
     }
 
+    /// Wraps this bus with an observer.
+    pub fn observed<O>(self, observer: O) -> ObservedEventBus<T, O>
+    where
+        T: Send + Sync + 'static,
+        O: EventObserver<T>,
+    {
+        ObservedEventBus::new(self, observer)
+    }
+
     /// Returns the number of active subscribers.
     pub fn subscriber_count(&self) -> usize {
         self.live_subscribers().len()

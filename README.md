@@ -24,20 +24,20 @@ Application dependencies stay explicit:
 
 ```toml
 [dependencies]
-nidus = { package = "nidus-rs", version = "1.0.2", features = ["http", "config", "openapi", "validation"] }
+nidus = { package = "nidus-rs", version = "1.0.3", features = ["http", "config", "openapi", "validation"] }
 ```
 
 For production observability through the facade:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.2", features = ["observability", "events", "jobs", "otel"] }
+nidus = { package = "nidus-rs", version = "1.0.3", features = ["observability", "events", "jobs", "otel"] }
 ```
 
 Official integrations are separate crates:
 
 ```toml
-nidus-sqlx = { version = "1.0.2", features = ["sqlite"] }
-nidus-cache = { version = "1.0.2", features = ["moka"] }
+nidus-sqlx = { version = "1.0.3", features = ["sqlite"] }
+nidus-cache = { version = "1.0.3", features = ["moka"] }
 ```
 
 ## Which Crate Do I Install?
@@ -56,19 +56,23 @@ Use the prelude at application entrypoints:
 use nidus::prelude::*;
 ```
 
-The prelude is the recommended import because it keeps the extension traits
-that power common app composition methods in scope:
+The prelude is the recommended import because it keeps common app composition
+types and extension traits in scope:
 
-- `ApplicationHttpExt` enables `.with_router(...)`.
-- `NidusApplicationExt` enables `Nidus::create::<AppModule>()`, `.listen(...)`,
-  and `.into_router()`.
+- `NidusApplicationExt` enables `Nidus::create::<AppModule>()`.
+- The facade builder supports `.with_router(router)` and
+  `.build_with_router(router)` for composing manual Axum routes with module
+  routes.
+- `ApplicationHttpExt` remains available for lower-level
+  `Nidus::bootstrap::<AppModule>()?.with_router(router)` composition.
 - `ApiDefaultsObservabilityExt` enables `.observability(&observability)` and
   observability-aware API defaults when the `observability` feature is enabled.
 
 ## Common Compile Errors
 
-- `no method named with_router`: import `ApplicationHttpExt` or
-  `nidus::prelude::*`.
+- `no method named with_router` after `Nidus::bootstrap`: import
+  `ApplicationHttpExt` or `nidus::prelude::*`; after `Nidus::create`, call the
+  builder's `.with_router(router)` before `.build().await`.
 - `no method named listen` or `no method named into_router`: import
   `NidusApplicationExt` or `nidus::prelude::*`.
 - `no method named observability`: import `ApiDefaultsObservabilityExt` or
@@ -105,8 +109,9 @@ struct AppModule {
 
 #[nidus::main]
 async fn main() -> nidus::Result<()> {
-    let app = Nidus::bootstrap::<AppModule>()?
-        .with_router(UsersController.into_router());
+    let app = Nidus::create::<AppModule>()
+        .build_with_router(UsersController.into_router())
+        .await?;
 
     app.listen("127.0.0.1:3000").await?;
     Ok(())
@@ -127,7 +132,7 @@ async fn main() -> nidus::Result<()> {
 
 ## Production Defaults
 
-`nidus-http` provides opt-in production API defaults for request IDs, request context, health, readiness checks, metrics, CORS, body limits, timeout responses, security headers, structured logging, error envelopes, and OpenTelemetry trace-context helpers. The defaults return normal Axum routers and Tower layers, so applications can replace or reorder the boundary.
+`nidus-http` provides opt-in production API defaults for request IDs, request context, health, readiness checks, metrics, CORS, body limits, timeout responses, security headers, structured logging, error envelopes, unmatched-route `not_found` fallbacks, and OpenTelemetry trace-context helpers. The defaults return normal Axum routers and Tower layers, so applications can replace or reorder the boundary.
 
 Recommended production observability is additive:
 
@@ -175,7 +180,7 @@ cargo run -p nidus-example-realworld-api
 The `external-*` examples are standalone Cargo packages with their own
 `[workspace]` tables. Verify them from their folders or with
 `bash scripts/verify-external-examples.sh`; they intentionally do not use local
-workspace path dependencies. Before `1.0.2` is published to crates.io, verify
+workspace path dependencies. Before `1.0.3` is published to crates.io, verify
 the same examples against temporary local patches:
 
 ```bash
@@ -201,7 +206,7 @@ npm run verify
 
 ## Release Status
 
-Nidus 1.0.0 established the public crate set. The current release track is 1.0.2, focused on launch hygiene, documentation, starter project depth, example proof, and package verification across every publishable crate. Publishing still requires crates.io credentials and should be reported with exact evidence when it is not performed.
+Nidus 1.0.0 established the public crate set. The current release track is 1.0.3, focused on launch hygiene, documentation, starter project depth, example proof, and package verification across every publishable crate. Publishing still requires crates.io credentials and should be reported with exact evidence when it is not performed.
 
 ## Contributing
 

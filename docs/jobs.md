@@ -90,9 +90,29 @@ For the recommended production path, pass `Observability::job_observer()`:
 
 ```rust
 let observability = Observability::production("users-api").prometheus();
-let runner = ObservedJobRunner::new(observability.job_observer());
+let runner = observability.job_runner();
 runner.run(&SendDigest)?;
 ```
 
 Only runs that go through `ObservedJobRunner` emit job metrics. Plain queue
 execution stays available for applications that do not want instrumentation.
+
+When observation needs slower export work, use a channel-backed observer:
+
+```rust
+let (observer, receiver) = job_observer_channel();
+let runner = ObservedJobRunner::new(observer);
+
+runner.run(&SendDigest)?;
+
+for event in receiver.try_iter() {
+    match event {
+        ObservedJobEvent::Started(context) => {
+            tracing::info!(job.name = context.job_name(), job.run_id = context.run_id());
+        }
+        ObservedJobEvent::Finished { context, status } => {
+            tracing::info!(job.name = context.job_name(), ?status);
+        }
+    }
+}
+```

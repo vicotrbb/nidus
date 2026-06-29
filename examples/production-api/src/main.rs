@@ -85,8 +85,9 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         .environment("local")
         .init();
     let address = std::env::var("NIDUS_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".to_owned());
-    Nidus::bootstrap::<AppModule>()?
-        .with_router(app())
+    Nidus::create::<AppModule>()
+        .build_with_router(app())
+        .await?
         .listen(address)
         .await?;
     Ok(())

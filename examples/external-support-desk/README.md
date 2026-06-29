@@ -9,9 +9,10 @@ want a real app shape before adding their own database.
 - `use nidus::prelude::*;` brings application, HTTP, controller, and extension
   traits into scope.
 - `Nidus::create::<AppModule>()` builds a module-driven app.
-- `ApplicationHttpExt` enables `.with_router(...)` when attaching routers to a
-  bootstrapped application.
-- `NidusApplicationExt` enables `.listen(...)` and `.into_router()`.
+- The facade builder supports `.with_router(router)` and
+  `.build_with_router(router)` when composing manual Axum routes.
+- `ApplicationHttpExt` remains available for lower-level bootstrapped
+  application composition.
 - `ApiDefaults` installs request IDs, request context, health routes, and error
   envelopes.
 - Nidus DI wires `TicketStore`, `TicketRepository`, `TicketService`, and
@@ -21,8 +22,8 @@ want a real app shape before adding their own database.
 ## Dependencies
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.2", features = ["http"] }
-nidus-testing = "1.0.2"
+nidus = { package = "nidus-rs", version = "1.0.3", features = ["http"] }
+nidus-testing = "1.0.3"
 ```
 
 The manifest has its own `[workspace]` table so this folder remains a standalone
@@ -104,10 +105,9 @@ Use the prelude at application entrypoints:
 use nidus::prelude::*;
 ```
 
-This imports the extension traits users most often miss:
+This imports the app-composition traits users most often need:
 
-- `ApplicationHttpExt` for `.with_router(...)`.
-- `NidusApplicationExt` for `Nidus::create::<AppModule>()`, `.listen(...)`, and
-  `.into_router()`.
+- `NidusApplicationExt` for `Nidus::create::<AppModule>()`.
+- `ApplicationHttpExt` for lower-level bootstrapped application composition.
 - `ApiDefaultsObservabilityExt` when the `observability` feature is enabled and
   `.observability(&observability)` is used with API defaults.

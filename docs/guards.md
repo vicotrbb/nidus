@@ -39,3 +39,29 @@ let app = Router::new()
 The layer creates a typed `GuardContext` from the provided state and route
 label. Failed checks return the default JSON `GuardError` response without
 calling the protected service.
+
+## Header Helpers
+
+`GuardContext` exposes focused helpers for common HTTP guard code:
+
+```rust
+#[derive(Clone)]
+struct ApiKeyGuard;
+
+#[async_trait::async_trait]
+impl Guard<()> for ApiKeyGuard {
+    async fn check(&self, ctx: GuardContext<()>) -> Result<(), GuardError> {
+        match ctx.api_key("x-api-key")? {
+            Some(key) if key == expected_key_from_config() => Ok(()),
+            _ => Err(GuardError::unauthorized("missing or invalid api key")),
+        }
+    }
+}
+```
+
+- `header_str(name)` returns a UTF-8 header value or `Ok(None)` when missing.
+- `bearer_token()` parses `Authorization: Bearer <token>`.
+- `api_key(name)` reads an explicit API-key header.
+
+The helpers parse headers only. Keep secret storage and comparison policy in
+application code; avoid hardcoded production secrets.

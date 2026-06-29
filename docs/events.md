@@ -39,7 +39,8 @@ impl EventObserver<UserCreated> for EventMetrics {
 }
 
 let bus = EventBus::<UserCreated>::new();
-let observed = ObservedEventBus::new(bus.clone(), EventMetrics)
+let observed = bus.clone()
+    .observed(EventMetrics)
     .context("request_id", "req-123");
 observed.publish_named("user.created", UserCreated { user_id: 42 });
 ```
@@ -51,7 +52,7 @@ For the recommended production path, pass `Observability::event_observer()`:
 
 ```rust
 let observability = Observability::production("users-api").prometheus();
-let observed = ObservedEventBus::new(EventBus::new(), observability.event_observer());
+let observed = observability.observed_event_bus::<UserCreated>();
 observed.publish_named("user.created", UserCreated { user_id: 42 });
 ```
 

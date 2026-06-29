@@ -325,7 +325,7 @@ dependencies = [
 
 [[package]]
 name = "equivalent"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
@@ -860,7 +860,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-cache"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "812456be2f16500279f53f31d937a9abd607a81fb489d174696875f7740519d2"
 dependencies = [
@@ -873,7 +873,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-config"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "760bd28bebc546889f06a2580bbf564d716cdab0caa60e3a7b8936d59ad45765"
 dependencies = [
@@ -884,7 +884,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-core"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ddc673383f95edbec292f38efafa16db921df2f5cf4c41b2cd7f83b082c4f0fc"
 dependencies = [
@@ -896,7 +896,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-events"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29c4a0b772ce97d3a33c3526259230c2847a5cce38f9794c00d237e84a4c1791"
 dependencies = [
@@ -920,7 +920,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-http"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "584f200bf3cc62c4561ac7998f3647174ceed3bcf804fe0dcd0aa8a5c822a8f7"
 dependencies = [
@@ -942,7 +942,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-jobs"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5754c48d830527813d2c45c8aea59367829a66726b6565bf5283701dc5f88803"
 dependencies = [
@@ -955,7 +955,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-macros"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c5d1d8cd852217ee5eab0e475ce54ea6801f72e4556a4a69285a65bb8956b278"
 dependencies = [
@@ -966,7 +966,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-observability"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e33b6828fe6789b73a72e85a000d3b76427baf129234ed386171ff42080b9d1"
 dependencies = [
@@ -981,7 +981,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-rs"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "36e8473ca7cd723e2924def88ebcf7cb787789284073fc6c05539283e020b345"
 dependencies = [
@@ -998,7 +998,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-sqlx"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a83ea027b83d34081745d9a558adb8a653908934c0a3bfbfcb35702535c4d2bb"
 dependencies = [
@@ -1012,7 +1012,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-testing"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2fc978febd672db603c1d5394e08b7d494261249a2dd22e3fc136bb34945555"
 dependencies = [
@@ -1178,13 +1178,13 @@ checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
 name = "rustversion"
-version = "1.0.22"
+version = "1.0.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 
 [[package]]
 name = "ryu"
-version = "1.0.23"
+version = "1.0.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
@@ -1196,7 +1196,7 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "serde"
-version = "1.0.228"
+version = "1.0.328"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
 dependencies = [
@@ -1206,7 +1206,7 @@ dependencies = [
 
 [[package]]
 name = "serde_core"
-version = "1.0.228"
+version = "1.0.328"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41d385c7d4ca58e59fc732af25c3983b67ac852c1a25000afe1175de458b67ad"
 dependencies = [
@@ -1215,7 +1215,7 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.228"
+version = "1.0.328"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d540f220d3187173da220f885ab66608367b6574e925011a9353e4badda91d79"
 dependencies = [
@@ -1446,7 +1446,7 @@ dependencies = [
 
 [[package]]
 name = "sync_wrapper"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0bf256ce5efdfa370213c1dabab5935a12e49f2c58d15e9eac2870d3b4f27263"
 
@@ -1719,7 +1719,7 @@ checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 
 [[package]]
 name = "unicode-ident"
-version = "1.0.24"
+version = "1.0.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
 
@@ -1944,6 +1944,6 @@ dependencies = [
 
 [[package]]
 name = "zmij"
-version = "1.0.21"
+version = "1.0.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8848ee67ecc8aedbaf3e4122217aff892639231befc6a1b58d29fff4c2cabaa"

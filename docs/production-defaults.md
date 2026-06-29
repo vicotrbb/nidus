@@ -11,9 +11,7 @@ let app = Nidus::create::<AppModule>()
     .build()
     .await?
     .map_router(|router| {
-        ApiDefaults::production("orders-api")
-            .without_metrics()
-            .apply(router)
+        ApiDefaults::production("orders-api").apply(router)
     });
 ```
 
@@ -24,7 +22,15 @@ let app = Nidus::create::<AppModule>()
 - Prometheus-style metrics route when enabled
 - CORS, body limits, timeout responses, security headers, and structured logging
 - production error envelopes
+- unmatched-route fallback returning the Nidus `not_found` JSON envelope
 - OpenTelemetry trace-context helpers when the `otel` feature is enabled
+
+The unmatched-route fallback is installed by default in
+`ApiDefaults::production(...).apply(router)`. Missing routes therefore receive
+the same production envelope as handler-created `HttpError::not_found(...)`
+responses, including request ID, path, timestamp, JSON content type, and
+security headers. Use `without_not_found_fallback()` when an application
+installs its own Axum fallback before applying defaults.
 
 ## Observability Defaults
 

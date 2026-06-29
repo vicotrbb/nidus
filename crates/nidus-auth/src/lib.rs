@@ -6,7 +6,10 @@ mod middleware;
 
 use async_trait::async_trait;
 use axum::{Json, response::IntoResponse};
-use http::{HeaderMap, StatusCode};
+use http::{
+    HeaderMap, StatusCode,
+    header::{AUTHORIZATION, AsHeaderName},
+};
 use serde::Serialize;
 use std::sync::Arc;
 
@@ -134,6 +137,59 @@ impl<S> GuardContext<S> {
     /// Returns request headers available to HTTP guards.
     pub fn headers(&self) -> &HeaderMap {
         &self.headers
+    }
+
+    /// Returns a request header as a UTF-8 string.
+    ///
+    /// Missing headers return `Ok(None)`. Present headers that are not valid
+    /// UTF-8 return `401 Unauthorized` so guards do not accidentally authorize
+    /// malformed credentials.
+    pub fn header_str<K>(&self, name: K) -> Result<Option<&str>>
+    where
+        K: AsHeaderName,
+    {
+        self.headers
+            .get(name)
+            .map(|value| {
+                value
+                    .to_str()
+                    .map_err(|_| GuardError::unauthorized("header value is not valid UTF-8"))
+            })
+            .transpose()
+    }
+
+    /// Returns the `Authorization: Bearer <token>` token when present.
+    ///
+    /// A missing authorization header returns `Ok(None)`. A present header with
+    /// another scheme, missing token, or whitespace inside the token returns
+    /// `401 Unauthorized`.
+    pub fn bearer_token(&self) -> Result<Option<&str>> {
+        let Some(header) = self.header_str(AUTHORIZATION)? else {
+            return Ok(None);
+        };
+        let Some(token) = header.strip_prefix("Bearer ") else {
+            return Err(GuardError::unauthorized(
+                "authorization header must use `Bearer <token>`",
+            ));
+        };
+        if token.is_empty() || token.chars().any(char::is_whitespace) {
+            return Err(GuardError::unauthorized(
+                "authorization header must use `Bearer <token>`",
+            ));
+        }
+        Ok(Some(token))
+    }
+
+    /// Returns an API key from an explicit header as a UTF-8 string.
+    ///
+    /// This helper intentionally does not compare secrets. Use constant-time
+    /// comparison or a server-side secret store in application code when the
+    /// key value is sensitive.
+    pub fn api_key<K>(&self, header_name: K) -> Result<Option<&str>>
+    where
+        K: AsHeaderName,
+    {
+        self.header_str(header_name)
     }
 
     /// Attaches request headers to this guard context.

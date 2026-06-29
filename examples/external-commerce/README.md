@@ -10,10 +10,10 @@ folder out of the Nidus repository and keep the same manifest shape.
 - `use nidus::prelude::*;` is the recommended app-entrypoint import.
 - `Nidus::create::<AppModule>()` composes a module graph with async
   infrastructure initialization.
-- `ApplicationHttpExt` is the trait behind `.with_router(...)` when manually
-  attaching routers.
-- `NidusApplicationExt` is the trait behind Nidus application creation,
-  `.listen(...)`, and `.into_router()`.
+- The facade builder supports `.with_router(router)` and
+  `.build_with_router(router)` when composing manual Axum routes.
+- `ApplicationHttpExt` remains available for lower-level bootstrapped
+  application composition.
 - `ApiDefaultsObservabilityExt` enables
   `.observability(&observability)` on `ApiDefaults`.
 - `nidus-sqlx` registers a SQLite pool provider during bootstrap.
@@ -24,10 +24,10 @@ folder out of the Nidus repository and keep the same manifest shape.
 ## Dependencies
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.2", features = ["http", "observability"] }
-nidus-sqlx = { version = "1.0.2", features = ["sqlite", "health", "observability"] }
-nidus-cache = { version = "1.0.2", features = ["health", "observability"] }
-nidus-testing = "1.0.2"
+nidus = { package = "nidus-rs", version = "1.0.3", features = ["http", "observability"] }
+nidus-sqlx = { version = "1.0.3", features = ["sqlite", "health", "observability"] }
+nidus-cache = { version = "1.0.3", features = ["health", "observability"] }
+nidus-testing = "1.0.3"
 ```
 
 The manifest has its own `[workspace]` table so Cargo treats it as an external
@@ -119,10 +119,9 @@ Application entrypoints should start with:
 use nidus::prelude::*;
 ```
 
-That import keeps the extension-trait methods visible:
+That import keeps the app-composition methods visible:
 
-- `ApplicationHttpExt` for `.with_router(...)`.
-- `NidusApplicationExt` for Nidus app creation, `.listen(...)`, and
-  `.into_router()`.
+- `NidusApplicationExt` for Nidus app creation.
+- `ApplicationHttpExt` for lower-level bootstrapped application composition.
 - `ApiDefaultsObservabilityExt` for `.observability(&observability)` on
   observability-aware API defaults.

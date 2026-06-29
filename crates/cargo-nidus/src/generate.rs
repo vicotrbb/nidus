@@ -12,14 +12,19 @@ pub(crate) fn create_project(name: &str, root: &Path, nidus_path: Option<&Path>)
     }
     let src = project.join("src");
     fs::create_dir_all(&src).with_context(|| format!("creating {}", src.display()))?;
+    let tests = project.join("tests");
+    fs::create_dir_all(&tests).with_context(|| format!("creating {}", tests.display()))?;
+    let crate_name = to_snake_case(name);
     let nidus_dependency = nidus_path
         .map(|path| {
             format!(
-                "{{ package = \"nidus-rs\", path = {:?} }}",
+                "{{ package = \"nidus-rs\", path = {:?}, features = [\"testing\"] }}",
                 path.display().to_string()
             )
         })
-        .unwrap_or_else(|| "{ package = \"nidus-rs\", version = \"1.0.2\" }".to_owned());
+        .unwrap_or_else(|| {
+            "{ package = \"nidus-rs\", version = \"1.0.3\", features = [\"testing\"] }".to_owned()
+        });
     write(
         &project.join("Cargo.toml"),
         &format!(
@@ -30,30 +35,27 @@ edition = "2024"
 
 [dependencies]
 nidus = {nidus_dependency}
+
+[dev-dependencies]
+tokio = {{ version = "1", features = ["macros", "rt-multi-thread"] }}
 "#
         ),
     )?;
-    let main_rs = r#"use nidus::prelude::*;
+    let lib_rs = r#"use nidus::prelude::*;
 
-#[nidus::main]
-async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let address = std::env::var("NIDUS_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".to_owned());
-    let app = Nidus::create::<AppModule>()
+pub async fn build_app() -> Result<HttpApplication> {
+    Nidus::create::<AppModule>()
         .build()
-        .await?
-        .map_router(|router| {
-            ApiDefaults::production("__NIDUS_SERVICE_NAME__")
-                .without_metrics()
-                .apply(router)
-        });
+        .await
+        .map(|app| app.map_router(apply_api_defaults))
+}
 
-    app.listen(address)
-        .await?;
-    Ok(())
+fn apply_api_defaults(router: Router) -> Router {
+    ApiDefaults::production("__NIDUS_SERVICE_NAME__").apply(router)
 }
 
 #[injectable]
-struct GreetingService;
+pub struct GreetingService;
 
 impl GreetingService {
     fn greeting(&self) -> &'static str {
@@ -62,7 +64,7 @@ impl GreetingService {
 }
 
 #[controller("/")]
-struct HelloController {
+pub struct HelloController {
     greeting: Inject<GreetingService>,
 }
 
@@ -78,10 +80,51 @@ impl HelloController {
     providers(GreetingService),
     controllers(HelloController)
 )]
-struct AppModule;
+pub struct AppModule;
 "#
     .replace("__NIDUS_SERVICE_NAME__", name);
+    write(&src.join("lib.rs"), &lib_rs)?;
+    let main_rs = format!(
+        r#"#[nidus::main]
+async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {{
+    let address = std::env::var("NIDUS_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".to_owned());
+    let app = {crate_name}::build_app().await?;
+
+    app.listen(address).await?;
+    Ok(())
+}}
+"#
+    );
     write(&src.join("main.rs"), &main_rs)?;
+    let http_test_rs = format!(
+        r#"use nidus::prelude::{{StatusCode, TestApp}};
+
+#[tokio::test]
+async fn root_route_returns_greeting() {{
+    let app = TestApp::from_router({crate_name}::build_app().await.unwrap().into_router());
+
+    let response = app.get("/").send().await;
+
+    response.assert_status(StatusCode::OK);
+    response.assert_text("hello from nidus");
+}}
+
+#[tokio::test]
+async fn health_and_readiness_routes_are_available() {{
+    let app = TestApp::from_router({crate_name}::build_app().await.unwrap().into_router());
+
+    app.get("/health/live")
+        .send()
+        .await
+        .assert_status(StatusCode::OK);
+    app.get("/health/ready")
+        .send()
+        .await
+        .assert_status(StatusCode::OK);
+}}
+"#
+    );
+    write(&tests.join("http.rs"), &http_test_rs)?;
     write(
         &project.join("README.md"),
         &format!(
@@ -106,6 +149,7 @@ Check the HTTP route:
 
 ```bash
 curl http://127.0.0.1:3000/
+curl http://127.0.0.1:3000/health/ready
 ```
 
 ## Test
@@ -113,6 +157,10 @@ curl http://127.0.0.1:3000/
 ```bash
 cargo test
 ```
+
+The generated app keeps reusable application composition in `src/lib.rs`, the
+binary entrypoint in `src/main.rs`, and HTTP integration tests in
+`tests/http.rs`.
 
 ## Generate
 
@@ -131,7 +179,7 @@ cargo nidus openapi
 cargo nidus check
 ```
 
-## Common imports and extension traits
+## Router composition
 
 Application entrypoints should use the prelude:
 
@@ -139,23 +187,10 @@ Application entrypoints should use the prelude:
 use nidus::prelude::*;
 ```
 
-That import keeps Nidus extension traits in scope:
-
-- `ApplicationHttpExt` enables `.with_router(...)`.
-- `NidusApplicationExt` enables `Nidus::create::<AppModule>()`, `.listen(...)`,
-  and `.into_router()`.
-- `ApiDefaultsObservabilityExt` enables `.observability(&observability)` when
-  the `observability` facade feature is enabled and API defaults are composed
-  with Nidus observability.
-
-## Common compile errors
-
-- `no method named `with_router``: import `ApplicationHttpExt` or
-  `nidus::prelude::*`.
-- `no method named `listen`` or `no method named `into_router``: import
-  `NidusApplicationExt` or `nidus::prelude::*`.
-- `no method named `observability``: import `ApiDefaultsObservabilityExt` or
-  `nidus::prelude::*`.
+`NidusApplicationExt` enables `Nidus::create::<AppModule>()`. When you need to
+compose manually-built Axum routes with module routes, use
+`Nidus::create::<AppModule>().with_router(router).build().await` or
+`build_with_router(router)`.
 
 ## Next steps
 

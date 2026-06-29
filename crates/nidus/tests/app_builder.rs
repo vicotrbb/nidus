@@ -1,6 +1,7 @@
 use axum::{
     body::{Body, to_bytes},
     http::Request,
+    routing::get,
 };
 use nidus::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -108,6 +109,43 @@ async fn root_module_builds_provider_backed_controller_routes() {
     assert_eq!(response.status(), StatusCode::OK);
     let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     assert_eq!(&body[..], b"hello from module DI");
+}
+
+#[tokio::test]
+async fn builder_merges_manual_router_without_application_http_ext_import() {
+    let app = Nidus::create::<AppModule>()
+        .with_router(Router::new().route("/manual", get(|| async { "manual route" })))
+        .build()
+        .await
+        .unwrap();
+    let router = app.into_router();
+
+    let module_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/greetings")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(module_response.status(), StatusCode::OK);
+
+    let manual_response = router
+        .oneshot(
+            Request::builder()
+                .uri("/manual")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(manual_response.status(), StatusCode::OK);
+    let body = to_bytes(manual_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    assert_eq!(&body[..], b"manual route");
 }
 
 #[tokio::test]

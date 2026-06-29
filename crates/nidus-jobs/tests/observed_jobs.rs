@@ -1,8 +1,8 @@
 use std::sync::{Arc, Mutex};
 
 use nidus_jobs::{
-    AsyncJob, AsyncJobQueue, Job, JobError, JobObserver, JobQueue, JobResultStatus,
-    ObservedJobContext, ObservedJobRunner,
+    AsyncJob, AsyncJobQueue, Job, JobError, JobObserver, JobObserverChannel, JobQueue,
+    JobResultStatus, ObservedJobContext, ObservedJobEvent, ObservedJobRunner, job_observer_channel,
 };
 
 #[derive(Clone, Default)]
@@ -228,4 +228,51 @@ async fn async_job_queue_can_run_all_jobs_with_observer() {
             "finished async_panicking_job queue-run Failure"
         ]
     );
+}
+
+#[test]
+fn job_observer_channel_emits_structured_started_and_finished_events() {
+    let (observer, receiver) = job_observer_channel();
+    let _: JobObserverChannel = observer.clone();
+    let runner = ObservedJobRunner::new(observer).run_id_generator(|| "channel-run".to_owned());
+
+    runner.run(&SuccessfulJob).unwrap();
+
+    match receiver.try_recv().unwrap() {
+        ObservedJobEvent::Started(context) => {
+            assert_eq!(context.job_name(), "successful_job");
+            assert_eq!(context.run_id(), "channel-run");
+            assert_eq!(context.duration(), None);
+        }
+        event => panic!("expected started event, got {event:?}"),
+    }
+    match receiver.try_recv().unwrap() {
+        ObservedJobEvent::Finished { context, status } => {
+            assert_eq!(context.job_name(), "successful_job");
+            assert_eq!(context.run_id(), "channel-run");
+            assert_eq!(status, JobResultStatus::Success);
+            assert!(context.duration().is_some());
+        }
+        event => panic!("expected finished event, got {event:?}"),
+    }
+    assert!(receiver.try_recv().is_err());
+}
+
+#[test]
+fn job_observer_channel_emits_failure_events_for_job_errors() {
+    let (observer, receiver) = job_observer_channel();
+    let runner = ObservedJobRunner::new(observer).run_id_generator(|| "channel-error".to_owned());
+
+    let error = runner.run(&FailingJob).unwrap_err();
+
+    assert_eq!(error.message(), "job failed");
+    let _started = receiver.try_recv().unwrap();
+    match receiver.try_recv().unwrap() {
+        ObservedJobEvent::Finished { context, status } => {
+            assert_eq!(context.job_name(), "failing_job");
+            assert_eq!(context.run_id(), "channel-error");
+            assert_eq!(status, JobResultStatus::Failure);
+        }
+        event => panic!("expected failure event, got {event:?}"),
+    }
 }

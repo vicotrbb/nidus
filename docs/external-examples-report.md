@@ -2,7 +2,7 @@
 
 ## Summary
 
-This change hardens Nidus 1.0.2 developer experience around extension traits and
+This change hardens Nidus 1.0.3 developer experience around extension traits and
 adds two copyable external-user examples that use crates.io-style dependencies:
 
 - `examples/external-support-desk`
@@ -42,11 +42,12 @@ The docs and generated starter README now recommend:
 use nidus::prelude::*;
 ```
 
-They also explain the extension traits users most often miss:
+They also explain the app-composition imports users most often need:
 
-- `ApplicationHttpExt` enables `.with_router(...)`.
-- `NidusApplicationExt` enables `Nidus::create::<AppModule>()`, `.listen(...)`,
-  and `.into_router()`.
+- `NidusApplicationExt` enables `Nidus::create::<AppModule>()`.
+- The facade builder supports `.with_router(router)` and
+  `.build_with_router(router)` for manual Axum router composition.
+- `ApplicationHttpExt` remains available for lower-level bootstrap composition.
 - `ApiDefaultsObservabilityExt` enables `.observability(&observability)` and
   observability-aware API defaults.
 

@@ -5,7 +5,7 @@ use std::sync::{
 };
 
 use axum::{Router, body::to_bytes, response::IntoResponse, routing::get};
-use http::StatusCode;
+use http::{HeaderMap, HeaderValue, StatusCode};
 use nidus_auth::{Guard, GuardContext, GuardError, GuardExt, guard_layer};
 use tower::ServiceExt;
 
@@ -161,14 +161,74 @@ struct ApiKeyGuard;
 #[async_trait]
 impl Guard<()> for ApiKeyGuard {
     async fn check(&self, ctx: GuardContext<()>) -> Result<(), GuardError> {
-        match ctx
-            .headers()
-            .get("x-api-key")
-            .and_then(|value| value.to_str().ok())
-        {
+        match ctx.api_key("x-api-key")? {
             Some("secret") => Ok(()),
             _ => Err(GuardError::unauthorized("missing or invalid api key")),
         }
+    }
+}
+
+#[derive(Clone)]
+struct BearerGuard;
+
+#[async_trait]
+impl Guard<()> for BearerGuard {
+    async fn check(&self, ctx: GuardContext<()>) -> Result<(), GuardError> {
+        match ctx.bearer_token()? {
+            Some("secret-token") => Ok(()),
+            Some(_) => Err(GuardError::unauthorized("invalid bearer token")),
+            None => Err(GuardError::unauthorized("missing bearer token")),
+        }
+    }
+}
+
+#[test]
+fn guard_context_header_helpers_return_utf8_values_and_missing_headers() {
+    let context = GuardContext::new((), "admin:index").with_headers(headers([
+        ("x-api-key", HeaderValue::from_static("secret")),
+        (
+            "authorization",
+            HeaderValue::from_static("Bearer secret-token"),
+        ),
+    ]));
+
+    assert_eq!(context.header_str("x-api-key").unwrap(), Some("secret"));
+    assert_eq!(context.api_key("x-api-key").unwrap(), Some("secret"));
+    assert_eq!(context.bearer_token().unwrap(), Some("secret-token"));
+    assert_eq!(context.header_str("x-missing").unwrap(), None);
+    assert_eq!(context.api_key("x-missing").unwrap(), None);
+}
+
+#[test]
+fn guard_context_header_helpers_reject_malformed_values() {
+    let mut malformed_headers = HeaderMap::new();
+    malformed_headers.insert(
+        "x-api-key",
+        HeaderValue::from_bytes(&[0xff]).expect("non-UTF-8 header value should be constructible"),
+    );
+    let context = GuardContext::new((), "admin:index").with_headers(malformed_headers);
+
+    let error = context.header_str("x-api-key").unwrap_err();
+
+    assert_eq!(error.status_code(), StatusCode::UNAUTHORIZED);
+    assert_eq!(error.reason(), "header value is not valid UTF-8");
+}
+
+#[test]
+fn guard_context_bearer_token_rejects_malformed_authorization_headers() {
+    for value in ["Basic secret-token", "Bearer", "Bearer "] {
+        let context = GuardContext::new((), "admin:index").with_headers(headers([(
+            "authorization",
+            HeaderValue::from_static(value),
+        )]));
+
+        let error = context.bearer_token().unwrap_err();
+
+        assert_eq!(error.status_code(), StatusCode::UNAUTHORIZED);
+        assert_eq!(
+            error.reason(),
+            "authorization header must use `Bearer <token>`"
+        );
     }
 }
 
@@ -203,6 +263,80 @@ async fn guard_layer_passes_request_headers_to_guard() {
     assert_eq!(allowed.status(), StatusCode::OK);
     let body = to_bytes(allowed.into_body(), usize::MAX).await.unwrap();
     assert_eq!(&body[..], b"ok");
+}
+
+#[tokio::test]
+async fn bearer_token_guard_handles_valid_missing_malformed_and_unauthorized_headers() {
+    let app = Router::new()
+        .route("/me", get(|| async { "ok" }))
+        .layer(guard_layer((), "me:read", BearerGuard));
+
+    let allowed = app
+        .clone()
+        .oneshot(
+            http::Request::builder()
+                .uri("/me")
+                .header("authorization", "Bearer secret-token")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(allowed.status(), StatusCode::OK);
+
+    let missing = app
+        .clone()
+        .oneshot(
+            http::Request::builder()
+                .uri("/me")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(missing.status(), StatusCode::UNAUTHORIZED);
+    let missing_body = to_bytes(missing.into_body(), usize::MAX).await.unwrap();
+    let missing_json: serde_json::Value = serde_json::from_slice(&missing_body).unwrap();
+    assert_eq!(missing_json["error"]["message"], "missing bearer token");
+
+    let malformed = app
+        .clone()
+        .oneshot(
+            http::Request::builder()
+                .uri("/me")
+                .header("authorization", "Bearer")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(malformed.status(), StatusCode::UNAUTHORIZED);
+    let malformed_body = to_bytes(malformed.into_body(), usize::MAX).await.unwrap();
+    let malformed_json: serde_json::Value = serde_json::from_slice(&malformed_body).unwrap();
+    assert_eq!(
+        malformed_json["error"]["message"],
+        "authorization header must use `Bearer <token>`"
+    );
+
+    let unauthorized = app
+        .oneshot(
+            http::Request::builder()
+                .uri("/me")
+                .header("authorization", "Bearer wrong-token")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(unauthorized.status(), StatusCode::UNAUTHORIZED);
+    let unauthorized_body = to_bytes(unauthorized.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let unauthorized_json: serde_json::Value = serde_json::from_slice(&unauthorized_body).unwrap();
+    assert_eq!(
+        unauthorized_json["error"]["message"],
+        "invalid bearer token"
+    );
 }
 
 #[tokio::test]
@@ -303,4 +437,12 @@ async fn guard_layer_returns_error_response_without_calling_inner_service() {
     assert_eq!(json["error"]["code"], "unauthorized");
     assert_eq!(json["error"]["message"], "state denied request");
     assert_eq!(calls.load(Ordering::SeqCst), 0);
+}
+
+fn headers<const N: usize>(values: [(&'static str, HeaderValue); N]) -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    for (name, value) in values {
+        headers.insert(name, value);
+    }
+    headers
 }

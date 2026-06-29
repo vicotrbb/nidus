@@ -19,9 +19,9 @@ health = ["dep:nidus-http"]
 observability = ["dep:nidus-observability"]
 
 [dependencies]
-nidus-core = { path = "../nidus-core", version = "1.0.2" }
-nidus-http = { path = "../nidus-http", version = "1.0.2", optional = true }
-nidus-observability = { path = "../nidus-observability", version = "1.0.2", optional = true }
+nidus-core = { path = "../nidus-core", version = "1.0.3" }
+nidus-http = { path = "../nidus-http", version = "1.0.3", optional = true }
+nidus-observability = { path = "../nidus-observability", version = "1.0.3", optional = true }
 moka = { workspace = true, optional = true }
 thiserror.workspace = true
 

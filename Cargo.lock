@@ -233,7 +233,7 @@ checksum = "8ae3f5d315924270530207e2a68396c3cc547f6dca3fbdca317cfb1a51edb593"
 
 [[package]]
 name = "cargo-nidus"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -1269,7 +1269,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-auth"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "async-trait",
  "axum",
@@ -1283,7 +1283,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-cache"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "moka",
  "nidus-core",
@@ -1295,7 +1295,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-config"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "serde",
  "serde_json",
@@ -1304,7 +1304,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-core"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "async-trait",
  "thiserror",
@@ -1316,7 +1316,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-events"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "tracing",
  "tracing-core",
@@ -1326,7 +1326,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-example-auth-api"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "async-trait",
  "axum",
@@ -1338,7 +1338,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-example-background-jobs"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "async-trait",
  "nidus-jobs",
@@ -1347,7 +1347,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-example-cache-app"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "nidus-cache",
  "nidus-rs",
@@ -1356,7 +1356,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-example-hello-world"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "nidus-rs",
  "nidus-testing",
@@ -1365,7 +1365,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-example-integrations-production"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "nidus-cache",
  "nidus-rs",
@@ -1375,7 +1375,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-example-launchpad-api"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "async-trait",
  "axum",
@@ -1394,14 +1394,14 @@ dependencies = [
 
 [[package]]
 name = "nidus-example-modular-monolith"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "nidus-rs",
 ]
 
 [[package]]
 name = "nidus-example-openapi"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "nidus-openapi",
  "nidus-rs",
@@ -1414,7 +1414,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-example-production-api"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "axum",
  "nidus-rs",
@@ -1425,7 +1425,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-example-realworld-api"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1443,7 +1443,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-example-rest-api"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "nidus-rs",
  "nidus-testing",
@@ -1454,7 +1454,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-example-sqlx-app"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "nidus-rs",
  "nidus-sqlx",
@@ -1464,7 +1464,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-http"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "axum",
  "futures-util",
@@ -1485,7 +1485,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-jobs"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "async-trait",
  "futures-util",
@@ -1496,7 +1496,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-macros"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "insta",
  "proc-macro2",
@@ -1506,7 +1506,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-observability"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "async-trait",
  "axum",
@@ -1521,7 +1521,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-openapi"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "axum",
  "http",
@@ -1535,7 +1535,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-rs"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "async-trait",
  "axum",
@@ -1561,7 +1561,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-sqlx"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "nidus-config",
  "nidus-core",
@@ -1576,7 +1576,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-testing"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "async-trait",
  "axum",
@@ -1593,7 +1593,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-validation"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "axum",
  "garde",
@@ -1607,7 +1607,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-workspace"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "async-trait",
  "axum",

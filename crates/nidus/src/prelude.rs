@@ -21,7 +21,9 @@ pub use nidus_http::{
         client_ip_identity, context_identity, trusted_proxy_client_ip_identity,
     },
     controller::Controller,
-    error::{ErrorEnvelopeLayer, ErrorEnvelopeService, HttpError, RoutePathError},
+    error::{
+        ErrorEnvelopeLayer, ErrorEnvelopeService, HttpError, RoutePathError, not_found_fallback,
+    },
     health::{HealthRegistry, HealthState, HealthStatus},
     logging::{LoggingConfig, LoggingFormat, StructuredMakeSpan},
     middleware::{
@@ -66,8 +68,9 @@ pub use nidus_events::{
 };
 #[cfg(feature = "jobs")]
 pub use nidus_jobs::{
-    AsyncJob, AsyncJobQueue, Job, JobError, JobFailure, JobObserver, JobQueue, JobReport,
-    JobResultStatus, ObservedJobContext, ObservedJobRunner,
+    AsyncJob, AsyncJobQueue, Job, JobError, JobFailure, JobObserver, JobObserverChannel, JobQueue,
+    JobReport, JobResultStatus, ObservedJobContext, ObservedJobEvent, ObservedJobRunner,
+    job_observer_channel,
 };
 #[cfg(feature = "openapi")]
 pub use nidus_openapi::{OpenApiDocument, OpenApiDocumentError, OpenApiRoute};

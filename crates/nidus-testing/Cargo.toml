@@ -15,9 +15,9 @@ categories.workspace = true
 [dependencies]
 axum.workspace = true
 http.workspace = true
-nidus-config = { path = "../nidus-config", version = "1.0.2" }
-nidus-core = { path = "../nidus-core", version = "1.0.2" }
-nidus-http = { path = "../nidus-http", version = "1.0.2" }
+nidus-config = { path = "../nidus-config", version = "1.0.3" }
+nidus-core = { path = "../nidus-core", version = "1.0.3" }
+nidus-http = { path = "../nidus-http", version = "1.0.3" }
 serde.workspace = true
 serde_json.workspace = true
 serde_urlencoded.workspace = true

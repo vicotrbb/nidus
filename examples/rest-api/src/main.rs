@@ -6,7 +6,7 @@ use std::sync::{
 };
 
 use nidus::prelude::{
-    ApplicationHttpExt, Container, Inject, Json, Nidus, Path, RequestScoped, Router, controller,
+    Container, Inject, Json, Nidus, NidusApplicationExt, Path, RequestScoped, Router, controller,
     get, injectable, module, request_scope_layer, routes,
 };
 use serde::Serialize;
@@ -62,8 +62,9 @@ impl UsersController {
 
 #[nidus::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    Nidus::bootstrap::<AppModule>()?
-        .with_router(app()?)
+    Nidus::create::<AppModule>()
+        .build_with_router(app()?)
+        .await?
         .listen("127.0.0.1:3000")
         .await?;
     Ok(())

@@ -984,6 +984,71 @@ async fn production_defaults_envelope_and_meter_body_limit_rejections() {
 }
 
 #[tokio::test]
+async fn production_defaults_envelope_unmatched_routes_as_not_found() {
+    let metrics = PrometheusMetrics::new();
+    let app = ApiDefaults::production("users-api")
+        .metrics(metrics.clone())
+        .apply(
+            Router::new()
+                .route("/users", get(|| async { "ok" }))
+                .merge(metrics.routes()),
+        );
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/missing")
+                .header("x-request-id", "018f4ad7-56ce-4f6a-a759-29f4438d8d78")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(response.headers()["content-type"], "application/json");
+    assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+    assert_eq!(
+        response.headers()["x-request-id"],
+        "018f4ad7-56ce-4f6a-a759-29f4438d8d78"
+    );
+    let body = response_json(response).await;
+    assert_eq!(body["error"]["statusCode"], 404);
+    assert_eq!(body["error"]["code"], "not_found");
+    assert_eq!(body["error"]["message"], "route not found");
+    assert_eq!(body["error"]["path"], "/missing");
+    assert_eq!(
+        body["error"]["requestId"],
+        "018f4ad7-56ce-4f6a-a759-29f4438d8d78"
+    );
+    assert!(body["error"]["timestamp"].as_str().unwrap().ends_with('Z'));
+
+    let metrics_response = app
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let text = String::from_utf8(
+        to_bytes(metrics_response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert!(
+        text.contains(
+            r#"nidus_http_requests_total{method="GET",route="<unknown>",status="404"} 1"#
+        ),
+        "404 fallback must be metered by the production stack: {text}"
+    );
+}
+
+#[tokio::test]
 async fn production_defaults_envelope_panic_as_500() {
     // F-HTTP-7: a panicking handler under the production stack must yield a
     // structured 500 envelope (with request-id) instead of an aborted

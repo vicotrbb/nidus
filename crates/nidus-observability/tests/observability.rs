@@ -78,6 +78,25 @@ fn renders_event_job_lifecycle_and_adapter_metrics() {
     );
 }
 
+#[test]
+fn observability_builds_observed_event_bus_and_job_runner_helpers() {
+    let observability = Observability::production("users-api")
+        .prometheus()
+        .max_series(10);
+
+    observability
+        .observed_event_bus::<UserCreated>()
+        .publish_named("user.created", UserCreated);
+    observability
+        .job_runner()
+        .run(&SuccessfulJob)
+        .expect("job should succeed");
+
+    let rendered = observability.render_prometheus();
+    assert!(rendered.contains(r#"nidus_events_published_total{event="user.created"} 1"#));
+    assert!(rendered.contains(r#"nidus_jobs_started_total{job="successful_job"} 1"#));
+}
+
 #[tokio::test]
 async fn records_async_job_failures() {
     let observability = Observability::production("users-api").prometheus();

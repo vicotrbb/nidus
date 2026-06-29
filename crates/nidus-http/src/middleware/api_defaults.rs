@@ -3,7 +3,7 @@ use std::time::Duration;
 use axum::Router;
 
 use crate::{
-    error::ErrorEnvelopeLayer,
+    error::{ErrorEnvelopeLayer, not_found_fallback},
     health::HealthRegistry,
     middleware::{
         PrometheusMetrics, RateLimitConfig, RequestIdConfig, body_limit_layer, catch_panic_layer,
@@ -62,6 +62,7 @@ pub struct ApiDefaults {
     streaming_body_limit: Option<usize>,
     timeout: Option<Duration>,
     catch_panic: bool,
+    not_found_fallback: bool,
 }
 
 impl ApiDefaults {
@@ -100,6 +101,7 @@ impl ApiDefaults {
             streaming_body_limit: None,
             timeout: Some(Duration::from_secs(30)),
             catch_panic: true,
+            not_found_fallback: true,
         }
     }
 
@@ -273,6 +275,25 @@ impl ApiDefaults {
         self
     }
 
+    /// Enables the default Nidus unmatched-route fallback.
+    ///
+    /// The fallback returns a `404` [`crate::error::HttpError`] with code
+    /// `not_found`, allowing the production error-envelope layer to attach
+    /// request ID, path, timestamp, and JSON content type consistently.
+    pub fn not_found_fallback(mut self) -> Self {
+        self.not_found_fallback = true;
+        self
+    }
+
+    /// Disables the default unmatched-route fallback.
+    ///
+    /// Use this when an application installs its own Axum fallback before
+    /// calling [`Self::apply`].
+    pub fn without_not_found_fallback(mut self) -> Self {
+        self.not_found_fallback = false;
+        self
+    }
+
     /// Applies the configured defaults to an existing router.
     ///
     /// Health routes are merged first. The effective inbound request order for
@@ -302,6 +323,9 @@ impl ApiDefaults {
     pub fn apply(self, mut router: Router) -> Router {
         if let Some(health) = self.health {
             router = router.merge(health.routes());
+        }
+        if self.not_found_fallback {
+            router = router.fallback(not_found_fallback);
         }
         // Innermost layer: catch handler panics so they surface as an enveloped
         // 500 through every outer layer instead of aborting the connection.

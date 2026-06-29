@@ -25,7 +25,7 @@ crate directly:
 
 ```toml
 [dependencies]
-nidus = { package = "nidus-rs", version = "1.0.2", features = ["http"] }
+nidus = { package = "nidus-rs", version = "1.0.3", features = ["http"] }
 ```
 
 Use `nidus-rs` for applications, `cargo-nidus` for the CLI, and adapter crates
@@ -33,9 +33,9 @@ such as `nidus-sqlx` or `nidus-cache` only when the app chooses those backends.
 Feature groups keep the facade explicit:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.2", features = ["http", "config", "openapi", "validation"] }
-nidus-sqlx = { version = "1.0.2", features = ["sqlite"] }
-nidus-cache = { version = "1.0.2", features = ["moka"] }
+nidus = { package = "nidus-rs", version = "1.0.3", features = ["http", "config", "openapi", "validation"] }
+nidus-sqlx = { version = "1.0.3", features = ["sqlite"] }
+nidus-cache = { version = "1.0.3", features = ["moka"] }
 ```
 
 ## Common Imports And Extension Traits
@@ -46,19 +46,23 @@ Use the prelude in application entrypoints and examples:
 use nidus::prelude::*;
 ```
 
-This is the recommended pattern because it imports the extension traits that
-make the fluent application API available:
+This is the recommended pattern because it imports the types and extension
+traits that make the fluent application API available:
 
-- `ApplicationHttpExt` enables `.with_router(...)`.
-- `NidusApplicationExt` enables `Nidus::create::<AppModule>()`, `.listen(...)`,
-  and `.into_router()`.
+- `NidusApplicationExt` enables `Nidus::create::<AppModule>()`.
+- The facade builder supports `.with_router(router)` and
+  `.build_with_router(router)` for composing manual Axum routes with module
+  routes.
+- `ApplicationHttpExt` remains available for lower-level
+  `Nidus::bootstrap::<AppModule>()?.with_router(router)` composition.
 - `ApiDefaultsObservabilityExt` enables `.observability(&observability)` and
   observability-aware API defaults when the `observability` feature is enabled.
 
 ## Common Compile Errors
 
-- `no method named with_router`: import `ApplicationHttpExt` or
-  `nidus::prelude::*`.
+- `no method named with_router` after `Nidus::bootstrap`: import
+  `ApplicationHttpExt` or `nidus::prelude::*`; after `Nidus::create`, call the
+  builder's `.with_router(router)` before `.build().await`.
 - `no method named listen` or `no method named into_router`: import
   `NidusApplicationExt` or `nidus::prelude::*`.
 - `no method named observability`: import `ApiDefaultsObservabilityExt` or
@@ -73,11 +77,14 @@ controller, and export metadata. Generating the module after those artifacts
 does the same discovery in the other direction. Hand-written module bodies are
 left untouched.
 
-The generated project starts as a small Nidus HTTP server with a macro-defined
-root `AppModule`, one controller, and one injected service. Applications can
-define controllers and executable routes with `#[controller]`, `#[routes]`, and
-HTTP method attributes, while still dropping down to explicit `Controller` and
-`RouteDefinition` builders when useful.
+The generated project starts as a small Nidus HTTP server with reusable
+composition in `src/lib.rs`, the binary entrypoint in `src/main.rs`, generated
+HTTP tests in `tests/http.rs`, a macro-defined root `AppModule`, one
+controller, one injected service, and health/readiness through
+`ApiDefaults::production`. Applications can define controllers and executable
+routes with `#[controller]`, `#[routes]`, and HTTP method attributes, while
+still dropping down to explicit `Controller` and `RouteDefinition` builders
+when useful.
 
 Inspect generated controller metadata:
 

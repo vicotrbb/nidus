@@ -4,6 +4,15 @@
 
 - No unreleased changes yet.
 
+## 1.0.3 - 2026-06-29
+
+- Added facade builder router ergonomics with `Nidus::create::<AppModule>().with_router(router)` and `build_with_router(router)`.
+- Added a first-class Nidus unmatched-route fallback and wired production defaults to return the JSON `not_found` envelope for missing routes.
+- Added `GuardContext` helpers for UTF-8 headers, bearer tokens, and API-key headers.
+- Added channel-backed job observation with structured `ObservedJobEvent` values plus small event/job observability factory helpers.
+- Improved the `cargo nidus new` starter with a `src/lib.rs` and `src/main.rs` split, generated HTTP tests, readiness checks, and cleaner production defaults.
+- Refreshed docs, examples, and version references for the 1.0.3 patch release.
+
 ## 1.0.2 - 2026-06-29
 
 - Public website refresh for standalone Nidus positioning, docs-first navigation, and 1.0.2 launch evaluation.

@@ -40,7 +40,7 @@ After the crates are published, verify the external package surface before
 announcing the release:
 
 ```bash
-bash scripts/verify-published-release.sh 1.0.2
+bash scripts/verify-published-release.sh 1.0.3
 ```
 
 The verifier checks crates.io, docs.rs, and the standalone external examples.
@@ -90,18 +90,22 @@ Deployment entrypoints should normally start with:
 use nidus::prelude::*;
 ```
 
-That import keeps the app-composition extension traits visible:
+That import keeps app-composition types and extension traits visible:
 
-- `ApplicationHttpExt` enables `.with_router(...)`.
-- `NidusApplicationExt` enables `Nidus::create::<AppModule>()`, `.listen(...)`,
-  and `.into_router()`.
+- `NidusApplicationExt` enables `Nidus::create::<AppModule>()`.
+- The facade builder supports `.with_router(router)` and
+  `.build_with_router(router)` for composing manual Axum routes with module
+  routes.
+- `ApplicationHttpExt` remains available for lower-level
+  `Nidus::bootstrap::<AppModule>()?.with_router(router)` composition.
 - `ApiDefaultsObservabilityExt` enables `.observability(&observability)` and
   observability-aware API defaults.
 
 Common compile errors usually mean one of those traits is missing:
 
-- `no method named with_router`: import `ApplicationHttpExt` or
-  `nidus::prelude::*`.
+- `no method named with_router` after `Nidus::bootstrap`: import
+  `ApplicationHttpExt` or `nidus::prelude::*`; after `Nidus::create`, call the
+  builder's `.with_router(router)` before `.build().await`.
 - `no method named listen` or `no method named into_router`: import
   `NidusApplicationExt` or `nidus::prelude::*`.
 - `no method named observability`: import `ApiDefaultsObservabilityExt` or
@@ -189,7 +193,7 @@ W3C `traceparent` extraction/injection, observed span helpers, exception
 recording, and shutdown hooks.
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.2", features = ["otel"] }
+nidus = { package = "nidus-rs", version = "1.0.3", features = ["otel"] }
 ```
 
 ```rust

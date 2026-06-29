@@ -143,6 +143,15 @@ impl IntoResponse for HttpError {
     }
 }
 
+/// Default unmatched-route handler for Nidus HTTP applications.
+///
+/// Install this with [`axum::Router::fallback`] when missing routes should
+/// produce the same Nidus JSON error shape as handler-created 404 responses.
+/// [`crate::middleware::ApiDefaults::production`] installs it by default.
+pub async fn not_found_fallback() -> HttpError {
+    HttpError::not_found("route not found")
+}
+
 #[derive(Debug, Serialize)]
 struct ErrorBody {
     error: ErrorDetails,

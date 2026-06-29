@@ -12,6 +12,7 @@ use std::{
     fmt,
     panic::{AssertUnwindSafe, catch_unwind},
     sync::Arc,
+    sync::mpsc,
     time::{Duration, Instant},
 };
 
@@ -121,6 +122,61 @@ impl JobObserver for () {
     fn on_job_started(&self, _context: &ObservedJobContext) {}
 
     fn on_job_finished(&self, _context: &ObservedJobContext, _status: JobResultStatus) {}
+}
+
+/// Structured event emitted by a channel-backed job observer.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ObservedJobEvent {
+    /// A job run started.
+    Started(ObservedJobContext),
+    /// A job run finished with a success or failure status.
+    Finished {
+        /// Final job context, including duration.
+        context: ObservedJobContext,
+        /// Completion status.
+        status: JobResultStatus,
+    },
+}
+
+/// Observer implementation that sends observed job events to a channel.
+///
+/// Use [`job_observer_channel`] when the job path should only enqueue telemetry
+/// and another thread or task will do slower export work. Sending is
+/// best-effort: if the receiver has been dropped, job execution still
+/// continues and the event is discarded.
+#[derive(Clone)]
+pub struct JobObserverChannel {
+    sender: mpsc::Sender<ObservedJobEvent>,
+}
+
+impl JobObserverChannel {
+    /// Creates a channel observer from an existing sender.
+    pub fn new(sender: mpsc::Sender<ObservedJobEvent>) -> Self {
+        Self { sender }
+    }
+}
+
+impl JobObserver for JobObserverChannel {
+    fn on_job_started(&self, context: &ObservedJobContext) {
+        let _ = self.sender.send(ObservedJobEvent::Started(context.clone()));
+    }
+
+    fn on_job_finished(&self, context: &ObservedJobContext, status: JobResultStatus) {
+        let _ = self.sender.send(ObservedJobEvent::Finished {
+            context: context.clone(),
+            status,
+        });
+    }
+}
+
+/// Creates a channel-backed job observer and its receiver.
+///
+/// The returned observer can be passed to [`ObservedJobRunner::new`]. The
+/// receiver yields [`ObservedJobEvent`] values in execution order for a separate
+/// exporter thread or task.
+pub fn job_observer_channel() -> (JobObserverChannel, mpsc::Receiver<ObservedJobEvent>) {
+    let (sender, receiver) = mpsc::channel();
+    (JobObserverChannel::new(sender), receiver)
 }
 
 /// Runner that observes synchronous and asynchronous jobs without owning a queue.
