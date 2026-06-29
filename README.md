@@ -24,20 +24,20 @@ Application dependencies stay explicit:
 
 ```toml
 [dependencies]
-nidus = { package = "nidus-rs", version = "1.0.3", features = ["http", "config", "openapi", "validation"] }
+nidus = { package = "nidus-rs", version = "1.0.4", features = ["http", "config", "openapi", "validation"] }
 ```
 
 For production observability through the facade:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.3", features = ["observability", "events", "jobs", "otel"] }
+nidus = { package = "nidus-rs", version = "1.0.4", features = ["observability", "events", "jobs", "otel"] }
 ```
 
 Official integrations are separate crates:
 
 ```toml
-nidus-sqlx = { version = "1.0.3", features = ["sqlite"] }
-nidus-cache = { version = "1.0.3", features = ["moka"] }
+nidus-sqlx = { version = "1.0.4", features = ["sqlite"] }
+nidus-cache = { version = "1.0.4", features = ["moka"] }
 ```
 
 ## Which Crate Do I Install?
@@ -180,7 +180,7 @@ cargo run -p nidus-example-realworld-api
 The `external-*` examples are standalone Cargo packages with their own
 `[workspace]` tables. Verify them from their folders or with
 `bash scripts/verify-external-examples.sh`; they intentionally do not use local
-workspace path dependencies. Before `1.0.3` is published to crates.io, verify
+workspace path dependencies. Before `1.0.4` is published to crates.io, verify
 the same examples against temporary local patches:
 
 ```bash
@@ -206,7 +206,19 @@ npm run verify
 
 ## Release Status
 
-Nidus 1.0.0 established the public crate set. The current release track is 1.0.3, focused on launch hygiene, documentation, starter project depth, example proof, and package verification across every publishable crate. Publishing still requires crates.io credentials and should be reported with exact evidence when it is not performed.
+Nidus 1.0.0 established the public crate set. The current release track is 1.0.4, focused on security hardening, launch hygiene, documentation, starter project depth, example proof, and package verification across every publishable crate. Publishing still requires crates.io credentials and should be reported with exact evidence when it is not performed.
+
+## Fuzzing
+
+The `fuzz/` package uses cargo-fuzz to compile deterministic fuzz targets for
+config parsing, route path normalization, and OpenAPI path normalization:
+
+```bash
+cargo +nightly fuzz build
+cargo +nightly fuzz run route_paths
+```
+
+Use short local runs for development and CI compile checks for release hygiene.
 
 ## Contributing
 

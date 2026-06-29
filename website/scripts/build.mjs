@@ -10,7 +10,7 @@ const SRC = path.join(WEBSITE, 'src');
 const DIST = path.join(WEBSITE, 'dist');
 const BASE = normalizeBase(process.env.NIDUS_SITE_BASE ?? '/');
 const SITE_DOMAIN = (process.env.NIDUS_SITE_DOMAIN ?? '').trim();
-const RELEASE_VERSION = '1.0.3';
+const RELEASE_VERSION = '1.0.4';
 
 const docs = [
   {
@@ -71,6 +71,13 @@ const docs = [
     group: 'Reference',
     source: 'docs/api-reference.md',
     summary: 'Crate map and generated Rust API reference entry points.',
+  },
+  {
+    title: 'Release 1.0.4',
+    slug: 'docs/release-1-0-4',
+    group: 'Reference',
+    source: 'docs/release-1-0-4.md',
+    summary: 'Nidus 1.0.4 release notes and proof boundaries.',
   },
   {
     title: 'Release 1.0.3',
@@ -576,7 +583,7 @@ function pageShell({ title, description, body, currentSlug, home = false, toc = 
         ['Modules', href('docs/modules/')],
         ['Production defaults', href('docs/production-defaults/')],
         ['Official adapters', href('docs/official-adapters/')],
-        ['Release notes', href('docs/release-1-0-3/')],
+        ['Release notes', href('docs/release-1-0-4/')],
       ],
     },
     {

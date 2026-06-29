@@ -25,3 +25,24 @@ inspectable, but it does not replace application security design.
 Local verification can prove tests, docs, package dry-runs, and example runtime
 behavior. crates.io publication, docs.rs rendering, GitHub Pages settings, and
 DNS state are external systems and must be verified after release.
+
+## Fuzzing
+
+The repository includes a cargo-fuzz setup in `fuzz/` for security-relevant
+parsing boundaries:
+
+- `config_env` covers prefixed environment parsing and JSON config parsing.
+- `route_paths` covers manual HTTP route path normalization.
+- `openapi_paths` covers OpenAPI route path normalization.
+
+Build the fuzz targets locally with:
+
+```bash
+cargo +nightly fuzz build
+```
+
+Run an individual target when investigating parser behavior:
+
+```bash
+cargo +nightly fuzz run route_paths
+```

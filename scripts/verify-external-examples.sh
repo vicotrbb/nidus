@@ -64,7 +64,7 @@ nidus-sqlx = { path = "$ROOT/crates/nidus-sqlx" }
 nidus-testing = { path = "$ROOT/crates/nidus-testing" }
 EOF_PATCH
 
-  printf '\n==> using temporary local [patch.crates-io] entries for unpublished Nidus 1.0.3 crates\n'
+  printf '\n==> using temporary local [patch.crates-io] entries for unpublished Nidus crates\n'
 }
 
 wait_for_http() {

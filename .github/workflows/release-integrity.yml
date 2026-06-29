@@ -18,7 +18,7 @@ jobs:
     name: sbom
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # actions/checkout@v4
       - name: Install Rust
         run: |
           rustup toolchain install 1.96.0 --profile minimal
@@ -28,7 +28,7 @@ jobs:
       - name: Generate SBOM
         run: cargo sbom --output-format=cyclone_dx_json_1_6 > sbom.cdx.json
       - name: Upload SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # actions/upload-artifact@v4
         with:
           name: nidus-sbom
           path: sbom.cdx.json
@@ -37,7 +37,7 @@ jobs:
     name: coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # actions/checkout@v4
       - name: Install Rust
         run: |
           rustup toolchain install 1.96.0 --profile minimal
@@ -48,7 +48,7 @@ jobs:
       - name: Generate LCOV
         run: cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # actions/upload-artifact@v4
         with:
           name: nidus-lcov
           path: lcov.info
@@ -57,7 +57,7 @@ jobs:
     name: semver
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # actions/checkout@v4
       - name: Install Rust
         run: |
           rustup toolchain install 1.96.0 --profile minimal

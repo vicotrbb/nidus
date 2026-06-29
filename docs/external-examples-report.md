@@ -2,7 +2,7 @@
 
 ## Summary
 
-This change hardens Nidus 1.0.3 developer experience around extension traits and
+This change hardens Nidus 1.0.4 developer experience around extension traits and
 adds two copyable external-user examples that use crates.io-style dependencies:
 
 - `examples/external-support-desk`

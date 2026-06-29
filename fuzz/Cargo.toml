@@ -1,0 +1,38 @@
+[package]
+name = "nidus-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+nidus-config = { path = "../crates/nidus-config" }
+nidus-http = { path = "../crates/nidus-http" }
+nidus-openapi = { path = "../crates/nidus-openapi" }
+serde_json = "1"
+
+[workspace]
+
+[[bin]]
+name = "config_env"
+path = "fuzz_targets/config_env.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "route_paths"
+path = "fuzz_targets/route_paths.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "openapi_paths"
+path = "fuzz_targets/openapi_paths.rs"
+test = false
+doc = false
+bench = false

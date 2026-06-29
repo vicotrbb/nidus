@@ -1,11 +1,11 @@
 [package]
 name = "nidus-example-sqlx-app"
-version = "1.0.3"
+version = "1.0.4"
 edition = "2024"
 publish = false
 
 [dependencies]
-nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.3" }
-nidus-sqlx = { path = "../../crates/nidus-sqlx", version = "1.0.3", features = ["sqlite"] }
+nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.4" }
+nidus-sqlx = { path = "../../crates/nidus-sqlx", version = "1.0.4", features = ["sqlite"] }
 sqlx = { workspace = true, features = ["sqlite"] }
 tokio.workspace = true

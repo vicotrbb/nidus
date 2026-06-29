@@ -4,6 +4,16 @@
 
 - No unreleased changes yet.
 
+## 1.0.4 - 2026-06-29
+
+- Updated `anyhow` to 1.0.103 to address RUSTSEC-2026-0190.
+- Pinned all GitHub Actions workflow actions to full commit SHAs.
+- Expanded the security policy with direct private reporting links, fallback
+  email, response timelines, disclosure guidance, and scope.
+- Added cargo-fuzz integration and CI fuzz target compilation.
+- Refreshed docs, examples, website, generated starter defaults, and version
+  references for the 1.0.4 patch release.
+
 ## 1.0.3 - 2026-06-29
 
 - Added facade builder router ergonomics with `Nidus::create::<AppModule>().with_router(router)` and `build_with_router(router)`.
