@@ -143,9 +143,38 @@ jobs:
               return 0
             fi
 
-            cargo publish -p "${crate}"
-            wait_for_crate "${crate}"
+            for attempt in {1..10}; do
+              set +e
+              output="$(cargo publish -p "${crate}" 2>&1)"
+              status="$?"
+              set -e
+              printf '%s\n' "${output}"
+
+              if [ "${status}" -eq 0 ]; then
+                wait_for_crate "${crate}"
+                echo "::endgroup::"
+                return 0
+              fi
+
+              if is_published "${crate}"; then
+                echo "${crate} ${version} is already published after publish response; continuing."
+                echo "::endgroup::"
+                return 0
+              fi
+
+              if printf '%s\n' "${output}" | grep -q "Too Many Requests"; then
+                echo "crates.io rate limit hit while publishing ${crate}; retrying (${attempt}/10)."
+                sleep 30
+                continue
+              fi
+
+              echo "::endgroup::"
+              return "${status}"
+            done
+
+            echo "Exceeded publish retry limit for ${crate}." >&2
             echo "::endgroup::"
+            exit 1
           }
 
           publish_one nidus-core
