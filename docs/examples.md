@@ -16,6 +16,8 @@ requiring external services by default.
 | `sqlx-app` | Separate `nidus-sqlx` SQLite adapter with repository injection and direct SQLx query access. |
 | `cache-app` | Separate `nidus-cache` Moka adapter with an optional cache dependency in a service. |
 | `integrations-production` | Production-shaped integration wiring with typed config, SQLite, Moka cache, health checks, and adapter observability without binding a live port in tests. |
+| `external-support-desk` | Standalone external-user support desk API with crates.io-style dependencies, DI, tickets, comments, priorities, statuses, assignment, close transition, validation failures, `x-api-key` auth, request IDs, not-found behavior, live curl instructions, and `nidus-testing`. |
+| `external-commerce` | Standalone external-user commerce API with crates.io-style dependencies, `nidus-sqlx` SQLite, `nidus-cache`, products, carts, inventory, idempotent checkout, env config, health/readiness, metrics, live curl instructions, and database/cache tests. |
 
 Run an example with Cargo's package selector:
 
@@ -49,3 +51,48 @@ and production-shaped examples cover health, metrics, request IDs, error
 envelopes, limits, timeouts, CORS, guards, OpenAPI, validation, and persistence.
 The adapter examples use SQLite in memory and Moka by default, keeping the
 default example suite free of external service requirements.
+
+## External Full-Stack Examples
+
+`examples/external-support-desk` and `examples/external-commerce` are positioned
+as "copy this when building a real app" examples. They are not normal workspace
+members; each has its own `[workspace]` table and uses published dependency
+declarations such as:
+
+```toml
+nidus = { package = "nidus-rs", version = "1.0.1", features = ["http"] }
+nidus-sqlx = { version = "1.0.1", features = ["sqlite", "health", "observability"] }
+nidus-cache = { version = "1.0.1", features = ["health", "observability"] }
+nidus-testing = "1.0.1"
+```
+
+Verify both examples with:
+
+```bash
+bash scripts/verify-external-examples.sh
+```
+
+## Common Imports And Extension Traits
+
+Use this import in app entrypoints and copyable examples:
+
+```rust
+use nidus::prelude::*;
+```
+
+It brings in the extension traits users most often miss:
+
+- `ApplicationHttpExt` enables `.with_router(...)`.
+- `NidusApplicationExt` enables `Nidus::create::<AppModule>()`, `.listen(...)`,
+  and `.into_router()`.
+- `ApiDefaultsObservabilityExt` enables `.observability(&observability)` and
+  observability-aware API defaults.
+
+Common compile errors:
+
+- `no method named with_router`: import `ApplicationHttpExt` or
+  `nidus::prelude::*`.
+- `no method named listen` or `no method named into_router`: import
+  `NidusApplicationExt` or `nidus::prelude::*`.
+- `no method named observability`: import `ApiDefaultsObservabilityExt` or
+  `nidus::prelude::*`.

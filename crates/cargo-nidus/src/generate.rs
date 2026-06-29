@@ -131,6 +131,32 @@ cargo nidus openapi
 cargo nidus check
 ```
 
+## Common imports and extension traits
+
+Application entrypoints should use the prelude:
+
+```rust
+use nidus::prelude::*;
+```
+
+That import keeps Nidus extension traits in scope:
+
+- `ApplicationHttpExt` enables `.with_router(...)`.
+- `NidusApplicationExt` enables `Nidus::create::<AppModule>()`, `.listen(...)`,
+  and `.into_router()`.
+- `ApiDefaultsObservabilityExt` enables `.observability(&observability)` when
+  the `observability` facade feature is enabled and API defaults are composed
+  with Nidus observability.
+
+## Common compile errors
+
+- `no method named `with_router``: import `ApplicationHttpExt` or
+  `nidus::prelude::*`.
+- `no method named `listen`` or `no method named `into_router``: import
+  `NidusApplicationExt` or `nidus::prelude::*`.
+- `no method named `observability``: import `ApiDefaultsObservabilityExt` or
+  `nidus::prelude::*`.
+
 ## Next steps
 
 - Move domain behavior into services registered on a module.

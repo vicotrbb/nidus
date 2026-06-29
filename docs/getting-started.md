@@ -38,6 +38,32 @@ nidus-sqlx = { version = "1.0.1", features = ["sqlite"] }
 nidus-cache = { version = "1.0.1", features = ["moka"] }
 ```
 
+## Common Imports And Extension Traits
+
+Use the prelude in application entrypoints and examples:
+
+```rust
+use nidus::prelude::*;
+```
+
+This is the recommended pattern because it imports the extension traits that
+make the fluent application API available:
+
+- `ApplicationHttpExt` enables `.with_router(...)`.
+- `NidusApplicationExt` enables `Nidus::create::<AppModule>()`, `.listen(...)`,
+  and `.into_router()`.
+- `ApiDefaultsObservabilityExt` enables `.observability(&observability)` and
+  observability-aware API defaults when the `observability` feature is enabled.
+
+## Common Compile Errors
+
+- `no method named with_router`: import `ApplicationHttpExt` or
+  `nidus::prelude::*`.
+- `no method named listen` or `no method named into_router`: import
+  `NidusApplicationExt` or `nidus::prelude::*`.
+- `no method named observability`: import `ApiDefaultsObservabilityExt` or
+  `nidus::prelude::*`.
+
 `cargo nidus new` refuses to overwrite an existing destination directory.
 Generated artifacts are written under their feature directory, the matching `mod.rs` index is updated, and the feature directory is declared from `src/main.rs` or `src/lib.rs`.
 Artifact names must start with an ASCII letter after normalization; names such as `user.profile` are normalized to Rust module filenames such as `user_profile.rs` and Rust types such as `UserProfileService`.

@@ -32,6 +32,31 @@ nidus-sqlx = { version = "1.0.1", features = ["sqlite", "health", "observability
 nidus-cache = { version = "1.0.1", features = ["health", "observability"] }
 ```
 
+## Common Imports And Extension Traits
+
+Use the prelude when composing observability at the application boundary:
+
+```rust
+use nidus::prelude::*;
+```
+
+The prelude imports:
+
+- `ApplicationHttpExt`, which enables `.with_router(...)`.
+- `NidusApplicationExt`, which enables `Nidus::create::<AppModule>()`,
+  `.listen(...)`, and `.into_router()`.
+- `ApiDefaultsObservabilityExt`, which enables
+  `.observability(&observability)` and observability-aware API defaults.
+
+Common compile errors:
+
+- `no method named with_router`: import `ApplicationHttpExt` or
+  `nidus::prelude::*`.
+- `no method named listen` or `no method named into_router`: import
+  `NidusApplicationExt` or `nidus::prelude::*`.
+- `no method named observability`: import `ApiDefaultsObservabilityExt` or
+  `nidus::prelude::*`.
+
 ## Application-Wide Setup
 
 ```rust

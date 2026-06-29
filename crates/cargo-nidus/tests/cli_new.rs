@@ -30,6 +30,8 @@ fn cargo_nidus_new_generates_compilable_nidus_project() {
     assert!(!cargo_toml.contains("axum ="));
     assert!(!cargo_toml.contains("tokio ="));
     let main_rs = fs::read_to_string(project.join("src/main.rs")).unwrap();
+    assert!(main_rs.contains("use nidus::prelude::*;"));
+    assert!(!main_rs.contains("use nidus::{"));
     assert!(main_rs.contains("#[nidus::main]"));
     assert!(!main_rs.contains("#[tokio::main]"));
     assert!(main_rs.contains("#[controller(\"/\")]"));
@@ -55,6 +57,15 @@ fn cargo_nidus_new_generates_compilable_nidus_project() {
     assert!(readme.contains("cargo nidus generate controller users"));
     assert!(readme.contains("cargo nidus routes"));
     assert!(readme.contains("curl http://127.0.0.1:3000/"));
+    assert!(readme.contains("## Common imports and extension traits"));
+    assert!(readme.contains("use nidus::prelude::*;"));
+    assert!(readme.contains("ApplicationHttpExt"));
+    assert!(readme.contains("NidusApplicationExt"));
+    assert!(readme.contains("ApiDefaultsObservabilityExt"));
+    assert!(readme.contains("## Common compile errors"));
+    assert!(readme.contains("no method named `with_router`"));
+    assert!(readme.contains("no method named `listen`"));
+    assert!(readme.contains("no method named `observability`"));
     assert!(readme.contains("Next steps"));
 
     let check = Command::new("cargo")

@@ -48,6 +48,32 @@ nidus-cache = { version = "1.0.1", features = ["moka"] }
 - Add `nidus-sqlx` or `nidus-cache` when choosing those official adapters.
 - Depend on lower-level crates such as `nidus-core` or `nidus-http` only when building framework extensions.
 
+## Common Imports And Extension Traits
+
+Use the prelude at application entrypoints:
+
+```rust
+use nidus::prelude::*;
+```
+
+The prelude is the recommended import because it keeps the extension traits
+that power common app composition methods in scope:
+
+- `ApplicationHttpExt` enables `.with_router(...)`.
+- `NidusApplicationExt` enables `Nidus::create::<AppModule>()`, `.listen(...)`,
+  and `.into_router()`.
+- `ApiDefaultsObservabilityExt` enables `.observability(&observability)` and
+  observability-aware API defaults when the `observability` feature is enabled.
+
+## Common Compile Errors
+
+- `no method named with_router`: import `ApplicationHttpExt` or
+  `nidus::prelude::*`.
+- `no method named listen` or `no method named into_router`: import
+  `NidusApplicationExt` or `nidus::prelude::*`.
+- `no method named observability`: import `ApiDefaultsObservabilityExt` or
+  `nidus::prelude::*`.
+
 ## Learning Path
 
 1. Run `cargo nidus new hello-nidus` and start the generated server.
@@ -137,12 +163,19 @@ The `nidus` facade stays lean. SQLx and cache integration live in `nidus-sqlx` a
 - `examples/production-api`: production middleware defaults.
 - `examples/realworld-api`: team tasks API with modules, SQLite, validation, OpenAPI, health, observability, request IDs, guards, CORS, limits, timeouts, events, and jobs.
 - `examples/sqlx-app` and `examples/cache-app`: official adapter wiring.
+- `examples/external-support-desk`: copyable external-user support desk API using crates.io-style dependencies, DI, ticket lifecycle routes, API-key auth, request IDs, validation errors, not-found behavior, and `nidus-testing`.
+- `examples/external-commerce`: copyable external-user commerce API using crates.io-style dependencies, `nidus-sqlx` SQLite wiring, `nidus-cache`, products, carts, inventory, idempotent checkout, health/readiness, metrics, and `nidus-testing`.
 
 Run an example:
 
 ```bash
 cargo run -p nidus-example-realworld-api
 ```
+
+The `external-*` examples are standalone Cargo packages with their own
+`[workspace]` tables. Verify them from their folders or with
+`bash scripts/verify-external-examples.sh`; they intentionally do not use local
+workspace path dependencies.
 
 ## Documentation
 

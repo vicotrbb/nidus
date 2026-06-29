@@ -48,6 +48,31 @@ Adapter crates such as `nidus-sqlx` and `nidus-cache` should read the same typed
 configuration at startup. Keep URLs, pool sizes, cache namespaces, and TTLs in
 application config, then pass explicit values into adapter builders.
 
+## Common Imports And Extension Traits
+
+Deployment entrypoints should normally start with:
+
+```rust
+use nidus::prelude::*;
+```
+
+That import keeps the app-composition extension traits visible:
+
+- `ApplicationHttpExt` enables `.with_router(...)`.
+- `NidusApplicationExt` enables `Nidus::create::<AppModule>()`, `.listen(...)`,
+  and `.into_router()`.
+- `ApiDefaultsObservabilityExt` enables `.observability(&observability)` and
+  observability-aware API defaults.
+
+Common compile errors usually mean one of those traits is missing:
+
+- `no method named with_router`: import `ApplicationHttpExt` or
+  `nidus::prelude::*`.
+- `no method named listen` or `no method named into_router`: import
+  `NidusApplicationExt` or `nidus::prelude::*`.
+- `no method named observability`: import `ApiDefaultsObservabilityExt` or
+  `nidus::prelude::*`.
+
 ## HTTP Boundary
 
 Nidus builds on Axum and Tower, so standard Rust deployment patterns apply:
