@@ -152,6 +152,7 @@ async fn lifecycle_runner_emits_startup_and_shutdown_debug_logs() {
             )),
     );
     let _guard = tracing::subscriber::set_default(subscriber);
+    tracing_core::callsite::rebuild_interest_cache();
     let events = Arc::new(Mutex::new(Vec::new()));
     let runner = LifecycleRunner::new().hook(RecordingHook {
         name: "database",
@@ -213,6 +214,7 @@ async fn lifecycle_runner_emits_failure_and_rollback_logs() {
             )),
     );
     let _guard = tracing::subscriber::set_default(subscriber);
+    tracing_core::callsite::rebuild_interest_cache();
     let events = Arc::new(Mutex::new(Vec::new()));
     let runner = LifecycleRunner::new()
         .hook(RecordingHook {
