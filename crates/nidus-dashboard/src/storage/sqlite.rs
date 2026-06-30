@@ -61,11 +61,61 @@ impl SqliteDashboardStorage {
 
         Ok(Self { pool })
     }
+
+    /// Connects lazily to SQLite.
+    pub fn connect_lazy(database_url: &str) -> Result<Self> {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(5)
+            .connect_lazy(database_url)?;
+        Ok(Self { pool })
+    }
+
+    async fn migrate(&self) -> Result<()> {
+        let _ = sqlx::query("PRAGMA journal_mode = WAL")
+            .execute(&self.pool)
+            .await;
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS dashboard_operations (
+                id TEXT PRIMARY KEY NOT NULL,
+                kind TEXT NOT NULL,
+                name TEXT NOT NULL,
+                status TEXT NOT NULL,
+                timestamp_ms INTEGER NOT NULL,
+                duration_ms INTEGER,
+                correlation_id TEXT,
+                attributes_json TEXT NOT NULL,
+                payload_json TEXT
+            )",
+        )
+        .execute(&self.pool)
+        .await?;
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS dashboard_operations_timestamp_idx
+             ON dashboard_operations(timestamp_ms)",
+        )
+        .execute(&self.pool)
+        .await?;
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS dashboard_routes (
+                method TEXT NOT NULL,
+                path TEXT NOT NULL,
+                summary TEXT,
+                guards_json TEXT NOT NULL,
+                pipes_json TEXT NOT NULL,
+                validates INTEGER NOT NULL,
+                PRIMARY KEY (method, path)
+            )",
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
 }
 
 impl DashboardStorageBackend for SqliteDashboardStorage {
     fn record_operation(&self, operation: DashboardOperation) -> StorageFuture<'_, ()> {
         Box::pin(async move {
+            self.migrate().await?;
             let attributes_json = serde_json::to_string(&operation.attributes)?;
             let payload_json = operation
                 .payload
@@ -94,6 +144,7 @@ impl DashboardStorageBackend for SqliteDashboardStorage {
 
     fn list_operations(&self, limit: usize) -> StorageFuture<'_, Vec<DashboardOperation>> {
         Box::pin(async move {
+            self.migrate().await?;
             let rows = sqlx::query(
                 "SELECT id, kind, name, status, timestamp_ms, duration_ms, correlation_id, attributes_json, payload_json
                  FROM dashboard_operations
@@ -110,6 +161,7 @@ impl DashboardStorageBackend for SqliteDashboardStorage {
 
     fn prune(&self, max_events: usize) -> StorageFuture<'_, ()> {
         Box::pin(async move {
+            self.migrate().await?;
             sqlx::query(
                 "DELETE FROM dashboard_operations
                  WHERE id NOT IN (
@@ -127,6 +179,7 @@ impl DashboardStorageBackend for SqliteDashboardStorage {
 
     fn record_route_snapshot(&self, route: DashboardRouteSnapshot) -> StorageFuture<'_, ()> {
         Box::pin(async move {
+            self.migrate().await?;
             sqlx::query(
                 "INSERT OR REPLACE INTO dashboard_routes
                  (method, path, summary, guards_json, pipes_json, validates)
@@ -146,6 +199,7 @@ impl DashboardStorageBackend for SqliteDashboardStorage {
 
     fn list_route_snapshots(&self) -> StorageFuture<'_, Vec<DashboardRouteSnapshot>> {
         Box::pin(async move {
+            self.migrate().await?;
             let rows = sqlx::query(
                 "SELECT method, path, summary, guards_json, pipes_json, validates
                  FROM dashboard_routes

@@ -12,12 +12,14 @@ use crate::{
     collector::DashboardCollector,
     config::{DashboardAuth, DashboardCapture, DashboardRetention, DashboardStorage},
     error::{DashboardError, Result},
-    storage::{DashboardStorageBackend, MemoryDashboardStorage},
+    storage::{DashboardStorageBackend, DashboardStorageHandle},
     types::{
         DashboardOperation, DashboardOperationKind, DashboardOperationStatus,
         DashboardRouteSnapshot,
     },
 };
+#[cfg(feature = "sqlite")]
+use crate::storage::SqliteDashboardStorage;
 
 const INDEX_HTML: &str = include_str!("../assets/index.html");
 const STYLES_CSS: &str = include_str!("../assets/styles.css");
@@ -28,13 +30,13 @@ const APP_JS: &str = include_str!("../assets/app.js");
 pub struct NidusDashboard {
     path: String,
     auth: DashboardAuthState,
-    storage: MemoryDashboardStorage,
-    collector: DashboardCollector<MemoryDashboardStorage>,
+    storage: DashboardStorageHandle,
+    collector: DashboardCollector<DashboardStorageHandle>,
 }
 
 #[derive(Clone, Debug)]
 struct DashboardRuntime {
-    storage: MemoryDashboardStorage,
+    storage: DashboardStorageHandle,
     settings: DashboardSettings,
 }
 
@@ -58,12 +60,12 @@ impl NidusDashboard {
     }
 
     /// Returns the dashboard collector.
-    pub fn collector(&self) -> DashboardCollector<MemoryDashboardStorage> {
+    pub fn collector(&self) -> DashboardCollector<DashboardStorageHandle> {
         self.collector.clone()
     }
 
     /// Returns the configured dashboard storage.
-    pub fn storage(&self) -> MemoryDashboardStorage {
+    pub fn storage(&self) -> DashboardStorageHandle {
         self.storage.clone()
     }
 
@@ -119,7 +121,7 @@ impl NidusDashboard {
             settings: DashboardSettings {
                 auth_mode: self.auth.mode_name(),
                 capture_mode: "metadata_only",
-                storage_mode: "memory",
+                storage_mode: self.storage.mode_name(),
                 retention_max_events: 100_000,
             },
         }
@@ -270,12 +272,12 @@ impl NidusDashboardBuilder {
             return Err(DashboardError::InvalidPath);
         }
         let auth = DashboardAuthState::from_config(auth)?;
-        let _ = self.storage.resolved_sqlite_path();
+        let storage_config = self.storage;
         let capture = self.capture;
         let _ = capture.payload_byte_cap();
         let _ = self.retention.max_age();
         let _ = self.retention.max_event_count();
-        let storage = MemoryDashboardStorage::new();
+        let storage = storage_from_config(storage_config)?;
         let collector = DashboardCollector::new(storage.clone(), capture);
         Ok(NidusDashboard {
             path: self.path,
@@ -283,5 +285,30 @@ impl NidusDashboardBuilder {
             storage,
             collector,
         })
+    }
+}
+
+fn storage_from_config(storage: DashboardStorage) -> Result<DashboardStorageHandle> {
+    match storage {
+        DashboardStorage::Memory => Ok(DashboardStorageHandle::memory()),
+        #[cfg(feature = "sqlite")]
+        DashboardStorage::Sqlite(path) => Ok(DashboardStorageHandle::Sqlite(
+            SqliteDashboardStorage::connect_lazy(&path)?,
+        )),
+        #[cfg(feature = "sqlite")]
+        DashboardStorage::SqliteFromEnv(name) => {
+            let path = DashboardStorage::sqlite_from_env(name)
+                .resolved_sqlite_path()
+                .unwrap_or_else(|| "nidus-dashboard.sqlite".to_owned());
+            Ok(DashboardStorageHandle::Sqlite(
+                SqliteDashboardStorage::connect_lazy(&path)?,
+            ))
+        }
+        #[cfg(not(feature = "sqlite"))]
+        DashboardStorage::Sqlite(_) | DashboardStorage::SqliteFromEnv(_) => {
+            Err(DashboardError::Storage(
+                "sqlite storage requires the `sqlite` feature".to_owned(),
+            ))
+        }
     }
 }
