@@ -1,6 +1,7 @@
-use axum::Router;
+use axum::{Router, middleware, routing::get};
 
 use crate::{
+    auth::{DashboardAuthState, require_dashboard_auth},
     config::{DashboardAuth, DashboardCapture, DashboardRetention, DashboardStorage},
     error::{DashboardError, Result},
 };
@@ -9,6 +10,7 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct NidusDashboard {
     path: String,
+    auth: DashboardAuthState,
 }
 
 impl NidusDashboard {
@@ -25,6 +27,11 @@ impl NidusDashboard {
     /// Returns an Axum router for the dashboard.
     pub fn router(&self) -> Router {
         Router::new()
+            .route("/", get(|| async { "Nidus Dashboard" }))
+            .layer(middleware::from_fn_with_state(
+                self.auth.clone(),
+                require_dashboard_auth,
+            ))
     }
 }
 
@@ -83,17 +90,21 @@ impl NidusDashboardBuilder {
 
     /// Builds the dashboard.
     pub fn build(self) -> Result<NidusDashboard> {
-        if self.auth.is_none() {
+        let Some(auth) = self.auth else {
             return Err(DashboardError::MissingAuth);
-        }
+        };
         if !self.path.starts_with('/') || self.path.ends_with('/') {
             return Err(DashboardError::InvalidPath);
         }
+        let auth = DashboardAuthState::from_config(auth)?;
         let _ = self.storage.resolved_sqlite_path();
         let _ = self.capture.captures_payloads();
         let _ = self.capture.payload_byte_cap();
         let _ = self.retention.max_age();
         let _ = self.retention.max_event_count();
-        Ok(NidusDashboard { path: self.path })
+        Ok(NidusDashboard {
+            path: self.path,
+            auth,
+        })
     }
 }
