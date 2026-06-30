@@ -6,7 +6,7 @@ mod sqlite;
 
 use std::{future::Future, pin::Pin};
 
-use crate::{DashboardOperation, error::Result};
+use crate::{DashboardOperation, DashboardRouteSnapshot, error::Result};
 
 pub use memory::MemoryDashboardStorage;
 #[cfg(feature = "sqlite")]
@@ -25,4 +25,10 @@ pub trait DashboardStorageBackend: Clone + Send + Sync + 'static {
 
     /// Prunes to the newest `max_events` operations.
     fn prune(&self, max_events: usize) -> StorageFuture<'_, ()>;
+
+    /// Records a route snapshot.
+    fn record_route_snapshot(&self, route: DashboardRouteSnapshot) -> StorageFuture<'_, ()>;
+
+    /// Lists route snapshots.
+    fn list_route_snapshots(&self) -> StorageFuture<'_, Vec<DashboardRouteSnapshot>>;
 }

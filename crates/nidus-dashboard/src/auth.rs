@@ -50,6 +50,13 @@ impl DashboardAuthState {
                 .is_some_and(|candidate| candidate == token.as_ref()),
         }
     }
+
+    pub(crate) fn mode_name(&self) -> &'static str {
+        match self {
+            Self::Bearer { .. } => "bearer",
+            Self::UnsafeDisabled => "unsafe_disabled_for_local_development",
+        }
+    }
 }
 
 /// Axum middleware that enforces dashboard authentication.

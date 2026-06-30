@@ -14,7 +14,7 @@ use nidus_observability::{Observability, OperationStatus};
 #[cfg(feature = "openapi")]
 use nidus_openapi::OpenApiDocument;
 #[cfg(feature = "dashboard")]
-use nidus_dashboard::NidusDashboard;
+use nidus_dashboard::{DashboardRouteSnapshot, NidusDashboard};
 
 /// Extension methods for creating composed Nidus applications from root modules.
 pub trait NidusApplicationExt {
@@ -47,6 +47,8 @@ where
     observability: Option<Observability>,
     #[cfg(feature = "dashboard")]
     dashboard: Option<NidusDashboard>,
+    #[cfg(feature = "dashboard")]
+    dashboard_route_snapshots: Vec<DashboardRouteSnapshot>,
     #[cfg(feature = "openapi")]
     schemas: Vec<fn(OpenApiDocument) -> OpenApiDocument>,
     _module: std::marker::PhantomData<M>,
@@ -67,6 +69,8 @@ where
             observability: None,
             #[cfg(feature = "dashboard")]
             dashboard: None,
+            #[cfg(feature = "dashboard")]
+            dashboard_route_snapshots: Vec::new(),
             #[cfg(feature = "openapi")]
             schemas: Vec::new(),
             _module: std::marker::PhantomData,
@@ -179,6 +183,16 @@ where
         }
 
         let router = self.build_router(&graph)?;
+        #[cfg(feature = "dashboard")]
+        if let Some(dashboard) = &self.dashboard {
+            for route in self.dashboard_route_snapshots.drain(..) {
+                dashboard.record_route_snapshot(route).await.map_err(|error| {
+                    NidusError::ApplicationBuild {
+                        message: error.to_string(),
+                    }
+                })?;
+            }
+        }
         Ok(Application::new(self.container, graph).with_router(router))
     }
 
@@ -208,6 +222,16 @@ where
                             message: format!("duplicate route `{key}`"),
                         });
                     }
+                    #[cfg(feature = "dashboard")]
+                    self.dashboard_route_snapshots
+                        .push(DashboardRouteSnapshot {
+                            method: route.method().to_owned(),
+                            path: full_path,
+                            summary: route.summary().map(str::to_owned),
+                            guards: route.guards().iter().map(|value| (*value).to_owned()).collect(),
+                            pipes: route.pipes().iter().map(|value| (*value).to_owned()).collect(),
+                            validates: route.validates(),
+                        });
                 }
 
                 #[cfg(feature = "openapi")]

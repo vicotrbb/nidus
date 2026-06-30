@@ -1,5 +1,7 @@
 use axum::{
-    Json, Router, middleware,
+    Json, Router,
+    extract::State,
+    middleware,
     response::{Html, IntoResponse, Sse, sse::Event},
     routing::get,
 };
@@ -10,8 +12,11 @@ use crate::{
     collector::DashboardCollector,
     config::{DashboardAuth, DashboardCapture, DashboardRetention, DashboardStorage},
     error::{DashboardError, Result},
-    storage::MemoryDashboardStorage,
-    types::{DashboardOperation, DashboardOperationKind, DashboardOperationStatus},
+    storage::{DashboardStorageBackend, MemoryDashboardStorage},
+    types::{
+        DashboardOperation, DashboardOperationKind, DashboardOperationStatus,
+        DashboardRouteSnapshot,
+    },
 };
 
 const INDEX_HTML: &str = include_str!("../assets/index.html");
@@ -25,6 +30,20 @@ pub struct NidusDashboard {
     auth: DashboardAuthState,
     storage: MemoryDashboardStorage,
     collector: DashboardCollector<MemoryDashboardStorage>,
+}
+
+#[derive(Clone, Debug)]
+struct DashboardRuntime {
+    storage: MemoryDashboardStorage,
+    settings: DashboardSettings,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct DashboardSettings {
+    auth_mode: &'static str,
+    capture_mode: &'static str,
+    storage_mode: &'static str,
+    retention_max_events: usize,
 }
 
 impl NidusDashboard {
@@ -50,11 +69,14 @@ impl NidusDashboard {
 
     /// Returns an Axum router for the dashboard.
     pub fn router(&self) -> Router {
+        let runtime = self.runtime();
         Router::new()
             .route("/", get(index))
             .route("/assets/styles.css", get(styles))
             .route("/assets/app.js", get(app_js))
             .route("/api/overview", get(overview))
+            .route("/api/routes", get(routes))
+            .route("/api/settings", get(settings))
             .route("/api/timeline", get(timeline))
             .route("/stream", get(stream))
             .fallback(index)
@@ -62,23 +84,45 @@ impl NidusDashboard {
                 self.auth.clone(),
                 require_dashboard_auth,
             ))
+            .with_state(runtime)
     }
 
     /// Returns an Axum router mounted at the configured dashboard path.
     pub fn mounted_router(&self) -> Router {
         let path = self.path.trim_end_matches('/');
+        let runtime = self.runtime();
         Router::new()
             .route(path, get(index))
             .route(&format!("{path}/"), get(index))
             .route(&format!("{path}/assets/styles.css"), get(styles))
             .route(&format!("{path}/assets/app.js"), get(app_js))
             .route(&format!("{path}/api/overview"), get(overview))
+            .route(&format!("{path}/api/routes"), get(routes))
+            .route(&format!("{path}/api/settings"), get(settings))
             .route(&format!("{path}/api/timeline"), get(timeline))
             .route(&format!("{path}/stream"), get(stream))
             .layer(middleware::from_fn_with_state(
                 self.auth.clone(),
                 require_dashboard_auth,
             ))
+            .with_state(runtime)
+    }
+
+    /// Records a route snapshot for dashboard route introspection.
+    pub async fn record_route_snapshot(&self, route: DashboardRouteSnapshot) -> Result<()> {
+        self.storage.record_route_snapshot(route).await
+    }
+
+    fn runtime(&self) -> DashboardRuntime {
+        DashboardRuntime {
+            storage: self.storage.clone(),
+            settings: DashboardSettings {
+                auth_mode: self.auth.mode_name(),
+                capture_mode: "metadata_only",
+                storage_mode: "memory",
+                retention_max_events: 100_000,
+            },
+        }
     }
 }
 
@@ -129,8 +173,22 @@ async fn overview() -> Json<OverviewResponse> {
     })
 }
 
-async fn timeline() -> Json<Vec<DashboardOperation>> {
-    Json(Vec::new())
+async fn routes(State(runtime): State<DashboardRuntime>) -> Json<Vec<DashboardRouteSnapshot>> {
+    Json(
+        runtime
+            .storage
+            .list_route_snapshots()
+            .await
+            .unwrap_or_default(),
+    )
+}
+
+async fn settings(State(runtime): State<DashboardRuntime>) -> Json<DashboardSettings> {
+    Json(runtime.settings)
+}
+
+async fn timeline(State(runtime): State<DashboardRuntime>) -> Json<Vec<DashboardOperation>> {
+    Json(runtime.storage.list_operations(100).await.unwrap_or_default())
 }
 
 async fn stream() -> Sse<impl futures_util::Stream<Item = std::result::Result<Event, std::convert::Infallible>>> {

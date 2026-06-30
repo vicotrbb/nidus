@@ -1,7 +1,7 @@
 use sqlx::{Row, SqlitePool, sqlite::SqlitePoolOptions};
 
 use crate::{
-    DashboardOperation, DashboardOperationKind, DashboardOperationStatus,
+    DashboardOperation, DashboardOperationKind, DashboardOperationStatus, DashboardRouteSnapshot,
     error::{DashboardError, Result},
 };
 
@@ -42,6 +42,19 @@ impl SqliteDashboardStorage {
         sqlx::query(
             "CREATE INDEX IF NOT EXISTS dashboard_operations_timestamp_idx
              ON dashboard_operations(timestamp_ms)",
+        )
+        .execute(&pool)
+        .await?;
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS dashboard_routes (
+                method TEXT NOT NULL,
+                path TEXT NOT NULL,
+                summary TEXT,
+                guards_json TEXT NOT NULL,
+                pipes_json TEXT NOT NULL,
+                validates INTEGER NOT NULL,
+                PRIMARY KEY (method, path)
+            )",
         )
         .execute(&pool)
         .await?;
@@ -111,6 +124,39 @@ impl DashboardStorageBackend for SqliteDashboardStorage {
             Ok(())
         })
     }
+
+    fn record_route_snapshot(&self, route: DashboardRouteSnapshot) -> StorageFuture<'_, ()> {
+        Box::pin(async move {
+            sqlx::query(
+                "INSERT OR REPLACE INTO dashboard_routes
+                 (method, path, summary, guards_json, pipes_json, validates)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            )
+            .bind(&route.method)
+            .bind(&route.path)
+            .bind(&route.summary)
+            .bind(serde_json::to_string(&route.guards)?)
+            .bind(serde_json::to_string(&route.pipes)?)
+            .bind(i64::from(route.validates))
+            .execute(&self.pool)
+            .await?;
+            Ok(())
+        })
+    }
+
+    fn list_route_snapshots(&self) -> StorageFuture<'_, Vec<DashboardRouteSnapshot>> {
+        Box::pin(async move {
+            let rows = sqlx::query(
+                "SELECT method, path, summary, guards_json, pipes_json, validates
+                 FROM dashboard_routes
+                 ORDER BY path ASC, method ASC",
+            )
+            .fetch_all(&self.pool)
+            .await?;
+
+            rows.into_iter().map(row_to_route).collect()
+        })
+    }
 }
 
 fn row_to_operation(row: sqlx::sqlite::SqliteRow) -> Result<DashboardOperation> {
@@ -132,6 +178,21 @@ fn row_to_operation(row: sqlx::sqlite::SqliteRow) -> Result<DashboardOperation> 
         payload: payload_json
             .map(|value| serde_json::from_str(&value))
             .transpose()?,
+    })
+}
+
+fn row_to_route(row: sqlx::sqlite::SqliteRow) -> Result<DashboardRouteSnapshot> {
+    let guards_json: String = row.try_get("guards_json")?;
+    let pipes_json: String = row.try_get("pipes_json")?;
+    let validates: i64 = row.try_get("validates")?;
+
+    Ok(DashboardRouteSnapshot {
+        method: row.try_get("method")?,
+        path: row.try_get("path")?,
+        summary: row.try_get("summary")?,
+        guards: serde_json::from_str(&guards_json)?,
+        pipes: serde_json::from_str(&pipes_json)?,
+        validates: validates != 0,
     })
 }
 

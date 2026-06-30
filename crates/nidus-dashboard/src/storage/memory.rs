@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::DashboardOperation;
+use crate::{DashboardOperation, DashboardRouteSnapshot};
 
 use super::{DashboardStorageBackend, StorageFuture};
 
@@ -8,6 +8,7 @@ use super::{DashboardStorageBackend, StorageFuture};
 #[derive(Clone, Debug, Default)]
 pub struct MemoryDashboardStorage {
     operations: Arc<Mutex<Vec<DashboardOperation>>>,
+    routes: Arc<Mutex<Vec<DashboardRouteSnapshot>>>,
 }
 
 impl MemoryDashboardStorage {
@@ -49,6 +50,26 @@ impl DashboardStorageBackend for MemoryDashboardStorage {
                 operations.drain(..len - max_events);
             }
             Ok(())
+        })
+    }
+
+    fn record_route_snapshot(&self, route: DashboardRouteSnapshot) -> StorageFuture<'_, ()> {
+        Box::pin(async move {
+            self.routes
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .push(route);
+            Ok(())
+        })
+    }
+
+    fn list_route_snapshots(&self) -> StorageFuture<'_, Vec<DashboardRouteSnapshot>> {
+        Box::pin(async move {
+            Ok(self
+                .routes
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .clone())
         })
     }
 }
