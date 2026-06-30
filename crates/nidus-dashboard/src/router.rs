@@ -7,8 +7,10 @@ use serde::Serialize;
 
 use crate::{
     auth::{DashboardAuthState, require_dashboard_auth},
+    collector::DashboardCollector,
     config::{DashboardAuth, DashboardCapture, DashboardRetention, DashboardStorage},
     error::{DashboardError, Result},
+    storage::MemoryDashboardStorage,
     types::{DashboardOperation, DashboardOperationKind, DashboardOperationStatus},
 };
 
@@ -21,6 +23,8 @@ const APP_JS: &str = include_str!("../assets/app.js");
 pub struct NidusDashboard {
     path: String,
     auth: DashboardAuthState,
+    storage: MemoryDashboardStorage,
+    collector: DashboardCollector<MemoryDashboardStorage>,
 }
 
 impl NidusDashboard {
@@ -32,6 +36,16 @@ impl NidusDashboard {
     /// Returns the configured dashboard path.
     pub fn path(&self) -> &str {
         &self.path
+    }
+
+    /// Returns the dashboard collector.
+    pub fn collector(&self) -> DashboardCollector<MemoryDashboardStorage> {
+        self.collector.clone()
+    }
+
+    /// Returns the configured dashboard storage.
+    pub fn storage(&self) -> MemoryDashboardStorage {
+        self.storage.clone()
     }
 
     /// Returns an Axum router for the dashboard.
@@ -185,9 +199,13 @@ impl NidusDashboardBuilder {
         let _ = self.capture.payload_byte_cap();
         let _ = self.retention.max_age();
         let _ = self.retention.max_event_count();
+        let storage = MemoryDashboardStorage::new();
+        let collector = DashboardCollector::new(storage.clone());
         Ok(NidusDashboard {
             path: self.path,
             auth,
+            storage,
+            collector,
         })
     }
 }
