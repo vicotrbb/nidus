@@ -1,0 +1,41 @@
+[package]
+name = "nidus-dashboard"
+version.workspace = true
+edition.workspace = true
+description = "Embedded dashboard for Nidus applications."
+documentation = "https://docs.rs/nidus-dashboard"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[features]
+default = ["sqlite", "embedded-assets"]
+sqlite = ["dep:sqlx"]
+embedded-assets = []
+
+[dependencies]
+async-stream.workspace = true
+axum.workspace = true
+bytes.workspace = true
+futures-util.workspace = true
+http.workspace = true
+nidus-events = { path = "../nidus-events", version = "1.0.4" }
+nidus-http = { path = "../nidus-http", version = "1.0.4" }
+nidus-jobs = { path = "../nidus-jobs", version = "1.0.4" }
+serde.workspace = true
+serde_json.workspace = true
+sqlx = { workspace = true, optional = true }
+thiserror.workspace = true
+time.workspace = true
+tokio.workspace = true
+tokio-stream.workspace = true
+tower.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+nidus-testing = { path = "../nidus-testing", version = "1.0.4" }
+tower.workspace = true

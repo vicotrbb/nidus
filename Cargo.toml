@@ -5,6 +5,7 @@ members = [
   "crates/nidus-core",
   "crates/nidus-http",
   "crates/nidus-observability",
+  "crates/nidus-dashboard",
   "crates/nidus-macros",
   "crates/nidus-config",
   "crates/nidus-openapi",
@@ -85,8 +86,10 @@ categories = ["web-programming::http-server", "asynchronous", "development-tools
 
 [workspace.dependencies]
 anyhow = "1"
+async-stream = "0.3"
 async-trait = "0.1"
 axum = "0.8"
+bytes = "1"
 clap = { version = "4", features = ["derive"] }
 criterion = "0.7"
 futures-util = "0.3"
@@ -98,11 +101,12 @@ quote = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_urlencoded = "0.7"
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite"] }
 syn = { version = "2", features = ["full"] }
 thiserror = "2"
 time = { version = "0.3", features = ["formatting"] }
 tokio = { version = "1", features = ["macros", "net", "rt-multi-thread"] }
+tokio-stream = "0.1"
 tower = { version = "0.5", features = ["limit", "timeout", "util"] }
 tower-http = { version = "0.6", features = ["compression-gzip", "cors", "limit", "trace"] }
 tracing = "0.1"
