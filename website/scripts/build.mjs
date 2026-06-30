@@ -55,6 +55,7 @@ const docs = [
   { title: 'Error Handling', slug: 'docs/error-handling', group: 'Runtime', source: 'docs/error-handling.md', summary: 'HTTP errors and production error envelopes.' },
   { title: 'OpenAPI', slug: 'docs/openapi', group: 'Runtime', source: 'docs/openapi.md', summary: 'OpenAPI route metadata and document rendering.' },
   { title: 'Observability', slug: 'docs/observability', group: 'Runtime', source: 'docs/observability.md', summary: 'Production logs, traces, metrics, events, jobs, lifecycle, and adapter instrumentation.' },
+  { title: 'Dashboard', slug: 'docs/dashboard', group: 'Runtime', source: 'docs/dashboard.md', summary: 'Embedded protected dashboard setup, storage, capture, APIs, and SSE.' },
   { title: 'Events', slug: 'docs/events', group: 'Runtime', source: 'docs/events.md', summary: 'In-process event bus and observed events.' },
   { title: 'Jobs', slug: 'docs/jobs', group: 'Runtime', source: 'docs/jobs.md', summary: 'Sync and async job queues with observed runners.' },
   { title: 'Testing', slug: 'docs/testing', group: 'Runtime', source: 'docs/testing.md', summary: 'TestApp request helpers and provider overrides.' },
