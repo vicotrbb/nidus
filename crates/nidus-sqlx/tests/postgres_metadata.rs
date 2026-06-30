@@ -1,3 +1,5 @@
+#![cfg(feature = "postgres")]
+
 use nidus_core::ModuleBuilder;
 use nidus_sqlx::{PostgresPoolConfig, PostgresPoolProvider};
 

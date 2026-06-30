@@ -1,3 +1,5 @@
+#![cfg(feature = "sqlite")]
+
 #[test]
 fn sqlx_providers_do_not_support_sync_typed_registration() {
     let tests = trybuild::TestCases::new();

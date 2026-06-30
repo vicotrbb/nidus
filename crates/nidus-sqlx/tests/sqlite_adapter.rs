@@ -1,3 +1,5 @@
+#![cfg(feature = "sqlite")]
+
 use nidus_core::{Container, ModuleBuilder};
 use nidus_sqlx::{SqlitePoolConfig, SqlitePoolProvider};
 

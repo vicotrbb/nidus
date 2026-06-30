@@ -14,20 +14,3 @@ note: required by a bound in `ModuleBuilder::provider_typed`
   |     where
   |         P: ProviderRegistrant,
   |            ^^^^^^^^^^^^^^^^^^ required by this bound in `ModuleBuilder::provider_typed`
-
-error[E0277]: the trait bound `PostgresPoolProvider: ProviderRegistrant` is not satisfied
- --> tests/ui/sqlx_provider_typed_registration.rs:7:27
-  |
-7 |         .provider_typed::<PostgresPoolProvider>()
-  |          --------------   ^^^^^^^^^^^^^^^^^^^^ the trait `ProviderRegistrant` is not implemented for `PostgresPoolProvider`
-  |          |
-  |          required by a bound introduced by this call
-  |
-note: required by a bound in `ModuleBuilder::provider_typed`
- --> $WORKSPACE/crates/nidus-core/src/module/mod.rs
-  |
-  |     pub fn provider_typed<P>(mut self) -> Self
-  |            -------------- required by a bound in this associated function
-  |     where
-  |         P: ProviderRegistrant,
-  |            ^^^^^^^^^^^^^^^^^^ required by this bound in `ModuleBuilder::provider_typed`

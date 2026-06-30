@@ -1,4 +1,15 @@
+#![cfg(all(
+    feature = "auth",
+    feature = "config",
+    feature = "events",
+    feature = "jobs",
+    feature = "observability",
+    feature = "openapi",
+    feature = "validation"
+))]
+
 use nidus::prelude::*;
+use tower::ServiceExt;
 
 #[test]
 fn facade_does_not_reexport_sqlx_adapter_dependencies() {
@@ -41,6 +52,7 @@ fn prelude_exports_optional_feature_crates() {
     let jobs = JobQueue::new();
     let _async_jobs = AsyncJobQueue::new();
     let events = EventBus::<String>::new();
+    #[cfg(feature = "testing")]
     let _app = TestApp::from_router(axum::Router::new());
     let _path: Path<u64> = Path(42);
     let _query: Query<Vec<(String, String)>> = Query(Vec::new());
@@ -100,13 +112,21 @@ async fn module_builder_applies_observability_routes_and_metrics() {
         .await
         .unwrap();
 
-    let test = TestApp::from_router(app.into_router());
-    test.get("/metrics")
-        .send()
+    let response = app
+        .into_router()
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/metrics")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
         .await
-        .assert_status(StatusCode::OK);
-    let metrics = test.get("/metrics").send().await;
-    let body = metrics.text().unwrap();
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let body = String::from_utf8(body.to_vec()).unwrap();
     assert!(body.contains("# TYPE nidus_http_requests_total counter"));
     assert!(
         body.contains(
@@ -130,6 +150,7 @@ fn facade_exports_optional_feature_modules() {
     let jobs = nidus::jobs::JobQueue::new();
     let _async_jobs = nidus::jobs::AsyncJobQueue::new();
     let events = nidus::events::EventBus::<String>::new();
+    #[cfg(feature = "testing")]
     let _app = nidus::testing::TestApp::from_router(axum::Router::new());
 
     jobs.run_all();
