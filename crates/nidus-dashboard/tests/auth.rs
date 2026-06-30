@@ -65,3 +65,32 @@ async fn dashboard_accepts_valid_bearer_token() {
 
     assert_eq!(response.status(), StatusCode::OK);
 }
+
+#[tokio::test]
+async fn dashboard_protects_shell_assets_apis_and_stream() {
+    let app = NidusDashboard::builder()
+        .auth(DashboardAuth::bearer_token("secret"))
+        .storage(DashboardStorage::memory())
+        .build()
+        .unwrap()
+        .router();
+
+    for path in [
+        "/",
+        "/assets/styles.css",
+        "/assets/app.js",
+        "/api/overview",
+        "/api/routes",
+        "/api/settings",
+        "/api/timeline",
+        "/stream",
+    ] {
+        let response = app
+            .clone()
+            .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{path}");
+    }
+}
