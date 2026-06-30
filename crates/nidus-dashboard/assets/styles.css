@@ -93,7 +93,7 @@ h2 {
 
 h1 {
   font-size: 1.65rem;
-  line-height: 1;
+  line-height: 1.08;
 }
 
 h2 {
@@ -263,6 +263,8 @@ pre {
   padding: var(--space-md);
   font-family: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
   font-size: 0.82rem;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 @media (max-width: 980px) {
