@@ -4,6 +4,8 @@ use std::collections::BTreeSet;
 
 use nidus_core::{Application, Container, Module, ModuleGraph, Nidus, NidusError, Result};
 
+#[cfg(feature = "dashboard")]
+use nidus_dashboard::{DashboardRouteSnapshot, NidusDashboard};
 #[cfg(feature = "http")]
 use nidus_http::{
     Router,
@@ -13,8 +15,6 @@ use nidus_http::{
 use nidus_observability::{Observability, OperationStatus};
 #[cfg(feature = "openapi")]
 use nidus_openapi::OpenApiDocument;
-#[cfg(feature = "dashboard")]
-use nidus_dashboard::{DashboardRouteSnapshot, NidusDashboard};
 
 /// Extension methods for creating composed Nidus applications from root modules.
 pub trait NidusApplicationExt {
@@ -186,11 +186,12 @@ where
         #[cfg(feature = "dashboard")]
         if let Some(dashboard) = &self.dashboard {
             for route in self.dashboard_route_snapshots.drain(..) {
-                dashboard.record_route_snapshot(route).await.map_err(|error| {
-                    NidusError::ApplicationBuild {
+                dashboard
+                    .record_route_snapshot(route)
+                    .await
+                    .map_err(|error| NidusError::ApplicationBuild {
                         message: error.to_string(),
-                    }
-                })?;
+                    })?;
             }
         }
         Ok(Application::new(self.container, graph).with_router(router))
@@ -223,15 +224,22 @@ where
                         });
                     }
                     #[cfg(feature = "dashboard")]
-                    self.dashboard_route_snapshots
-                        .push(DashboardRouteSnapshot {
-                            method: route.method().to_owned(),
-                            path: full_path,
-                            summary: route.summary().map(str::to_owned),
-                            guards: route.guards().iter().map(|value| (*value).to_owned()).collect(),
-                            pipes: route.pipes().iter().map(|value| (*value).to_owned()).collect(),
-                            validates: route.validates(),
-                        });
+                    self.dashboard_route_snapshots.push(DashboardRouteSnapshot {
+                        method: route.method().to_owned(),
+                        path: full_path,
+                        summary: route.summary().map(str::to_owned),
+                        guards: route
+                            .guards()
+                            .iter()
+                            .map(|value| (*value).to_owned())
+                            .collect(),
+                        pipes: route
+                            .pipes()
+                            .iter()
+                            .map(|value| (*value).to_owned())
+                            .collect(),
+                        validates: route.validates(),
+                    });
                 }
 
                 #[cfg(feature = "openapi")]

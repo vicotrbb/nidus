@@ -61,7 +61,13 @@ impl DashboardStorage {
             Self::SqliteFromEnv(name) => std::env::var(name)
                 .ok()
                 .filter(|value| !value.trim().is_empty())
-                .or_else(|| Some(PathBuf::from("nidus-dashboard.sqlite").display().to_string())),
+                .or_else(|| {
+                    Some(
+                        PathBuf::from("nidus-dashboard.sqlite")
+                            .display()
+                            .to_string(),
+                    )
+                }),
             Self::Memory => None,
         }
     }

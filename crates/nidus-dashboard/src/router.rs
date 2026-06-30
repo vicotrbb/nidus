@@ -7,6 +7,8 @@ use axum::{
 };
 use serde::Serialize;
 
+#[cfg(feature = "sqlite")]
+use crate::storage::SqliteDashboardStorage;
 use crate::{
     auth::{DashboardAuthState, require_dashboard_auth},
     collector::DashboardCollector,
@@ -18,8 +20,6 @@ use crate::{
         DashboardRouteSnapshot,
     },
 };
-#[cfg(feature = "sqlite")]
-use crate::storage::SqliteDashboardStorage;
 
 const INDEX_HTML: &str = include_str!("../assets/index.html");
 const STYLES_CSS: &str = include_str!("../assets/styles.css");
@@ -133,7 +133,10 @@ async fn index() -> Html<&'static str> {
 }
 
 async fn styles() -> impl IntoResponse {
-    ([(http::header::CONTENT_TYPE, "text/css; charset=utf-8")], STYLES_CSS)
+    (
+        [(http::header::CONTENT_TYPE, "text/css; charset=utf-8")],
+        STYLES_CSS,
+    )
 }
 
 async fn app_js() -> impl IntoResponse {
@@ -190,10 +193,17 @@ async fn settings(State(runtime): State<DashboardRuntime>) -> Json<DashboardSett
 }
 
 async fn timeline(State(runtime): State<DashboardRuntime>) -> Json<Vec<DashboardOperation>> {
-    Json(runtime.storage.list_operations(100).await.unwrap_or_default())
+    Json(
+        runtime
+            .storage
+            .list_operations(100)
+            .await
+            .unwrap_or_default(),
+    )
 }
 
-async fn stream() -> Sse<impl futures_util::Stream<Item = std::result::Result<Event, std::convert::Infallible>>> {
+async fn stream()
+-> Sse<impl futures_util::Stream<Item = std::result::Result<Event, std::convert::Infallible>>> {
     let event = DashboardOperation {
         id: uuid::Uuid::new_v4().to_string(),
         kind: DashboardOperationKind::Lifecycle,
@@ -305,10 +315,8 @@ fn storage_from_config(storage: DashboardStorage) -> Result<DashboardStorageHand
             ))
         }
         #[cfg(not(feature = "sqlite"))]
-        DashboardStorage::Sqlite(_) | DashboardStorage::SqliteFromEnv(_) => {
-            Err(DashboardError::Storage(
-                "sqlite storage requires the `sqlite` feature".to_owned(),
-            ))
-        }
+        DashboardStorage::Sqlite(_) | DashboardStorage::SqliteFromEnv(_) => Err(
+            DashboardError::Storage("sqlite storage requires the `sqlite` feature".to_owned()),
+        ),
     }
 }

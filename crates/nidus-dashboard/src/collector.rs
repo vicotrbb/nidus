@@ -3,8 +3,7 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    DashboardCapture,
-    DashboardOperation, DashboardOperationKind, DashboardOperationStatus,
+    DashboardCapture, DashboardOperation, DashboardOperationKind, DashboardOperationStatus,
     error::Result,
     storage::{DashboardStorageBackend, MemoryDashboardStorage},
 };

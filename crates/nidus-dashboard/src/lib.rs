@@ -13,8 +13,8 @@ mod router;
 pub mod storage;
 mod types;
 
-pub use config::{DashboardAuth, DashboardCapture, DashboardRetention, DashboardStorage};
 pub use collector::DashboardCollector;
+pub use config::{DashboardAuth, DashboardCapture, DashboardRetention, DashboardStorage};
 pub use error::{DashboardError, Result};
 pub use router::NidusDashboard;
 pub use types::{

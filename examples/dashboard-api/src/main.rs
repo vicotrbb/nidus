@@ -22,9 +22,8 @@ struct AppModule;
 
 #[derive(Clone)]
 struct ExampleState {
-    collector: nidus::dashboard::DashboardCollector<
-        nidus::dashboard::storage::DashboardStorageHandle,
-    >,
+    collector:
+        nidus::dashboard::DashboardCollector<nidus::dashboard::storage::DashboardStorageHandle>,
 }
 
 #[derive(Serialize)]
@@ -86,14 +85,9 @@ fn example_routes(state: ExampleState) -> Router {
                             )
                             .await
                             .map_err(|error| {
-                                (
-                                    StatusCode::INTERNAL_SERVER_ERROR,
-                                    error.to_string(),
-                                )
+                                (StatusCode::INTERNAL_SERVER_ERROR, error.to_string())
                             })?;
-                        Ok::<_, (StatusCode, String)>(Json(CaptureDto {
-                            captured: "event",
-                        }))
+                        Ok::<_, (StatusCode, String)>(Json(CaptureDto { captured: "event" }))
                     }
                 }
             }),
@@ -107,9 +101,7 @@ fn example_routes(state: ExampleState) -> Router {
                         .collector
                         .record_job("daily_digest", Some("example-job-1"), true, 18)
                         .await
-                        .map_err(|error| {
-                            (StatusCode::INTERNAL_SERVER_ERROR, error.to_string())
-                        })?;
+                        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
                     tokio::time::sleep(Duration::from_millis(1)).await;
                     Ok::<_, (StatusCode, String)>(Json(CaptureDto { captured: "job" }))
                 }
