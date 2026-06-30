@@ -271,12 +271,12 @@ impl NidusDashboardBuilder {
         }
         let auth = DashboardAuthState::from_config(auth)?;
         let _ = self.storage.resolved_sqlite_path();
-        let _ = self.capture.captures_payloads();
-        let _ = self.capture.payload_byte_cap();
+        let capture = self.capture;
+        let _ = capture.payload_byte_cap();
         let _ = self.retention.max_age();
         let _ = self.retention.max_event_count();
         let storage = MemoryDashboardStorage::new();
-        let collector = DashboardCollector::new(storage.clone());
+        let collector = DashboardCollector::new(storage.clone(), capture);
         Ok(NidusDashboard {
             path: self.path,
             auth,

@@ -130,6 +130,10 @@ impl DashboardCapture {
     pub(crate) fn payload_byte_cap(&self) -> usize {
         self.max_payload_bytes
     }
+
+    pub(crate) fn redacted_fields(&self) -> &[String] {
+        &self.redacted_fields
+    }
 }
 
 impl Default for DashboardCapture {
