@@ -634,7 +634,48 @@ Use \`moka\` for the default async cache backend. Add \`health\` when readiness 
 Nidus does not decide cache keys, TTL policy, invalidation semantics, or data consistency guarantees. Those remain application architecture decisions.`;
 }
 
-function pageShell({ title, description, body, currentSlug, home = false, toc = [], noindex = false }) {
+const benchmarkProfiles = [
+  ['ping', 'rust-nidus', '156.890883/s', '423.72us', '659.57us'],
+  ['ping', 'python-fastapi', '148.264889/s', '3.35ms', '4.22ms'],
+  ['ping', 'java-spring', '154.820432/s', '1.13ms', '1.88ms'],
+  ['ping', 'node-express', '155.442129/s', '1.08ms', '1.78ms'],
+  ['users', 'rust-nidus', '297.482161/s', '1.59ms', '3.45ms'],
+  ['users', 'python-fastapi', '278.858057/s', '3.32ms', '6.01ms'],
+  ['users', 'java-spring', '292.89576/s', '1.97ms', '3.82ms'],
+  ['users', 'node-express', '291.549083/s', '2.11ms', '4.31ms'],
+  ['projects', 'rust-nidus', '423.939646/s', '1.95ms', '3.46ms'],
+  ['projects', 'python-fastapi', '380.644823/s', '4.03ms', '7.17ms'],
+  ['projects', 'java-spring', '417.118223/s', '2.26ms', '4.17ms'],
+  ['projects', 'node-express', '414.234335/s', '2.37ms', '4.24ms'],
+  ['events', 'rust-nidus', '282.357362/s', '2.97ms', '4.07ms'],
+  ['events', 'python-fastapi', '267.55211/s', '4.5ms', '6.86ms'],
+  ['events', 'java-spring', '281.790144/s', '3.03ms', '4.22ms'],
+  ['events', 'node-express', '279.668233/s', '3.23ms', '4.65ms'],
+  ['mixed', 'rust-nidus', '232.594368/s', '2.72ms', '7.05ms'],
+  ['mixed', 'python-fastapi', '223.820298/s', '4.01ms', '8.35ms'],
+  ['mixed', 'java-spring', '232.940412/s', '2.7ms', '6.84ms'],
+  ['mixed', 'node-express', '230.302808/s', '3.03ms', '7.3ms'],
+];
+
+const benchmarkHighlights = [
+  ['Fastest ping latency', '423.72us', 'Rust/Nidus average on the read-only ping profile.'],
+  ['Zero failed requests', '0.00% failed', 'Every stack completed the k6 profiles without HTTP failures.'],
+  ['Best write-heavy profile', '423.94/s', 'Rust/Nidus on the projects flow under the paced workload.'],
+];
+
+function benchmarkRows() {
+  return benchmarkProfiles.map(([profile, stack, throughput, average, p95]) => `<tr>
+    <td>${profile}</td>
+    <td><code>${stack}</code></td>
+    <td>${throughput}</td>
+    <td>${average}</td>
+    <td>${p95}</td>
+    <td>0.00%</td>
+    <td>100.00%</td>
+  </tr>`).join('');
+}
+
+function pageShell({ title, description, body, currentSlug, home = false, standalone = false, toc = [], noindex = false }) {
   const metaTitle = documentTitle(title);
   const metaDescription = seoDescription(description);
   const canonicalPath = home || !currentSlug ? '' : `${currentSlug}/`;
@@ -675,6 +716,7 @@ function pageShell({ title, description, body, currentSlug, home = false, toc = 
         ['GitHub', 'https://github.com/vicotrbb/nidus'],
         ['crates.io', 'https://crates.io/crates/nidus-rs'],
         ['docs.rs', `https://docs.rs/nidus-rs/${RELEASE_VERSION}/nidus/`],
+        ['Benchmarks', href('benchmarks/')],
         ['Security', href('docs/security-notes/')],
       ],
     },
@@ -726,11 +768,12 @@ function pageShell({ title, description, body, currentSlug, home = false, toc = 
       <a href="${href('docs/')}">Docs</a>
       <a href="${href('docs/installation/')}">Install</a>
       <a href="${href('docs/examples/')}">Examples</a>
+      <a href="${href('benchmarks/')}">Benchmarks</a>
       <a href="${href('docs/api-reference/')}">API</a>
       <a href="https://github.com/vicotrbb/nidus">Source</a>
     </nav>
   </header>
-  ${home ? body : `<main class="docs-frame">
+  ${home || standalone ? body : `<main class="docs-frame">
     <aside class="docs-sidebar">
       <div class="docs-search">
         <label for="docs-filter">Search docs</label>
@@ -944,6 +987,22 @@ struct AppModule;</code></pre>
       </div>
     </section>
 
+    <section class="benchmark-teaser" aria-labelledby="benchmark-title">
+      <div class="benchmark-teaser-copy">
+        <p class="eyebrow">Benchmark evidence</p>
+        <h2 id="benchmark-title">Measured against production-shaped peers, with bounded claims.</h2>
+        <p>A homelab Kubernetes run compared Rust/Nidus, FastAPI, Spring Boot, and Express against the same PostgreSQL-backed endpoint contract. The run is intentionally conservative, but the latency story is clear.</p>
+        <a class="text-link" href="${href('benchmarks/')}">Read the full benchmark breakdown</a>
+      </div>
+      <div class="benchmark-ledger" aria-label="Benchmark highlights">
+        ${benchmarkHighlights.map(([label, value, detail]) => `<article>
+          <span>${label}</span>
+          <strong>${value}</strong>
+          <p>${detail}</p>
+        </article>`).join('')}
+      </div>
+    </section>
+
     <section class="proof-band" aria-labelledby="proof-title">
       <div class="section-heading">
         <p class="eyebrow">Release proof</p>
@@ -960,6 +1019,101 @@ struct AppModule;</code></pre>
     body,
     currentSlug: '',
     home: true,
+  });
+}
+
+function benchmarksPage() {
+  const body = `<main class="benchmark-page">
+    <section class="benchmark-hero" aria-labelledby="benchmark-page-title">
+      <div>
+        <p class="eyebrow">Benchmark evidence</p>
+        <h1 id="benchmark-page-title">Nidus Framework Benchmark</h1>
+        <p>Bounded homelab run comparing Rust/Nidus, FastAPI, Spring Boot, and Express with the same endpoint contract, PostgreSQL persistence, one replica, and a matched application deployment envelope.</p>
+      </div>
+      <aside class="benchmark-run-card" aria-label="Run summary">
+        <span>Run timestamp</span>
+        <strong>20260630T001754Z</strong>
+        <p>k6 ran inside the benchmark namespace with 8 VUs and 20s per stack/profile. All checks passed, and every HTTP failure rate was 0.00%.</p>
+      </aside>
+    </section>
+
+    <section class="benchmark-method" aria-labelledby="benchmark-method-title">
+      <div>
+        <p class="eyebrow">Method</p>
+        <h2 id="benchmark-method-title">Bounded homelab run, not a max-throughput or capacity ceiling.</h2>
+      </div>
+      <div class="benchmark-method-grid">
+        <article>
+          <h3>Same contract</h3>
+          <p>Each stack exposed ping, users, projects, events, search, and mixed-flow endpoints against PostgreSQL-backed application data.</p>
+        </article>
+        <article>
+          <h3>Same envelope</h3>
+          <p>Each app used one Kubernetes replica, ClusterIP service exposure, and the same application deployment shape.</p>
+        </article>
+        <article>
+          <h3>Paced profile</h3>
+          <p>The k6 harness used constant VUs and a short sleep per iteration to protect shared homelab workloads, so throughput is intentionally bounded.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="benchmark-results" aria-labelledby="benchmark-results-title">
+      <div class="benchmark-results-heading">
+        <div>
+          <p class="eyebrow">Results</p>
+          <h2 id="benchmark-results-title">Latency stayed low across every application-shaped profile.</h2>
+        </div>
+        <p>Rust/Nidus was the latency leader or effectively tied across the run. The mixed profile is close enough to treat as a tie with Java rather than a broad superiority claim.</p>
+      </div>
+      <div class="benchmark-table-wrap">
+        <table class="benchmark-table">
+          <thead>
+            <tr>
+              <th>Profile</th>
+              <th>Stack</th>
+              <th>req/s</th>
+              <th>avg latency</th>
+              <th>p95 latency</th>
+              <th>failed</th>
+              <th>checks</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${benchmarkRows()}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="benchmark-interpretation" aria-labelledby="benchmark-interpretation-title">
+      <div>
+        <p class="eyebrow">Interpretation</p>
+        <h2 id="benchmark-interpretation-title">What this proves, and what it does not.</h2>
+      </div>
+      <div class="benchmark-interpretation-list">
+        <article>
+          <h3>Supported claim</h3>
+          <p>Under this conservative Kubernetes workload, Nidus completed the shared contract with zero request failures and consistently low latency.</p>
+        </article>
+        <article>
+          <h3>Bounded claim</h3>
+          <p>The req/s values are end-to-end paced workload results. They should not be presented as absolute capacity numbers.</p>
+        </article>
+        <article>
+          <h3>Next proof layer</h3>
+          <p>A capacity study would remove pacing, run longer windows, repeat samples, and isolate bottlenecks with continuous profiling.</p>
+        </article>
+      </div>
+    </section>
+  </main>`;
+
+  return pageShell({
+    title: 'Benchmarks',
+    description: 'Nidus framework benchmark results from a bounded homelab Kubernetes run against FastAPI, Spring Boot, and Express.',
+    body,
+    currentSlug: 'benchmarks',
+    standalone: true,
   });
 }
 
@@ -1016,7 +1170,7 @@ function writeHtml(route, html) {
 function writeSeoFiles() {
   if (!SITE_ORIGIN) return;
 
-  const pages = ['', ...docs.map((doc) => doc.slug)];
+  const pages = ['', 'benchmarks', ...docs.map((doc) => doc.slug)];
   const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${pages.map((page) => `  <url>
@@ -1050,6 +1204,7 @@ function main() {
   fs.copyFileSync(path.join(SRC, 'app.js'), path.join(DIST, 'app.js'));
 
   fs.writeFileSync(path.join(DIST, 'index.html'), homePage());
+  writeHtml('benchmarks', benchmarksPage());
   for (const doc of docs) {
     writeHtml(doc.slug, docPage(doc));
   }
@@ -1058,7 +1213,7 @@ function main() {
     fs.writeFileSync(path.join(DIST, 'CNAME'), `${SITE_DOMAIN}\n`);
   }
   writeSeoFiles();
-  fs.writeFileSync(path.join(DIST, 'site-map.json'), JSON.stringify({ base: BASE, domain: SITE_DOMAIN || null, pages: ['', ...docs.map((doc) => doc.slug)] }, null, 2));
+  fs.writeFileSync(path.join(DIST, 'site-map.json'), JSON.stringify({ base: BASE, domain: SITE_DOMAIN || null, pages: ['', 'benchmarks', ...docs.map((doc) => doc.slug)] }, null, 2));
   console.log(`Built Nidus site at ${path.relative(ROOT, DIST)} with base ${BASE}${SITE_DOMAIN ? ` and domain ${SITE_DOMAIN}` : ''}`);
 }
 
