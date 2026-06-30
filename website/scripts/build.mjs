@@ -10,7 +10,9 @@ const SRC = path.join(WEBSITE, 'src');
 const DIST = path.join(WEBSITE, 'dist');
 const BASE = normalizeBase(process.env.NIDUS_SITE_BASE ?? '/');
 const SITE_DOMAIN = (process.env.NIDUS_SITE_DOMAIN ?? '').trim();
+const SITE_ORIGIN = SITE_DOMAIN ? `https://${SITE_DOMAIN}` : '';
 const RELEASE_VERSION = '1.0.4';
+const SITE_DESCRIPTION = 'Nidus is a modular Rust backend framework for explicit services, typed dependency injection, Axum routes, Tower middleware, OpenAPI, observability, testing, and installable adapters.';
 
 const docs = [
   {
@@ -107,6 +109,11 @@ function asset(name) {
   return href(`assets/${name}`);
 }
 
+function absoluteHref(slug = '') {
+  const path = href(slug);
+  return SITE_ORIGIN ? `${SITE_ORIGIN}${path}` : path;
+}
+
 function read(file) {
   return fs.readFileSync(path.join(ROOT, file), 'utf8');
 }
@@ -117,6 +124,70 @@ function escapeHtml(value) {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;');
+}
+
+function escapeJsonForHtml(value) {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
+function seoDescription(description) {
+  if (description.length >= 50) return description;
+  return `${description} Nidus docs for typed Rust services, explicit modules, Axum routing, and production backend composition.`;
+}
+
+function documentTitle(title) {
+  if (title === 'Nidus') return 'Nidus Rust backend framework';
+  if (title.length < 8) return `Nidus ${title} documentation`;
+  return `${title} · Nidus`;
+}
+
+function structuredData({ title, description, url, currentSlug, home }) {
+  const graph = [
+    {
+      '@type': 'WebSite',
+      '@id': `${absoluteHref()}#website`,
+      url: absoluteHref(),
+      name: 'Nidus',
+      description: SITE_DESCRIPTION,
+      inLanguage: 'en',
+    },
+    {
+      '@type': home ? 'SoftwareSourceCode' : 'TechArticle',
+      '@id': `${url}#content`,
+      name: title,
+      headline: title,
+      description,
+      url,
+      image: absoluteHref('assets/og-image.png'),
+      inLanguage: 'en',
+      isPartOf: { '@id': `${absoluteHref()}#website` },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Nidus',
+        url: absoluteHref(),
+        logo: {
+          '@type': 'ImageObject',
+          url: absoluteHref('assets/logo-mark-transparent.png'),
+        },
+      },
+      programmingLanguage: 'Rust',
+      codeRepository: 'https://github.com/vicotrbb/nidus',
+    },
+  ];
+
+  if (!home && currentSlug) {
+    graph.push({
+      '@type': 'BreadcrumbList',
+      '@id': `${url}#breadcrumb`,
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Nidus', item: absoluteHref() },
+        { '@type': 'ListItem', position: 2, name: 'Docs', item: absoluteHref('docs/') },
+        { '@type': 'ListItem', position: 3, name: title, item: url },
+      ],
+    });
+  }
+
+  return { '@context': 'https://schema.org', '@graph': graph };
 }
 
 function inline(md) {
@@ -563,7 +634,19 @@ Use \`moka\` for the default async cache backend. Add \`health\` when readiness 
 Nidus does not decide cache keys, TTL policy, invalidation semantics, or data consistency guarantees. Those remain application architecture decisions.`;
 }
 
-function pageShell({ title, description, body, currentSlug, home = false, toc = [] }) {
+function pageShell({ title, description, body, currentSlug, home = false, toc = [], noindex = false }) {
+  const metaTitle = documentTitle(title);
+  const metaDescription = seoDescription(description);
+  const canonicalPath = home || !currentSlug ? '' : `${currentSlug}/`;
+  const canonicalUrl = absoluteHref(canonicalPath);
+  const ogImage = absoluteHref('assets/og-image.png');
+  const jsonLd = structuredData({
+    title: metaTitle,
+    description: metaDescription,
+    url: canonicalUrl,
+    currentSlug,
+    home,
+  });
   const tocLinks = toc.length
     ? toc.map((item) => `<a class="toc-level-${item.level}" href="#${item.id}">${escapeHtml(item.title)}</a>`).join('')
     : '<span>No section headings</span>';
@@ -602,19 +685,40 @@ function pageShell({ title, description, body, currentSlug, home = false, toc = 
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${escapeHtml(title)} · Nidus</title>
-  <meta name="description" content="${escapeHtml(description)}">
-  <meta property="og:title" content="${escapeHtml(title)} · Nidus">
-  <meta property="og:description" content="${escapeHtml(description)}">
-  <meta property="og:image" content="${asset('og-image.png')}">
+  <title>${escapeHtml(metaTitle)}</title>
+  <meta name="application-name" content="Nidus">
+  <meta name="author" content="Nidus">
+  <meta name="description" content="${escapeHtml(metaDescription)}">
+  ${noindex ? '<meta name="robots" content="noindex, follow">' : '<meta name="robots" content="index, follow">'}
+  <link rel="canonical" href="${canonicalUrl}">
+  <link rel="alternate" hreflang="en" href="${canonicalUrl}">
+  <link rel="alternate" hreflang="x-default" href="${canonicalUrl}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Nidus">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:url" content="${canonicalUrl}">
+  <meta property="og:title" content="${escapeHtml(metaTitle)}">
+  <meta property="og:description" content="${escapeHtml(metaDescription)}">
+  <meta property="og:image" content="${ogImage}">
+  <meta property="og:image:secure_url" content="${ogImage}">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Nidus Rust backend framework">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${escapeHtml(metaTitle)}">
+  <meta name="twitter:description" content="${escapeHtml(metaDescription)}">
+  <meta name="twitter:image" content="${ogImage}">
+  <meta name="twitter:image:alt" content="Nidus Rust backend framework">
   <link rel="icon" href="${asset('favicon-32.png')}" sizes="32x32">
   <link rel="apple-touch-icon" href="${asset('apple-touch-icon.png')}">
   <link rel="stylesheet" href="${href('styles.css')}">
+  <script type="application/ld+json">${escapeJsonForHtml(jsonLd)}</script>
 </head>
 <body class="${home ? 'home' : 'doc-page'}">
   <header class="site-header">
     <a class="brand" href="${href()}" aria-label="Nidus home">
-      <img src="${asset('logo-full-transparent.png')}" alt="" width="48" height="46">
+      <img src="${asset('logo-mark-transparent.png')}" alt="" width="48" height="46">
       <span>Nidus</span>
     </a>
     <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
@@ -715,6 +819,7 @@ cargo run`;
       <div class="hero-copy">
         <p class="eyebrow">Rust backend framework · ${RELEASE_VERSION}</p>
         <h1>Nidus</h1>
+        <img class="mobile-hero-mark" src="${asset('logo-full-transparent.png')}" alt="Nidus logo" width="280" height="298">
         <p class="hero-text">A modular Rust backend framework for explicit services: typed dependency injection, module graphs, Axum routes, Tower middleware, validation, OpenAPI, observability, testing, and installable adapters.</p>
         <div class="hero-actions">
           <a class="button primary" href="${href('docs/installation/')}">Get started</a>
@@ -890,10 +995,11 @@ function notFoundPage() {
   </main>`;
   return pageShell({
     title: 'Page not found',
-    description: 'Nidus documentation route not found.',
+    description: 'This Nidus documentation route was not found. Continue to the Rust backend framework docs, installation guide, examples, or API reference.',
     body,
     currentSlug: '',
     home: true,
+    noindex: true,
   });
 }
 
@@ -905,6 +1011,27 @@ function writeHtml(route, html) {
   const dir = path.join(DIST, route);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'index.html'), html);
+}
+
+function writeSeoFiles() {
+  if (!SITE_ORIGIN) return;
+
+  const pages = ['', ...docs.map((doc) => doc.slug)];
+  const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${pages.map((page) => `  <url>
+    <loc>${absoluteHref(page ? `${page}/` : '')}</loc>
+  </url>`).join('\n')}
+</urlset>
+`;
+  const robotsTxt = `User-agent: *
+Allow: /
+
+Sitemap: ${absoluteHref('sitemap.xml')}
+`;
+
+  fs.writeFileSync(path.join(DIST, 'sitemap.xml'), sitemapXml);
+  fs.writeFileSync(path.join(DIST, 'robots.txt'), robotsTxt);
 }
 
 function main() {
@@ -930,6 +1057,7 @@ function main() {
   if (SITE_DOMAIN) {
     fs.writeFileSync(path.join(DIST, 'CNAME'), `${SITE_DOMAIN}\n`);
   }
+  writeSeoFiles();
   fs.writeFileSync(path.join(DIST, 'site-map.json'), JSON.stringify({ base: BASE, domain: SITE_DOMAIN || null, pages: ['', ...docs.map((doc) => doc.slug)] }, null, 2));
   console.log(`Built Nidus site at ${path.relative(ROOT, DIST)} with base ${BASE}${SITE_DOMAIN ? ` and domain ${SITE_DOMAIN}` : ''}`);
 }

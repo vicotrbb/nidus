@@ -201,6 +201,10 @@ pre {
   min-width: 0;
 }
 
+.mobile-hero-mark {
+  display: none;
+}
+
 .eyebrow,
 .doc-kicker,
 .docs-sidebar label,
@@ -1058,6 +1062,7 @@ a:focus-visible {
 @media (max-width: 840px) {
   body {
     font-size: 16px;
+    background-size: 72px 72px, 72px 72px, auto;
   }
 
   .site-header {
@@ -1101,9 +1106,9 @@ a:focus-visible {
 
   .hero {
     min-height: auto;
-    gap: var(--space-2xl);
-    padding: var(--space-3xl) 0 var(--space-2xl);
-    overflow: hidden;
+    gap: var(--space-xl);
+    padding: var(--space-2xl) 0 var(--space-xl);
+    overflow: visible;
   }
 
   .hero::after,
@@ -1127,15 +1132,35 @@ a:focus-visible {
   }
 
   .hero-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: stretch;
+    gap: var(--space-sm);
+    margin-top: var(--space-xl);
   }
 
   .button {
-    flex: 1 1 150px;
+    width: 100%;
+    min-height: 48px;
+    padding-inline: var(--space-md);
+  }
+
+  .hero-actions .button.ghost {
+    border-color: color-mix(in oklch, var(--line), var(--brand) 18%);
+    background: color-mix(in oklch, var(--panel), var(--brand-tint) 18%);
+    color: var(--muted);
+  }
+
+  .mobile-hero-mark {
+    display: block;
+    width: min(58vw, 210px);
+    height: auto;
+    margin: var(--space-lg) auto var(--space-xl);
+    filter: drop-shadow(0 18px 28px oklch(28% 0.08 296 / 0.16));
   }
 
   .hero-proof img {
-    width: min(100%, 260px);
+    display: none;
   }
 
   .hero-proof pre,
@@ -1218,10 +1243,10 @@ a:focus-visible {
   .proof-band,
   .docs-frame,
   .footer-inner {
-    width: min(366px, calc(100vw - 24px));
-    max-width: 366px;
-    margin-left: 12px;
-    margin-right: 12px;
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .brand {
@@ -1239,15 +1264,6 @@ a:focus-visible {
 
   h2 {
     font-size: 2rem;
-  }
-
-  .hero-actions {
-    flex-direction: column;
-  }
-
-  .button {
-    width: 100%;
-    flex: 0 0 auto;
   }
 
   .concept-model,

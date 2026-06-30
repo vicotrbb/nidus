@@ -6,8 +6,13 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "check-links": "node scripts/check-links.mjs",
+    "check-mobile": "node scripts/check-mobile-layout.mjs",
+    "check-seo": "node scripts/check-seo.mjs",
     "verify": "npm run build && npm run check-links",
-    "verify:domain": "NIDUS_SITE_BASE=/ NIDUS_SITE_DOMAIN=rustnidus.com npm run verify",
+    "verify:domain": "NIDUS_SITE_BASE=/ NIDUS_SITE_DOMAIN=rustnidus.com npm run verify && npm run check-seo",
     "verify:project": "NIDUS_SITE_BASE=/nidus/ npm run verify"
+  },
+  "devDependencies": {
+    "playwright": "1.61.1"
   }
 }
