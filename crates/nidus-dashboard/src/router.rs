@@ -57,6 +57,24 @@ impl NidusDashboard {
             .route("/api/overview", get(overview))
             .route("/api/timeline", get(timeline))
             .route("/stream", get(stream))
+            .fallback(index)
+            .layer(middleware::from_fn_with_state(
+                self.auth.clone(),
+                require_dashboard_auth,
+            ))
+    }
+
+    /// Returns an Axum router mounted at the configured dashboard path.
+    pub fn mounted_router(&self) -> Router {
+        let path = self.path.trim_end_matches('/');
+        Router::new()
+            .route(path, get(index))
+            .route(&format!("{path}/"), get(index))
+            .route(&format!("{path}/assets/styles.css"), get(styles))
+            .route(&format!("{path}/assets/app.js"), get(app_js))
+            .route(&format!("{path}/api/overview"), get(overview))
+            .route(&format!("{path}/api/timeline"), get(timeline))
+            .route(&format!("{path}/stream"), get(stream))
             .layer(middleware::from_fn_with_state(
                 self.auth.clone(),
                 require_dashboard_auth,

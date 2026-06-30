@@ -62,6 +62,10 @@ pub use nidus_auth::{
 };
 #[cfg(feature = "config")]
 pub use nidus_config::Config;
+#[cfg(feature = "dashboard")]
+pub use nidus_dashboard::{
+    DashboardAuth, DashboardCapture, DashboardRetention, DashboardStorage, NidusDashboard,
+};
 #[cfg(feature = "events")]
 pub use nidus_events::{
     EventBus, EventObserver, EventSubscriber, ObservedEventBus, ObservedEventContext,

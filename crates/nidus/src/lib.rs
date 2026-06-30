@@ -42,6 +42,8 @@ where
 pub use nidus_auth as auth;
 #[cfg(feature = "config")]
 pub use nidus_config as config;
+#[cfg(feature = "dashboard")]
+pub use nidus_dashboard as dashboard;
 #[cfg(feature = "events")]
 pub use nidus_events as events;
 #[cfg(feature = "http")]

@@ -13,6 +13,8 @@ use nidus_http::{
 use nidus_observability::{Observability, OperationStatus};
 #[cfg(feature = "openapi")]
 use nidus_openapi::OpenApiDocument;
+#[cfg(feature = "dashboard")]
+use nidus_dashboard::NidusDashboard;
 
 /// Extension methods for creating composed Nidus applications from root modules.
 pub trait NidusApplicationExt {
@@ -43,6 +45,8 @@ where
     routers: Vec<Router>,
     #[cfg(feature = "observability")]
     observability: Option<Observability>,
+    #[cfg(feature = "dashboard")]
+    dashboard: Option<NidusDashboard>,
     #[cfg(feature = "openapi")]
     schemas: Vec<fn(OpenApiDocument) -> OpenApiDocument>,
     _module: std::marker::PhantomData<M>,
@@ -61,6 +65,8 @@ where
             routers: Vec::new(),
             #[cfg(feature = "observability")]
             observability: None,
+            #[cfg(feature = "dashboard")]
+            dashboard: None,
             #[cfg(feature = "openapi")]
             schemas: Vec::new(),
             _module: std::marker::PhantomData,
@@ -122,6 +128,13 @@ where
     #[cfg(feature = "http")]
     pub fn with_router(mut self, router: Router) -> Self {
         self.routers.push(router);
+        self
+    }
+
+    /// Mounts Nidus Dashboard into the composed HTTP application.
+    #[cfg(feature = "dashboard")]
+    pub fn with_dashboard(mut self, dashboard: NidusDashboard) -> Self {
+        self.dashboard = Some(dashboard);
         self
     }
 
@@ -216,6 +229,11 @@ where
 
         for manual_router in self.routers.drain(..) {
             router = router.merge(manual_router);
+        }
+
+        #[cfg(feature = "dashboard")]
+        if let Some(dashboard) = &self.dashboard {
+            router = router.merge(dashboard.mounted_router());
         }
 
         #[cfg(feature = "openapi")]

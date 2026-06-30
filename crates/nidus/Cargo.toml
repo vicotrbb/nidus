@@ -21,6 +21,7 @@ default = ["http", "config", "tracing"]
 http = ["dep:nidus-http"]
 otel = ["http", "nidus-http/otel"]
 observability = ["dep:nidus-observability", "http"]
+dashboard = ["dep:nidus-dashboard", "http"]
 config = ["dep:nidus-config"]
 openapi = ["dep:nidus-openapi"]
 validation = ["dep:nidus-validation"]
@@ -35,6 +36,7 @@ nidus-core = { path = "../nidus-core", version = "1.0.4" }
 nidus-macros = { path = "../nidus-macros", version = "1.0.4" }
 nidus-http = { path = "../nidus-http", version = "1.0.4", optional = true }
 nidus-observability = { path = "../nidus-observability", version = "1.0.4", optional = true }
+nidus-dashboard = { path = "../nidus-dashboard", version = "1.0.4", optional = true }
 nidus-config = { path = "../nidus-config", version = "1.0.4", optional = true }
 nidus-openapi = { path = "../nidus-openapi", version = "1.0.4", optional = true }
 nidus-validation = { path = "../nidus-validation", version = "1.0.4", optional = true }

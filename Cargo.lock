@@ -1589,6 +1589,7 @@ dependencies = [
  "nidus-auth",
  "nidus-config",
  "nidus-core",
+ "nidus-dashboard",
  "nidus-events",
  "nidus-http",
  "nidus-jobs",
