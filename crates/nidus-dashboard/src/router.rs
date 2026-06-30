@@ -1,10 +1,20 @@
-use axum::{Router, middleware, routing::get};
+use axum::{
+    Json, Router, middleware,
+    response::{Html, IntoResponse, Sse, sse::Event},
+    routing::get,
+};
+use serde::Serialize;
 
 use crate::{
     auth::{DashboardAuthState, require_dashboard_auth},
     config::{DashboardAuth, DashboardCapture, DashboardRetention, DashboardStorage},
     error::{DashboardError, Result},
+    types::{DashboardOperation, DashboardOperationKind, DashboardOperationStatus},
 };
+
+const INDEX_HTML: &str = include_str!("../assets/index.html");
+const STYLES_CSS: &str = include_str!("../assets/styles.css");
+const APP_JS: &str = include_str!("../assets/app.js");
 
 /// Embedded Nidus Dashboard.
 #[derive(Clone, Debug)]
@@ -27,12 +37,85 @@ impl NidusDashboard {
     /// Returns an Axum router for the dashboard.
     pub fn router(&self) -> Router {
         Router::new()
-            .route("/", get(|| async { "Nidus Dashboard" }))
+            .route("/", get(index))
+            .route("/assets/styles.css", get(styles))
+            .route("/assets/app.js", get(app_js))
+            .route("/api/overview", get(overview))
+            .route("/api/timeline", get(timeline))
+            .route("/stream", get(stream))
             .layer(middleware::from_fn_with_state(
                 self.auth.clone(),
                 require_dashboard_auth,
             ))
     }
+}
+
+async fn index() -> Html<&'static str> {
+    Html(INDEX_HTML)
+}
+
+async fn styles() -> impl IntoResponse {
+    ([(http::header::CONTENT_TYPE, "text/css; charset=utf-8")], STYLES_CSS)
+}
+
+async fn app_js() -> impl IntoResponse {
+    (
+        [(http::header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+        APP_JS,
+    )
+}
+
+#[derive(Serialize)]
+struct OverviewResponse {
+    service_name: &'static str,
+    metrics: Vec<OverviewMetric>,
+}
+
+#[derive(Serialize)]
+struct OverviewMetric {
+    label: &'static str,
+    value: String,
+}
+
+async fn overview() -> Json<OverviewResponse> {
+    Json(OverviewResponse {
+        service_name: "nidus-app",
+        metrics: vec![
+            OverviewMetric {
+                label: "Requests",
+                value: "0".to_owned(),
+            },
+            OverviewMetric {
+                label: "Errors",
+                value: "0".to_owned(),
+            },
+            OverviewMetric {
+                label: "Events",
+                value: "0".to_owned(),
+            },
+        ],
+    })
+}
+
+async fn timeline() -> Json<Vec<DashboardOperation>> {
+    Json(Vec::new())
+}
+
+async fn stream() -> Sse<impl futures_util::Stream<Item = std::result::Result<Event, std::convert::Infallible>>> {
+    let event = DashboardOperation {
+        id: uuid::Uuid::new_v4().to_string(),
+        kind: DashboardOperationKind::Lifecycle,
+        name: "dashboard.connected".to_owned(),
+        status: DashboardOperationStatus::Success,
+        timestamp_ms: time::OffsetDateTime::now_utc().unix_timestamp_nanos() as i64 / 1_000_000,
+        duration_ms: None,
+        correlation_id: None,
+        attributes: Default::default(),
+        payload: None,
+    };
+    let data = serde_json::to_string(&event).unwrap_or_else(|_| "{}".to_owned());
+    let stream = tokio_stream::once(Ok(Event::default().data(data)));
+    Sse::new(stream)
 }
 
 /// Dashboard builder.

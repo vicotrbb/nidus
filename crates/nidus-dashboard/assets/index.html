@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nidus Dashboard</title>
+    <link rel="stylesheet" href="./assets/styles.css" />
+  </head>
+  <body>
+    <div class="dashboard-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Live introspection</p>
+          <h1>Nidus Dashboard</h1>
+        </div>
+        <div class="status-pill" id="connection-status">connecting</div>
+      </header>
+      <aside class="sidebar" aria-label="Dashboard sections">
+        <button class="nav-item active" data-view="overview">Overview</button>
+        <button class="nav-item" data-view="graph">Graph</button>
+        <button class="nav-item" data-view="routes">Routes</button>
+        <button class="nav-item" data-view="timeline">Timeline</button>
+        <button class="nav-item" data-view="events">Events</button>
+        <button class="nav-item" data-view="jobs">Jobs</button>
+        <button class="nav-item" data-view="adapters">Adapters</button>
+        <button class="nav-item" data-view="settings">Settings</button>
+      </aside>
+      <main class="main-panel">
+        <section class="view active" id="overview">
+          <div class="metric-grid" id="overview-grid"></div>
+        </section>
+        <section class="view" id="timeline">
+          <ol class="timeline" id="timeline-list"></ol>
+        </section>
+        <section class="view" id="graph"><div class="empty-state">Graph snapshot waiting for route metadata.</div></section>
+        <section class="view" id="routes"><div class="empty-state">Route snapshot waiting for Nidus facade integration.</div></section>
+        <section class="view" id="events"><div class="empty-state">Observed events appear after publication.</div></section>
+        <section class="view" id="jobs"><div class="empty-state">Observed jobs appear after execution.</div></section>
+        <section class="view" id="adapters"><div class="empty-state">Adapter operations appear when official hooks record them.</div></section>
+        <section class="view" id="settings"><div class="empty-state">Dashboard settings load from the local app.</div></section>
+      </main>
+      <aside class="inspector">
+        <h2>Inspector</h2>
+        <pre id="inspector-output">{}</pre>
+      </aside>
+    </div>
+    <script src="./assets/app.js" type="module"></script>
+  </body>
+</html>
