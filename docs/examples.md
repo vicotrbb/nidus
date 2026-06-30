@@ -10,6 +10,7 @@ requiring external services by default.
 | `auth-api` | Guard trait implementation with explicit guard failure mapping in a Nidus-composed route. |
 | `openapi` | Controller metadata converted into an OpenAPI JSON document plus `/openapi.json` and `/docs` routes. |
 | `background-jobs` | In-memory job queue execution with success and failure reporting. |
+| `dashboard-api` | Embedded Nidus Dashboard with bearer auth, SQLite storage, metadata-only capture, route snapshots, event capture, job capture, dashboard APIs, SSE, and live curl checks. |
 | `modular-monolith` | Macro-defined module graph imports, providers, controllers, and exports. |
 | `realworld-api` | Production-shaped team tasks API with modules, SQLite persistence, validation, OpenAPI, health, observability, request IDs, guards, CORS, limits, timeouts, events, and jobs. |
 | `production-api` | Production API preset (`nidus-example-production-api`) with health, observability, request context extraction, validated request IDs, error envelopes, and route-local rate limiting. |

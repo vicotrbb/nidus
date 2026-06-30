@@ -86,6 +86,34 @@ where
         };
         self.storage.record_operation(operation).await
     }
+
+    /// Records an observed job run.
+    pub async fn record_job(
+        &self,
+        name: impl Into<String>,
+        run_id: Option<&str>,
+        success: bool,
+        duration_ms: u64,
+    ) -> Result<()> {
+        let operation = DashboardOperation {
+            id: run_id
+                .map(str::to_owned)
+                .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+            kind: DashboardOperationKind::Job,
+            name: name.into(),
+            status: if success {
+                DashboardOperationStatus::Success
+            } else {
+                DashboardOperationStatus::Failure
+            },
+            timestamp_ms: now_ms(),
+            duration_ms: Some(duration_ms),
+            correlation_id: run_id.map(str::to_owned),
+            attributes: BTreeMap::new(),
+            payload: None,
+        };
+        self.storage.record_operation(operation).await
+    }
 }
 
 fn now_ms() -> i64 {

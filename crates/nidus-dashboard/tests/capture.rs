@@ -93,3 +93,26 @@ async fn dashboard_uses_configured_sqlite_storage() {
     assert_eq!(operations.len(), 1);
     assert_eq!(operations[0].id, "op-sqlite");
 }
+
+#[tokio::test]
+async fn dashboard_collector_records_job_metadata() {
+    let dashboard = NidusDashboard::builder()
+        .auth(DashboardAuth::bearer_token("secret"))
+        .storage(DashboardStorage::memory())
+        .build()
+        .unwrap();
+
+    dashboard
+        .collector()
+        .record_job("daily_digest", Some("run-1"), true, 42)
+        .await
+        .unwrap();
+
+    let operations = dashboard.storage().list_operations(10).await.unwrap();
+
+    assert_eq!(operations.len(), 1);
+    assert_eq!(operations[0].kind, DashboardOperationKind::Job);
+    assert_eq!(operations[0].name, "daily_digest");
+    assert_eq!(operations[0].correlation_id.as_deref(), Some("run-1"));
+    assert_eq!(operations[0].duration_ms, Some(42));
+}

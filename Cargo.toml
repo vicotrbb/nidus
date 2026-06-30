@@ -22,6 +22,7 @@ members = [
   "examples/auth-api",
   "examples/openapi",
   "examples/background-jobs",
+  "examples/dashboard-api",
   "examples/modular-monolith",
   "examples/realworld-api",
   "examples/production-api",

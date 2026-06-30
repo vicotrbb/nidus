@@ -33,6 +33,12 @@ For production observability through the facade:
 nidus = { package = "nidus-rs", version = "1.0.4", features = ["observability", "events", "jobs", "otel"] }
 ```
 
+For embedded dashboard introspection:
+
+```toml
+nidus = { package = "nidus-rs", version = "1.0.4", features = ["dashboard"] }
+```
+
 Official integrations are separate crates:
 
 ```toml
@@ -127,6 +133,7 @@ async fn main() -> nidus::Result<()> {
 - **Config:** typed configuration from JSON, files, pairs, and environment variables.
 - **OpenAPI:** route metadata, schemas, and generated documents.
 - **Observability:** additive production setup for HTTP metrics, traces, events, jobs, lifecycle validation, and official adapter operations.
+- **Dashboard:** optional protected `/nidus/dashboard` UI, JSON APIs, route snapshots, timeline storage, and SSE stream.
 - **Events and jobs:** in-process event buses, sync/async queues, and observed runners.
 - **Testing:** `nidus_testing::TestApp` for in-memory request tests and provider overrides.
 
@@ -166,6 +173,7 @@ The `nidus` facade stays lean. SQLx and cache integration live in `nidus-sqlx` a
 - `examples/hello-world`: minimal server.
 - `examples/openapi`: OpenAPI JSON and docs routes.
 - `examples/production-api`: production middleware defaults.
+- `examples/dashboard-api`: embedded dashboard with bearer auth, SQLite storage, metadata-only capture, route snapshots, event/job capture, APIs, SSE, and live curl checks.
 - `examples/realworld-api`: team tasks API with modules, SQLite, validation, OpenAPI, health, observability, request IDs, guards, CORS, limits, timeouts, events, and jobs.
 - `examples/sqlx-app` and `examples/cache-app`: official adapter wiring.
 - `examples/external-support-desk`: copyable external-user support desk API using crates.io-style dependencies, DI, ticket lifecycle routes, API-key auth, request IDs, validation errors, not-found behavior, and `nidus-testing`.
