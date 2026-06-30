@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use axum::{
     Json, Router,
     extract::State,
@@ -5,7 +7,9 @@ use axum::{
     response::{Html, IntoResponse, Sse, sse::Event},
     routing::get,
 };
+use futures_util::{StreamExt, stream};
 use serde::Serialize;
+use tokio_stream::wrappers::IntervalStream;
 
 #[cfg(feature = "sqlite")]
 use crate::storage::SqliteDashboardStorage;
@@ -79,6 +83,9 @@ impl NidusDashboard {
             .route("/assets/app.js", get(app_js))
             .route("/api/overview", get(overview))
             .route("/api/routes", get(routes))
+            .route("/api/events", get(events))
+            .route("/api/jobs", get(jobs))
+            .route("/api/adapters", get(adapters))
             .route("/api/settings", get(settings))
             .route("/api/timeline", get(timeline))
             .route("/stream", get(stream))
@@ -101,6 +108,9 @@ impl NidusDashboard {
             .route(&format!("{path}/assets/app.js"), get(app_js))
             .route(&format!("{path}/api/overview"), get(overview))
             .route(&format!("{path}/api/routes"), get(routes))
+            .route(&format!("{path}/api/events"), get(events))
+            .route(&format!("{path}/api/jobs"), get(jobs))
+            .route(&format!("{path}/api/adapters"), get(adapters))
             .route(&format!("{path}/api/settings"), get(settings))
             .route(&format!("{path}/api/timeline"), get(timeline))
             .route(&format!("{path}/stream"), get(stream))
@@ -154,21 +164,40 @@ struct OverviewMetric {
     value: String,
 }
 
-async fn overview() -> Json<OverviewResponse> {
+async fn overview(State(runtime): State<DashboardRuntime>) -> Json<OverviewResponse> {
+    let operations = runtime
+        .storage
+        .list_operations(1_000)
+        .await
+        .unwrap_or_default();
+    let routes = runtime
+        .storage
+        .list_route_snapshots()
+        .await
+        .unwrap_or_default();
+    let event_count = operations
+        .iter()
+        .filter(|operation| operation.kind == DashboardOperationKind::Event)
+        .count();
+    let job_count = operations
+        .iter()
+        .filter(|operation| operation.kind == DashboardOperationKind::Job)
+        .count();
+
     Json(OverviewResponse {
         service_name: "nidus-app",
         metrics: vec![
             OverviewMetric {
-                label: "Requests",
-                value: "0".to_owned(),
-            },
-            OverviewMetric {
-                label: "Errors",
-                value: "0".to_owned(),
+                label: "Routes",
+                value: routes.len().to_string(),
             },
             OverviewMetric {
                 label: "Events",
-                value: "0".to_owned(),
+                value: event_count.to_string(),
+            },
+            OverviewMetric {
+                label: "Jobs",
+                value: job_count.to_string(),
             },
         ],
     })
@@ -182,6 +211,18 @@ async fn routes(State(runtime): State<DashboardRuntime>) -> Json<Vec<DashboardRo
             .await
             .unwrap_or_default(),
     )
+}
+
+async fn events(State(runtime): State<DashboardRuntime>) -> Json<Vec<DashboardOperation>> {
+    Json(operations_by_kind(runtime, DashboardOperationKind::Event).await)
+}
+
+async fn jobs(State(runtime): State<DashboardRuntime>) -> Json<Vec<DashboardOperation>> {
+    Json(operations_by_kind(runtime, DashboardOperationKind::Job).await)
+}
+
+async fn adapters(State(runtime): State<DashboardRuntime>) -> Json<Vec<DashboardOperation>> {
+    Json(operations_by_kind(runtime, DashboardOperationKind::Adapter).await)
 }
 
 async fn settings(State(runtime): State<DashboardRuntime>) -> Json<DashboardSettings> {
@@ -212,8 +253,24 @@ async fn stream()
         payload: None,
     };
     let data = serde_json::to_string(&event).unwrap_or_else(|_| "{}".to_owned());
-    let stream = tokio_stream::once(Ok(Event::default().data(data)));
+    let heartbeat = IntervalStream::new(tokio::time::interval(Duration::from_secs(15)))
+        .map(|_| Ok(Event::default().comment("heartbeat")));
+    let stream = stream::once(async move { Ok(Event::default().data(data)) }).chain(heartbeat);
     Sse::new(stream)
+}
+
+async fn operations_by_kind(
+    runtime: DashboardRuntime,
+    kind: DashboardOperationKind,
+) -> Vec<DashboardOperation> {
+    runtime
+        .storage
+        .list_operations(100)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|operation| operation.kind == kind)
+        .collect()
 }
 
 /// Dashboard builder.

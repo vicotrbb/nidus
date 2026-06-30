@@ -177,7 +177,8 @@ h2 {
   font-weight: 650;
 }
 
-.timeline {
+.timeline,
+.data-list {
   display: grid;
   gap: var(--space-sm);
   margin: 0;
@@ -185,7 +186,8 @@ h2 {
   list-style: none;
 }
 
-.timeline-item {
+.timeline-item,
+.route-row {
   border: 1px solid var(--line-soft);
   border-radius: var(--radius);
   background: var(--panel);
@@ -194,8 +196,53 @@ h2 {
 }
 
 .timeline-item:hover,
-.timeline-item:focus-visible {
+.timeline-item:focus-visible,
+.route-row:hover,
+.route-row:focus-visible {
   border-color: color-mix(in oklch, var(--brand), transparent 45%);
+}
+
+.route-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) minmax(80px, 0.4fr);
+  gap: var(--space-md);
+  align-items: center;
+}
+
+.route-row span,
+.route-row em {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-style: normal;
+  font-weight: 650;
+}
+
+.route-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-weight: 760;
+}
+
+.settings-list {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.35fr) minmax(0, 1fr);
+  gap: var(--space-sm) var(--space-lg);
+  margin: 0;
+}
+
+.settings-list dt {
+  color: var(--muted);
+  font-weight: 650;
+  text-transform: capitalize;
+}
+
+.settings-list dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-weight: 760;
 }
 
 .empty-state {
@@ -225,10 +272,37 @@ pre {
 
   .sidebar {
     flex-direction: row;
-    overflow-x: auto;
+    flex-wrap: wrap;
+    overflow: hidden;
   }
 
   .nav-item {
-    flex: 0 0 auto;
+    flex: 1 1 92px;
+    min-width: 0;
+    text-align: center;
+  }
+}
+
+@media (max-width: 560px) {
+  .dashboard-shell {
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+  }
+
+  .topbar {
+    align-items: flex-start;
+    gap: var(--space-md);
+    padding: var(--space-md);
+  }
+
+  .sidebar,
+  .main-panel,
+  .inspector {
+    padding: var(--space-sm);
+  }
+
+  .route-row,
+  .settings-list {
+    grid-template-columns: 1fr;
   }
 }

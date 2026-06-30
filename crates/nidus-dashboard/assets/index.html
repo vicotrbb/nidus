@@ -32,12 +32,24 @@
         <section class="view" id="timeline">
           <ol class="timeline" id="timeline-list"></ol>
         </section>
-        <section class="view" id="graph"><div class="empty-state">Graph snapshot waiting for route metadata.</div></section>
-        <section class="view" id="routes"><div class="empty-state">Route snapshot waiting for Nidus facade integration.</div></section>
-        <section class="view" id="events"><div class="empty-state">Observed events appear after publication.</div></section>
-        <section class="view" id="jobs"><div class="empty-state">Observed jobs appear after execution.</div></section>
-        <section class="view" id="adapters"><div class="empty-state">Adapter operations appear when official hooks record them.</div></section>
-        <section class="view" id="settings"><div class="empty-state">Dashboard settings load from the local app.</div></section>
+        <section class="view" id="graph">
+          <div class="empty-state">Graph snapshot waiting for module metadata.</div>
+        </section>
+        <section class="view" id="routes">
+          <ol class="data-list" id="routes-list"></ol>
+        </section>
+        <section class="view" id="events">
+          <ol class="timeline" id="events-list"></ol>
+        </section>
+        <section class="view" id="jobs">
+          <ol class="timeline" id="jobs-list"></ol>
+        </section>
+        <section class="view" id="adapters">
+          <ol class="timeline" id="adapters-list"></ol>
+        </section>
+        <section class="view" id="settings">
+          <dl class="settings-list" id="settings-list"></dl>
+        </section>
       </main>
       <aside class="inspector">
         <h2>Inspector</h2>

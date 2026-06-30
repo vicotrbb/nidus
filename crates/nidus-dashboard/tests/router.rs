@@ -44,3 +44,42 @@ async fn dashboard_serves_assets_under_assets_path() {
 
     assert_eq!(styles.status(), StatusCode::OK);
 }
+
+#[tokio::test]
+async fn dashboard_serves_event_job_and_adapter_api_views() {
+    let dashboard = NidusDashboard::builder()
+        .auth(DashboardAuth::bearer_token("secret"))
+        .storage(DashboardStorage::memory())
+        .build()
+        .unwrap();
+
+    dashboard
+        .collector()
+        .record_event("user.created", Some("event-1"), Vec::<(&str, &str)>::new())
+        .await
+        .unwrap();
+    dashboard
+        .collector()
+        .record_job("daily_digest", Some("job-1"), true, 12)
+        .await
+        .unwrap();
+
+    let app = dashboard.router();
+
+    let events = app.clone().oneshot(request("/api/events")).await.unwrap();
+    assert_eq!(events.status(), StatusCode::OK);
+    let body = to_bytes(events.into_body(), usize::MAX).await.unwrap();
+    let body = String::from_utf8_lossy(&body);
+    assert!(body.contains("user.created"));
+    assert!(!body.contains("daily_digest"));
+
+    let jobs = app.clone().oneshot(request("/api/jobs")).await.unwrap();
+    assert_eq!(jobs.status(), StatusCode::OK);
+    let body = to_bytes(jobs.into_body(), usize::MAX).await.unwrap();
+    let body = String::from_utf8_lossy(&body);
+    assert!(body.contains("daily_digest"));
+    assert!(!body.contains("user.created"));
+
+    let adapters = app.oneshot(request("/api/adapters")).await.unwrap();
+    assert_eq!(adapters.status(), StatusCode::OK);
+}
