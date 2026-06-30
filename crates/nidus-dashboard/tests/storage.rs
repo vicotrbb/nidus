@@ -58,3 +58,31 @@ async fn memory_storage_prunes_to_max_events() {
     assert_eq!(timeline.len(), 1);
     assert_eq!(timeline[0].id, "op-2");
 }
+
+#[cfg(feature = "sqlite")]
+#[tokio::test]
+async fn sqlite_storage_migrates_records_lists_and_prunes() {
+    use nidus_dashboard::storage::SqliteDashboardStorage;
+
+    let storage = SqliteDashboardStorage::connect("sqlite::memory:")
+        .await
+        .unwrap();
+
+    storage
+        .record_operation(operation("op-1", "first"))
+        .await
+        .unwrap();
+    storage
+        .record_operation(operation("op-2", "second"))
+        .await
+        .unwrap();
+
+    let timeline = storage.list_operations(10).await.unwrap();
+    assert_eq!(timeline.len(), 2);
+    assert_eq!(timeline[0].id, "op-2");
+
+    storage.prune(1).await.unwrap();
+    let pruned = storage.list_operations(10).await.unwrap();
+    assert_eq!(pruned.len(), 1);
+    assert_eq!(pruned[0].id, "op-2");
+}

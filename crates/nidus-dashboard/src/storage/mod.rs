@@ -1,12 +1,16 @@
 //! Dashboard storage backends.
 
 mod memory;
+#[cfg(feature = "sqlite")]
+mod sqlite;
 
 use std::{future::Future, pin::Pin};
 
 use crate::{DashboardOperation, error::Result};
 
 pub use memory::MemoryDashboardStorage;
+#[cfg(feature = "sqlite")]
+pub use sqlite::SqliteDashboardStorage;
 
 /// Boxed storage future.
 pub type StorageFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;

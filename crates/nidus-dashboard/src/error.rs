@@ -17,4 +17,13 @@ pub enum DashboardError {
     /// Storage failed.
     #[error("dashboard storage error: {0}")]
     Storage(String),
+
+    /// SQLite storage failed.
+    #[cfg(feature = "sqlite")]
+    #[error("dashboard sqlite error: {0}")]
+    Sqlite(#[from] sqlx::Error),
+
+    /// Serialization failed.
+    #[error("dashboard serialization error: {0}")]
+    Serialization(#[from] serde_json::Error),
 }
