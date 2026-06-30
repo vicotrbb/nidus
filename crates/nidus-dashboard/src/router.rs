@@ -32,6 +32,7 @@ pub struct NidusDashboard {
     auth: DashboardAuthState,
     storage: DashboardStorageHandle,
     collector: DashboardCollector<DashboardStorageHandle>,
+    settings: DashboardSettings,
 }
 
 #[derive(Clone, Debug)]
@@ -118,12 +119,7 @@ impl NidusDashboard {
     fn runtime(&self) -> DashboardRuntime {
         DashboardRuntime {
             storage: self.storage.clone(),
-            settings: DashboardSettings {
-                auth_mode: self.auth.mode_name(),
-                capture_mode: "metadata_only",
-                storage_mode: self.storage.mode_name(),
-                retention_max_events: 100_000,
-            },
+            settings: self.settings.clone(),
         }
     }
 }
@@ -284,16 +280,22 @@ impl NidusDashboardBuilder {
         let auth = DashboardAuthState::from_config(auth)?;
         let storage_config = self.storage;
         let capture = self.capture;
-        let _ = capture.payload_byte_cap();
-        let _ = self.retention.max_age();
-        let _ = self.retention.max_event_count();
+        let retention = self.retention;
+        let _ = retention.max_age();
         let storage = storage_from_config(storage_config)?;
-        let collector = DashboardCollector::new(storage.clone(), capture);
+        let settings = DashboardSettings {
+            auth_mode: auth.mode_name(),
+            capture_mode: capture.mode_name(),
+            storage_mode: storage.mode_name(),
+            retention_max_events: retention.max_event_count(),
+        };
+        let collector = DashboardCollector::with_retention(storage.clone(), capture, retention);
         Ok(NidusDashboard {
             path: self.path,
             auth,
             storage,
             collector,
+            settings,
         })
     }
 }

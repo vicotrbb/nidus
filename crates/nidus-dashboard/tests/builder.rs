@@ -30,3 +30,17 @@ fn builder_accepts_auth_storage_capture_and_retention() {
 
     assert_eq!(dashboard.path(), "/nidus/dashboard");
 }
+
+#[test]
+fn builder_rejects_empty_bearer_token() {
+    let error = NidusDashboard::builder()
+        .auth(DashboardAuth::bearer_token("   "))
+        .storage(DashboardStorage::memory())
+        .build()
+        .expect_err("empty bearer tokens must fail closed");
+
+    assert!(
+        error.to_string().contains("dashboard bearer token"),
+        "{error}"
+    );
+}

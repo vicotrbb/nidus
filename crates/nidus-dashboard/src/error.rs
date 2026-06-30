@@ -10,6 +10,10 @@ pub enum DashboardError {
     #[error("dashboard authentication is required")]
     MissingAuth,
 
+    /// Dashboard authentication configuration was invalid.
+    #[error("dashboard bearer token must not be empty")]
+    InvalidAuth,
+
     /// Dashboard path was empty or invalid.
     #[error("dashboard path must start with `/` and must not end with `/`")]
     InvalidPath,

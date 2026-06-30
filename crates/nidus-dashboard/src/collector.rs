@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::{
     DashboardCapture, DashboardOperation, DashboardOperationKind, DashboardOperationStatus,
+    DashboardRetention,
     error::Result,
     storage::{DashboardStorageBackend, MemoryDashboardStorage},
 };
@@ -16,6 +17,7 @@ where
 {
     storage: S,
     capture: DashboardCapture,
+    retention: DashboardRetention,
 }
 
 impl<S> DashboardCollector<S>
@@ -24,7 +26,20 @@ where
 {
     /// Creates a collector.
     pub fn new(storage: S, capture: DashboardCapture) -> Self {
-        Self { storage, capture }
+        Self::with_retention(storage, capture, DashboardRetention::default())
+    }
+
+    /// Creates a collector with explicit retention.
+    pub fn with_retention(
+        storage: S,
+        capture: DashboardCapture,
+        retention: DashboardRetention,
+    ) -> Self {
+        Self {
+            storage,
+            capture,
+            retention,
+        }
     }
 
     /// Records an observed event publication.
@@ -55,7 +70,7 @@ where
                 .collect::<BTreeMap<_, _>>(),
             payload: None,
         };
-        self.storage.record_operation(operation).await
+        self.record_and_prune(operation).await
     }
 
     /// Records an observed event publication with an optional redacted payload.
@@ -66,7 +81,10 @@ where
         payload: serde_json::Value,
     ) -> Result<()> {
         let payload = if self.capture.captures_payloads() {
-            Some(redact_value(payload, self.capture.redacted_fields()))
+            Some(cap_payload(
+                redact_value(payload, self.capture.redacted_fields()),
+                self.capture.payload_byte_cap(),
+            )?)
         } else {
             None
         };
@@ -83,7 +101,7 @@ where
             attributes: BTreeMap::new(),
             payload,
         };
-        self.storage.record_operation(operation).await
+        self.record_and_prune(operation).await
     }
 
     /// Records an observed job run.
@@ -111,7 +129,12 @@ where
             attributes: BTreeMap::new(),
             payload: None,
         };
-        self.storage.record_operation(operation).await
+        self.record_and_prune(operation).await
+    }
+
+    async fn record_and_prune(&self, operation: DashboardOperation) -> Result<()> {
+        self.storage.record_operation(operation).await?;
+        self.storage.prune(self.retention.max_event_count()).await
     }
 }
 
@@ -142,4 +165,15 @@ fn redact_value(mut value: serde_json::Value, redacted_fields: &[String]) -> ser
         }
         _ => value,
     }
+}
+
+fn cap_payload(value: serde_json::Value, max_bytes: usize) -> Result<serde_json::Value> {
+    if serde_json::to_vec(&value)?.len() <= max_bytes {
+        return Ok(value);
+    }
+
+    Ok(serde_json::json!({
+        "truncated": true,
+        "max_payload_bytes": max_bytes,
+    }))
 }

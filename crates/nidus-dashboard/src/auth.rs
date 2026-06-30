@@ -9,7 +9,10 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
-use crate::{DashboardAuth, error::Result};
+use crate::{
+    DashboardAuth,
+    error::{DashboardError, Result},
+};
 
 /// Runtime dashboard auth state.
 #[derive(Clone, Debug)]
@@ -27,17 +30,23 @@ impl DashboardAuthState {
     /// Builds runtime auth state from config.
     pub fn from_config(auth: DashboardAuth) -> Result<Self> {
         match auth {
-            DashboardAuth::BearerToken(token) => Ok(Self::Bearer {
-                token: Arc::from(token),
-            }),
+            DashboardAuth::BearerToken(token) => Self::bearer(token),
             DashboardAuth::BearerFromEnv(name) => {
-                let token = std::env::var(&name).unwrap_or_default();
-                Ok(Self::Bearer {
-                    token: Arc::from(token),
-                })
+                let token = std::env::var(&name).map_err(|_| DashboardError::MissingAuth)?;
+                Self::bearer(token)
             }
             DashboardAuth::UnsafeDisabledForLocalDevelopment => Ok(Self::UnsafeDisabled),
         }
+    }
+
+    fn bearer(token: String) -> Result<Self> {
+        let token = token.trim().to_owned();
+        if token.is_empty() {
+            return Err(DashboardError::InvalidAuth);
+        }
+        Ok(Self::Bearer {
+            token: Arc::from(token),
+        })
     }
 
     fn allows(&self, headers: &HeaderMap) -> bool {

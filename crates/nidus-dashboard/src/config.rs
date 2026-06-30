@@ -137,6 +137,14 @@ impl DashboardCapture {
         self.max_payload_bytes
     }
 
+    pub(crate) fn mode_name(&self) -> &'static str {
+        if self.capture_payloads {
+            "payloads_redacted"
+        } else {
+            "metadata_only"
+        }
+    }
+
     pub(crate) fn redacted_fields(&self) -> &[String] {
         &self.redacted_fields
     }

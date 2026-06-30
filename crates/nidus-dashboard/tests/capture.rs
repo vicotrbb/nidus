@@ -1,5 +1,5 @@
 use nidus_dashboard::{
-    DashboardAuth, DashboardOperationKind, DashboardStorage, NidusDashboard,
+    DashboardAuth, DashboardOperationKind, DashboardRetention, DashboardStorage, NidusDashboard,
     storage::{DashboardStorageBackend, SqliteDashboardStorage},
 };
 
@@ -61,6 +61,64 @@ async fn payload_capture_redacts_configured_fields() {
     assert_eq!(payload["email"], "user@example.com");
     assert_eq!(payload["password"], "[redacted]");
     assert_eq!(payload["nested"]["token"], "[redacted]");
+}
+
+#[tokio::test]
+async fn payload_capture_enforces_byte_cap_after_redaction() {
+    let dashboard = NidusDashboard::builder()
+        .auth(DashboardAuth::bearer_token("secret"))
+        .storage(DashboardStorage::memory())
+        .capture(nidus_dashboard::DashboardCapture::payloads().max_payload_bytes(32))
+        .build()
+        .unwrap();
+
+    dashboard
+        .collector()
+        .record_payload_event(
+            "user.large_payload",
+            Some("op-large"),
+            serde_json::json!({
+                "safe": "this payload is intentionally too large to persist"
+            }),
+        )
+        .await
+        .unwrap();
+
+    let operations = dashboard.storage().list_operations(10).await.unwrap();
+    let payload = operations[0].payload.as_ref().unwrap();
+
+    assert_eq!(payload["truncated"], true);
+    assert_eq!(payload["max_payload_bytes"], 32);
+}
+
+#[tokio::test]
+async fn dashboard_retention_prunes_old_operations_by_count() {
+    let dashboard = NidusDashboard::builder()
+        .auth(DashboardAuth::bearer_token("secret"))
+        .storage(DashboardStorage::memory())
+        .retention(DashboardRetention::days(7).max_events(1))
+        .build()
+        .unwrap();
+
+    dashboard
+        .collector()
+        .record_event("event.first", Some("op-first"), Vec::<(&str, &str)>::new())
+        .await
+        .unwrap();
+    dashboard
+        .collector()
+        .record_event(
+            "event.second",
+            Some("op-second"),
+            Vec::<(&str, &str)>::new(),
+        )
+        .await
+        .unwrap();
+
+    let operations = dashboard.storage().list_operations(10).await.unwrap();
+
+    assert_eq!(operations.len(), 1);
+    assert_eq!(operations[0].id, "op-second");
 }
 
 #[cfg(feature = "sqlite")]
