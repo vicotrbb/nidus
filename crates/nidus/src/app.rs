@@ -1,6 +1,8 @@
 //! High-level application composition for the facade crate.
 
-use std::collections::{BTreeMap, BTreeSet};
+#[cfg(feature = "dashboard")]
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 
 use nidus_core::{Application, Container, Module, ModuleGraph, Nidus, NidusError, Result};
 

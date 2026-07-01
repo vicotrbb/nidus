@@ -38,7 +38,7 @@ async fn module_builder_mounts_dashboard_router() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
-    assert!(String::from_utf8_lossy(&body).contains("Nidus Dashboard"));
+    assert!(String::from_utf8_lossy(&body).contains("Nidus Runtime Atlas"));
 }
 
 #[controller("/users")]
