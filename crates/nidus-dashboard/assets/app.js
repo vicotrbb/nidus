@@ -207,11 +207,11 @@ function laneFor(node) {
 
 function layoutGraph(nodes) {
   const lanes = {
-    runtime: { x: 7, nodes: [] },
-    modules: { x: 25, nodes: [] },
-    components: { x: 49, nodes: [] },
-    routes: { x: 72, nodes: [] },
-    activity: { x: 91, nodes: [] },
+    runtime: { x: 14, nodes: [] },
+    modules: { x: 31, nodes: [] },
+    components: { x: 53, nodes: [] },
+    routes: { x: 74, nodes: [] },
+    activity: { x: 90, nodes: [] },
   };
   for (const node of nodes) lanes[laneFor(node)].nodes.push(node);
 
@@ -229,7 +229,7 @@ function layoutGraph(nodes) {
 function renderGraph() {
   clear(graphMap);
   const visible = visibleGraphNodeIds();
-  const nodes = state.graph.nodes.filter((node) => visible.has(node.id));
+  const nodes = limitGraphActivity(state.graph.nodes.filter((node) => visible.has(node.id)));
   graphMap.classList.toggle("is-outline", mobileQuery.matches);
 
   if (nodes.length === 0) {
@@ -280,6 +280,17 @@ function renderGraph() {
   focusRelations(state.selected?.id);
 }
 
+function limitGraphActivity(nodes) {
+  if (state.query) return nodes;
+  let activityCount = 0;
+  return nodes.filter((node) => {
+    if (!["event", "job", "adapter"].includes(node.kind)) return true;
+    if (state.selected?.id === node.id) return true;
+    activityCount += 1;
+    return activityCount <= 8;
+  });
+}
+
 function renderGraphOutline(nodes) {
   const order = ["runtime", "module", "controller", "provider", "route", "event", "job", "adapter"];
   for (const kind of order) {
@@ -324,6 +335,7 @@ function countSummary(counts = {}) {
 }
 
 function focusRelations(id) {
+  if (graphNode(id)?.kind === "runtime") id = null;
   const related = new Set();
   if (id) {
     related.add(id);

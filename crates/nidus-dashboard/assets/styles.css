@@ -319,11 +319,13 @@ h3 {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(240px, 0.32fr);
   gap: var(--space-xl);
+  align-items: start;
   min-width: 0;
 }
 
 .atlas-stage {
   display: grid;
+  align-content: start;
   gap: var(--space-md);
   min-width: 0;
 }
@@ -331,6 +333,7 @@ h3 {
 .overview-map {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
+  align-self: start;
   min-width: 0;
   border-block: 1px solid color-mix(in oklch, var(--line), transparent 38%);
   background: color-mix(in oklch, var(--paper), transparent 24%);
@@ -377,7 +380,7 @@ h3 {
 .graph-map {
   position: relative;
   min-width: 0;
-  min-height: clamp(520px, 66vh, 720px);
+  min-height: 980px;
   overflow: hidden;
   border-block: 1px solid color-mix(in oklch, var(--line), transparent 36%);
   background:
@@ -428,11 +431,11 @@ h3 {
   position: absolute;
   display: grid;
   gap: var(--space-xs);
-  width: clamp(128px, 14vw, 182px);
-  min-height: 74px;
+  width: clamp(122px, 13vw, 172px);
+  min-height: 58px;
   border: 1px solid color-mix(in oklch, var(--line), transparent 24%);
   border-radius: var(--radius-sm);
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--space-xs) var(--space-sm);
   background: color-mix(in oklch, var(--paper), transparent 6%);
   color: inherit;
   text-align: left;
@@ -454,12 +457,13 @@ h3 {
 
 .graph-node strong {
   color: var(--ink);
+  font-size: 0.94rem;
   line-height: 1.12;
 }
 
 .graph-node > span:last-child {
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 650;
 }
 
@@ -472,7 +476,7 @@ h3 {
 }
 
 .graph-node-runtime {
-  min-height: 118px;
+  min-height: 104px;
   align-content: end;
   border-color: var(--code-line);
   border-radius: 43% 57% 45% 55% / 58% 42% 58% 42%;
@@ -487,6 +491,7 @@ h3 {
 }
 
 .graph-node-module {
+  min-height: 82px;
   border-radius: 38% 62% 45% 55% / 58% 40% 60% 42%;
   background: color-mix(in oklch, var(--brand-soft), var(--paper) 54%);
 }
@@ -500,7 +505,7 @@ h3 {
 }
 
 .graph-node-route {
-  width: clamp(150px, 17vw, 214px);
+  width: clamp(142px, 15vw, 196px);
 }
 
 .graph-node-event,
@@ -533,8 +538,10 @@ h3 {
   align-content: start;
   gap: var(--space-md);
   min-width: 0;
+  max-height: min(760px, calc(100vh - 148px));
   border-block: 1px solid color-mix(in oklch, var(--line), transparent 40%);
   padding-block: var(--space-sm);
+  overflow: auto;
 }
 
 .activity-list,
@@ -984,6 +991,8 @@ pre {
   .graph-map.is-outline {
     display: grid;
     gap: var(--space-md);
+    max-height: 128px;
+    overflow: auto;
     padding-block: var(--space-sm);
   }
 
