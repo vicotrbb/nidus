@@ -1,4 +1,10 @@
-use std::time::Duration;
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::Duration,
+};
 
 use axum::routing::{get as axum_get, post as axum_post};
 use nidus::prelude::*;
@@ -24,6 +30,7 @@ struct AppModule;
 struct ExampleState {
     collector:
         nidus::dashboard::DashboardCollector<nidus::dashboard::storage::DashboardStorageHandle>,
+    sequence: Arc<AtomicU64>,
 }
 
 #[derive(Serialize)]
@@ -54,6 +61,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     let state = ExampleState {
         collector: dashboard.collector(),
+        sequence: Arc::new(AtomicU64::new(1)),
     };
 
     Nidus::create::<AppModule>()
@@ -76,12 +84,17 @@ fn example_routes(state: ExampleState) -> Router {
                 move || {
                     let state = state.clone();
                     async move {
+                        let sequence = state.sequence.fetch_add(1, Ordering::Relaxed);
+                        let operation_id = format!("example-event-{sequence}");
                         state
                             .collector
                             .record_event(
                                 "user.created",
-                                Some("example-event-1"),
-                                [("source", "dashboard-api")],
+                                Some(operation_id.as_str()),
+                                [
+                                    ("source", "dashboard-api".to_owned()),
+                                    ("sequence", sequence.to_string()),
+                                ],
                             )
                             .await
                             .map_err(|error| {
@@ -97,9 +110,16 @@ fn example_routes(state: ExampleState) -> Router {
             axum_post(move || {
                 let state = state.clone();
                 async move {
+                    let sequence = state.sequence.fetch_add(1, Ordering::Relaxed);
+                    let run_id = format!("example-job-{sequence}");
                     state
                         .collector
-                        .record_job("daily_digest", Some("example-job-1"), true, 18)
+                        .record_job(
+                            "daily_digest",
+                            Some(run_id.as_str()),
+                            true,
+                            14 + (sequence % 9),
+                        )
                         .await
                         .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
                     tokio::time::sleep(Duration::from_millis(1)).await;
