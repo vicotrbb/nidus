@@ -1,4 +1,8 @@
-use std::time::Duration;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::{Arc, RwLock},
+    time::Duration,
+};
 
 use axum::{
     Json, Router,
@@ -20,8 +24,9 @@ use crate::{
     error::{DashboardError, Result},
     storage::{DashboardStorageBackend, DashboardStorageHandle},
     types::{
-        DashboardOperation, DashboardOperationKind, DashboardOperationStatus,
-        DashboardRouteSnapshot,
+        DashboardGraphEdge, DashboardGraphEdgeKind, DashboardGraphNode, DashboardGraphNodeKind,
+        DashboardGraphResponse, DashboardOperation, DashboardOperationKind,
+        DashboardOperationStatus, DashboardRouteSnapshot,
     },
 };
 
@@ -37,12 +42,14 @@ pub struct NidusDashboard {
     storage: DashboardStorageHandle,
     collector: DashboardCollector<DashboardStorageHandle>,
     settings: DashboardSettings,
+    graph: DashboardGraphState,
 }
 
 #[derive(Clone, Debug)]
 struct DashboardRuntime {
     storage: DashboardStorageHandle,
     settings: DashboardSettings,
+    graph: DashboardGraphState,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -51,6 +58,34 @@ struct DashboardSettings {
     capture_mode: &'static str,
     storage_mode: &'static str,
     retention_max_events: usize,
+}
+
+#[derive(Clone, Debug)]
+struct DashboardGraphState {
+    snapshot: Arc<RwLock<DashboardGraphResponse>>,
+}
+
+impl DashboardGraphState {
+    fn new() -> Self {
+        Self {
+            snapshot: Arc::new(RwLock::new(DashboardGraphResponse::empty("nidus-app"))),
+        }
+    }
+
+    fn replace(&self, graph: DashboardGraphResponse) {
+        let mut snapshot = self
+            .snapshot
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        *snapshot = graph;
+    }
+
+    fn get(&self) -> DashboardGraphResponse {
+        self.snapshot
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
+    }
 }
 
 impl NidusDashboard {
@@ -82,6 +117,7 @@ impl NidusDashboard {
             .route("/assets/styles.css", get(styles))
             .route("/assets/app.js", get(app_js))
             .route("/api/overview", get(overview))
+            .route("/api/graph", get(graph))
             .route("/api/routes", get(routes))
             .route("/api/events", get(events))
             .route("/api/jobs", get(jobs))
@@ -107,6 +143,7 @@ impl NidusDashboard {
             .route(&format!("{path}/assets/styles.css"), get(styles))
             .route(&format!("{path}/assets/app.js"), get(app_js))
             .route(&format!("{path}/api/overview"), get(overview))
+            .route(&format!("{path}/api/graph"), get(graph))
             .route(&format!("{path}/api/routes"), get(routes))
             .route(&format!("{path}/api/events"), get(events))
             .route(&format!("{path}/api/jobs"), get(jobs))
@@ -126,10 +163,16 @@ impl NidusDashboard {
         self.storage.record_route_snapshot(route).await
     }
 
+    /// Records the current runtime module graph for dashboard topology.
+    pub fn record_graph_snapshot(&self, graph: DashboardGraphResponse) {
+        self.graph.replace(graph);
+    }
+
     fn runtime(&self) -> DashboardRuntime {
         DashboardRuntime {
             storage: self.storage.clone(),
             settings: self.settings.clone(),
+            graph: self.graph.clone(),
         }
     }
 }
@@ -201,6 +244,94 @@ async fn overview(State(runtime): State<DashboardRuntime>) -> Json<OverviewRespo
             },
         ],
     })
+}
+
+async fn graph(State(runtime): State<DashboardRuntime>) -> Json<DashboardGraphResponse> {
+    let mut response = runtime.graph.get();
+    response.refresh_timestamp();
+
+    let mut known_nodes = response
+        .nodes
+        .iter()
+        .map(|node| node.id.clone())
+        .collect::<BTreeSet<_>>();
+    let mut known_edges = response
+        .edges
+        .iter()
+        .map(|edge| edge.id.clone())
+        .collect::<BTreeSet<_>>();
+
+    if response.nodes.is_empty() {
+        let runtime_id = runtime_node_id(&response.service_name);
+        known_nodes.insert(runtime_id.clone());
+        response.nodes.push(DashboardGraphNode {
+            id: runtime_id,
+            kind: DashboardGraphNodeKind::Runtime,
+            label: response.service_name.clone(),
+            summary: Some("dashboard runtime".to_owned()),
+            status: None,
+            counts: BTreeMap::new(),
+            metadata: BTreeMap::new(),
+        });
+    }
+
+    let runtime_id = response
+        .nodes
+        .iter()
+        .find(|node| node.kind == DashboardGraphNodeKind::Runtime)
+        .map(|node| node.id.clone())
+        .unwrap_or_else(|| runtime_node_id(&response.service_name));
+
+    let operations = runtime
+        .storage
+        .list_operations(60)
+        .await
+        .unwrap_or_default();
+    for operation in operations {
+        let Some(kind) = graph_node_kind_for_operation(&operation.kind) else {
+            continue;
+        };
+        let node_id = format!("operation:{}", operation.id);
+        if known_nodes.insert(node_id.clone()) {
+            let mut counts = BTreeMap::new();
+            if let Some(duration) = operation.duration_ms {
+                counts.insert("duration_ms".to_owned(), duration as usize);
+            }
+            let mut metadata = BTreeMap::new();
+            metadata.insert(
+                "operation".to_owned(),
+                serde_json::to_value(&operation).unwrap_or(serde_json::Value::Null),
+            );
+            response.nodes.push(DashboardGraphNode {
+                id: node_id.clone(),
+                kind,
+                label: operation.name.clone(),
+                summary: Some(format!(
+                    "{} / {}",
+                    operation_kind_label(&operation.kind),
+                    operation_status_label(&operation.status)
+                )),
+                status: Some(operation_status_label(&operation.status).to_owned()),
+                counts,
+                metadata,
+            });
+        }
+
+        let target =
+            activity_target(&operation, &known_nodes).unwrap_or_else(|| runtime_id.clone());
+        let edge_id = format!("activity:{}:{node_id}", target);
+        if known_edges.insert(edge_id.clone()) {
+            response.edges.push(DashboardGraphEdge {
+                id: edge_id,
+                kind: DashboardGraphEdgeKind::RuntimeActivity,
+                source: target,
+                target: node_id,
+                label: Some(operation_kind_label(&operation.kind).to_owned()),
+            });
+        }
+    }
+
+    Json(response)
 }
 
 async fn routes(State(runtime): State<DashboardRuntime>) -> Json<Vec<DashboardRouteSnapshot>> {
@@ -353,8 +484,65 @@ impl NidusDashboardBuilder {
             storage,
             collector,
             settings,
+            graph: DashboardGraphState::new(),
         })
     }
+}
+
+fn runtime_node_id(service_name: &str) -> String {
+    format!("runtime:{service_name}")
+}
+
+fn graph_node_kind_for_operation(kind: &DashboardOperationKind) -> Option<DashboardGraphNodeKind> {
+    match kind {
+        DashboardOperationKind::Event => Some(DashboardGraphNodeKind::Event),
+        DashboardOperationKind::Job => Some(DashboardGraphNodeKind::Job),
+        DashboardOperationKind::Adapter => Some(DashboardGraphNodeKind::Adapter),
+        DashboardOperationKind::Http | DashboardOperationKind::Lifecycle => None,
+    }
+}
+
+fn operation_kind_label(kind: &DashboardOperationKind) -> &'static str {
+    match kind {
+        DashboardOperationKind::Http => "http",
+        DashboardOperationKind::Event => "event",
+        DashboardOperationKind::Job => "job",
+        DashboardOperationKind::Lifecycle => "lifecycle",
+        DashboardOperationKind::Adapter => "adapter",
+    }
+}
+
+fn operation_status_label(status: &DashboardOperationStatus) -> &'static str {
+    match status {
+        DashboardOperationStatus::Success => "success",
+        DashboardOperationStatus::Failure => "failure",
+        DashboardOperationStatus::Running => "running",
+    }
+}
+
+fn activity_target(
+    operation: &DashboardOperation,
+    known_nodes: &BTreeSet<String>,
+) -> Option<String> {
+    for key in ["route", "controller", "module"] {
+        let Some(value) = operation.attributes.get(key) else {
+            continue;
+        };
+        if key == "route" {
+            let direct = format!("route:{value}");
+            if known_nodes.contains(&direct) {
+                return Some(direct);
+            }
+        }
+        let prefix = format!("{key}:");
+        if let Some(found) = known_nodes
+            .iter()
+            .find(|candidate| candidate.starts_with(&prefix) && candidate.ends_with(value))
+        {
+            return Some(found.clone());
+        }
+    }
+    None
 }
 
 fn storage_from_config(storage: DashboardStorage) -> Result<DashboardStorageHandle> {

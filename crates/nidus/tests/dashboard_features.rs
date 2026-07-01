@@ -55,6 +55,21 @@ impl UsersController {
 #[module(controllers(UsersController))]
 struct RoutesModule;
 
+#[injectable]
+struct UsersService;
+
+#[module]
+struct UsersModule {
+    providers: [UsersService],
+    controllers: [UsersController],
+    exports: [UsersService],
+}
+
+#[module]
+struct DashboardGraphModule {
+    imports: [UsersModule],
+}
+
 #[tokio::test]
 async fn dashboard_routes_api_includes_nidus_controller_routes() {
     let dashboard = NidusDashboard::builder()
@@ -86,4 +101,44 @@ async fn dashboard_routes_api_includes_nidus_controller_routes() {
     let text = String::from_utf8_lossy(&body);
     assert!(text.contains("\"method\":\"GET\""), "{text}");
     assert!(text.contains("\"path\":\"/users/{id}\""), "{text}");
+}
+
+#[tokio::test]
+async fn dashboard_graph_api_includes_real_module_metadata() {
+    let dashboard = NidusDashboard::builder()
+        .auth(DashboardAuth::bearer_token("secret"))
+        .storage(DashboardStorage::memory())
+        .build()
+        .unwrap();
+
+    let app = Nidus::create::<DashboardGraphModule>()
+        .with_dashboard(dashboard)
+        .build()
+        .await
+        .unwrap()
+        .into_router();
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/nidus/dashboard/api/graph")
+                .header("authorization", "Bearer secret")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8_lossy(&body);
+
+    assert!(text.contains("DashboardGraphModule"), "{text}");
+    assert!(text.contains("UsersModule"), "{text}");
+    assert!(text.contains("UsersService"), "{text}");
+    assert!(text.contains("UsersController"), "{text}");
+    assert!(text.contains("\"kind\":\"module_import\""), "{text}");
+    assert!(text.contains("\"kind\":\"module_export\""), "{text}");
+    assert!(text.contains("\"kind\":\"controller_route\""), "{text}");
+    assert!(text.contains("\"label\":\"GET /users/{id}\""), "{text}");
 }

@@ -32,6 +32,44 @@ async fn dashboard_serves_shell_and_overview_api() {
 }
 
 #[tokio::test]
+async fn dashboard_serves_graph_api_contract() {
+    let dashboard = NidusDashboard::builder()
+        .auth(DashboardAuth::bearer_token("secret"))
+        .storage(DashboardStorage::memory())
+        .build()
+        .unwrap();
+
+    dashboard.record_graph_snapshot(nidus_dashboard::DashboardGraphResponse {
+        service_name: "catalog-api".to_owned(),
+        generated_at_ms: 1_725_000_000_000,
+        nodes: vec![nidus_dashboard::DashboardGraphNode {
+            id: "module:CatalogModule".to_owned(),
+            kind: nidus_dashboard::DashboardGraphNodeKind::Module,
+            label: "CatalogModule".to_owned(),
+            summary: Some("1 controller".to_owned()),
+            status: None,
+            counts: Default::default(),
+            metadata: Default::default(),
+        }],
+        edges: vec![],
+        groups: vec![],
+    });
+
+    let response = dashboard
+        .router()
+        .oneshot(request("/api/graph"))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = String::from_utf8_lossy(&body);
+    assert!(body.contains("\"service_name\":\"catalog-api\""), "{body}");
+    assert!(body.contains("\"kind\":\"module\""), "{body}");
+    assert!(body.contains("CatalogModule"), "{body}");
+}
+
+#[tokio::test]
 async fn dashboard_serves_assets_under_assets_path() {
     let app = NidusDashboard::builder()
         .auth(DashboardAuth::bearer_token("secret"))

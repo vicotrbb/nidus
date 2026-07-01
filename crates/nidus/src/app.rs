@@ -1,11 +1,14 @@
 //! High-level application composition for the facade crate.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use nidus_core::{Application, Container, Module, ModuleGraph, Nidus, NidusError, Result};
 
 #[cfg(feature = "dashboard")]
-use nidus_dashboard::{DashboardRouteSnapshot, NidusDashboard};
+use nidus_dashboard::{
+    DashboardGraphEdge, DashboardGraphEdgeKind, DashboardGraphGroup, DashboardGraphNode,
+    DashboardGraphNodeKind, DashboardGraphResponse, DashboardRouteSnapshot, NidusDashboard,
+};
 #[cfg(feature = "http")]
 use nidus_http::{
     Router,
@@ -185,6 +188,7 @@ where
         let router = self.build_router(&graph)?;
         #[cfg(feature = "dashboard")]
         if let Some(dashboard) = &self.dashboard {
+            dashboard.record_graph_snapshot(dashboard_graph_from_module_graph(&graph)?);
             for route in self.dashboard_route_snapshots.drain(..) {
                 dashboard
                     .record_route_snapshot(route)
@@ -308,6 +312,277 @@ where
 
         Ok(router)
     }
+}
+
+#[cfg(feature = "dashboard")]
+fn dashboard_graph_from_module_graph(graph: &ModuleGraph) -> Result<DashboardGraphResponse> {
+    let service_name = "nidus-app".to_owned();
+    let runtime_id = format!("runtime:{service_name}");
+    let mut nodes = Vec::new();
+    let mut edges = Vec::new();
+    let mut groups = Vec::new();
+
+    let module_ids = graph
+        .modules()
+        .map(|module| module_node_id(module.name()))
+        .collect::<Vec<_>>();
+
+    let mut runtime_counts = BTreeMap::new();
+    runtime_counts.insert("modules".to_owned(), module_ids.len());
+    runtime_counts.insert(
+        "controllers".to_owned(),
+        graph
+            .modules()
+            .map(|module| module.controllers().len())
+            .sum(),
+    );
+    runtime_counts.insert(
+        "providers".to_owned(),
+        graph.modules().map(|module| module.providers().len()).sum(),
+    );
+
+    nodes.push(DashboardGraphNode {
+        id: runtime_id.clone(),
+        kind: DashboardGraphNodeKind::Runtime,
+        label: service_name.clone(),
+        summary: Some("validated Nidus module graph".to_owned()),
+        status: Some("ready".to_owned()),
+        counts: runtime_counts,
+        metadata: BTreeMap::from([(
+            "root".to_owned(),
+            serde_json::Value::String("ModuleGraph".to_owned()),
+        )]),
+    });
+    groups.push(DashboardGraphGroup {
+        id: "modules".to_owned(),
+        label: "Modules".to_owned(),
+        nodes: module_ids,
+    });
+
+    for module in graph.modules() {
+        let module_id = module_node_id(module.name());
+        let mut counts = BTreeMap::new();
+        counts.insert("imports".to_owned(), module.imports().len());
+        counts.insert("providers".to_owned(), module.providers().len());
+        counts.insert("controllers".to_owned(), module.controllers().len());
+        counts.insert("exports".to_owned(), module.exports().len());
+
+        nodes.push(DashboardGraphNode {
+            id: module_id.clone(),
+            kind: DashboardGraphNodeKind::Module,
+            label: module.name().to_owned(),
+            summary: Some(format!(
+                "{} imports / {} controllers",
+                module.imports().len(),
+                module.controllers().len()
+            )),
+            status: None,
+            counts,
+            metadata: BTreeMap::from([
+                (
+                    "imports".to_owned(),
+                    serde_json::to_value(module.imports()).unwrap_or(serde_json::Value::Null),
+                ),
+                (
+                    "providers".to_owned(),
+                    serde_json::to_value(module.providers()).unwrap_or(serde_json::Value::Null),
+                ),
+                (
+                    "controllers".to_owned(),
+                    serde_json::to_value(module.controllers()).unwrap_or(serde_json::Value::Null),
+                ),
+                (
+                    "exports".to_owned(),
+                    serde_json::to_value(module.exports()).unwrap_or(serde_json::Value::Null),
+                ),
+            ]),
+        });
+        edges.push(DashboardGraphEdge {
+            id: format!("runtime-module:{module_id}"),
+            kind: DashboardGraphEdgeKind::RuntimeModule,
+            source: runtime_id.clone(),
+            target: module_id.clone(),
+            label: Some("module".to_owned()),
+        });
+
+        for import in module.imports() {
+            edges.push(DashboardGraphEdge {
+                id: format!("module-import:{module_id}:{import}"),
+                kind: DashboardGraphEdgeKind::ModuleImport,
+                source: module_id.clone(),
+                target: module_node_id(import),
+                label: Some("imports".to_owned()),
+            });
+        }
+
+        for provider in module.providers() {
+            let provider_id = provider_node_id(module.name(), provider);
+            nodes.push(DashboardGraphNode {
+                id: provider_id.clone(),
+                kind: DashboardGraphNodeKind::Provider,
+                label: provider.clone(),
+                summary: Some(format!("provider in {}", module.name())),
+                status: None,
+                counts: BTreeMap::new(),
+                metadata: BTreeMap::from([
+                    (
+                        "module".to_owned(),
+                        serde_json::Value::String(module.name().to_owned()),
+                    ),
+                    (
+                        "exported".to_owned(),
+                        serde_json::Value::Bool(module.exports().contains(provider)),
+                    ),
+                ]),
+            });
+            edges.push(DashboardGraphEdge {
+                id: format!("module-provider:{module_id}:{provider_id}"),
+                kind: DashboardGraphEdgeKind::ModuleProvider,
+                source: module_id.clone(),
+                target: provider_id.clone(),
+                label: Some("declares".to_owned()),
+            });
+            if module.exports().contains(provider) {
+                edges.push(DashboardGraphEdge {
+                    id: format!("module-export:{module_id}:{provider_id}"),
+                    kind: DashboardGraphEdgeKind::ModuleExport,
+                    source: module_id.clone(),
+                    target: provider_id,
+                    label: Some("exports".to_owned()),
+                });
+            }
+        }
+
+        for controller in module.controller_descriptors() {
+            let controller_id = controller_node_id(module.name(), controller.name());
+            let routes = downcast_routes(controller.route_metadata())?;
+            let route_ids = routes
+                .iter()
+                .map(|route| {
+                    let full_path = route.try_full_path(controller.prefix()).map_err(|error| {
+                        NidusError::ApplicationBuild {
+                            message: error.to_string(),
+                        }
+                    })?;
+                    Ok(route_node_id(route.method(), &full_path))
+                })
+                .collect::<Result<Vec<_>>>()?;
+
+            nodes.push(DashboardGraphNode {
+                id: controller_id.clone(),
+                kind: DashboardGraphNodeKind::Controller,
+                label: controller.name().to_owned(),
+                summary: Some(format!("{} routes", route_ids.len())),
+                status: None,
+                counts: BTreeMap::from([("routes".to_owned(), route_ids.len())]),
+                metadata: BTreeMap::from([
+                    (
+                        "module".to_owned(),
+                        serde_json::Value::String(module.name().to_owned()),
+                    ),
+                    (
+                        "prefix".to_owned(),
+                        serde_json::Value::String(controller.prefix().to_owned()),
+                    ),
+                ]),
+            });
+            edges.push(DashboardGraphEdge {
+                id: format!("module-controller:{module_id}:{controller_id}"),
+                kind: DashboardGraphEdgeKind::ModuleController,
+                source: module_id.clone(),
+                target: controller_id.clone(),
+                label: Some("declares".to_owned()),
+            });
+
+            for route in routes {
+                let full_path = route.try_full_path(controller.prefix()).map_err(|error| {
+                    NidusError::ApplicationBuild {
+                        message: error.to_string(),
+                    }
+                })?;
+                let route_id = route_node_id(route.method(), &full_path);
+                nodes.push(DashboardGraphNode {
+                    id: route_id.clone(),
+                    kind: DashboardGraphNodeKind::Route,
+                    label: format!("{} {full_path}", route.method()),
+                    summary: route.summary().map(str::to_owned),
+                    status: None,
+                    counts: BTreeMap::from([
+                        ("guards".to_owned(), route.guards().len()),
+                        ("pipes".to_owned(), route.pipes().len()),
+                    ]),
+                    metadata: BTreeMap::from([
+                        (
+                            "module".to_owned(),
+                            serde_json::Value::String(module.name().to_owned()),
+                        ),
+                        (
+                            "controller".to_owned(),
+                            serde_json::Value::String(controller.name().to_owned()),
+                        ),
+                        (
+                            "method".to_owned(),
+                            serde_json::Value::String(route.method().to_owned()),
+                        ),
+                        (
+                            "path".to_owned(),
+                            serde_json::Value::String(full_path.clone()),
+                        ),
+                        (
+                            "guards".to_owned(),
+                            serde_json::to_value(route.guards()).unwrap_or(serde_json::Value::Null),
+                        ),
+                        (
+                            "pipes".to_owned(),
+                            serde_json::to_value(route.pipes()).unwrap_or(serde_json::Value::Null),
+                        ),
+                        (
+                            "validates".to_owned(),
+                            serde_json::Value::Bool(route.validates()),
+                        ),
+                    ]),
+                });
+                edges.push(DashboardGraphEdge {
+                    id: format!("controller-route:{controller_id}:{route_id}"),
+                    kind: DashboardGraphEdgeKind::ControllerRoute,
+                    source: controller_id.clone(),
+                    target: route_id,
+                    label: Some(route.method().to_owned()),
+                });
+            }
+        }
+    }
+
+    Ok(DashboardGraphResponse {
+        service_name,
+        generated_at_ms: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_millis() as i64)
+            .unwrap_or_default(),
+        nodes,
+        edges,
+        groups,
+    })
+}
+
+#[cfg(feature = "dashboard")]
+fn module_node_id(module: &str) -> String {
+    format!("module:{module}")
+}
+
+#[cfg(feature = "dashboard")]
+fn provider_node_id(module: &str, provider: &str) -> String {
+    format!("provider:{module}:{provider}")
+}
+
+#[cfg(feature = "dashboard")]
+fn controller_node_id(module: &str, controller: &str) -> String {
+    format!("controller:{module}:{controller}")
+}
+
+#[cfg(feature = "dashboard")]
+fn route_node_id(method: &str, path: &str) -> String {
+    format!("route:{method} {path}")
 }
 
 #[derive(Clone, Debug)]

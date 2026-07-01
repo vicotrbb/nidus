@@ -18,5 +18,7 @@ pub use config::{DashboardAuth, DashboardCapture, DashboardRetention, DashboardS
 pub use error::{DashboardError, Result};
 pub use router::NidusDashboard;
 pub use types::{
-    DashboardOperation, DashboardOperationKind, DashboardOperationStatus, DashboardRouteSnapshot,
+    DashboardGraphEdge, DashboardGraphEdgeKind, DashboardGraphGroup, DashboardGraphNode,
+    DashboardGraphNodeKind, DashboardGraphResponse, DashboardOperation, DashboardOperationKind,
+    DashboardOperationStatus, DashboardRouteSnapshot,
 };

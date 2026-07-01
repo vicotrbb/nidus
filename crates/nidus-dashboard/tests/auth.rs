@@ -80,6 +80,7 @@ async fn dashboard_protects_shell_assets_apis_and_stream() {
         "/assets/styles.css",
         "/assets/app.js",
         "/api/overview",
+        "/api/graph",
         "/api/routes",
         "/api/events",
         "/api/jobs",
