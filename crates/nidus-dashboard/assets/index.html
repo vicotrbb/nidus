@@ -9,12 +9,23 @@
   <body>
     <div class="dashboard-shell">
       <header class="topbar">
-        <div>
-          <p class="eyebrow">Live introspection</p>
-          <h1>Nidus Dashboard</h1>
+        <div class="brand-lockup">
+          <div class="brand-mark" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div>
+            <p class="eyebrow">Live runtime instrument</p>
+            <h1>Nidus Dashboard</h1>
+          </div>
         </div>
-        <div class="status-pill" id="connection-status">connecting</div>
+        <div class="runtime-status" id="runtime-status" aria-live="polite">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="connection-status">connecting</span>
+        </div>
       </header>
+
       <aside class="sidebar" aria-label="Dashboard sections">
         <button class="nav-item active" data-view="overview">Overview</button>
         <button class="nav-item" data-view="graph">Graph</button>
@@ -25,34 +36,108 @@
         <button class="nav-item" data-view="adapters">Adapters</button>
         <button class="nav-item" data-view="settings">Settings</button>
       </aside>
+
       <main class="main-panel">
-        <section class="view active" id="overview">
-          <div class="metric-grid" id="overview-grid"></div>
+        <section class="view active" id="overview" aria-labelledby="overview-title">
+          <div class="view-heading">
+            <div>
+              <p class="section-kicker">Current state</p>
+              <h2 id="overview-title">Runtime overview</h2>
+            </div>
+            <span class="view-note" id="overview-service">nidus-app</span>
+          </div>
+          <div class="overview-layout">
+            <section class="runtime-readout" id="overview-grid" aria-label="Runtime metrics"></section>
+            <section class="activity-panel" aria-labelledby="activity-title">
+              <div class="panel-heading">
+                <h3 id="activity-title">Recent activity</h3>
+                <span id="activity-count">0 records</span>
+              </div>
+              <ol class="activity-list" id="overview-activity"></ol>
+            </section>
+          </div>
         </section>
-        <section class="view" id="timeline">
-          <ol class="timeline" id="timeline-list"></ol>
+
+        <section class="view" id="graph" aria-labelledby="graph-title">
+          <div class="view-heading">
+            <div>
+              <p class="section-kicker">Topology</p>
+              <h2 id="graph-title">Runtime map</h2>
+            </div>
+            <span class="view-note">Built from current routes and captures</span>
+          </div>
+          <div class="topology-map" id="graph-map"></div>
         </section>
-        <section class="view" id="graph">
-          <div class="empty-state">Graph snapshot waiting for module metadata.</div>
+
+        <section class="view" id="routes" aria-labelledby="routes-title">
+          <div class="view-heading">
+            <div>
+              <p class="section-kicker">HTTP surface</p>
+              <h2 id="routes-title">Routes</h2>
+            </div>
+          </div>
+          <ol class="data-list route-list" id="routes-list"></ol>
         </section>
-        <section class="view" id="routes">
-          <ol class="data-list" id="routes-list"></ol>
+
+        <section class="view" id="timeline" aria-labelledby="timeline-title">
+          <div class="view-heading">
+            <div>
+              <p class="section-kicker">Chronology</p>
+              <h2 id="timeline-title">Timeline</h2>
+            </div>
+          </div>
+          <ol class="data-list" id="timeline-list"></ol>
         </section>
-        <section class="view" id="events">
-          <ol class="timeline" id="events-list"></ol>
+
+        <section class="view" id="events" aria-labelledby="events-title">
+          <div class="view-heading">
+            <div>
+              <p class="section-kicker">Async bus</p>
+              <h2 id="events-title">Events</h2>
+            </div>
+          </div>
+          <ol class="data-list" id="events-list"></ol>
         </section>
-        <section class="view" id="jobs">
-          <ol class="timeline" id="jobs-list"></ol>
+
+        <section class="view" id="jobs" aria-labelledby="jobs-title">
+          <div class="view-heading">
+            <div>
+              <p class="section-kicker">Work queue</p>
+              <h2 id="jobs-title">Jobs</h2>
+            </div>
+          </div>
+          <ol class="data-list" id="jobs-list"></ol>
         </section>
-        <section class="view" id="adapters">
-          <ol class="timeline" id="adapters-list"></ol>
+
+        <section class="view" id="adapters" aria-labelledby="adapters-title">
+          <div class="view-heading">
+            <div>
+              <p class="section-kicker">Official hooks</p>
+              <h2 id="adapters-title">Adapters</h2>
+            </div>
+          </div>
+          <ol class="data-list" id="adapters-list"></ol>
         </section>
-        <section class="view" id="settings">
+
+        <section class="view" id="settings" aria-labelledby="settings-title">
+          <div class="view-heading">
+            <div>
+              <p class="section-kicker">Configuration</p>
+              <h2 id="settings-title">Settings</h2>
+            </div>
+          </div>
           <dl class="settings-list" id="settings-list"></dl>
         </section>
       </main>
-      <aside class="inspector">
-        <h2>Inspector</h2>
+
+      <aside class="inspector" aria-labelledby="inspector-title">
+        <div class="inspector-heading">
+          <div>
+            <p class="section-kicker">Selection</p>
+            <h2 id="inspector-title">Inspector</h2>
+          </div>
+          <div class="inspector-meta" id="inspector-meta">No object selected</div>
+        </div>
         <pre id="inspector-output">{}</pre>
       </aside>
     </div>

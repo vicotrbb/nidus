@@ -1,22 +1,40 @@
 const views = document.querySelectorAll(".view");
 const buttons = document.querySelectorAll(".nav-item");
 const overviewGrid = document.querySelector("#overview-grid");
+const overviewService = document.querySelector("#overview-service");
+const overviewActivity = document.querySelector("#overview-activity");
+const activityCount = document.querySelector("#activity-count");
+const graphMap = document.querySelector("#graph-map");
 const routesList = document.querySelector("#routes-list");
 const timelineList = document.querySelector("#timeline-list");
 const eventsList = document.querySelector("#events-list");
 const jobsList = document.querySelector("#jobs-list");
 const adaptersList = document.querySelector("#adapters-list");
 const settingsList = document.querySelector("#settings-list");
+const inspectorTitle = document.querySelector("#inspector-title");
+const inspectorMeta = document.querySelector("#inspector-meta");
 const inspector = document.querySelector("#inspector-output");
+const runtimeStatus = document.querySelector("#runtime-status");
 const status = document.querySelector("#connection-status");
 
+const state = {
+  overview: { service_name: "nidus-app", metrics: [] },
+  routes: [],
+  timeline: [],
+  events: [],
+  jobs: [],
+  adapters: [],
+  settings: {},
+  selected: null,
+};
+
 for (const button of buttons) {
-  button.addEventListener("click", () => {
-    for (const item of buttons) item.classList.remove("active");
-    for (const view of views) view.classList.remove("active");
-    button.classList.add("active");
-    document.querySelector(`#${button.dataset.view}`).classList.add("active");
-  });
+  button.addEventListener("click", () => activateView(button.dataset.view));
+}
+
+function activateView(id) {
+  for (const item of buttons) item.classList.toggle("active", item.dataset.view === id);
+  for (const view of views) view.classList.toggle("active", view.id === id);
 }
 
 async function getJson(path) {
@@ -25,70 +43,156 @@ async function getJson(path) {
   return response.json();
 }
 
-function inspect(value) {
-  inspector.textContent = JSON.stringify(value, null, 2);
+function setConnectionState(nextState) {
+  runtimeStatus.dataset.state = nextState;
+  status.textContent = nextState;
+}
+
+function formatKind(value) {
+  return String(value ?? "record").replaceAll("_", " ");
+}
+
+function formatTime(timestampMs) {
+  if (!timestampMs) return "time unavailable";
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(new Date(timestampMs));
+}
+
+function formatDuration(durationMs) {
+  if (durationMs === null || durationMs === undefined) return "duration unknown";
+  return `${durationMs} ms`;
+}
+
+function clear(node) {
+  node.replaceChildren();
+}
+
+function textNode(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  node.textContent = text;
+  return node;
+}
+
+function badge(text, className = "badge") {
+  return textNode("span", className, text);
+}
+
+function selectable(node, record, title, meta) {
+  node.tabIndex = 0;
+  node.addEventListener("click", () => selectRecord(record, title, meta));
+  node.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      selectRecord(record, title, meta);
+    }
+  });
+  return node;
+}
+
+function selectRecord(record, title, meta) {
+  state.selected = { record, title, meta };
+  inspectorTitle.textContent = title;
+  inspectorMeta.textContent = meta;
+  inspector.textContent = JSON.stringify(record, null, 2);
 }
 
 function showEmpty(list, text) {
-  list.innerHTML = "";
+  clear(list);
   const item = document.createElement("li");
   item.className = "empty-state";
   item.textContent = text;
   list.appendChild(item);
 }
 
-async function loadOverview() {
-  const overview = await getJson("./api/overview");
-  overviewGrid.innerHTML = "";
-  for (const metric of overview.metrics) {
+function renderOverview() {
+  clear(overviewGrid);
+  overviewService.textContent = state.overview.service_name ?? "nidus-app";
+
+  const metrics = [
+    ...state.overview.metrics,
+    { label: "Timeline", value: String(state.timeline.length) },
+  ];
+
+  for (const metric of metrics) {
     const node = document.createElement("article");
     node.className = "metric";
-    node.innerHTML = `<strong>${metric.value}</strong><span>${metric.label}</span>`;
+    node.append(textNode("strong", null, metric.value), textNode("span", null, metric.label));
     overviewGrid.appendChild(node);
+  }
+
+  renderOperationList(
+    overviewActivity,
+    state.timeline.slice(0, 6),
+    "Activity appears here as the app records lifecycle, event, job, and adapter operations.",
+  );
+  activityCount.textContent = `${state.timeline.length} records`;
+}
+
+function renderRouteList(list, routes, emptyText) {
+  clear(list);
+  if (routes.length === 0) {
+    showEmpty(list, emptyText);
+    return;
+  }
+
+  for (const route of routes) {
+    const item = document.createElement("li");
+    item.className = "route-row";
+    item.append(
+      badge(route.method, "method"),
+      textNode("strong", "row-title", route.path),
+      textNode("span", "route-summary", route.summary ?? "route handler"),
+    );
+    selectable(item, route, `${route.method} ${route.path}`, "route snapshot");
+    list.appendChild(item);
   }
 }
 
-function appendOperation(list, operation, mode = "append") {
-  const item = document.createElement("li");
-  item.className = "timeline-item";
-  item.tabIndex = 0;
-  item.textContent = `${operation.kind} ${operation.name} ${operation.status}`;
-  item.addEventListener("click", () => inspect(operation));
-  if (mode === "prepend") list.prepend(item);
-  else list.appendChild(item);
-}
-
-async function loadOperations(path, list, emptyText) {
-  const operations = await getJson(path);
-  list.innerHTML = "";
+function renderOperationList(list, operations, emptyText) {
+  clear(list);
   if (operations.length === 0) {
     showEmpty(list, emptyText);
     return;
   }
-  for (const operation of operations) appendOperation(list, operation);
-}
 
-async function loadRoutes() {
-  const routes = await getJson("./api/routes");
-  routesList.innerHTML = "";
-  if (routes.length === 0) {
-    showEmpty(routesList, "Route snapshot waiting for Nidus facade integration.");
-    return;
-  }
-  for (const route of routes) {
+  for (const operation of operations) {
     const item = document.createElement("li");
-    item.className = "route-row";
-    item.tabIndex = 0;
-    item.innerHTML = `<span>${route.method}</span><strong>${route.path}</strong><em>${route.summary ?? "route"}</em>`;
-    item.addEventListener("click", () => inspect(route));
-    routesList.appendChild(item);
+    item.className = "record-row";
+
+    const title = document.createElement("div");
+    title.className = "row-topline";
+    title.append(
+      textNode("strong", "row-title", operation.name),
+      badge(operation.status, `status status-${operation.status}`),
+    );
+
+    const metadata = document.createElement("div");
+    metadata.className = "row-metadata";
+    metadata.append(
+      badge(formatKind(operation.kind)),
+      textNode("span", null, formatTime(operation.timestamp_ms)),
+      textNode("span", null, formatDuration(operation.duration_ms)),
+    );
+    if (operation.correlation_id) metadata.append(textNode("span", null, operation.correlation_id));
+
+    item.append(title, metadata);
+    selectable(
+      item,
+      operation,
+      operation.name,
+      `${formatKind(operation.kind)} / ${operation.status}`,
+    );
+    list.appendChild(item);
   }
 }
 
-async function loadSettings() {
-  const settings = await getJson("./api/settings");
-  settingsList.innerHTML = "";
-  for (const [key, value] of Object.entries(settings)) {
+function renderSettings() {
+  clear(settingsList);
+  for (const [key, value] of Object.entries(state.settings)) {
     const term = document.createElement("dt");
     term.textContent = key.replaceAll("_", " ");
     const description = document.createElement("dd");
@@ -97,33 +201,155 @@ async function loadSettings() {
   }
 }
 
+function topologyNode(title, detail, record, className = "") {
+  const item = document.createElement("button");
+  item.className = `topology-node ${className}`.trim();
+  item.type = "button";
+  item.append(textNode("strong", null, title), textNode("span", null, detail));
+  selectable(item, record, title, detail);
+  return item;
+}
+
+function topologyGroup(title, nodes, emptyText) {
+  const group = document.createElement("section");
+  group.className = "topology-group";
+  group.appendChild(textNode("div", "topology-group-title", title));
+  if (nodes.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent = emptyText;
+    group.appendChild(empty);
+    return group;
+  }
+  for (const node of nodes) group.appendChild(node);
+  return group;
+}
+
+function renderTopology() {
+  clear(graphMap);
+
+  const spine = document.createElement("div");
+  spine.className = "topology-spine";
+  spine.appendChild(
+    topologyNode(
+      state.overview.service_name ?? "nidus-app",
+      `${state.routes.length} routes / ${state.timeline.length} operations`,
+      {
+        service: state.overview.service_name,
+        route_count: state.routes.length,
+        operation_count: state.timeline.length,
+        settings: state.settings,
+      },
+      "runtime",
+    ),
+  );
+  spine.appendChild(
+    topologyNode(
+      "Dashboard stream",
+      "SSE lifecycle heartbeat",
+      { stream: "./stream", state: status.textContent },
+    ),
+  );
+
+  const lanes = document.createElement("div");
+  lanes.className = "topology-lanes";
+  lanes.append(
+    topologyGroup(
+      "Routes",
+      state.routes
+        .slice(0, 5)
+        .map((route) => topologyNode(`${route.method} ${route.path}`, route.summary ?? "handler", route)),
+      "Route snapshots appear after the Nidus facade records mounted handlers.",
+    ),
+    topologyGroup(
+      "Events",
+      state.events
+        .slice(0, 4)
+        .map((operation) => topologyNode(operation.name, formatTime(operation.timestamp_ms), operation)),
+      "Publish an event through the example API to populate this lane.",
+    ),
+    topologyGroup(
+      "Jobs",
+      state.jobs
+        .slice(0, 4)
+        .map((operation) => topologyNode(operation.name, formatDuration(operation.duration_ms), operation)),
+      "Run a job through the example API to populate this lane.",
+    ),
+    topologyGroup(
+      "Adapters",
+      state.adapters
+        .slice(0, 4)
+        .map((operation) => topologyNode(operation.name, operation.status, operation)),
+      "Adapter operations appear when official hooks record them.",
+    ),
+  );
+
+  graphMap.append(spine, lanes);
+}
+
+function renderAll() {
+  renderOverview();
+  renderRouteList(routesList, state.routes, "Route snapshots appear after the Nidus facade records mounted handlers.");
+  renderOperationList(timelineList, state.timeline, "Timeline fills as the app records runtime activity.");
+  renderOperationList(eventsList, state.events, "Observed events appear after publication.");
+  renderOperationList(jobsList, state.jobs, "Observed jobs appear after execution.");
+  renderOperationList(adaptersList, state.adapters, "Adapter operations appear when official hooks record them.");
+  renderSettings();
+  renderTopology();
+
+  if (!state.selected) {
+    selectRecord(
+      {
+        service_name: state.overview.service_name,
+        metrics: state.overview.metrics,
+        timeline_records: state.timeline.length,
+      },
+      "Runtime overview",
+      "live summary",
+    );
+  }
+}
+
+async function loadAll() {
+  const [overview, routes, timeline, events, jobs, adapters, settings] = await Promise.all([
+    getJson("./api/overview"),
+    getJson("./api/routes"),
+    getJson("./api/timeline"),
+    getJson("./api/events"),
+    getJson("./api/jobs"),
+    getJson("./api/adapters"),
+    getJson("./api/settings"),
+  ]);
+
+  Object.assign(state, { overview, routes, timeline, events, jobs, adapters, settings });
+  renderAll();
+}
+
 function connectStream() {
   const stream = new EventSource("./stream");
   stream.addEventListener("open", () => {
-    status.textContent = "live";
+    setConnectionState("live");
+    renderTopology();
   });
   stream.addEventListener("message", (event) => {
     const operation = JSON.parse(event.data);
-    appendOperation(timelineList, operation, "prepend");
-    inspect(operation);
+    state.timeline = [operation, ...state.timeline.filter((item) => item.id !== operation.id)].slice(0, 100);
+    if (operation.kind === "event") state.events = [operation, ...state.events];
+    if (operation.kind === "job") state.jobs = [operation, ...state.jobs];
+    if (operation.kind === "adapter") state.adapters = [operation, ...state.adapters];
+    renderAll();
+    selectRecord(operation, operation.name, `${formatKind(operation.kind)} / ${operation.status}`);
   });
   stream.addEventListener("error", () => {
-    status.textContent = "reconnecting";
+    setConnectionState("reconnecting");
+    renderTopology();
   });
 }
 
 try {
-  await Promise.all([
-    loadOverview(),
-    loadRoutes(),
-    loadOperations("./api/timeline", timelineList, "Timeline fills as the app records activity."),
-    loadOperations("./api/events", eventsList, "Observed events appear after publication."),
-    loadOperations("./api/jobs", jobsList, "Observed jobs appear after execution."),
-    loadOperations("./api/adapters", adaptersList, "Adapter operations appear when official hooks record them."),
-    loadSettings(),
-  ]);
+  await loadAll();
   connectStream();
 } catch (error) {
-  status.textContent = "error";
-  inspect({ error: error.message });
+  setConnectionState("error");
+  selectRecord({ error: error.message }, "Dashboard error", "load failed");
 }
