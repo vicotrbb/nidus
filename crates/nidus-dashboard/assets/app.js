@@ -4,6 +4,7 @@ const overviewGrid = document.querySelector("#overview-grid");
 const overviewService = document.querySelector("#overview-service");
 const overviewActivity = document.querySelector("#overview-activity");
 const activityCount = document.querySelector("#activity-count");
+const overviewMap = document.querySelector("#overview-map");
 const graphMap = document.querySelector("#graph-map");
 const routesList = document.querySelector("#routes-list");
 const timelineList = document.querySelector("#timeline-list");
@@ -130,6 +131,7 @@ function renderOverview() {
     "Activity appears here as the app records lifecycle, event, job, and adapter operations.",
   );
   activityCount.textContent = `${state.timeline.length} records`;
+  renderOverviewMap();
 }
 
 function renderRouteList(list, routes, emptyText) {
@@ -208,6 +210,35 @@ function topologyNode(title, detail, record, className = "") {
   item.append(textNode("strong", null, title), textNode("span", null, detail));
   selectable(item, record, title, detail);
   return item;
+}
+
+function renderOverviewMap() {
+  clear(overviewMap);
+  const signals = [
+    {
+      title: "HTTP routes",
+      detail: `${state.routes.length} mounted`,
+      record: { routes: state.routes },
+    },
+    {
+      title: "Events",
+      detail: `${state.events.length} captured`,
+      record: { events: state.events },
+    },
+    {
+      title: "Jobs",
+      detail: `${state.jobs.length} captured`,
+      record: { jobs: state.jobs },
+    },
+    {
+      title: "Adapters",
+      detail: `${state.adapters.length} observed`,
+      record: { adapters: state.adapters },
+    },
+  ];
+  for (const signal of signals) {
+    overviewMap.appendChild(topologyNode(signal.title, signal.detail, signal.record));
+  }
 }
 
 function topologyGroup(title, nodes, emptyText) {

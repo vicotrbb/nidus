@@ -310,6 +310,20 @@ h3 {
   min-width: 0;
 }
 
+.topology-preview {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: var(--space-md);
+  min-width: 0;
+  padding-top: var(--space-sm);
+}
+
+.overview-map {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
 .activity-list,
 .data-list {
   display: grid;
@@ -443,7 +457,15 @@ h3 {
   display: grid;
   gap: var(--space-xs);
   padding: var(--space-lg);
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
+}
+
+.overview-map .topology-node {
+  min-height: 104px;
+  padding: var(--space-md);
 }
 
 .topology-node.runtime {
@@ -608,7 +630,7 @@ pre {
     gap: var(--space-sm);
   }
 
-  .runtime-readout,
+  .overview-map,
   .route-row,
   .settings-list {
     grid-template-columns: 1fr;
@@ -620,12 +642,13 @@ pre {
 
   .metric,
   .metric:first-child {
-    min-height: 104px;
+    min-height: 88px;
+    padding: var(--space-md);
   }
 
   .metric strong,
   .metric:first-child strong {
-    font-size: 2rem;
+    font-size: 1.8rem;
   }
 
   pre {
