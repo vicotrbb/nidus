@@ -27,15 +27,21 @@ const state = {
   adapters: [],
   settings: {},
   selected: null,
+  latestOperationId: null,
 };
+
+let activeViewTransition = null;
 
 for (const button of buttons) {
   button.addEventListener("click", () => activateView(button.dataset.view));
 }
 
 function activateView(id) {
-  for (const item of buttons) item.classList.toggle("active", item.dataset.view === id);
-  for (const view of views) view.classList.toggle("active", view.id === id);
+  const apply = () => {
+    for (const item of buttons) item.classList.toggle("active", item.dataset.view === id);
+    for (const view of views) view.classList.toggle("active", view.id === id);
+  };
+  runViewTransition(apply);
 }
 
 async function getJson(path) {
@@ -67,6 +73,15 @@ function formatDuration(durationMs) {
   return `${durationMs} ms`;
 }
 
+function selectionKey(kind, value) {
+  if (value && typeof value === "object") {
+    if (value.id) return `${kind}:${value.id}`;
+    if (value.method && value.path) return `route:${value.method}:${value.path}`;
+    if (value.name && value.timestamp_ms) return `${kind}:${value.name}:${value.timestamp_ms}`;
+  }
+  return `${kind}:${String(value ?? "unknown")}`;
+}
+
 function clear(node) {
   node.replaceChildren();
 }
@@ -82,23 +97,28 @@ function badge(text, className = "badge") {
   return textNode("span", className, text);
 }
 
-function selectable(node, record, title, meta) {
+function selectable(node, record, title, meta, key = selectionKey("record", record)) {
   node.tabIndex = 0;
-  node.addEventListener("click", () => selectRecord(record, title, meta));
+  node.dataset.selectionKey = key;
+  node.classList.toggle("selected", state.selected?.key === key);
+  node.addEventListener("click", () => selectRecord(record, title, meta, key));
   node.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      selectRecord(record, title, meta);
+      selectRecord(record, title, meta, key);
     }
   });
   return node;
 }
 
-function selectRecord(record, title, meta) {
-  state.selected = { record, title, meta };
+function selectRecord(record, title, meta, key = selectionKey("record", record)) {
+  state.selected = { record, title, meta, key };
   inspectorTitle.textContent = title;
   inspectorMeta.textContent = meta;
   inspector.textContent = JSON.stringify(record, null, 2);
+  document.querySelector(".inspector")?.classList.add("has-selection");
+  syncSelectionState();
+  animateInspector();
 }
 
 function showEmpty(list, text) {
@@ -127,7 +147,7 @@ function renderOverview() {
 
   renderOperationList(
     overviewActivity,
-    state.timeline.slice(0, 6),
+    state.timeline.slice(0, 10),
     "Activity appears here as the app records lifecycle, event, job, and adapter operations.",
   );
   activityCount.textContent = `${state.timeline.length} records`;
@@ -149,7 +169,7 @@ function renderRouteList(list, routes, emptyText) {
       textNode("strong", "row-title", route.path),
       textNode("span", "route-summary", route.summary ?? "route handler"),
     );
-    selectable(item, route, `${route.method} ${route.path}`, "route snapshot");
+    selectable(item, route, `${route.method} ${route.path}`, "route snapshot", selectionKey("route", route));
     list.appendChild(item);
   }
 }
@@ -164,6 +184,7 @@ function renderOperationList(list, operations, emptyText) {
   for (const operation of operations) {
     const item = document.createElement("li");
     item.className = "record-row";
+    if (operation.id && operation.id === state.latestOperationId) item.classList.add("is-new");
 
     const title = document.createElement("div");
     title.className = "row-topline";
@@ -187,6 +208,7 @@ function renderOperationList(list, operations, emptyText) {
       operation,
       operation.name,
       `${formatKind(operation.kind)} / ${operation.status}`,
+      selectionKey(operation.kind, operation),
     );
     list.appendChild(item);
   }
@@ -203,12 +225,12 @@ function renderSettings() {
   }
 }
 
-function topologyNode(title, detail, record, className = "") {
+function topologyNode(title, detail, record, className = "", key = selectionKey("topology", title)) {
   const item = document.createElement("button");
   item.className = `topology-node ${className}`.trim();
   item.type = "button";
   item.append(textNode("strong", null, title), textNode("span", null, detail));
-  selectable(item, record, title, detail);
+  selectable(item, record, title, detail, key);
   return item;
 }
 
@@ -219,25 +241,29 @@ function renderOverviewMap() {
       title: "HTTP routes",
       detail: `${state.routes.length} mounted`,
       record: { routes: state.routes },
+      key: "topology:routes",
     },
     {
       title: "Events",
       detail: `${state.events.length} captured`,
       record: { events: state.events },
+      key: "topology:events",
     },
     {
       title: "Jobs",
       detail: `${state.jobs.length} captured`,
       record: { jobs: state.jobs },
+      key: "topology:jobs",
     },
     {
       title: "Adapters",
       detail: `${state.adapters.length} observed`,
       record: { adapters: state.adapters },
+      key: "topology:adapters",
     },
   ];
   for (const signal of signals) {
-    overviewMap.appendChild(topologyNode(signal.title, signal.detail, signal.record));
+    overviewMap.appendChild(topologyNode(signal.title, signal.detail, signal.record, "", signal.key));
   }
 }
 
@@ -272,6 +298,7 @@ function renderTopology() {
         settings: state.settings,
       },
       "runtime",
+      "topology:runtime",
     ),
   );
   spine.appendChild(
@@ -279,6 +306,8 @@ function renderTopology() {
       "Dashboard stream",
       "SSE lifecycle heartbeat",
       { stream: "./stream", state: status.textContent },
+      "",
+      "topology:stream",
     ),
   );
 
@@ -289,28 +318,36 @@ function renderTopology() {
       "Routes",
       state.routes
         .slice(0, 5)
-        .map((route) => topologyNode(`${route.method} ${route.path}`, route.summary ?? "handler", route)),
+        .map((route) =>
+          topologyNode(`${route.method} ${route.path}`, route.summary ?? "handler", route, "", selectionKey("route", route)),
+        ),
       "Route snapshots appear after the Nidus facade records mounted handlers.",
     ),
     topologyGroup(
       "Events",
       state.events
         .slice(0, 4)
-        .map((operation) => topologyNode(operation.name, formatTime(operation.timestamp_ms), operation)),
+        .map((operation) =>
+          topologyNode(operation.name, formatTime(operation.timestamp_ms), operation, "", selectionKey(operation.kind, operation)),
+        ),
       "Publish an event through the example API to populate this lane.",
     ),
     topologyGroup(
       "Jobs",
       state.jobs
         .slice(0, 4)
-        .map((operation) => topologyNode(operation.name, formatDuration(operation.duration_ms), operation)),
+        .map((operation) =>
+          topologyNode(operation.name, formatDuration(operation.duration_ms), operation, "", selectionKey(operation.kind, operation)),
+        ),
       "Run a job through the example API to populate this lane.",
     ),
     topologyGroup(
       "Adapters",
       state.adapters
         .slice(0, 4)
-        .map((operation) => topologyNode(operation.name, operation.status, operation)),
+        .map((operation) =>
+          topologyNode(operation.name, operation.status, operation, "", selectionKey(operation.kind, operation)),
+        ),
       "Adapter operations appear when official hooks record them.",
     ),
   );
@@ -337,8 +374,44 @@ function renderAll() {
       },
       "Runtime overview",
       "live summary",
+      "topology:runtime",
     );
   }
+  syncSelectionState();
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function runViewTransition(apply) {
+  if (!document.startViewTransition || prefersReducedMotion()) {
+    apply();
+    return;
+  }
+  if (activeViewTransition) activeViewTransition.skipTransition();
+  const transition = document.startViewTransition(apply);
+  activeViewTransition = transition;
+  transition.finished.finally(() => {
+    if (activeViewTransition === transition) activeViewTransition = null;
+  });
+}
+
+function syncSelectionState() {
+  for (const node of document.querySelectorAll("[data-selection-key]")) {
+    node.classList.toggle("selected", node.dataset.selectionKey === state.selected?.key);
+  }
+}
+
+function animateInspector() {
+  if (prefersReducedMotion() || !inspector.animate) return;
+  inspector.animate(
+    [
+      { opacity: 0.82, transform: "translateY(4px)" },
+      { opacity: 1, transform: "translateY(0)" },
+    ],
+    { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+  );
 }
 
 async function loadAll() {
@@ -364,12 +437,13 @@ function connectStream() {
   });
   stream.addEventListener("message", (event) => {
     const operation = JSON.parse(event.data);
+    state.latestOperationId = operation.id;
     state.timeline = [operation, ...state.timeline.filter((item) => item.id !== operation.id)].slice(0, 100);
     if (operation.kind === "event") state.events = [operation, ...state.events];
     if (operation.kind === "job") state.jobs = [operation, ...state.jobs];
     if (operation.kind === "adapter") state.adapters = [operation, ...state.adapters];
     renderAll();
-    selectRecord(operation, operation.name, `${formatKind(operation.kind)} / ${operation.status}`);
+    selectRecord(operation, operation.name, `${formatKind(operation.kind)} / ${operation.status}`, selectionKey(operation.kind, operation));
   });
   stream.addEventListener("error", () => {
     setConnectionState("reconnecting");
