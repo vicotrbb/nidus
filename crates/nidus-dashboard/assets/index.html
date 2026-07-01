@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Nidus Dashboard</title>
+    <title>Nidus Runtime Atlas</title>
     <link rel="stylesheet" href="./assets/styles.css" />
   </head>
   <body>
@@ -16,18 +16,22 @@
             <span></span>
           </div>
           <div>
-            <p class="eyebrow">Live runtime instrument</p>
-            <h1>Nidus Dashboard</h1>
+            <p class="eyebrow">Nidus runtime atlas</p>
+            <h1>Nidus Runtime Atlas</h1>
           </div>
         </div>
-        <div class="runtime-status" id="runtime-status" aria-live="polite">
-          <span class="status-dot" aria-hidden="true"></span>
-          <span id="connection-status">connecting</span>
+        <div class="runtime-strip" aria-label="Runtime summary">
+          <span id="overview-service">nidus-app</span>
+          <span id="runtime-summary">loading graph</span>
+          <span class="runtime-status" id="runtime-status" aria-live="polite">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="connection-status">connecting</span>
+          </span>
         </div>
       </header>
 
-      <aside class="sidebar" aria-label="Dashboard sections">
-        <button class="nav-item active" data-view="overview">Overview</button>
+      <nav class="sidebar" aria-label="Dashboard sections">
+        <button class="nav-item active" data-view="overview">Atlas</button>
         <button class="nav-item" data-view="graph">Graph</button>
         <button class="nav-item" data-view="routes">Routes</button>
         <button class="nav-item" data-view="timeline">Timeline</button>
@@ -35,45 +39,48 @@
         <button class="nav-item" data-view="jobs">Jobs</button>
         <button class="nav-item" data-view="adapters">Adapters</button>
         <button class="nav-item" data-view="settings">Settings</button>
-      </aside>
+      </nav>
 
       <main class="main-panel">
         <section class="view active" id="overview" aria-labelledby="overview-title">
-          <div class="view-heading">
+          <div class="atlas-toolbar">
             <div>
-              <p class="section-kicker">Current state</p>
-              <h2 id="overview-title">Runtime overview</h2>
+              <p class="section-kicker">Live structure</p>
+              <h2 id="overview-title">Application graph and activity</h2>
             </div>
-            <span class="view-note" id="overview-service">nidus-app</span>
+            <label class="search-box">
+              <span>Filter</span>
+              <input id="atlas-search" type="search" autocomplete="off" placeholder="module, route, event" />
+            </label>
           </div>
-          <div class="overview-layout">
-            <section class="runtime-readout" id="overview-grid" aria-label="Runtime metrics"></section>
-            <section class="activity-panel" aria-labelledby="activity-title">
-              <div class="panel-heading">
-                <h3 id="activity-title">Recent activity</h3>
+
+          <section class="atlas-instrument" aria-label="Runtime atlas">
+            <div class="atlas-stage">
+              <div class="overview-map" id="overview-map" aria-label="Runtime counts"></div>
+              <div class="graph-map" id="graph-map" aria-label="Runtime module graph"></div>
+            </div>
+            <aside class="activity-rail" aria-labelledby="activity-title">
+              <div class="rail-heading">
+                <div>
+                  <p class="section-kicker">Recent signals</p>
+                  <h3 id="activity-title">Activity</h3>
+                </div>
                 <span id="activity-count">0 records</span>
               </div>
               <ol class="activity-list" id="overview-activity"></ol>
-            </section>
-            <section class="topology-preview" aria-labelledby="overview-map-title">
-              <div class="panel-heading">
-                <h3 id="overview-map-title">Runtime topology</h3>
-                <span>Current data plane</span>
-              </div>
-              <div class="overview-map" id="overview-map"></div>
-            </section>
-          </div>
+            </aside>
+          </section>
         </section>
 
         <section class="view" id="graph" aria-labelledby="graph-title">
           <div class="view-heading">
             <div>
               <p class="section-kicker">Topology</p>
-              <h2 id="graph-title">Runtime map</h2>
+              <h2 id="graph-title">Graph index</h2>
             </div>
-            <span class="view-note">Built from current routes and captures</span>
+            <span class="view-note">Real modules, imports, providers, controllers, routes, and activity</span>
           </div>
-          <div class="topology-map" id="graph-map"></div>
+          <ol class="data-list graph-index" id="graph-list"></ol>
         </section>
 
         <section class="view" id="routes" aria-labelledby="routes-title">
@@ -82,6 +89,7 @@
               <p class="section-kicker">HTTP surface</p>
               <h2 id="routes-title">Routes</h2>
             </div>
+            <span class="view-note" id="route-count">0 routes</span>
           </div>
           <ol class="data-list route-list" id="routes-list"></ol>
         </section>
@@ -145,7 +153,7 @@
           </div>
           <div class="inspector-meta" id="inspector-meta">No object selected</div>
         </div>
-        <pre id="inspector-output">{}</pre>
+        <div id="inspector-output" class="inspector-output"></div>
       </aside>
     </div>
     <script src="./assets/app.js" type="module"></script>

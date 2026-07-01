@@ -22,15 +22,21 @@ fn embedded_dashboard_shell_contains_runtime_introspection_surfaces() {
     assert!(html.contains("id=\"overview-activity\""));
     assert!(html.contains("id=\"overview-map\""));
     assert!(html.contains("id=\"graph-map\""));
+    assert!(html.contains("id=\"graph-list\""));
+    assert!(html.contains("id=\"atlas-search\""));
     assert!(html.contains("id=\"inspector-title\""));
     assert!(html.contains("id=\"inspector-meta\""));
+    assert!(html.contains("Nidus Runtime Atlas"));
 }
 
 #[test]
 fn embedded_dashboard_script_renders_contextual_rows_and_topology() {
     let script = include_str!("../assets/app.js");
-    assert!(script.contains("renderTopology"));
+    assert!(script.contains("./api/graph"));
+    assert!(script.contains("renderGraph"));
     assert!(script.contains("renderOverviewMap"));
+    assert!(script.contains("focusRelations"));
+    assert!(script.contains("renderNodeInspector"));
     assert!(script.contains("selectRecord"));
     assert!(script.contains("renderOperationList"));
     assert!(script.contains("renderRouteList"));

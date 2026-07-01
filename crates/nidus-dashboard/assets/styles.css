@@ -2,24 +2,24 @@
 
 :root {
   color-scheme: light;
-  --bg: oklch(97.2% 0.012 304);
-  --paper: oklch(99.2% 0.006 304);
-  --pearl: oklch(95.2% 0.018 304);
-  --pearl-strong: oklch(91.4% 0.031 304);
-  --line: oklch(82.5% 0.034 304);
-  --line-soft: oklch(89% 0.024 304);
-  --text: oklch(29% 0.027 286);
-  --ink: oklch(16.5% 0.036 286);
-  --muted: oklch(48% 0.028 286);
+  --bg: oklch(97.6% 0.011 304);
+  --paper: oklch(99.1% 0.006 304);
+  --pearl: oklch(94.8% 0.017 304);
+  --pearl-strong: oklch(90.2% 0.034 304);
+  --line: oklch(82.8% 0.034 304);
+  --line-soft: oklch(89.4% 0.021 304);
+  --text: oklch(28.5% 0.026 286);
+  --ink: oklch(15.5% 0.034 286);
+  --muted: oklch(48% 0.029 286);
   --brand: oklch(47% 0.17 296);
-  --brand-deep: oklch(33% 0.137 296);
-  --brand-soft: oklch(91.5% 0.058 303);
+  --brand-deep: oklch(32.5% 0.13 296);
+  --brand-soft: oklch(91.5% 0.055 303);
   --green: oklch(52% 0.12 158);
   --amber: oklch(62% 0.14 72);
   --red: oklch(54% 0.16 28);
   --blue: oklch(48% 0.12 244);
   --code-bg: oklch(14.5% 0.028 286);
-  --code-panel: oklch(18.6% 0.032 286);
+  --code-panel: oklch(18.4% 0.032 286);
   --code-line: oklch(30% 0.036 286);
   --code-text: oklch(93.5% 0.014 286);
   --radius: 8px;
@@ -48,23 +48,28 @@ body {
   min-width: 0;
   min-height: 100vh;
   background:
-    linear-gradient(90deg, color-mix(in oklch, var(--line), transparent 80%) 1px, transparent 1px),
-    linear-gradient(color-mix(in oklch, var(--line), transparent 84%) 1px, transparent 1px),
-    radial-gradient(circle at 8% 5%, color-mix(in oklch, var(--brand-soft), transparent 12%), transparent 28rem),
-    linear-gradient(135deg, var(--bg), color-mix(in oklch, var(--paper), var(--brand-soft) 8%));
-  background-size: 88px 88px, 88px 88px, auto, auto;
+    linear-gradient(90deg, color-mix(in oklch, var(--line), transparent 86%) 1px, transparent 1px),
+    linear-gradient(color-mix(in oklch, var(--line), transparent 90%) 1px, transparent 1px),
+    radial-gradient(circle at 8% 4%, color-mix(in oklch, var(--brand-soft), transparent 16%), transparent 27rem),
+    linear-gradient(135deg, var(--bg), color-mix(in oklch, var(--paper), var(--brand-soft) 6%));
+  background-size: 96px 96px, 96px 96px, auto, auto;
   color: var(--text);
   font-family: "Afacad Flux", "Segoe UI", sans-serif;
   line-height: 1.42;
 }
 
-button {
+button,
+input {
   font: inherit;
+}
+
+button {
+  color: inherit;
 }
 
 .dashboard-shell {
   display: grid;
-  grid-template-columns: 148px minmax(0, 1fr) minmax(296px, 372px);
+  grid-template-columns: 128px minmax(0, 1fr) minmax(300px, 376px);
   grid-template-rows: auto minmax(0, 1fr);
   gap: var(--space-lg);
   min-height: 100vh;
@@ -78,7 +83,7 @@ button {
   justify-content: space-between;
   gap: var(--space-xl);
   min-width: 0;
-  padding: var(--space-sm) 0 var(--space-md);
+  padding: var(--space-xs) 0 var(--space-md);
   border-bottom: 1px solid color-mix(in oklch, var(--line), transparent 34%);
 }
 
@@ -120,11 +125,10 @@ button {
 }
 
 .eyebrow,
-.section-kicker,
-.topology-group-title {
+.section-kicker {
   margin: 0 0 var(--space-xs);
   color: var(--brand-deep);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 760;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -141,18 +145,33 @@ h3 {
 
 h1 {
   overflow-wrap: anywhere;
-  font-size: 1.68rem;
-  line-height: 1.04;
+  font-size: 1.72rem;
+  line-height: 1.02;
 }
 
 h2 {
-  font-size: 1.2rem;
+  font-size: 1.16rem;
   line-height: 1.14;
 }
 
 h3 {
-  font-size: 0.95rem;
-  line-height: 1.2;
+  font-size: 0.92rem;
+  line-height: 1.18;
+}
+
+.runtime-strip {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-md);
+  min-width: 0;
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.runtime-strip > span:first-child {
+  color: var(--ink);
+  font-weight: 760;
 }
 
 .runtime-status {
@@ -160,7 +179,7 @@ h3 {
   align-items: center;
   gap: var(--space-sm);
   flex: 0 0 auto;
-  min-height: 34px;
+  min-height: 32px;
   border: 1px solid color-mix(in oklch, var(--brand), transparent 55%);
   border-radius: 999px;
   padding: var(--space-xs) var(--space-md);
@@ -171,8 +190,8 @@ h3 {
 }
 
 .status-dot {
-  width: 0.58rem;
-  height: 0.58rem;
+  width: 0.55rem;
+  height: 0.55rem;
   border-radius: 999px;
   background: var(--amber);
 }
@@ -192,7 +211,7 @@ h3 {
   display: grid;
   gap: var(--space-xs);
   min-width: 0;
-  padding: var(--space-sm);
+  padding: var(--space-xs);
   border: 1px solid color-mix(in oklch, var(--line), transparent 36%);
   border-radius: var(--radius);
   background: color-mix(in oklch, var(--paper), transparent 8%);
@@ -201,7 +220,7 @@ h3 {
 .nav-item {
   display: flex;
   align-items: center;
-  min-height: 36px;
+  min-height: 35px;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -238,7 +257,7 @@ h3 {
   display: grid;
   align-content: start;
   min-height: 0;
-  padding: var(--space-lg) 0 var(--space-2xl);
+  padding: var(--space-md) 0 var(--space-2xl);
 }
 
 .view {
@@ -247,12 +266,13 @@ h3 {
 
 .view.active {
   display: grid;
-  gap: var(--space-xl);
-  animation: view-in 260ms var(--ease-out);
+  gap: var(--space-lg);
+  animation: view-in 240ms var(--ease-out);
 }
 
+.atlas-toolbar,
 .view-heading,
-.panel-heading,
+.rail-heading,
 .inspector-heading {
   display: flex;
   align-items: flex-start;
@@ -262,98 +282,259 @@ h3 {
 }
 
 .view-note,
-.panel-heading span,
+.rail-heading span,
 .inspector-meta {
   color: var(--muted);
   font-size: 0.86rem;
   font-weight: 650;
 }
 
-.overview-layout {
-  display: grid;
-  grid-template-columns: minmax(270px, 0.74fr) minmax(0, 1.26fr);
-  grid-template-areas:
-    "readout activity"
-    "map activity";
-  gap: var(--space-xl);
-  align-items: start;
-}
-
-.runtime-readout {
-  grid-area: readout;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-  min-width: 0;
-  border-block: 1px solid color-mix(in oklch, var(--line), transparent 36%);
-  background: color-mix(in oklch, var(--paper), transparent 22%);
-}
-
-.metric {
+.search-box {
   display: grid;
   gap: var(--space-xs);
-  min-width: 0;
-  padding: var(--space-md) var(--space-lg);
-  border-inline-end: 1px solid color-mix(in oklch, var(--line), transparent 42%);
-}
-
-.metric:last-child {
-  border-inline-end: 0;
-}
-
-.metric strong {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  color: var(--ink);
-  font-family: "Bricolage Grotesque", "Afacad Flux", sans-serif;
-  font-size: 2rem;
-  line-height: 1;
-}
-
-.metric:first-child strong {
-  color: var(--brand-deep);
-  font-size: 2.4rem;
-}
-
-.metric span {
-  min-width: 0;
-  overflow-wrap: anywhere;
+  min-width: min(270px, 42vw);
   color: var(--muted);
+  font-size: 0.76rem;
   font-weight: 760;
+  text-transform: uppercase;
 }
 
-.activity-panel {
-  grid-area: activity;
+.search-box input {
+  min-width: 0;
+  min-height: 34px;
+  border: 1px solid color-mix(in oklch, var(--line), transparent 32%);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklch, var(--paper), transparent 5%);
+  color: var(--ink);
+  padding: 0 var(--space-md);
+  text-transform: none;
+}
+
+.search-box input:focus {
+  outline: 2px solid color-mix(in oklch, var(--brand), transparent 54%);
+  outline-offset: 2px;
+}
+
+.atlas-instrument {
   display: grid;
-  gap: var(--space-md);
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 0.32fr);
+  gap: var(--space-xl);
   min-width: 0;
 }
 
-.topology-preview {
-  grid-area: map;
+.atlas-stage {
   display: grid;
   gap: var(--space-md);
   min-width: 0;
 }
 
 .overview-map {
-  position: relative;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-sm);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   min-width: 0;
-  padding-block: var(--space-sm);
+  border-block: 1px solid color-mix(in oklch, var(--line), transparent 38%);
+  background: color-mix(in oklch, var(--paper), transparent 24%);
 }
 
-.overview-map::before,
-.topology-map::before {
-  content: "";
+.atlas-fact {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  padding: var(--space-sm) var(--space-md);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.atlas-fact + .atlas-fact {
+  border-inline-start: 1px solid color-mix(in oklch, var(--line), transparent 45%);
+}
+
+.atlas-fact:hover,
+.atlas-fact:focus-visible {
+  outline: none;
+  background: color-mix(in oklch, var(--brand-soft), transparent 55%);
+}
+
+.atlas-fact strong {
+  color: var(--ink);
+  font-family: "Bricolage Grotesque", "Afacad Flux", sans-serif;
+  font-size: 1.48rem;
+  line-height: 1;
+}
+
+.atlas-fact span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
+.graph-map {
+  position: relative;
+  min-width: 0;
+  min-height: clamp(520px, 66vh, 720px);
+  overflow: hidden;
+  border-block: 1px solid color-mix(in oklch, var(--line), transparent 36%);
+  background:
+    linear-gradient(90deg, color-mix(in oklch, var(--line-soft), transparent 42%) 1px, transparent 1px),
+    linear-gradient(color-mix(in oklch, var(--line-soft), transparent 54%) 1px, transparent 1px),
+    color-mix(in oklch, var(--paper), transparent 20%);
+  background-size: 54px 54px, 54px 54px, auto;
+}
+
+.graph-edges {
   position: absolute;
-  inset-inline: var(--space-lg);
-  top: 50%;
-  height: 1px;
-  background: color-mix(in oklch, var(--brand), transparent 68%);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
   pointer-events: none;
+}
+
+.graph-edges line {
+  stroke: color-mix(in oklch, var(--brand-deep), transparent 66%);
+  stroke-width: 0.22;
+  vector-effect: non-scaling-stroke;
+  transition:
+    opacity 160ms var(--ease-snap),
+    stroke 160ms var(--ease-snap),
+    stroke-width 160ms var(--ease-snap);
+}
+
+.graph-edges line[data-kind="module_import"] {
+  stroke: color-mix(in oklch, var(--blue), transparent 50%);
+}
+
+.graph-edges line[data-kind="runtime_activity"] {
+  stroke-dasharray: 3 3;
+  stroke: color-mix(in oklch, var(--green), transparent 42%);
+}
+
+.graph-edges line.is-related {
+  stroke: var(--brand-deep);
+  stroke-width: 0.5;
+}
+
+.graph-edges line.is-dimmed {
+  opacity: 0.16;
+}
+
+.graph-node {
+  position: absolute;
+  display: grid;
+  gap: var(--space-xs);
+  width: clamp(128px, 14vw, 182px);
+  min-height: 74px;
+  border: 1px solid color-mix(in oklch, var(--line), transparent 24%);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: color-mix(in oklch, var(--paper), transparent 6%);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  transition:
+    opacity 160ms var(--ease-snap),
+    background 160ms var(--ease-snap),
+    border-color 160ms var(--ease-snap),
+    box-shadow 160ms var(--ease-snap),
+    transform 160ms var(--ease-snap);
+}
+
+.graph-node strong,
+.graph-node span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.graph-node strong {
+  color: var(--ink);
+  line-height: 1.12;
+}
+
+.graph-node > span:last-child {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.node-kind,
+.relation-kind {
+  justify-self: start;
+  border-color: color-mix(in oklch, var(--line), transparent 26%);
+  color: var(--brand-deep);
+  font-size: 0.66rem;
+}
+
+.graph-node-runtime {
+  min-height: 118px;
+  align-content: end;
+  border-color: var(--code-line);
+  border-radius: 43% 57% 45% 55% / 58% 42% 58% 42%;
+  background:
+    radial-gradient(circle at 75% 22%, color-mix(in oklch, var(--brand), transparent 54%), transparent 32%),
+    linear-gradient(160deg, color-mix(in oklch, var(--code-panel), var(--brand) 12%), var(--code-bg));
+}
+
+.graph-node-runtime strong,
+.graph-node-runtime span {
+  color: var(--code-text);
+}
+
+.graph-node-module {
+  border-radius: 38% 62% 45% 55% / 58% 40% 60% 42%;
+  background: color-mix(in oklch, var(--brand-soft), var(--paper) 54%);
+}
+
+.graph-node-controller {
+  border-color: color-mix(in oklch, var(--blue), transparent 38%);
+}
+
+.graph-node-provider {
+  border-style: dashed;
+}
+
+.graph-node-route {
+  width: clamp(150px, 17vw, 214px);
+}
+
+.graph-node-event,
+.graph-node-job,
+.graph-node-adapter {
+  min-height: 66px;
+  background: color-mix(in oklch, var(--paper), var(--green) 5%);
+}
+
+.graph-node:hover,
+.graph-node:focus-visible,
+.graph-node.selected {
+  outline: none;
+  border-color: color-mix(in oklch, var(--brand), transparent 32%);
+  background: color-mix(in oklch, var(--brand-soft), transparent 38%);
+  box-shadow: 0 14px 34px color-mix(in oklch, var(--brand-deep), transparent 88%);
+  transform: translate(-50%, -52%);
+}
+
+.graph-node.is-related {
+  border-color: color-mix(in oklch, var(--brand), transparent 22%);
+}
+
+.graph-node.is-dimmed {
+  opacity: 0.34;
+}
+
+.activity-rail {
+  display: grid;
+  align-content: start;
+  gap: var(--space-md);
+  min-width: 0;
+  border-block: 1px solid color-mix(in oklch, var(--line), transparent 40%);
+  padding-block: var(--space-sm);
 }
 
 .activity-list,
@@ -366,7 +547,8 @@ h3 {
 }
 
 .record-row,
-.route-row {
+.route-row,
+.graph-row {
   position: relative;
   display: grid;
   gap: var(--space-xs);
@@ -374,7 +556,7 @@ h3 {
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   padding: var(--space-sm) var(--space-md);
-  background: color-mix(in oklch, var(--paper), transparent 40%);
+  background: color-mix(in oklch, var(--paper), transparent 42%);
   cursor: pointer;
   transition:
     background 160ms var(--ease-snap),
@@ -383,7 +565,8 @@ h3 {
 }
 
 .record-row::after,
-.route-row::after {
+.route-row::after,
+.graph-row::after {
   content: "";
   position: absolute;
   inset-inline: var(--space-md);
@@ -394,29 +577,16 @@ h3 {
 
 .record-row:hover,
 .record-row:focus-visible,
-.route-row:hover,
-.route-row:focus-visible {
-  outline: none;
-  border-color: color-mix(in oklch, var(--brand), transparent 58%);
-  background: color-mix(in oklch, var(--brand-soft), transparent 64%);
-}
-
 .record-row.selected,
-.route-row.selected {
-  border-color: color-mix(in oklch, var(--brand), transparent 32%);
-  background: color-mix(in oklch, var(--brand-soft), transparent 42%);
-  transform: translateX(3px);
-}
-
-.record-row.selected::before,
-.route-row.selected::before {
-  content: "";
-  position: absolute;
-  inset-block: 9px;
-  inset-inline-end: -16px;
-  width: 16px;
-  border-block: 1px solid color-mix(in oklch, var(--brand), transparent 48%);
-  pointer-events: none;
+.route-row:hover,
+.route-row:focus-visible,
+.route-row.selected,
+.graph-row:hover,
+.graph-row:focus-visible,
+.graph-row.selected {
+  outline: none;
+  border-color: color-mix(in oklch, var(--brand), transparent 46%);
+  background: color-mix(in oklch, var(--brand-soft), transparent 52%);
 }
 
 .record-row.is-new {
@@ -488,8 +658,9 @@ h3 {
   color: var(--amber);
 }
 
-.route-row {
-  grid-template-columns: 58px minmax(0, 1fr) minmax(120px, 0.35fr);
+.route-row,
+.graph-row {
+  grid-template-columns: 62px minmax(0, 1fr) minmax(120px, 0.42fr);
   align-items: center;
 }
 
@@ -499,140 +670,6 @@ h3 {
   color: var(--muted);
   font-size: 0.86rem;
   font-weight: 650;
-}
-
-.topology-map {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(188px, 0.62fr) minmax(0, 1.38fr);
-  gap: var(--space-2xl);
-  min-height: 430px;
-  padding: var(--space-sm) 0 var(--space-xl);
-}
-
-.topology-map::before {
-  inset-inline: 7rem 3rem;
-  top: 6.2rem;
-}
-
-.topology-spine,
-.topology-lanes,
-.topology-group {
-  display: grid;
-  align-content: start;
-  gap: var(--space-md);
-  min-width: 0;
-}
-
-.topology-lanes {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-xl);
-}
-
-.topology-group {
-  position: relative;
-  padding-block-start: var(--space-sm);
-}
-
-.topology-group::before {
-  content: "";
-  position: absolute;
-  inset-inline: 0;
-  top: 0;
-  height: 1px;
-  background: color-mix(in oklch, var(--brand), transparent 70%);
-}
-
-.topology-group-title {
-  margin: 0;
-}
-
-.topology-node {
-  position: relative;
-  display: grid;
-  gap: var(--space-xs);
-  min-width: 0;
-  border: 1px solid color-mix(in oklch, var(--line), transparent 35%);
-  border-radius: var(--radius-sm);
-  padding: var(--space-md);
-  background: color-mix(in oklch, var(--paper), transparent 26%);
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background 160ms var(--ease-snap),
-    border-color 160ms var(--ease-snap),
-    transform 160ms var(--ease-snap);
-}
-
-.topology-node::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  inset-inline-start: -0.55rem;
-  width: 0.42rem;
-  height: 0.42rem;
-  border-radius: 999px;
-  background: var(--brand);
-  transform: translateY(-50%);
-}
-
-.topology-node:hover,
-.topology-node:focus-visible,
-.topology-node.selected {
-  outline: none;
-  border-color: color-mix(in oklch, var(--brand), transparent 38%);
-  background: color-mix(in oklch, var(--brand-soft), transparent 54%);
-  transform: translateY(-1px);
-}
-
-.topology-node.runtime {
-  min-height: 156px;
-  align-content: end;
-  border-color: var(--code-line);
-  background:
-    linear-gradient(160deg, color-mix(in oklch, var(--code-panel), var(--brand) 12%), var(--code-bg));
-}
-
-.topology-node.runtime::before {
-  inset-inline-start: auto;
-  inset-inline-end: var(--space-md);
-  top: var(--space-md);
-  width: 0.62rem;
-  height: 0.62rem;
-  transform: none;
-}
-
-.topology-node.runtime strong,
-.topology-node.runtime span {
-  color: var(--code-text);
-}
-
-.topology-node strong,
-.topology-node span {
-  min-width: 0;
-  overflow-wrap: break-word;
-}
-
-.topology-node strong {
-  color: var(--ink);
-  line-height: 1.15;
-}
-
-.topology-node span {
-  color: var(--muted);
-  font-size: 0.86rem;
-  font-weight: 650;
-}
-
-.overview-map .topology-node {
-  min-height: 78px;
-  padding: var(--space-sm) var(--space-md);
-}
-
-.overview-map .topology-node strong {
-  font-size: 0.92rem;
 }
 
 .settings-list {
@@ -672,6 +709,7 @@ h3 {
   top: calc(var(--space-lg) + 74px);
   align-self: start;
   display: grid;
+  align-content: start;
   min-height: min(760px, calc(100vh - 112px));
   max-height: calc(100vh - 112px);
   border: 1px solid color-mix(in oklch, var(--line), transparent 30%);
@@ -685,9 +723,67 @@ h3 {
   border-color: color-mix(in oklch, var(--brand), transparent 46%);
 }
 
+.inspector-output {
+  display: grid;
+  gap: var(--space-md);
+  min-height: 0;
+  margin-block-start: var(--space-lg);
+  overflow: auto;
+}
+
+.inspector-summary {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.inspector-kv {
+  display: grid;
+  grid-template-columns: minmax(88px, 0.36fr) minmax(0, 1fr);
+  gap: var(--space-xs) var(--space-md);
+  margin: 0;
+}
+
+.inspector-kv dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
+.inspector-kv dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.inspector-subhead {
+  margin-block-start: var(--space-sm);
+}
+
+.relation-list {
+  display: grid;
+  gap: var(--space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.relation-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  color: var(--muted);
+  font-weight: 650;
+}
+
 pre {
   min-height: 0;
-  margin: var(--space-lg) 0 0;
+  max-height: 260px;
+  margin: 0;
   overflow: auto;
   border: 1px solid var(--code-line);
   border-radius: var(--radius-sm);
@@ -695,7 +791,7 @@ pre {
   color: var(--code-text);
   padding: var(--space-md);
   font-family: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   line-height: 1.55;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
@@ -731,7 +827,7 @@ pre {
 
 @media (max-width: 1180px) {
   .dashboard-shell {
-    grid-template-columns: 132px minmax(0, 1fr);
+    grid-template-columns: 124px minmax(0, 1fr);
   }
 
   .inspector {
@@ -740,21 +836,8 @@ pre {
     max-height: none;
   }
 
-  .overview-layout,
-  .topology-map {
+  .atlas-instrument {
     grid-template-columns: 1fr;
-  }
-
-  .overview-layout {
-    grid-template-areas:
-      "readout"
-      "activity"
-      "map";
-  }
-
-  .topology-lanes {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: var(--space-md);
   }
 }
 
@@ -770,6 +853,14 @@ pre {
   .main-panel,
   .inspector {
     grid-column: 1;
+  }
+
+  .topbar {
+    align-items: flex-start;
+  }
+
+  .runtime-strip {
+    flex-wrap: wrap;
   }
 
   .sidebar {
@@ -791,10 +882,6 @@ pre {
     text-align: center;
   }
 
-  .topology-lanes {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .inspector {
     position: static;
   }
@@ -810,10 +897,14 @@ pre {
     padding: var(--space-sm);
   }
 
-  .topbar {
+  .topbar,
+  .atlas-toolbar,
+  .view-heading,
+  .rail-heading,
+  .inspector-heading {
     align-items: flex-start;
+    flex-direction: column;
     gap: var(--space-sm);
-    padding-block: var(--space-xs) var(--space-sm);
   }
 
   .brand-lockup {
@@ -835,9 +926,14 @@ pre {
   }
 
   .eyebrow,
-  .section-kicker,
-  .topology-group-title {
+  .section-kicker {
     font-size: 0.66rem;
+  }
+
+  .runtime-strip {
+    justify-content: flex-start;
+    gap: var(--space-sm);
+    font-size: 0.86rem;
   }
 
   .runtime-status {
@@ -853,54 +949,74 @@ pre {
     gap: var(--space-md);
   }
 
-  .view-heading,
-  .panel-heading,
-  .inspector-heading {
-    gap: var(--space-sm);
-  }
-
-  .overview-layout {
-    gap: var(--space-md);
-  }
-
-  .runtime-readout {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .metric {
-    padding: var(--space-sm) var(--space-md);
-  }
-
-  .metric:first-child {
-    grid-column: 1 / -1;
-  }
-
-  .metric strong,
-  .metric:first-child strong {
-    font-size: 1.58rem;
+  .search-box {
+    width: 100%;
+    min-width: 0;
   }
 
   .overview-map,
   .route-row,
+  .graph-row,
   .settings-list,
-  .topology-lanes {
+  .inspector-kv {
     grid-template-columns: 1fr;
   }
 
-  .overview-map::before,
-  .topology-map::before,
-  .record-row.selected::before,
-  .route-row.selected::before {
-    display: none;
+  .overview-map {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .record-row.selected,
-  .route-row.selected {
+  .atlas-fact {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .atlas-fact + .atlas-fact {
+    border-inline-start: 0;
+  }
+
+  .graph-map {
+    min-height: 0;
+    overflow: visible;
+    border-block: 1px solid color-mix(in oklch, var(--line), transparent 36%);
+    background: color-mix(in oklch, var(--paper), transparent 20%);
+  }
+
+  .graph-map.is-outline {
+    display: grid;
+    gap: var(--space-md);
+    padding-block: var(--space-sm);
+  }
+
+  .outline-group {
+    display: grid;
+    gap: var(--space-xs);
+    min-width: 0;
+  }
+
+  .outline-title {
+    color: var(--brand-deep);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+  }
+
+  .graph-node {
+    position: relative;
+    left: auto !important;
+    top: auto !important;
+    width: 100%;
+    min-height: 60px;
     transform: none;
   }
 
-  .route-row {
-    align-items: start;
+  .graph-node:hover,
+  .graph-node:focus-visible,
+  .graph-node.selected {
+    transform: none;
+  }
+
+  .graph-node-runtime,
+  .graph-node-module {
+    border-radius: var(--radius-sm);
   }
 
   .row-topline {

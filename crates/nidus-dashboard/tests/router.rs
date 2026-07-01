@@ -23,7 +23,7 @@ async fn dashboard_serves_shell_and_overview_api() {
     let shell = app.clone().oneshot(request("/")).await.unwrap();
     assert_eq!(shell.status(), StatusCode::OK);
     let body = to_bytes(shell.into_body(), usize::MAX).await.unwrap();
-    assert!(String::from_utf8_lossy(&body).contains("Nidus Dashboard"));
+    assert!(String::from_utf8_lossy(&body).contains("Nidus Runtime Atlas"));
 
     let overview = app.oneshot(request("/api/overview")).await.unwrap();
     assert_eq!(overview.status(), StatusCode::OK);

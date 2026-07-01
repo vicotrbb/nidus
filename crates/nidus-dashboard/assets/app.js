@@ -1,11 +1,11 @@
 const views = document.querySelectorAll(".view");
 const buttons = document.querySelectorAll(".nav-item");
-const overviewGrid = document.querySelector("#overview-grid");
 const overviewService = document.querySelector("#overview-service");
-const overviewActivity = document.querySelector("#overview-activity");
-const activityCount = document.querySelector("#activity-count");
+const runtimeSummary = document.querySelector("#runtime-summary");
 const overviewMap = document.querySelector("#overview-map");
+const overviewActivity = document.querySelector("#overview-activity");
 const graphMap = document.querySelector("#graph-map");
+const graphList = document.querySelector("#graph-list");
 const routesList = document.querySelector("#routes-list");
 const timelineList = document.querySelector("#timeline-list");
 const eventsList = document.querySelector("#events-list");
@@ -17,9 +17,13 @@ const inspectorMeta = document.querySelector("#inspector-meta");
 const inspector = document.querySelector("#inspector-output");
 const runtimeStatus = document.querySelector("#runtime-status");
 const status = document.querySelector("#connection-status");
+const activityCount = document.querySelector("#activity-count");
+const routeCount = document.querySelector("#route-count");
+const atlasSearch = document.querySelector("#atlas-search");
 
 const state = {
   overview: { service_name: "nidus-app", metrics: [] },
+  graph: { service_name: "nidus-app", nodes: [], edges: [], groups: [] },
   routes: [],
   timeline: [],
   events: [],
@@ -27,14 +31,23 @@ const state = {
   adapters: [],
   settings: {},
   selected: null,
+  query: "",
   latestOperationId: null,
 };
 
 let activeViewTransition = null;
+const mobileQuery = window.matchMedia("(max-width: 760px)");
 
 for (const button of buttons) {
   button.addEventListener("click", () => activateView(button.dataset.view));
 }
+
+atlasSearch.addEventListener("input", () => {
+  state.query = atlasSearch.value.trim().toLowerCase();
+  renderAll();
+});
+
+mobileQuery.addEventListener("change", () => renderGraph());
 
 function activateView(id) {
   const apply = () => {
@@ -55,6 +68,38 @@ function setConnectionState(nextState) {
   status.textContent = nextState;
 }
 
+function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function runViewTransition(apply) {
+  if (!document.startViewTransition || prefersReducedMotion()) {
+    apply();
+    return;
+  }
+  if (activeViewTransition) activeViewTransition.skipTransition();
+  const transition = document.startViewTransition(apply);
+  activeViewTransition = transition;
+  transition.finished.finally(() => {
+    if (activeViewTransition === transition) activeViewTransition = null;
+  });
+}
+
+function clear(node) {
+  node.replaceChildren();
+}
+
+function textNode(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  node.textContent = text;
+  return node;
+}
+
+function badge(text, className = "badge") {
+  return textNode("span", className, text);
+}
+
 function formatKind(value) {
   return String(value ?? "record").replaceAll("_", " ");
 }
@@ -73,52 +118,404 @@ function formatDuration(durationMs) {
   return `${durationMs} ms`;
 }
 
-function selectionKey(kind, value) {
-  if (value && typeof value === "object") {
-    if (value.id) return `${kind}:${value.id}`;
-    if (value.method && value.path) return `route:${value.method}:${value.path}`;
-    if (value.name && value.timestamp_ms) return `${kind}:${value.name}:${value.timestamp_ms}`;
+function graphNode(id) {
+  return state.graph.nodes.find((node) => node.id === id);
+}
+
+function graphEdgesFor(id) {
+  return state.graph.edges.filter((edge) => edge.source === id || edge.target === id);
+}
+
+function nodeMatches(node, query = state.query) {
+  if (!query) return true;
+  const haystack = [
+    node.kind,
+    node.label,
+    node.summary,
+    Object.keys(node.counts ?? {}).join(" "),
+    JSON.stringify(node.metadata ?? {}),
+  ]
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(query);
+}
+
+function visibleGraphNodeIds() {
+  const direct = new Set(state.graph.nodes.filter((node) => nodeMatches(node)).map((node) => node.id));
+  if (!state.query) return direct;
+  for (const edge of state.graph.edges) {
+    if (direct.has(edge.source)) direct.add(edge.target);
+    if (direct.has(edge.target)) direct.add(edge.source);
   }
-  return `${kind}:${String(value ?? "unknown")}`;
+  return direct;
 }
 
-function clear(node) {
-  node.replaceChildren();
+function graphCounts() {
+  const counts = new Map();
+  for (const node of state.graph.nodes) {
+    counts.set(node.kind, (counts.get(node.kind) ?? 0) + 1);
+  }
+  return counts;
 }
 
-function textNode(tag, className, text) {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
+function renderRuntimeSummary() {
+  const counts = graphCounts();
+  overviewService.textContent = state.graph.service_name ?? state.overview.service_name ?? "nidus-app";
+  runtimeSummary.textContent = [
+    `${counts.get("module") ?? 0} modules`,
+    `${counts.get("controller") ?? 0} controllers`,
+    `${counts.get("provider") ?? 0} providers`,
+    `${counts.get("route") ?? state.routes.length} routes`,
+    `${state.timeline.length} timeline records`,
+  ].join(" / ");
+  routeCount.textContent = `${state.routes.length} routes`;
+  activityCount.textContent = `${state.timeline.length} records`;
+}
+
+function renderOverviewMap() {
+  clear(overviewMap);
+  const counts = graphCounts();
+  const facts = [
+    ["Modules", counts.get("module") ?? 0],
+    ["Controllers", counts.get("controller") ?? 0],
+    ["Providers", counts.get("provider") ?? 0],
+    ["Routes", counts.get("route") ?? state.routes.length],
+    ["Events", counts.get("event") ?? state.events.length],
+    ["Jobs", counts.get("job") ?? state.jobs.length],
+  ];
+  for (const [label, value] of facts) {
+    const node = document.createElement("button");
+    node.type = "button";
+    node.className = "atlas-fact";
+    node.append(textNode("strong", null, String(value)), textNode("span", null, label));
+    node.addEventListener("click", () => {
+      state.query = label.toLowerCase().slice(0, -1);
+      atlasSearch.value = state.query;
+      renderAll();
+    });
+    overviewMap.appendChild(node);
+  }
+}
+
+function laneFor(node) {
+  if (node.kind === "runtime") return "runtime";
+  if (node.kind === "module") return "modules";
+  if (node.kind === "provider" || node.kind === "controller") return "components";
+  if (node.kind === "route") return "routes";
+  return "activity";
+}
+
+function layoutGraph(nodes) {
+  const lanes = {
+    runtime: { x: 7, nodes: [] },
+    modules: { x: 25, nodes: [] },
+    components: { x: 49, nodes: [] },
+    routes: { x: 72, nodes: [] },
+    activity: { x: 91, nodes: [] },
+  };
+  for (const node of nodes) lanes[laneFor(node)].nodes.push(node);
+
+  const positions = new Map();
+  for (const lane of Object.values(lanes)) {
+    const count = lane.nodes.length;
+    lane.nodes.forEach((node, index) => {
+      const y = count === 1 ? 50 : 12 + (index * 76) / Math.max(1, count - 1);
+      positions.set(node.id, { x: lane.x, y });
+    });
+  }
+  return positions;
+}
+
+function renderGraph() {
+  clear(graphMap);
+  const visible = visibleGraphNodeIds();
+  const nodes = state.graph.nodes.filter((node) => visible.has(node.id));
+  graphMap.classList.toggle("is-outline", mobileQuery.matches);
+
+  if (nodes.length === 0) {
+    graphMap.appendChild(emptyState("Graph data appears here after the Nidus app records its module graph."));
+    return;
+  }
+
+  if (mobileQuery.matches) {
+    renderGraphOutline(nodes);
+    syncSelectionState();
+    focusRelations(state.selected?.id);
+    return;
+  }
+
+  const positions = layoutGraph(nodes);
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.classList.add("graph-edges");
+  svg.setAttribute("viewBox", "0 0 100 100");
+  svg.setAttribute("preserveAspectRatio", "none");
+
+  for (const edge of state.graph.edges) {
+    if (!visible.has(edge.source) || !visible.has(edge.target)) continue;
+    const source = positions.get(edge.source);
+    const target = positions.get(edge.target);
+    if (!source || !target) continue;
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.dataset.edgeId = edge.id;
+    line.dataset.source = edge.source;
+    line.dataset.target = edge.target;
+    line.dataset.kind = edge.kind;
+    line.setAttribute("x1", source.x);
+    line.setAttribute("y1", source.y);
+    line.setAttribute("x2", target.x);
+    line.setAttribute("y2", target.y);
+    svg.appendChild(line);
+  }
+  graphMap.appendChild(svg);
+
+  for (const node of nodes) {
+    const position = positions.get(node.id);
+    const button = graphButton(node);
+    button.style.left = `${position.x}%`;
+    button.style.top = `${position.y}%`;
+    graphMap.appendChild(button);
+  }
+
+  syncSelectionState();
+  focusRelations(state.selected?.id);
+}
+
+function renderGraphOutline(nodes) {
+  const order = ["runtime", "module", "controller", "provider", "route", "event", "job", "adapter"];
+  for (const kind of order) {
+    const groupNodes = nodes.filter((node) => node.kind === kind);
+    if (groupNodes.length === 0) continue;
+    const group = document.createElement("section");
+    group.className = "outline-group";
+    group.appendChild(textNode("h3", "outline-title", formatKind(kind)));
+    for (const node of groupNodes) group.appendChild(graphButton(node));
+    graphMap.appendChild(group);
+  }
+}
+
+function graphButton(node) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `graph-node graph-node-${node.kind}`;
+  button.dataset.nodeId = node.id;
+  button.dataset.selectionKey = node.id;
+  button.append(
+    badge(formatKind(node.kind), "node-kind"),
+    textNode("strong", null, node.label),
+    textNode("span", null, node.summary ?? countSummary(node.counts)),
+  );
+  button.addEventListener("click", () => selectNode(node));
+  button.addEventListener("focus", () => focusRelations(node.id));
+  button.addEventListener("mouseenter", () => focusRelations(node.id));
+  button.addEventListener("mouseleave", () => focusRelations(state.selected?.id));
+  button.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      selectNode(node);
+    }
+  });
+  return button;
+}
+
+function countSummary(counts = {}) {
+  const entries = Object.entries(counts);
+  if (entries.length === 0) return "inspectable node";
+  return entries.map(([key, value]) => `${value} ${key.replaceAll("_", " ")}`).join(" / ");
+}
+
+function focusRelations(id) {
+  const related = new Set();
+  if (id) {
+    related.add(id);
+    for (const edge of state.graph.edges) {
+      if (edge.source === id || edge.target === id) {
+        related.add(edge.source);
+        related.add(edge.target);
+      }
+    }
+  }
+
+  for (const node of graphMap.querySelectorAll("[data-node-id]")) {
+    const active = !id || related.has(node.dataset.nodeId);
+    node.classList.toggle("is-related", Boolean(id && active));
+    node.classList.toggle("is-dimmed", Boolean(id && !active));
+  }
+  for (const edge of graphMap.querySelectorAll("[data-edge-id]")) {
+    const active = id && (edge.dataset.source === id || edge.dataset.target === id);
+    edge.classList.toggle("is-related", Boolean(active));
+    edge.classList.toggle("is-dimmed", Boolean(id && !active));
+  }
+}
+
+function selectNode(node) {
+  state.selected = { id: node.id, type: "node", node };
+  inspectorTitle.textContent = node.label;
+  inspectorMeta.textContent = formatKind(node.kind);
+  renderNodeInspector(node);
+  document.querySelector(".inspector")?.classList.add("has-selection");
+  syncSelectionState();
+  focusRelations(node.id);
+  animateInspector();
+}
+
+function selectRecord(record, title, meta, key) {
+  const node = key ? graphNode(key) : null;
+  if (node) {
+    selectNode(node);
+    return;
+  }
+  state.selected = { id: key, type: "record", record };
+  inspectorTitle.textContent = title;
+  inspectorMeta.textContent = meta;
+  renderRecordInspector(record);
+  document.querySelector(".inspector")?.classList.add("has-selection");
+  syncSelectionState();
+  focusRelations(null);
+  animateInspector();
+}
+
+function syncSelectionState() {
+  for (const node of document.querySelectorAll("[data-selection-key]")) {
+    node.classList.toggle("selected", node.dataset.selectionKey === state.selected?.id);
+  }
+}
+
+function animateInspector() {
+  if (prefersReducedMotion() || !inspector.animate) return;
+  inspector.animate(
+    [
+      { opacity: 0.82, transform: "translateY(5px)" },
+      { opacity: 1, transform: "translateY(0)" },
+    ],
+    { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+  );
+}
+
+function renderNodeInspector(node) {
+  clear(inspector);
+  inspector.appendChild(detailSummary(node.summary ?? countSummary(node.counts)));
+  inspector.appendChild(keyValues(kindDetails(node)));
+
+  const relations = graphEdgesFor(node.id);
+  if (relations.length > 0) {
+    const list = document.createElement("ol");
+    list.className = "relation-list";
+    for (const edge of relations.slice(0, 10)) {
+      const peer = graphNode(edge.source === node.id ? edge.target : edge.source);
+      const item = document.createElement("li");
+      item.append(
+        badge(formatKind(edge.kind), "relation-kind"),
+        textNode("span", null, peer?.label ?? edge.target),
+      );
+      list.appendChild(item);
+    }
+    inspector.append(textNode("h3", "inspector-subhead", "Relationships"), list);
+  }
+
+  const metadata = node.metadata?.operation ?? node.metadata;
+  inspector.appendChild(codeBlock(metadata));
+}
+
+function kindDetails(node) {
+  const metadata = node.metadata ?? {};
+  if (node.kind === "module") {
+    return {
+      Imports: listText(metadata.imports),
+      Providers: listText(metadata.providers),
+      Controllers: listText(metadata.controllers),
+      Exports: listText(metadata.exports),
+    };
+  }
+  if (node.kind === "controller") {
+    return {
+      Module: metadata.module,
+      Prefix: metadata.prefix,
+      Routes: `${node.counts?.routes ?? 0}`,
+    };
+  }
+  if (node.kind === "route") {
+    return {
+      Method: metadata.method,
+      Path: metadata.path,
+      Controller: metadata.controller,
+      Guards: listText(metadata.guards),
+      Pipes: listText(metadata.pipes),
+      Validates: String(Boolean(metadata.validates)),
+    };
+  }
+  if (node.kind === "provider") {
+    return {
+      Module: metadata.module,
+      Exported: String(Boolean(metadata.exported)),
+    };
+  }
+  if (["event", "job", "adapter"].includes(node.kind)) {
+    const operation = metadata.operation ?? {};
+    return {
+      Status: operation.status ?? node.status,
+      Time: formatTime(operation.timestamp_ms),
+      Duration: formatDuration(operation.duration_ms),
+      Correlation: operation.correlation_id ?? "none",
+    };
+  }
+  return {
+    Status: node.status ?? "ready",
+    Counts: countSummary(node.counts),
+  };
+}
+
+function listText(value) {
+  if (Array.isArray(value)) return value.length ? value.join(", ") : "none";
+  if (value === null || value === undefined) return "none";
+  return String(value);
+}
+
+function keyValues(values) {
+  const dl = document.createElement("dl");
+  dl.className = "inspector-kv";
+  for (const [key, value] of Object.entries(values)) {
+    dl.append(textNode("dt", null, key), textNode("dd", null, value ?? "none"));
+  }
+  return dl;
+}
+
+function detailSummary(text) {
+  const node = document.createElement("p");
+  node.className = "inspector-summary";
   node.textContent = text;
   return node;
 }
 
-function badge(text, className = "badge") {
-  return textNode("span", className, text);
+function codeBlock(value) {
+  const pre = document.createElement("pre");
+  pre.textContent = JSON.stringify(value ?? {}, null, 2);
+  return pre;
 }
 
-function selectable(node, record, title, meta, key = selectionKey("record", record)) {
-  node.tabIndex = 0;
-  node.dataset.selectionKey = key;
-  node.classList.toggle("selected", state.selected?.key === key);
-  node.addEventListener("click", () => selectRecord(record, title, meta, key));
-  node.addEventListener("keydown", (event) => {
+function renderRecordInspector(record) {
+  clear(inspector);
+  inspector.appendChild(detailSummary(record.summary ?? record.name ?? record.path ?? "runtime record"));
+  inspector.appendChild(codeBlock(record));
+}
+
+function selectableRow(item, record, title, meta, key) {
+  item.tabIndex = 0;
+  item.dataset.selectionKey = key;
+  item.addEventListener("click", () => selectRecord(record, title, meta, key));
+  item.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       selectRecord(record, title, meta, key);
     }
   });
-  return node;
+  return item;
 }
 
-function selectRecord(record, title, meta, key = selectionKey("record", record)) {
-  state.selected = { record, title, meta, key };
-  inspectorTitle.textContent = title;
-  inspectorMeta.textContent = meta;
-  inspector.textContent = JSON.stringify(record, null, 2);
-  document.querySelector(".inspector")?.classList.add("has-selection");
-  syncSelectionState();
-  animateInspector();
+function emptyState(text) {
+  const item = document.createElement("div");
+  item.className = "empty-state";
+  item.textContent = text;
+  return item;
 }
 
 function showEmpty(list, text) {
@@ -129,59 +526,50 @@ function showEmpty(list, text) {
   list.appendChild(item);
 }
 
-function renderOverview() {
-  clear(overviewGrid);
-  overviewService.textContent = state.overview.service_name ?? "nidus-app";
+function routeNodeId(route) {
+  return `route:${route.method} ${route.path}`;
+}
 
-  const metrics = [
-    ...state.overview.metrics,
-    { label: "Timeline", value: String(state.timeline.length) },
-  ];
-
-  for (const metric of metrics) {
-    const node = document.createElement("article");
-    node.className = "metric";
-    node.append(textNode("strong", null, metric.value), textNode("span", null, metric.label));
-    overviewGrid.appendChild(node);
-  }
-
-  renderOperationList(
-    overviewActivity,
-    state.timeline.slice(0, 10),
-    "Activity appears here as the app records lifecycle, event, job, and adapter operations.",
-  );
-  activityCount.textContent = `${state.timeline.length} records`;
-  renderOverviewMap();
+function operationNodeId(operation) {
+  return `operation:${operation.id}`;
 }
 
 function renderRouteList(list, routes, emptyText) {
   clear(list);
-  if (routes.length === 0) {
+  const filtered = routes.filter((route) =>
+    [route.method, route.path, route.summary].join(" ").toLowerCase().includes(state.query),
+  );
+  if (filtered.length === 0) {
     showEmpty(list, emptyText);
     return;
   }
-
-  for (const route of routes) {
+  for (const route of filtered) {
     const item = document.createElement("li");
     item.className = "route-row";
     item.append(
       badge(route.method, "method"),
       textNode("strong", "row-title", route.path),
-      textNode("span", "route-summary", route.summary ?? "route handler"),
+      textNode("span", "route-summary", route.summary ?? "controller route"),
     );
-    selectable(item, route, `${route.method} ${route.path}`, "route snapshot", selectionKey("route", route));
+    selectableRow(item, route, `${route.method} ${route.path}`, "route snapshot", routeNodeId(route));
     list.appendChild(item);
   }
 }
 
 function renderOperationList(list, operations, emptyText) {
   clear(list);
-  if (operations.length === 0) {
+  const filtered = operations.filter((operation) =>
+    [operation.kind, operation.name, operation.status, operation.correlation_id, JSON.stringify(operation.attributes ?? {})]
+      .join(" ")
+      .toLowerCase()
+      .includes(state.query),
+  );
+  if (filtered.length === 0) {
     showEmpty(list, emptyText);
     return;
   }
 
-  for (const operation of operations) {
+  for (const operation of filtered) {
     const item = document.createElement("li");
     item.className = "record-row";
     if (operation.id && operation.id === state.latestOperationId) item.classList.add("is-new");
@@ -203,14 +591,35 @@ function renderOperationList(list, operations, emptyText) {
     if (operation.correlation_id) metadata.append(textNode("span", null, operation.correlation_id));
 
     item.append(title, metadata);
-    selectable(
+    selectableRow(
       item,
       operation,
       operation.name,
       `${formatKind(operation.kind)} / ${operation.status}`,
-      selectionKey(operation.kind, operation),
+      operationNodeId(operation),
     );
     list.appendChild(item);
+  }
+}
+
+function renderGraphIndex() {
+  clear(graphList);
+  const visible = state.graph.nodes.filter((node) => nodeMatches(node));
+  if (visible.length === 0) {
+    showEmpty(graphList, "No graph node matches the current filter.");
+    return;
+  }
+  for (const node of visible) {
+    const item = document.createElement("li");
+    item.className = "graph-row";
+    item.append(
+      badge(formatKind(node.kind), "node-kind"),
+      textNode("strong", "row-title", node.label),
+      textNode("span", "route-summary", node.summary ?? countSummary(node.counts)),
+    );
+    selectableRow(item, node, node.label, formatKind(node.kind), node.id);
+    item.addEventListener("click", () => selectNode(node));
+    graphList.appendChild(item);
   }
 }
 
@@ -225,198 +634,37 @@ function renderSettings() {
   }
 }
 
-function topologyNode(title, detail, record, className = "", key = selectionKey("topology", title)) {
-  const item = document.createElement("button");
-  item.className = `topology-node ${className}`.trim();
-  item.type = "button";
-  item.append(textNode("strong", null, title), textNode("span", null, detail));
-  selectable(item, record, title, detail, key);
-  return item;
-}
-
-function renderOverviewMap() {
-  clear(overviewMap);
-  const signals = [
-    {
-      title: "HTTP routes",
-      detail: `${state.routes.length} mounted`,
-      record: { routes: state.routes },
-      key: "topology:routes",
-    },
-    {
-      title: "Events",
-      detail: `${state.events.length} captured`,
-      record: { events: state.events },
-      key: "topology:events",
-    },
-    {
-      title: "Jobs",
-      detail: `${state.jobs.length} captured`,
-      record: { jobs: state.jobs },
-      key: "topology:jobs",
-    },
-    {
-      title: "Adapters",
-      detail: `${state.adapters.length} observed`,
-      record: { adapters: state.adapters },
-      key: "topology:adapters",
-    },
-  ];
-  for (const signal of signals) {
-    overviewMap.appendChild(topologyNode(signal.title, signal.detail, signal.record, "", signal.key));
-  }
-}
-
-function topologyGroup(title, nodes, emptyText) {
-  const group = document.createElement("section");
-  group.className = "topology-group";
-  group.appendChild(textNode("div", "topology-group-title", title));
-  if (nodes.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "empty-state";
-    empty.textContent = emptyText;
-    group.appendChild(empty);
-    return group;
-  }
-  for (const node of nodes) group.appendChild(node);
-  return group;
-}
-
-function renderTopology() {
-  clear(graphMap);
-
-  const spine = document.createElement("div");
-  spine.className = "topology-spine";
-  spine.appendChild(
-    topologyNode(
-      state.overview.service_name ?? "nidus-app",
-      `${state.routes.length} routes / ${state.timeline.length} operations`,
-      {
-        service: state.overview.service_name,
-        route_count: state.routes.length,
-        operation_count: state.timeline.length,
-        settings: state.settings,
-      },
-      "runtime",
-      "topology:runtime",
-    ),
-  );
-  spine.appendChild(
-    topologyNode(
-      "Dashboard stream",
-      "SSE lifecycle heartbeat",
-      { stream: "./stream", state: status.textContent },
-      "",
-      "topology:stream",
-    ),
-  );
-
-  const lanes = document.createElement("div");
-  lanes.className = "topology-lanes";
-  lanes.append(
-    topologyGroup(
-      "Routes",
-      state.routes
-        .slice(0, 5)
-        .map((route) =>
-          topologyNode(`${route.method} ${route.path}`, route.summary ?? "handler", route, "", selectionKey("route", route)),
-        ),
-      "Route snapshots appear after the Nidus facade records mounted handlers.",
-    ),
-    topologyGroup(
-      "Events",
-      state.events
-        .slice(0, 4)
-        .map((operation) =>
-          topologyNode(operation.name, formatTime(operation.timestamp_ms), operation, "", selectionKey(operation.kind, operation)),
-        ),
-      "Publish an event through the example API to populate this lane.",
-    ),
-    topologyGroup(
-      "Jobs",
-      state.jobs
-        .slice(0, 4)
-        .map((operation) =>
-          topologyNode(operation.name, formatDuration(operation.duration_ms), operation, "", selectionKey(operation.kind, operation)),
-        ),
-      "Run a job through the example API to populate this lane.",
-    ),
-    topologyGroup(
-      "Adapters",
-      state.adapters
-        .slice(0, 4)
-        .map((operation) =>
-          topologyNode(operation.name, operation.status, operation, "", selectionKey(operation.kind, operation)),
-        ),
-      "Adapter operations appear when official hooks record them.",
-    ),
-  );
-
-  graphMap.append(spine, lanes);
-}
-
 function renderAll() {
-  renderOverview();
+  renderRuntimeSummary();
+  renderOverviewMap();
+  renderGraph();
+  renderGraphIndex();
   renderRouteList(routesList, state.routes, "Route snapshots appear after the Nidus facade records mounted handlers.");
+  renderOperationList(overviewActivity, state.timeline.slice(0, 12), "Activity appears here as the app records events and jobs.");
   renderOperationList(timelineList, state.timeline, "Timeline fills as the app records runtime activity.");
   renderOperationList(eventsList, state.events, "Observed events appear after publication.");
   renderOperationList(jobsList, state.jobs, "Observed jobs appear after execution.");
   renderOperationList(adaptersList, state.adapters, "Adapter operations appear when official hooks record them.");
   renderSettings();
-  renderTopology();
 
   if (!state.selected) {
-    selectRecord(
-      {
-        service_name: state.overview.service_name,
-        metrics: state.overview.metrics,
-        timeline_records: state.timeline.length,
-      },
-      "Runtime overview",
-      "live summary",
-      "topology:runtime",
-    );
-  }
-  syncSelectionState();
-}
-
-function prefersReducedMotion() {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
-function runViewTransition(apply) {
-  if (!document.startViewTransition || prefersReducedMotion()) {
-    apply();
-    return;
-  }
-  if (activeViewTransition) activeViewTransition.skipTransition();
-  const transition = document.startViewTransition(apply);
-  activeViewTransition = transition;
-  transition.finished.finally(() => {
-    if (activeViewTransition === transition) activeViewTransition = null;
-  });
-}
-
-function syncSelectionState() {
-  for (const node of document.querySelectorAll("[data-selection-key]")) {
-    node.classList.toggle("selected", node.dataset.selectionKey === state.selected?.key);
+    const runtime = state.graph.nodes.find((node) => node.kind === "runtime") ?? state.graph.nodes[0];
+    if (runtime) selectNode(runtime);
+  } else {
+    syncSelectionState();
+    focusRelations(state.selected.id);
   }
 }
 
-function animateInspector() {
-  if (prefersReducedMotion() || !inspector.animate) return;
-  inspector.animate(
-    [
-      { opacity: 0.82, transform: "translateY(4px)" },
-      { opacity: 1, transform: "translateY(0)" },
-    ],
-    { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
-  );
+async function refreshGraph() {
+  state.graph = await getJson("./api/graph");
+  renderAll();
 }
 
 async function loadAll() {
-  const [overview, routes, timeline, events, jobs, adapters, settings] = await Promise.all([
+  const [overview, graph, routes, timeline, events, jobs, adapters, settings] = await Promise.all([
     getJson("./api/overview"),
+    getJson("./api/graph"),
     getJson("./api/routes"),
     getJson("./api/timeline"),
     getJson("./api/events"),
@@ -425,7 +673,7 @@ async function loadAll() {
     getJson("./api/settings"),
   ]);
 
-  Object.assign(state, { overview, routes, timeline, events, jobs, adapters, settings });
+  Object.assign(state, { overview, graph, routes, timeline, events, jobs, adapters, settings });
   renderAll();
 }
 
@@ -433,21 +681,21 @@ function connectStream() {
   const stream = new EventSource("./stream");
   stream.addEventListener("open", () => {
     setConnectionState("live");
-    renderTopology();
   });
-  stream.addEventListener("message", (event) => {
+  stream.addEventListener("message", async (event) => {
     const operation = JSON.parse(event.data);
     state.latestOperationId = operation.id;
     state.timeline = [operation, ...state.timeline.filter((item) => item.id !== operation.id)].slice(0, 100);
     if (operation.kind === "event") state.events = [operation, ...state.events];
     if (operation.kind === "job") state.jobs = [operation, ...state.jobs];
     if (operation.kind === "adapter") state.adapters = [operation, ...state.adapters];
-    renderAll();
-    selectRecord(operation, operation.name, `${formatKind(operation.kind)} / ${operation.status}`, selectionKey(operation.kind, operation));
+    await refreshGraph();
+    if (operation.kind !== "lifecycle") {
+      selectRecord(operation, operation.name, `${formatKind(operation.kind)} / ${operation.status}`, operationNodeId(operation));
+    }
   });
   stream.addEventListener("error", () => {
     setConnectionState("reconnecting");
-    renderTopology();
   });
 }
 
