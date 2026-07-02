@@ -424,9 +424,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-config"
-version = "1.0.4"
+version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cfa113ee5925a706de8653fd5ae7b86162a274d29c3dd77b0497ae59ab53938"
+checksum = "cb017df9f14d173ac9bdc6bcf57a924910f429c46c2cc243b93e35d6df425903"
 dependencies = [
  "serde",
  "serde_json",
@@ -435,9 +435,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-core"
-version = "1.0.4"
+version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db55b74990ec89282af443a43103fa87f935a7c2baa3f71902152aa4e41a648a"
+checksum = "e57aa4b60ad498e5675b456af7a108f217cf2b61d2bc0397ad008a77c3ecbda3"
 dependencies = [
  "async-trait",
  "thiserror",
@@ -458,9 +458,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-http"
-version = "1.0.4"
+version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eae6dbc619f94988c30603e80c736cd02be27cf588edf3e9871e6824b5ac643d"
+checksum = "704a2b001225838cbe0af0b0a814b247bf5afbd539e0ae501e85c845aa0cd080"
 dependencies = [
  "axum",
  "futures-util",
@@ -480,9 +480,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-macros"
-version = "1.0.4"
+version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbed39db66eddb5484a40897e14449415fe4c8ae1bb3556d5c069a4320615491"
+checksum = "be7441cd4ddadfc18d14a3ec3ab11c93aa9bae56ee8f3a39bc33cf5ba634a4de"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -491,9 +491,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-rs"
-version = "1.0.4"
+version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a466e92095ddb4d54c1b5920d0e989636c6d6531a2a66a2d6989973c3bed5b47"
+checksum = "61a5326a5d0bd6f6ada30c2cef9f5f52628dcb232b5468ace2485d15e7c1ed8f"
 dependencies = [
  "nidus-config",
  "nidus-core",
@@ -507,9 +507,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-testing"
-version = "1.0.4"
+version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3b06e5ba33f47dbe86f21a539ba8c312ff67fb40aee34df94f40bfef4d2cda1"
+checksum = "9349d7758964f17f0a6b913e3b956b1b28e4247fd1d504fcc770dcab3abf277b"
 dependencies = [
  "axum",
  "http",
@@ -766,9 +766,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.51"
+version = "0.3.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85c17d80feb7334b40c484e45ed1a5273dfd8bfda537c3be2e74a06a6686f327"
+checksum = "18dfaaeddcb932337b5e7866ee7d0ce9b76d2fd092997146f187ec09b4558a50"
 dependencies = [
  "deranged",
  "num-conv",
@@ -786,9 +786,9 @@ checksum = "9e1c906769ad99c88eaa54e728060edef082f8e358ff32030cb7c7d315e81109"
 
 [[package]]
 name = "time-macros"
-version = "0.2.30"
+version = "0.2.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcef1a61bdb119096e153208ec5cbec23944ce8bca13be5c7f60c634f7403935"
+checksum = "c431b87111666e491a90baa837f914fb45cd5dc3c268591b0220ff5057f2085f"
 dependencies = [
  "num-conv",
  "time-core",
