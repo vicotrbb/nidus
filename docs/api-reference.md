@@ -26,6 +26,7 @@ bash scripts/verify-published-release.sh 1.0.4
 | `nidus-auth` | Guard traits, combinators, and Tower layers | https://docs.rs/nidus-auth/1.0.4/nidus_auth/ |
 | `nidus-events` | Event bus and observed event dispatch | https://docs.rs/nidus-events/1.0.4/nidus_events/ |
 | `nidus-jobs` | Job queues and observed job runners | https://docs.rs/nidus-jobs/1.0.4/nidus_jobs/ |
+| `nidus-dashboard` | Optional embedded runtime cockpit, dashboard APIs, capture, auth, and storage | https://docs.rs/nidus-dashboard/1.0.4/nidus_dashboard/ |
 | `nidus-testing` | TestApp request harness and provider overrides | https://docs.rs/nidus-testing/1.0.4/nidus_testing/ |
 | `nidus-sqlx` | Official SQLx adapter | https://docs.rs/nidus-sqlx/1.0.4/nidus_sqlx/ |
 | `nidus-cache` | Official Moka cache adapter | https://docs.rs/nidus-cache/1.0.4/nidus_cache/ |

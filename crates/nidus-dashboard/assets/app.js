@@ -76,7 +76,15 @@ mobileQuery.addEventListener("change", () => renderGraph());
 
 function activateView(id) {
   const apply = () => {
-    for (const item of buttons) item.classList.toggle("active", item.dataset.view === id);
+    for (const item of buttons) {
+      const active = item.dataset.view === id;
+      item.classList.toggle("active", active);
+      if (active) {
+        item.setAttribute("aria-current", "page");
+      } else {
+        item.removeAttribute("aria-current");
+      }
+    }
     for (const view of views) view.classList.toggle("active", view.id === id);
     document.body.dataset.activeView = id;
   };
@@ -672,7 +680,9 @@ function renderGraph() {
   graphMap.dataset.mode = state.graphMode;
   graphMap.classList.toggle("is-outline", mobileQuery.matches);
   for (const button of graphModeButtons) {
-    button.classList.toggle("active", button.dataset.graphMode === state.graphMode);
+    const active = button.dataset.graphMode === state.graphMode;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
   }
   if (graphModeControl) graphModeControl.dataset.mode = state.graphMode;
 
@@ -1195,7 +1205,9 @@ function filteredTimelineOperations() {
 
 function renderTimelineFilter() {
   for (const button of timelineFilterButtons) {
-    button.classList.toggle("active", button.dataset.timelineFilter === state.timelineFilter);
+    const active = button.dataset.timelineFilter === state.timelineFilter;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
   }
 }
 
@@ -1205,9 +1217,16 @@ function renderSettings() {
     const term = document.createElement("dt");
     term.textContent = key.replaceAll("_", " ");
     const description = document.createElement("dd");
-    description.textContent = String(value);
+    description.textContent = settingDisplayValue(key, value);
     settingsList.append(term, description);
   }
+}
+
+function settingDisplayValue(key, value) {
+  if (["auth_mode", "capture_mode", "storage_mode"].includes(key)) {
+    return humanReadableSettingValue(key, String(value));
+  }
+  return String(value);
 }
 
 function renderAll() {

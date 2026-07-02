@@ -30,7 +30,7 @@
       </header>
 
       <nav class="sidebar" aria-label="Dashboard sections">
-        <button class="nav-item active" data-view="home">Home</button>
+        <button class="nav-item active" data-view="home" aria-current="page">Home</button>
         <button class="nav-item" data-view="atlas">Atlas</button>
         <button class="nav-item" data-view="routes">Routes</button>
         <button class="nav-item" data-view="timeline">Timeline</button>
@@ -80,7 +80,7 @@
             <section class="home-panel" aria-labelledby="home-timing-title">
               <div class="home-panel-heading">
                 <p class="section-kicker">Operation timing</p>
-                <h3 id="home-timing-title">Performance snapshot</h3>
+                <h3 id="home-timing-title">Recorded durations</h3>
               </div>
               <dl class="home-metric-grid" id="home-timing"></dl>
             </section>
@@ -103,9 +103,9 @@
             </div>
             <div class="atlas-controls">
               <div class="segmented-control" id="graph-mode-control" aria-label="Graph mode">
-                <button type="button" class="active" data-graph-mode="structure">Structure</button>
-                <button type="button" data-graph-mode="routes">Routes</button>
-                <button type="button" data-graph-mode="activity">Activity</button>
+                <button type="button" class="active" data-graph-mode="structure" aria-pressed="true">Structure</button>
+                <button type="button" data-graph-mode="routes" aria-pressed="false">Routes</button>
+                <button type="button" data-graph-mode="activity" aria-pressed="false">Activity</button>
               </div>
               <label class="search-box">
                 <span>Filter</span>
@@ -139,9 +139,9 @@
               <h2 id="timeline-title">Timeline</h2>
             </div>
             <div class="segmented-control timeline-filter" id="timeline-filter" aria-label="Timeline filter">
-              <button type="button" class="active" data-timeline-filter="all">All</button>
-              <button type="button" data-timeline-filter="events">Events</button>
-              <button type="button" data-timeline-filter="jobs">Jobs</button>
+              <button type="button" class="active" data-timeline-filter="all" aria-pressed="true">All</button>
+              <button type="button" data-timeline-filter="events" aria-pressed="false">Events</button>
+              <button type="button" data-timeline-filter="jobs" aria-pressed="false">Jobs</button>
             </div>
           </div>
           <ol class="data-list" id="timeline-list"></ol>

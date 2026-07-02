@@ -30,6 +30,12 @@ nidus-sqlx = { version = "1.0.4", features = ["sqlite"] }
 nidus-cache = { version = "1.0.4", features = ["moka"] }
 ```
 
+The embedded dashboard is optional through the facade:
+
+```toml
+nidus = { package = "nidus-rs", version = "1.0.4", features = ["dashboard"] }
+```
+
 ## Feature Flags
 
 | Feature | Use when |
@@ -42,6 +48,7 @@ nidus-cache = { version = "1.0.4", features = ["moka"] }
 | `events` | dispatching in-process application events |
 | `jobs` | running sync or async job queues |
 | `observability` | wiring logs, metrics, traces, lifecycle validation, and adapter instrumentation |
+| `dashboard` | mounting the protected embedded runtime cockpit, dashboard APIs, capture, auth, and storage |
 | `otel` | enabling OpenTelemetry trace-context helpers through the HTTP surface |
 
 ## Common Imports

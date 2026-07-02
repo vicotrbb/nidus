@@ -55,7 +55,7 @@ const docs = [
   { title: 'Error Handling', slug: 'docs/error-handling', group: 'Runtime', source: 'docs/error-handling.md', summary: 'HTTP errors and production error envelopes.' },
   { title: 'OpenAPI', slug: 'docs/openapi', group: 'Runtime', source: 'docs/openapi.md', summary: 'OpenAPI route metadata and document rendering.' },
   { title: 'Observability', slug: 'docs/observability', group: 'Runtime', source: 'docs/observability.md', summary: 'Production logs, traces, metrics, events, jobs, lifecycle, and adapter instrumentation.' },
-  { title: 'Dashboard', slug: 'docs/dashboard', group: 'Runtime', source: 'docs/dashboard.md', summary: 'Embedded protected dashboard setup, storage, capture, APIs, and SSE.' },
+  { title: 'Dashboard', slug: 'docs/dashboard', group: 'Runtime', source: 'docs/dashboard.md', summary: 'Optional protected runtime cockpit with Home, Atlas, Timeline, storage, capture, APIs, and SSE.' },
   { title: 'Events', slug: 'docs/events', group: 'Runtime', source: 'docs/events.md', summary: 'In-process event bus and observed events.' },
   { title: 'Jobs', slug: 'docs/jobs', group: 'Runtime', source: 'docs/jobs.md', summary: 'Sync and async job queues with observed runners.' },
   { title: 'Testing', slug: 'docs/testing', group: 'Runtime', source: 'docs/testing.md', summary: 'TestApp request helpers and provider overrides.' },
@@ -841,7 +841,7 @@ cargo run`;
   const proof = [
     ['Install path', 'CLI install, facade dependency, and adapter crates are separated in docs.'],
     ['Runtime defaults', 'Request IDs, context, health, metrics, CORS, limits, timeouts, security headers, tracing.'],
-    ['Examples', 'launchpad-api and realworld-api exercise modules, validation, OpenAPI, health, metrics, events, and jobs.'],
+    ['Examples', 'launchpad-api, realworld-api, and dashboard-api exercise modules, validation, OpenAPI, health, metrics, events, jobs, and the runtime cockpit.'],
     ['Release boundary', 'Local dry-runs prove packageability; crates.io, docs.rs, and Pages deployment stay explicit external steps.'],
   ];
 
@@ -849,6 +849,7 @@ cargo run`;
     ['Install', 'docs/installation', 'Get the CLI and facade dependency shape.'],
     ['Mental model', 'docs/mental-model', 'See what happens at build time, startup, and per request.'],
     ['Examples', 'docs/examples', 'Jump to runnable services, including launchpad-api.'],
+    ['Dashboard', 'docs/dashboard', 'Inspect the optional runtime cockpit and API surface.'],
     ['Production', 'docs/production-defaults', 'Inspect HTTP defaults and deployment boundaries.'],
   ];
   const examplePaths = [
@@ -937,7 +938,7 @@ struct AppModule;</code></pre>
         <article>
           <span>04</span>
           <h3>Runtime proof</h3>
-          <p>Use CLI inspectors and TestApp to verify route shape, module graph, OpenAPI output, and request behavior.</p>
+          <p>Use CLI inspectors, TestApp, and the opt-in dashboard to verify route shape, module graph, OpenAPI output, and runtime behavior.</p>
         </article>
       </div>
     </section>
@@ -967,6 +968,7 @@ struct AppModule;</code></pre>
         <span>nidus-http</span>
         <span>nidus-openapi</span>
         <span>nidus-validation</span>
+        <span>nidus-dashboard</span>
         <span>nidus-sqlx</span>
         <span>nidus-cache</span>
         <span>cargo-nidus</span>

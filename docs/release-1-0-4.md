@@ -3,6 +3,17 @@
 Nidus 1.0.4 is a security hardening and release hygiene patch for the public
 crate set.
 
+## Runtime Dashboard
+
+- Added the optional `nidus-dashboard` crate and facade `dashboard` feature for
+  an embedded, protected runtime cockpit.
+- The dashboard surfaces Home, Atlas, Routes, Timeline, Adapters, and Settings.
+  Events and Jobs are consolidated into Timeline filters while their APIs and
+  data collection remain available.
+- The `examples/dashboard-api` app demonstrates bearer auth, trusted local
+  auth-disabled demos, SQLite storage, metadata-only capture, graph APIs, route
+  snapshots, event/job capture, and SSE checks.
+
 ## Security Hardening
 
 - Updated `anyhow` from 1.0.102 to 1.0.103 to clear RUSTSEC-2026-0190.

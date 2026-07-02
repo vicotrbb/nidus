@@ -1,6 +1,7 @@
 # Nidus Dashboard API Example
 
-This example mounts Nidus Dashboard at `/nidus/dashboard` with bearer auth,
+This example mounts Nidus Dashboard at `/nidus/dashboard` as an opt-in runtime
+cockpit with Home, Atlas, Routes, Timeline, Adapters, and Settings. It uses
 SQLite storage, metadata-only capture, route snapshots, event capture, job
 capture, the runtime graph API, an SSE stream, and normal application routes.
 
@@ -17,6 +18,15 @@ Run it:
 export NIDUS_DASHBOARD_TOKEN=dev-dashboard-token
 export NIDUS_DASHBOARD_DATABASE_URL='sqlite://./target/nidus-dashboard-example.sqlite?mode=rwc'
 cargo run -p nidus-example-dashboard-api
+```
+
+For a trusted local browser demo without bearer auth:
+
+```bash
+export NIDUS_DASHBOARD_DISABLE_AUTH=1
+export NIDUS_DASHBOARD_DATABASE_URL='sqlite://./target/nidus-dashboard-example.sqlite?mode=rwc'
+cargo run -p nidus-example-dashboard-api
+open http://127.0.0.1:4310/nidus/dashboard/
 ```
 
 App route checks:
@@ -43,6 +53,10 @@ curl -i http://127.0.0.1:4310/nidus/dashboard/api/overview
 curl -H 'Authorization: Bearer dev-dashboard-token' http://127.0.0.1:4310/nidus/dashboard/api/overview
 curl -H 'Authorization: Bearer dev-dashboard-token' http://127.0.0.1:4310/nidus/dashboard/api/graph
 curl -H 'Authorization: Bearer dev-dashboard-token' http://127.0.0.1:4310/nidus/dashboard/api/routes
+curl -H 'Authorization: Bearer dev-dashboard-token' http://127.0.0.1:4310/nidus/dashboard/api/events
+curl -H 'Authorization: Bearer dev-dashboard-token' http://127.0.0.1:4310/nidus/dashboard/api/jobs
+curl -H 'Authorization: Bearer dev-dashboard-token' http://127.0.0.1:4310/nidus/dashboard/api/adapters
+curl -H 'Authorization: Bearer dev-dashboard-token' http://127.0.0.1:4310/nidus/dashboard/api/timeline
 ```
 
 Seed realistic activity:
@@ -58,13 +72,36 @@ curl -X POST http://127.0.0.1:4310/activity/jobs/audit-retention
 
 curl -H 'Authorization: Bearer dev-dashboard-token' http://127.0.0.1:4310/nidus/dashboard/api/timeline
 curl -H 'Authorization: Bearer dev-dashboard-token' http://127.0.0.1:4310/nidus/dashboard/api/graph
+curl -H 'Authorization: Bearer dev-dashboard-token' http://127.0.0.1:4310/nidus/dashboard/api/events
+curl -H 'Authorization: Bearer dev-dashboard-token' http://127.0.0.1:4310/nidus/dashboard/api/jobs
 curl -N -H 'Authorization: Bearer dev-dashboard-token' http://127.0.0.1:4310/nidus/dashboard/stream
 ```
+
+With `NIDUS_DASHBOARD_DISABLE_AUTH=1`, omit the bearer header:
+
+```bash
+curl http://127.0.0.1:4310/nidus/dashboard/
+curl http://127.0.0.1:4310/nidus/dashboard/api/graph
+curl http://127.0.0.1:4310/nidus/dashboard/api/timeline
+curl http://127.0.0.1:4310/nidus/dashboard/api/events
+curl http://127.0.0.1:4310/nidus/dashboard/api/jobs
+```
+
+Browser proof targets:
+
+- Home opens by default at `/nidus/dashboard/`.
+- Atlas renders the runtime graph and SVG connectors.
+- Timeline contains All, Events, and Jobs filters; Events and Jobs are not
+  standalone navigation pages.
+- The graph, events, jobs, adapters, settings, timeline, and stream endpoints
+  remain available as dashboard APIs.
 
 Expected security behavior:
 
 - missing dashboard bearer token returns `401`
 - invalid dashboard bearer token returns `401`
 - valid dashboard bearer token returns the dashboard shell and APIs
+- `NIDUS_DASHBOARD_DISABLE_AUTH=1` disables dashboard auth only for a trusted
+  local demo
 - application routes remain normal app routes
 - payload capture is off by default

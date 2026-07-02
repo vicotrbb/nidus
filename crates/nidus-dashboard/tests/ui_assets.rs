@@ -19,7 +19,9 @@ fn embedded_dashboard_assets_include_nidus_palette_and_no_forbidden_patterns() {
 fn embedded_dashboard_shell_contains_runtime_introspection_surfaces() {
     let html = include_str!("../assets/index.html");
     assert!(html.contains("id=\"runtime-status\""));
-    assert!(html.contains("class=\"nav-item active\" data-view=\"home\">Home</button>"));
+    assert!(html.contains(
+        "class=\"nav-item active\" data-view=\"home\" aria-current=\"page\">Home</button>"
+    ));
     assert!(html.contains("class=\"nav-item\" data-view=\"atlas\">Atlas</button>"));
     assert!(html.find("data-view=\"home\"").unwrap() < html.find("data-view=\"atlas\"").unwrap());
     assert!(!html.contains("data-view=\"events\""));
@@ -41,7 +43,7 @@ fn embedded_dashboard_shell_contains_runtime_introspection_surfaces() {
     assert!(!html.contains("class=\"activity-rail\""));
     assert!(html.contains("id=\"atlas-search\""));
     assert!(html.contains("id=\"timeline-filter\""));
-    assert!(html.contains("data-timeline-filter=\"all\""));
+    assert!(html.contains("class=\"active\" data-timeline-filter=\"all\" aria-pressed=\"true\""));
     assert!(html.contains("data-timeline-filter=\"events\""));
     assert!(html.contains("data-timeline-filter=\"jobs\""));
     assert!(!html.contains("id=\"events\""));
@@ -86,10 +88,14 @@ fn embedded_dashboard_script_renders_contextual_rows_and_topology() {
     assert!(script.contains("Bearer token"));
     assert!(script.contains("Memory"));
     assert!(script.contains("SQLite"));
+    assert!(script.contains("settingDisplayValue"));
+    assert!(script.contains("humanReadableSettingValue(key, String(value))"));
     assert!(script.contains("operationTimingSnapshot"));
     assert!(script.contains("state.timelineFilter"));
     assert!(script.contains("filteredTimelineOperations"));
     assert!(script.contains("data-timeline-filter"));
+    assert!(script.contains("aria-current"));
+    assert!(script.contains("aria-pressed"));
     assert!(!script.contains("#events-list"));
     assert!(!script.contains("#jobs-list"));
     assert!(script.contains("deriveModuleSummaries"));
@@ -115,6 +121,18 @@ fn embedded_dashboard_script_renders_contextual_rows_and_topology() {
     assert!(script.contains("renderOperationList"));
     assert!(script.contains("renderRouteList"));
     assert!(script.contains("EventSource"));
+}
+
+#[test]
+fn embedded_dashboard_copy_avoids_raw_backend_modes_and_apm_claims() {
+    let html = include_str!("../assets/index.html");
+    let script = include_str!("../assets/app.js");
+
+    assert!(html.contains("Recorded durations"));
+    assert!(!html.contains("Performance snapshot"));
+    assert!(script.contains("settingDisplayValue"));
+    assert!(script.contains("humanReadableSettingValue(key, String(value))"));
+    assert!(!script.contains("description.textContent = String(value);"));
 }
 
 #[test]

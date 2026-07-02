@@ -150,10 +150,22 @@ impl NidusDashboard {
             .route(&format!("{path}/"), get(index))
             .route(&format!("{path}/assets/styles.css"), get(styles))
             .route(&format!("{path}/assets/app.js"), get(app_js))
-            .route(&format!("{path}/assets/logo-mark-square-transparent.png"), get(logo_mark))
-            .route(&format!("{path}/assets/favicon-branded-32.png"), get(favicon_branded_32))
-            .route(&format!("{path}/assets/favicon-branded-192.png"), get(favicon_branded_192))
-            .route(&format!("{path}/assets/apple-touch-icon.png"), get(apple_touch_icon))
+            .route(
+                &format!("{path}/assets/logo-mark-square-transparent.png"),
+                get(logo_mark),
+            )
+            .route(
+                &format!("{path}/assets/favicon-branded-32.png"),
+                get(favicon_branded_32),
+            )
+            .route(
+                &format!("{path}/assets/favicon-branded-192.png"),
+                get(favicon_branded_192),
+            )
+            .route(
+                &format!("{path}/assets/apple-touch-icon.png"),
+                get(apple_touch_icon),
+            )
             .route(&format!("{path}/api/overview"), get(overview))
             .route(&format!("{path}/api/graph"), get(graph))
             .route(&format!("{path}/api/routes"), get(routes))
