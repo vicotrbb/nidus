@@ -33,6 +33,10 @@ use crate::{
 const INDEX_HTML: &str = include_str!("../assets/index.html");
 const STYLES_CSS: &str = include_str!("../assets/styles.css");
 const APP_JS: &str = include_str!("../assets/app.js");
+const LOGO_MARK_PNG: &[u8] = include_bytes!("../assets/logo-mark-square-transparent.png");
+const FAVICON_BRANDED_32_PNG: &[u8] = include_bytes!("../assets/favicon-branded-32.png");
+const FAVICON_BRANDED_192_PNG: &[u8] = include_bytes!("../assets/favicon-branded-192.png");
+const APPLE_TOUCH_ICON_PNG: &[u8] = include_bytes!("../assets/apple-touch-icon.png");
 
 /// Embedded Nidus Dashboard.
 #[derive(Clone, Debug)]
@@ -116,6 +120,10 @@ impl NidusDashboard {
             .route("/", get(index))
             .route("/assets/styles.css", get(styles))
             .route("/assets/app.js", get(app_js))
+            .route("/assets/logo-mark-square-transparent.png", get(logo_mark))
+            .route("/assets/favicon-branded-32.png", get(favicon_branded_32))
+            .route("/assets/favicon-branded-192.png", get(favicon_branded_192))
+            .route("/assets/apple-touch-icon.png", get(apple_touch_icon))
             .route("/api/overview", get(overview))
             .route("/api/graph", get(graph))
             .route("/api/routes", get(routes))
@@ -142,6 +150,10 @@ impl NidusDashboard {
             .route(&format!("{path}/"), get(index))
             .route(&format!("{path}/assets/styles.css"), get(styles))
             .route(&format!("{path}/assets/app.js"), get(app_js))
+            .route(&format!("{path}/assets/logo-mark-square-transparent.png"), get(logo_mark))
+            .route(&format!("{path}/assets/favicon-branded-32.png"), get(favicon_branded_32))
+            .route(&format!("{path}/assets/favicon-branded-192.png"), get(favicon_branded_192))
+            .route(&format!("{path}/assets/apple-touch-icon.png"), get(apple_touch_icon))
             .route(&format!("{path}/api/overview"), get(overview))
             .route(&format!("{path}/api/graph"), get(graph))
             .route(&format!("{path}/api/routes"), get(routes))
@@ -193,6 +205,26 @@ async fn app_js() -> impl IntoResponse {
         [(http::header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
         APP_JS,
     )
+}
+
+async fn logo_mark() -> impl IntoResponse {
+    png(LOGO_MARK_PNG)
+}
+
+async fn favicon_branded_32() -> impl IntoResponse {
+    png(FAVICON_BRANDED_32_PNG)
+}
+
+async fn favicon_branded_192() -> impl IntoResponse {
+    png(FAVICON_BRANDED_192_PNG)
+}
+
+async fn apple_touch_icon() -> impl IntoResponse {
+    png(APPLE_TOUCH_ICON_PNG)
+}
+
+fn png(bytes: &'static [u8]) -> impl IntoResponse {
+    ([(http::header::CONTENT_TYPE, "image/png")], bytes)
 }
 
 #[derive(Serialize)]

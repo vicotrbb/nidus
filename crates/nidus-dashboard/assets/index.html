@@ -4,17 +4,16 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Nidus Runtime Atlas</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="./assets/favicon-branded-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="./assets/favicon-branded-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png" />
     <link rel="stylesheet" href="./assets/styles.css" />
   </head>
   <body>
     <div class="dashboard-shell">
       <header class="topbar">
         <div class="brand-lockup">
-          <div class="brand-mark" aria-hidden="true">
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
+          <img class="brand-logo" src="./assets/logo-mark-square-transparent.png" width="44" height="44" alt="" aria-hidden="true" />
           <div>
             <p class="eyebrow">Nidus runtime atlas</p>
             <h1>Nidus Runtime Atlas</h1>
@@ -31,56 +30,95 @@
       </header>
 
       <nav class="sidebar" aria-label="Dashboard sections">
-        <button class="nav-item active" data-view="overview">Atlas</button>
-        <button class="nav-item" data-view="graph">Graph</button>
+        <button class="nav-item active" data-view="home">Home</button>
+        <button class="nav-item" data-view="atlas">Atlas</button>
         <button class="nav-item" data-view="routes">Routes</button>
         <button class="nav-item" data-view="timeline">Timeline</button>
-        <button class="nav-item" data-view="events">Events</button>
-        <button class="nav-item" data-view="jobs">Jobs</button>
         <button class="nav-item" data-view="adapters">Adapters</button>
         <button class="nav-item" data-view="settings">Settings</button>
       </nav>
 
       <main class="main-panel">
-        <section class="view active" id="overview" aria-labelledby="overview-title">
+        <section class="view active" id="home" aria-labelledby="home-title">
+          <div class="view-heading">
+            <div>
+              <p class="section-kicker">Runtime cockpit</p>
+              <h2 id="home-title">Live Nidus app metrics</h2>
+            </div>
+            <nav class="home-links" aria-label="Frequent dashboard destinations">
+              <button type="button" data-home-target="atlas">Atlas</button>
+              <button type="button" data-home-target="timeline">Timeline</button>
+              <button type="button" data-home-target="routes">Routes</button>
+            </nav>
+          </div>
+
+          <section class="home-cockpit" aria-label="Runtime metrics">
+            <section class="home-panel" aria-labelledby="home-runtime-title">
+              <div class="home-panel-heading">
+                <p class="section-kicker">Runtime status</p>
+                <h3 id="home-runtime-title">Service and capture</h3>
+              </div>
+              <dl class="home-metric-grid" id="home-runtime"></dl>
+            </section>
+
+            <section class="home-panel" aria-labelledby="home-shape-title">
+              <div class="home-panel-heading">
+                <p class="section-kicker">Application shape</p>
+                <h3 id="home-shape-title">Registered surface</h3>
+              </div>
+              <dl class="home-metric-grid" id="home-shape"></dl>
+            </section>
+
+            <section class="home-panel" aria-labelledby="home-activity-title">
+              <div class="home-panel-heading">
+                <p class="section-kicker">Activity health</p>
+                <h3 id="home-activity-title">Timeline status</h3>
+              </div>
+              <dl class="home-metric-grid" id="home-activity"></dl>
+            </section>
+
+            <section class="home-panel" aria-labelledby="home-timing-title">
+              <div class="home-panel-heading">
+                <p class="section-kicker">Operation timing</p>
+                <h3 id="home-timing-title">Performance snapshot</h3>
+              </div>
+              <dl class="home-metric-grid" id="home-timing"></dl>
+            </section>
+
+            <section class="home-panel home-panel-wide" aria-labelledby="home-signals-title">
+              <div class="home-panel-heading">
+                <p class="section-kicker">Recent signals</p>
+                <h3 id="home-signals-title">Latest timeline entries</h3>
+              </div>
+              <ol class="data-list compact-signal-list" id="home-signals"></ol>
+            </section>
+          </section>
+        </section>
+
+        <section class="view" id="atlas" aria-labelledby="atlas-title">
           <div class="atlas-toolbar">
             <div>
               <p class="section-kicker">Live structure</p>
-              <h2 id="overview-title">Application graph and activity</h2>
+              <h2 id="atlas-title">Runtime Atlas</h2>
             </div>
-            <label class="search-box">
-              <span>Filter</span>
-              <input id="atlas-search" type="search" autocomplete="off" placeholder="module, route, event" />
-            </label>
+            <div class="atlas-controls">
+              <div class="segmented-control" id="graph-mode-control" aria-label="Graph mode">
+                <button type="button" class="active" data-graph-mode="structure">Structure</button>
+                <button type="button" data-graph-mode="routes">Routes</button>
+                <button type="button" data-graph-mode="activity">Activity</button>
+              </div>
+              <label class="search-box">
+                <span>Filter</span>
+                <input id="atlas-search" type="search" autocomplete="off" placeholder="module, route, event" />
+              </label>
+            </div>
           </div>
 
           <section class="atlas-instrument" aria-label="Runtime atlas">
             <div class="atlas-stage">
-              <div class="overview-map" id="overview-map" aria-label="Runtime counts"></div>
               <div class="graph-map" id="graph-map" aria-label="Runtime module graph"></div>
             </div>
-            <aside class="activity-rail" aria-labelledby="activity-title">
-              <div class="rail-heading">
-                <div>
-                  <p class="section-kicker">Recent signals</p>
-                  <h3 id="activity-title">Activity</h3>
-                </div>
-                <span id="activity-count">0 records</span>
-              </div>
-              <ol class="activity-list" id="overview-activity"></ol>
-            </aside>
           </section>
-        </section>
-
-        <section class="view" id="graph" aria-labelledby="graph-title">
-          <div class="view-heading">
-            <div>
-              <p class="section-kicker">Topology</p>
-              <h2 id="graph-title">Graph index</h2>
-            </div>
-            <span class="view-note">Real modules, imports, providers, controllers, routes, and activity</span>
-          </div>
-          <ol class="data-list graph-index" id="graph-list"></ol>
         </section>
 
         <section class="view" id="routes" aria-labelledby="routes-title">
@@ -100,28 +138,13 @@
               <p class="section-kicker">Chronology</p>
               <h2 id="timeline-title">Timeline</h2>
             </div>
+            <div class="segmented-control timeline-filter" id="timeline-filter" aria-label="Timeline filter">
+              <button type="button" class="active" data-timeline-filter="all">All</button>
+              <button type="button" data-timeline-filter="events">Events</button>
+              <button type="button" data-timeline-filter="jobs">Jobs</button>
+            </div>
           </div>
           <ol class="data-list" id="timeline-list"></ol>
-        </section>
-
-        <section class="view" id="events" aria-labelledby="events-title">
-          <div class="view-heading">
-            <div>
-              <p class="section-kicker">Async bus</p>
-              <h2 id="events-title">Events</h2>
-            </div>
-          </div>
-          <ol class="data-list" id="events-list"></ol>
-        </section>
-
-        <section class="view" id="jobs" aria-labelledby="jobs-title">
-          <div class="view-heading">
-            <div>
-              <p class="section-kicker">Work queue</p>
-              <h2 id="jobs-title">Jobs</h2>
-            </div>
-          </div>
-          <ol class="data-list" id="jobs-list"></ol>
         </section>
 
         <section class="view" id="adapters" aria-labelledby="adapters-title">

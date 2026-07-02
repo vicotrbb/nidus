@@ -213,8 +213,17 @@ type BoxedCaptureFuture = Pin<Box<dyn Future<Output = CaptureResult> + Send>>;
 
 #[nidus::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    let dashboard_auth = if std::env::var("NIDUS_DASHBOARD_DISABLE_AUTH")
+        .ok()
+        .is_some_and(|value| matches!(value.as_str(), "1" | "true" | "yes"))
+    {
+        DashboardAuth::unsafe_disabled_for_local_development()
+    } else {
+        DashboardAuth::bearer_from_env("NIDUS_DASHBOARD_TOKEN")
+    };
+
     let dashboard = NidusDashboard::builder()
-        .auth(DashboardAuth::bearer_from_env("NIDUS_DASHBOARD_TOKEN"))
+        .auth(dashboard_auth)
         .storage(DashboardStorage::sqlite_from_env(
             "NIDUS_DASHBOARD_DATABASE_URL",
         ))

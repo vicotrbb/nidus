@@ -50,9 +50,8 @@ body {
   background:
     linear-gradient(90deg, color-mix(in oklch, var(--line), transparent 86%) 1px, transparent 1px),
     linear-gradient(color-mix(in oklch, var(--line), transparent 90%) 1px, transparent 1px),
-    radial-gradient(circle at 8% 4%, color-mix(in oklch, var(--brand-soft), transparent 16%), transparent 27rem),
     linear-gradient(135deg, var(--bg), color-mix(in oklch, var(--paper), var(--brand-soft) 6%));
-  background-size: 96px 96px, 96px 96px, auto, auto;
+  background-size: 96px 96px, 96px 96px, auto;
   color: var(--text);
   font-family: "Afacad Flux", "Segoe UI", sans-serif;
   line-height: 1.42;
@@ -94,34 +93,13 @@ button {
   min-width: 0;
 }
 
-.brand-mark {
-  position: relative;
+.brand-logo {
+  display: block;
   flex: 0 0 44px;
   width: 44px;
   height: 44px;
-}
-
-.brand-mark span {
-  position: absolute;
-  border: 2px solid color-mix(in oklch, var(--brand), transparent 16%);
-  border-radius: 42% 58% 46% 54% / 54% 38% 62% 46%;
-  transform: rotate(-11deg);
-}
-
-.brand-mark span:nth-child(1) {
-  inset: 2px;
-}
-
-.brand-mark span:nth-child(2) {
-  inset: 10px;
-  border-color: color-mix(in oklch, var(--brand-deep), transparent 18%);
-  transform: rotate(18deg);
-}
-
-.brand-mark span:nth-child(3) {
-  inset: 19px;
-  background: var(--brand-deep);
-  border-color: var(--brand-deep);
+  object-fit: contain;
+  filter: drop-shadow(0 5px 12px color-mix(in oklch, var(--brand-deep), transparent 82%));
 }
 
 .eyebrow,
@@ -260,6 +238,14 @@ h3 {
   padding: var(--space-md) 0 var(--space-2xl);
 }
 
+body[data-active-view="home"] .main-panel {
+  grid-column: 2 / -1;
+}
+
+body[data-active-view="home"] .inspector {
+  display: none;
+}
+
 .view {
   display: none;
 }
@@ -272,7 +258,6 @@ h3 {
 
 .atlas-toolbar,
 .view-heading,
-.rail-heading,
 .inspector-heading {
   display: flex;
   align-items: flex-start;
@@ -281,8 +266,46 @@ h3 {
   min-width: 0;
 }
 
+.atlas-controls {
+  display: flex;
+  align-items: end;
+  justify-content: flex-end;
+  gap: var(--space-md);
+  min-width: min(560px, 58vw);
+}
+
+.segmented-control {
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(76px, 1fr));
+  min-height: 36px;
+  border: 1px solid color-mix(in oklch, var(--line), transparent 28%);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklch, var(--paper), transparent 8%);
+  padding: 2px;
+}
+
+.segmented-control button {
+  min-width: 0;
+  min-height: 30px;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius-sm) - 2px);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.segmented-control button:hover,
+.segmented-control button:focus-visible,
+.segmented-control button.active {
+  outline: none;
+  border-color: color-mix(in oklch, var(--brand), transparent 58%);
+  background: var(--pearl);
+  color: var(--ink);
+}
+
 .view-note,
-.rail-heading span,
 .inspector-meta {
   color: var(--muted);
   font-size: 0.86rem;
@@ -317,8 +340,8 @@ h3 {
 
 .atlas-instrument {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(240px, 0.32fr);
-  gap: var(--space-xl);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
   align-items: start;
   min-width: 0;
 }
@@ -330,57 +353,113 @@ h3 {
   min-width: 0;
 }
 
-.overview-map {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  align-self: start;
-  min-width: 0;
-  border-block: 1px solid color-mix(in oklch, var(--line), transparent 38%);
-  background: color-mix(in oklch, var(--paper), transparent 24%);
-}
-
-.atlas-fact {
-  display: grid;
+.home-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--space-xs);
   min-width: 0;
-  border: 0;
-  border-radius: 0;
-  padding: var(--space-sm) var(--space-md);
-  background: transparent;
-  text-align: left;
+}
+
+.home-links button {
+  min-height: 32px;
+  border: 1px solid color-mix(in oklch, var(--line), transparent 28%);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklch, var(--paper), transparent 18%);
+  color: var(--brand-deep);
+  padding: 0 var(--space-md);
+  font-size: 0.78rem;
+  font-weight: 760;
   cursor: pointer;
 }
 
-.atlas-fact + .atlas-fact {
-  border-inline-start: 1px solid color-mix(in oklch, var(--line), transparent 45%);
-}
-
-.atlas-fact:hover,
-.atlas-fact:focus-visible {
+.home-links button:hover,
+.home-links button:focus-visible {
   outline: none;
-  background: color-mix(in oklch, var(--brand-soft), transparent 55%);
-}
-
-.atlas-fact strong {
+  border-color: color-mix(in oklch, var(--brand), transparent 46%);
+  background: var(--pearl);
   color: var(--ink);
-  font-family: "Bricolage Grotesque", "Afacad Flux", sans-serif;
-  font-size: 1.48rem;
-  line-height: 1;
 }
 
-.atlas-fact span {
+.home-cockpit {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-lg);
   min-width: 0;
-  overflow-wrap: anywhere;
+}
+
+.home-panel {
+  display: grid;
+  align-content: start;
+  gap: var(--space-md);
+  min-width: 0;
+  border-block: 1px solid color-mix(in oklch, var(--line), transparent 38%);
+  background: color-mix(in oklch, var(--paper), transparent 24%);
+  padding: var(--space-lg) 0;
+}
+
+.home-panel-wide {
+  grid-column: 1 / -1;
+}
+
+.home-panel-heading,
+.home-metric-grid,
+.compact-signal-list {
+  padding-inline: var(--space-lg);
+}
+
+.home-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.home-metric {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.home-metric dt {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 760;
   text-transform: uppercase;
+}
+
+.home-metric dd {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  margin: 0;
+}
+
+.home-metric strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-family: "Bricolage Grotesque", "Afacad Flux", sans-serif;
+  font-size: 1.1rem;
+  line-height: 1.08;
+}
+
+.home-metric span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.compact-signal {
+  grid-template-columns: minmax(0, 1fr) minmax(118px, 0.3fr) minmax(96px, 0.18fr);
+  align-items: center;
 }
 
 .graph-map {
   position: relative;
   min-width: 0;
-  min-height: 980px;
+  min-height: clamp(680px, 72vh, 920px);
   overflow: hidden;
   border-block: 1px solid color-mix(in oklch, var(--line), transparent 36%);
   background:
@@ -399,43 +478,55 @@ h3 {
   pointer-events: none;
 }
 
-.graph-edges line {
+.graph-edges path {
   stroke: color-mix(in oklch, var(--brand-deep), transparent 66%);
-  stroke-width: 0.22;
+  stroke-width: 1.35;
   vector-effect: non-scaling-stroke;
+  stroke-linecap: square;
+  stroke-linejoin: round;
   transition:
     opacity 160ms var(--ease-snap),
     stroke 160ms var(--ease-snap),
     stroke-width 160ms var(--ease-snap);
 }
 
-.graph-edges line[data-kind="module_import"] {
-  stroke: color-mix(in oklch, var(--blue), transparent 50%);
+.graph-edges path[data-kind="module_import"] {
+  stroke: color-mix(in oklch, var(--blue), transparent 72%);
+  stroke-width: 1;
+  stroke-dasharray: 5 7;
+  opacity: 0.46;
 }
 
-.graph-edges line[data-kind="runtime_activity"] {
+.graph-edges path[data-kind="runtime_activity"] {
   stroke-dasharray: 3 3;
   stroke: color-mix(in oklch, var(--green), transparent 42%);
 }
 
-.graph-edges line.is-related {
+.graph-edges path.is-related {
   stroke: var(--brand-deep);
-  stroke-width: 0.5;
+  stroke-width: 1.7;
 }
 
-.graph-edges line.is-dimmed {
-  opacity: 0.16;
+.graph-edges path[data-kind="module_import"].is-related {
+  stroke: color-mix(in oklch, var(--brand-deep), transparent 38%);
+  stroke-width: 1.15;
+  opacity: 0.72;
+}
+
+.graph-edges path.is-dimmed {
+  opacity: 0.06;
 }
 
 .graph-node {
   position: absolute;
   display: grid;
-  gap: var(--space-xs);
-  width: clamp(122px, 13vw, 172px);
-  min-height: 58px;
+  grid-template-rows: auto auto 1fr;
+  gap: 6px;
+  width: clamp(142px, 13vw, 180px);
+  min-height: 68px;
   border: 1px solid color-mix(in oklch, var(--line), transparent 24%);
   border-radius: var(--radius-sm);
-  padding: var(--space-xs) var(--space-sm);
+  padding: 9px 10px 10px;
   background: color-mix(in oklch, var(--paper), transparent 6%);
   color: inherit;
   text-align: left;
@@ -447,6 +538,25 @@ h3 {
     border-color 160ms var(--ease-snap),
     box-shadow 160ms var(--ease-snap),
     transform 160ms var(--ease-snap);
+}
+
+.topology-port {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border: 1px solid color-mix(in oklch, var(--brand-deep), transparent 38%);
+  border-radius: 50%;
+  background: var(--paper);
+  transform: translateY(-50%);
+}
+
+.topology-port-input {
+  left: -5px;
+}
+
+.topology-port-output {
+  right: -5px;
 }
 
 .graph-node strong,
@@ -461,10 +571,43 @@ h3 {
   line-height: 1.12;
 }
 
-.graph-node > span:last-child {
+.node-summary {
   color: var(--muted);
   font-size: 0.76rem;
   font-weight: 650;
+}
+
+.module-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.module-metric {
+  display: inline-flex;
+  justify-content: center;
+  min-height: 18px;
+  padding-inline: 6px;
+  border-color: color-mix(in oklch, var(--brand), transparent 62%);
+  background: color-mix(in oklch, var(--paper), transparent 18%);
+  color: var(--brand-deep);
+  font-size: 0.6rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.activity-signal {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--green);
+  color: var(--paper);
+  font-size: 0.66rem;
+  font-weight: 760;
 }
 
 .node-kind,
@@ -476,27 +619,47 @@ h3 {
 }
 
 .graph-node-runtime {
-  min-height: 104px;
-  align-content: end;
+  width: 136px;
+  min-height: 84px;
+  align-content: center;
   border-color: var(--code-line);
-  border-radius: 43% 57% 45% 55% / 58% 42% 58% 42%;
+  border-radius: var(--radius-sm);
   background:
-    radial-gradient(circle at 75% 22%, color-mix(in oklch, var(--brand), transparent 54%), transparent 32%),
-    linear-gradient(160deg, color-mix(in oklch, var(--code-panel), var(--brand) 12%), var(--code-bg));
+    linear-gradient(90deg, color-mix(in oklch, var(--code-line), transparent 45%) 1px, transparent 1px),
+    linear-gradient(color-mix(in oklch, var(--code-line), transparent 56%) 1px, transparent 1px),
+    linear-gradient(160deg, color-mix(in oklch, var(--code-panel), var(--brand) 10%), var(--code-bg));
+  background-size: 18px 18px, 18px 18px, auto;
 }
 
 .graph-node-runtime strong,
-.graph-node-runtime span {
+.graph-node-runtime .node-summary {
   color: var(--code-text);
 }
 
+.graph-node-runtime .node-kind {
+  border-color: color-mix(in oklch, var(--code-text), transparent 70%);
+  color: color-mix(in oklch, var(--code-text), transparent 8%);
+}
+
+.graph-node-runtime .topology-port-input {
+  display: none;
+}
+
+.graph-node-runtime .topology-port-output {
+  background: var(--green);
+  border-color: color-mix(in oklch, var(--green), transparent 16%);
+}
+
 .graph-node-module {
-  min-height: 82px;
-  border-radius: 38% 62% 45% 55% / 58% 40% 60% 42%;
+  width: clamp(184px, 14vw, 200px);
+  min-height: 108px;
+  border-radius: var(--radius-sm);
   background: color-mix(in oklch, var(--brand-soft), var(--paper) 54%);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--paper), transparent 14%);
 }
 
 .graph-node-controller {
+  width: clamp(132px, 12vw, 156px);
   border-color: color-mix(in oklch, var(--blue), transparent 38%);
 }
 
@@ -505,7 +668,7 @@ h3 {
 }
 
 .graph-node-route {
-  width: clamp(142px, 15vw, 196px);
+  width: clamp(136px, 12vw, 164px);
 }
 
 .graph-node-event,
@@ -522,7 +685,15 @@ h3 {
   border-color: color-mix(in oklch, var(--brand), transparent 32%);
   background: color-mix(in oklch, var(--brand-soft), transparent 38%);
   box-shadow: 0 14px 34px color-mix(in oklch, var(--brand-deep), transparent 88%);
-  transform: translate(-50%, -52%);
+  transform: translate(-50%, -50%);
+}
+
+.graph-node.selected {
+  border-color: color-mix(in oklch, var(--brand), transparent 12%);
+  background: color-mix(in oklch, var(--brand-soft), var(--paper) 28%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklch, var(--brand), transparent 42%),
+    0 14px 34px color-mix(in oklch, var(--brand-deep), transparent 88%);
 }
 
 .graph-node.is-related {
@@ -533,18 +704,41 @@ h3 {
   opacity: 0.34;
 }
 
-.activity-rail {
-  display: grid;
-  align-content: start;
-  gap: var(--space-md);
-  min-width: 0;
-  max-height: min(760px, calc(100vh - 148px));
-  border-block: 1px solid color-mix(in oklch, var(--line), transparent 40%);
-  padding-block: var(--space-sm);
-  overflow: auto;
+.graph-node.is-search-muted {
+  opacity: 0.22;
 }
 
-.activity-list,
+.graph-node.is-search-match {
+  border-color: var(--brand);
+  background: color-mix(in oklch, var(--brand-soft), var(--paper) 36%);
+}
+
+.graph-map[data-mode="routes"] .graph-node-module:not(.selected) {
+  opacity: 0.52;
+}
+
+.graph-map[data-mode="routes"] .graph-node-controller,
+.graph-map[data-mode="routes"] .graph-node-route {
+  background: color-mix(in oklch, var(--paper), var(--blue) 4%);
+}
+
+.graph-map[data-mode="activity"] .graph-node-module {
+  background: color-mix(in oklch, var(--brand-soft), var(--green) 8%);
+}
+
+.graph-map[data-mode="activity"] .activity-signal {
+  min-width: 22px;
+  height: 22px;
+  background: color-mix(in oklch, var(--green), var(--brand-deep) 10%);
+}
+
+.muted-line {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 650;
+}
+
 .data-list {
   display: grid;
   gap: var(--space-xs);
@@ -554,8 +748,7 @@ h3 {
 }
 
 .record-row,
-.route-row,
-.graph-row {
+.route-row {
   position: relative;
   display: grid;
   gap: var(--space-xs);
@@ -572,8 +765,7 @@ h3 {
 }
 
 .record-row::after,
-.route-row::after,
-.graph-row::after {
+.route-row::after {
   content: "";
   position: absolute;
   inset-inline: var(--space-md);
@@ -587,10 +779,7 @@ h3 {
 .record-row.selected,
 .route-row:hover,
 .route-row:focus-visible,
-.route-row.selected,
-.graph-row:hover,
-.graph-row:focus-visible,
-.graph-row.selected {
+.route-row.selected {
   outline: none;
   border-color: color-mix(in oklch, var(--brand), transparent 46%);
   background: color-mix(in oklch, var(--brand-soft), transparent 52%);
@@ -665,8 +854,7 @@ h3 {
   color: var(--amber);
 }
 
-.route-row,
-.graph-row {
+.route-row {
   grid-template-columns: 62px minmax(0, 1fr) minmax(120px, 0.42fr);
   align-items: center;
 }
@@ -862,6 +1050,10 @@ pre {
     grid-column: 1;
   }
 
+  body[data-active-view="home"] .main-panel {
+    grid-column: 1;
+  }
+
   .topbar {
     align-items: flex-start;
   }
@@ -905,9 +1097,9 @@ pre {
   }
 
   .topbar,
+  .atlas-controls,
   .atlas-toolbar,
   .view-heading,
-  .rail-heading,
   .inspector-heading {
     align-items: flex-start;
     flex-direction: column;
@@ -918,7 +1110,7 @@ pre {
     gap: var(--space-sm);
   }
 
-  .brand-mark {
+  .brand-logo {
     flex-basis: 36px;
     width: 36px;
     height: 36px;
@@ -961,24 +1153,36 @@ pre {
     min-width: 0;
   }
 
-  .overview-map,
+  .atlas-controls {
+    align-items: stretch;
+    flex-direction: column;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .segmented-control {
+    width: 100%;
+  }
+
   .route-row,
-  .graph-row,
+  .compact-signal,
   .settings-list,
   .inspector-kv {
     grid-template-columns: 1fr;
   }
 
-  .overview-map {
+  .home-cockpit {
+    grid-template-columns: 1fr;
+  }
+
+  .home-metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-inline: var(--space-md);
   }
 
-  .atlas-fact {
-    padding: var(--space-sm) var(--space-md);
-  }
-
-  .atlas-fact + .atlas-fact {
-    border-inline-start: 0;
+  .home-panel-heading,
+  .compact-signal-list {
+    padding-inline: var(--space-md);
   }
 
   .graph-map {
@@ -991,7 +1195,6 @@ pre {
   .graph-map.is-outline {
     display: grid;
     gap: var(--space-md);
-    max-height: 128px;
     overflow: auto;
     padding-block: var(--space-sm);
   }
