@@ -5,6 +5,8 @@ use nidus_core::{LifecycleHook, LifecycleRunner, NidusError};
 use tracing::Level;
 use tracing_subscriber::{Layer, fmt::MakeWriter, layer::SubscriberExt};
 
+static TRACING_CAPTURE_LOCK: Mutex<()> = Mutex::new(());
+
 #[derive(Clone, Default)]
 struct SharedLogWriter {
     output: Arc<Mutex<Vec<u8>>>,
@@ -141,6 +143,7 @@ async fn lifecycle_runner_starts_in_order_and_shuts_down_in_reverse_order() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn lifecycle_runner_emits_startup_and_shutdown_debug_logs() {
+    let _capture_guard = TRACING_CAPTURE_LOCK.lock().unwrap();
     let writer = SharedLogWriter::default();
     let subscriber = tracing_subscriber::registry().with(
         tracing_subscriber::fmt::layer()
@@ -203,6 +206,7 @@ async fn lifecycle_runner_rolls_back_started_hooks_when_startup_fails() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn lifecycle_runner_emits_failure_and_rollback_logs() {
+    let _capture_guard = TRACING_CAPTURE_LOCK.lock().unwrap();
     let writer = SharedLogWriter::default();
     let subscriber = tracing_subscriber::registry().with(
         tracing_subscriber::fmt::layer()
