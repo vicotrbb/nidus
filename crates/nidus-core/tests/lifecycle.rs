@@ -141,37 +141,43 @@ async fn lifecycle_runner_starts_in_order_and_shuts_down_in_reverse_order() {
     );
 }
 
-#[tokio::test(flavor = "current_thread")]
-async fn lifecycle_runner_emits_startup_and_shutdown_debug_logs() {
+#[test]
+fn lifecycle_runner_emits_startup_and_shutdown_debug_logs() {
     let _capture_guard = TRACING_CAPTURE_LOCK.lock().unwrap();
-    let writer = SharedLogWriter::default();
-    let subscriber = tracing_subscriber::registry().with(
-        tracing_subscriber::fmt::layer()
-            .with_writer(writer.clone())
-            .with_ansi(false)
-            .with_target(false)
-            .with_filter(tracing_subscriber::filter::LevelFilter::from_level(
-                Level::DEBUG,
-            )),
-    );
-    let _guard = tracing::subscriber::set_default(subscriber);
-    tracing_core::callsite::rebuild_interest_cache();
-    let events = Arc::new(Mutex::new(Vec::new()));
-    let runner = LifecycleRunner::new().hook(RecordingHook {
-        name: "database",
-        events,
-    });
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            let writer = SharedLogWriter::default();
+            let subscriber = tracing_subscriber::registry().with(
+                tracing_subscriber::fmt::layer()
+                    .with_writer(writer.clone())
+                    .with_ansi(false)
+                    .with_target(false)
+                    .with_filter(tracing_subscriber::filter::LevelFilter::from_level(
+                        Level::DEBUG,
+                    )),
+            );
+            let _guard = tracing::subscriber::set_default(subscriber);
+            tracing_core::callsite::rebuild_interest_cache();
+            let events = Arc::new(Mutex::new(Vec::new()));
+            let runner = LifecycleRunner::new().hook(RecordingHook {
+                name: "database",
+                events,
+            });
 
-    runner.startup().await.unwrap();
-    runner.shutdown().await.unwrap();
+            runner.startup().await.unwrap();
+            runner.shutdown().await.unwrap();
 
-    let logs = writer.contents();
-    assert!(logs.contains("lifecycle startup begin"));
-    assert!(logs.contains("lifecycle startup hook begin"));
-    assert!(logs.contains("lifecycle startup hook complete"));
-    assert!(logs.contains("lifecycle shutdown hook begin"));
-    assert!(logs.contains("lifecycle shutdown hook complete"));
-    assert!(logs.contains("lifecycle shutdown complete"));
+            let logs = writer.contents();
+            assert!(logs.contains("lifecycle startup begin"));
+            assert!(logs.contains("lifecycle startup hook begin"));
+            assert!(logs.contains("lifecycle startup hook complete"));
+            assert!(logs.contains("lifecycle shutdown hook begin"));
+            assert!(logs.contains("lifecycle shutdown hook complete"));
+            assert!(logs.contains("lifecycle shutdown complete"));
+        });
 }
 
 #[tokio::test]
@@ -204,39 +210,45 @@ async fn lifecycle_runner_rolls_back_started_hooks_when_startup_fails() {
     );
 }
 
-#[tokio::test(flavor = "current_thread")]
-async fn lifecycle_runner_emits_failure_and_rollback_logs() {
+#[test]
+fn lifecycle_runner_emits_failure_and_rollback_logs() {
     let _capture_guard = TRACING_CAPTURE_LOCK.lock().unwrap();
-    let writer = SharedLogWriter::default();
-    let subscriber = tracing_subscriber::registry().with(
-        tracing_subscriber::fmt::layer()
-            .with_writer(writer.clone())
-            .with_ansi(false)
-            .with_target(false)
-            .with_filter(tracing_subscriber::filter::LevelFilter::from_level(
-                Level::DEBUG,
-            )),
-    );
-    let _guard = tracing::subscriber::set_default(subscriber);
-    tracing_core::callsite::rebuild_interest_cache();
-    let events = Arc::new(Mutex::new(Vec::new()));
-    let runner = LifecycleRunner::new()
-        .hook(RecordingHook {
-            name: "database",
-            events: Arc::clone(&events),
-        })
-        .hook(FailingStartupHook {
-            name: "server",
-            events,
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            let writer = SharedLogWriter::default();
+            let subscriber = tracing_subscriber::registry().with(
+                tracing_subscriber::fmt::layer()
+                    .with_writer(writer.clone())
+                    .with_ansi(false)
+                    .with_target(false)
+                    .with_filter(tracing_subscriber::filter::LevelFilter::from_level(
+                        Level::DEBUG,
+                    )),
+            );
+            let _guard = tracing::subscriber::set_default(subscriber);
+            tracing_core::callsite::rebuild_interest_cache();
+            let events = Arc::new(Mutex::new(Vec::new()));
+            let runner = LifecycleRunner::new()
+                .hook(RecordingHook {
+                    name: "database",
+                    events: Arc::clone(&events),
+                })
+                .hook(FailingStartupHook {
+                    name: "server",
+                    events,
+                });
+
+            let error = runner.startup().await.unwrap_err();
+
+            assert!(matches!(error, NidusError::LifecycleStartup { .. }));
+            let logs = writer.contents();
+            assert!(logs.contains("lifecycle startup hook failed"));
+            assert!(logs.contains("lifecycle startup rollback hook begin"));
+            assert!(logs.contains("lifecycle startup rollback hook complete"));
         });
-
-    let error = runner.startup().await.unwrap_err();
-
-    assert!(matches!(error, NidusError::LifecycleStartup { .. }));
-    let logs = writer.contents();
-    assert!(logs.contains("lifecycle startup hook failed"));
-    assert!(logs.contains("lifecycle startup rollback hook begin"));
-    assert!(logs.contains("lifecycle startup rollback hook complete"));
 }
 
 #[tokio::test]
