@@ -13,6 +13,7 @@ crates=(
   nidus-testing
   nidus-openapi
   nidus-observability
+  nidus-dashboard
   nidus-rs
   nidus-cache
   nidus-sqlx
@@ -34,6 +35,12 @@ for crate in "${crates[@]}"; do
 
   if grep -q "no crates with library targets selected" "${output}"; then
     echo "skipping ${crate}: no semver-checkable library target"
+    rm -f "${output}"
+    continue
+  fi
+
+  if grep -q "${crate} not found in registry" "${output}"; then
+    echo "skipping ${crate}: no published baseline found"
     rm -f "${output}"
     continue
   fi

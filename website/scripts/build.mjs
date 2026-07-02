@@ -11,7 +11,7 @@ const DIST = path.join(WEBSITE, 'dist');
 const BASE = normalizeBase(process.env.NIDUS_SITE_BASE ?? '/');
 const SITE_DOMAIN = (process.env.NIDUS_SITE_DOMAIN ?? '').trim();
 const SITE_ORIGIN = SITE_DOMAIN ? `https://${SITE_DOMAIN}` : '';
-const RELEASE_VERSION = '1.0.4';
+const RELEASE_VERSION = '1.0.5';
 const SITE_DESCRIPTION = 'Nidus is a modular Rust backend framework for explicit services, typed dependency injection, Axum routes, Tower middleware, OpenAPI, observability, testing, and installable adapters.';
 
 const docs = [
@@ -74,6 +74,13 @@ const docs = [
     group: 'Reference',
     source: 'docs/api-reference.md',
     summary: 'Crate map and generated Rust API reference entry points.',
+  },
+  {
+    title: 'Release 1.0.5',
+    slug: 'docs/release-1-0-5',
+    group: 'Reference',
+    source: 'docs/release-1-0-5.md',
+    summary: 'Nidus 1.0.5 release notes and proof boundaries.',
   },
   {
     title: 'Release 1.0.4',
@@ -708,7 +715,7 @@ function pageShell({ title, description, body, currentSlug, home = false, standa
         ['Modules', href('docs/modules/')],
         ['Production defaults', href('docs/production-defaults/')],
         ['Official adapters', href('docs/official-adapters/')],
-        ['Release notes', href('docs/release-1-0-4/')],
+        ['Release notes', href('docs/release-1-0-5/')],
       ],
     },
     {

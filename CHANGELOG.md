@@ -4,6 +4,19 @@
 
 - No unreleased changes yet.
 
+## 1.0.5 - 2026-07-02
+
+- Added the optional `nidus-dashboard` crate and facade `dashboard` feature for
+  an embedded, protected runtime cockpit.
+- Added Home, Atlas, Routes, Timeline, Adapters, and Settings dashboard
+  surfaces, with Events and Jobs consolidated into Timeline filters while their
+  APIs remain available.
+- Added branded dashboard logo and favicon asset routes behind dashboard auth.
+- Hardened dashboard UI mode rendering, operation timing copy, keyboard state,
+  active navigation state, and mobile or desktop layout proof.
+- Refreshed docs, examples, website, generated starter defaults, and version
+  references for the 1.0.5 release.
+
 ## 1.0.4 - 2026-06-29
 
 - Updated `anyhow` to 1.0.103 to address RUSTSEC-2026-0190.

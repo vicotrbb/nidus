@@ -201,6 +201,7 @@ jobs:
           publish_one nidus-testing
           publish_one nidus-openapi
           publish_one nidus-observability
+          publish_one nidus-dashboard
           publish_one nidus-rs
           publish_one nidus-cache
           publish_one nidus-sqlx

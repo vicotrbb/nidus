@@ -38,6 +38,7 @@ crates=(
   nidus-testing
   nidus-openapi
   nidus-observability
+  nidus-dashboard
   nidus-rs
   nidus-cache
   nidus-sqlx

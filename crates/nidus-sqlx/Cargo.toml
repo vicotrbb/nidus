@@ -21,15 +21,15 @@ health = ["dep:nidus-http"]
 observability = ["dep:nidus-observability"]
 
 [dependencies]
-nidus-core = { path = "../nidus-core", version = "1.0.4" }
-nidus-config = { path = "../nidus-config", version = "1.0.4", optional = true }
-nidus-http = { path = "../nidus-http", version = "1.0.4", optional = true }
-nidus-observability = { path = "../nidus-observability", version = "1.0.4", optional = true }
+nidus-core = { path = "../nidus-core", version = "1.0.5" }
+nidus-config = { path = "../nidus-config", version = "1.0.5", optional = true }
+nidus-http = { path = "../nidus-http", version = "1.0.5", optional = true }
+nidus-observability = { path = "../nidus-observability", version = "1.0.5", optional = true }
 serde.workspace = true
 sqlx.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
-nidus-config = { path = "../nidus-config", version = "1.0.4" }
+nidus-config = { path = "../nidus-config", version = "1.0.5" }
 tokio = { workspace = true, features = ["time"] }
 trybuild.workspace = true

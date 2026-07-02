@@ -47,11 +47,12 @@ Nidus is a modular Rust backend framework that keeps framework behavior explicit
 
 - [Architecture](architecture.md)
 - [API Reference](api-reference.md)
+- [Release 1.0.5](release-1-0-5.md)
 - [Release 1.0.4](release-1-0-4.md)
 - [Release 1.0.3](release-1-0-3.md)
 
 ## Current Status
 
-Nidus 1.0.0 established the public crate set. The current release track is 1.0.4, with work focused on launch hygiene, documentation, starter project depth, example proof, and package verification across every publishable crate.
+Nidus 1.0.0 established the public crate set. The current release track is 1.0.5, focused on the opt-in dashboard runtime cockpit, documentation alignment, example proof, and package verification across every publishable crate.
 
 Use the README for the shortest quickstart, these guides for the deeper mental model, and `website/` for the generated GitHub Pages portal.

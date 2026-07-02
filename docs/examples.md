@@ -63,10 +63,10 @@ members; each has its own `[workspace]` table and uses published dependency
 declarations such as:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.4", features = ["http"] }
-nidus-sqlx = { version = "1.0.4", features = ["sqlite", "health", "observability"] }
-nidus-cache = { version = "1.0.4", features = ["health", "observability"] }
-nidus-testing = "1.0.4"
+nidus = { package = "nidus-rs", version = "1.0.5", features = ["http"] }
+nidus-sqlx = { version = "1.0.5", features = ["sqlite", "health", "observability"] }
+nidus-cache = { version = "1.0.5", features = ["health", "observability"] }
+nidus-testing = "1.0.5"
 ```
 
 Verify both examples with:
@@ -75,7 +75,7 @@ Verify both examples with:
 bash scripts/verify-external-examples.sh
 ```
 
-Before `1.0.4` is published to crates.io, use the pre-publish proof mode:
+Before `1.0.5` is published to crates.io, use the pre-publish proof mode:
 
 ```bash
 NIDUS_EXTERNAL_EXAMPLES_LOCAL_PATCH=1 bash scripts/verify-external-examples.sh
@@ -83,7 +83,7 @@ NIDUS_EXTERNAL_EXAMPLES_LOCAL_PATCH=1 bash scripts/verify-external-examples.sh
 
 That mode copies both external examples into a temporary directory and appends
 temporary `[patch.crates-io]` entries there only. It proves the examples against
-the current local `1.0.4` crates without adding path dependencies to the
+the current local `1.0.5` crates without adding path dependencies to the
 checked-in manifests. The default command remains the post-publish crates.io
 verification path.
 
