@@ -181,17 +181,18 @@ impl PrometheusMetrics {
 fn render_prometheus(state: &PrometheusState) -> String {
     let mut output = String::new();
     output.push_str("# TYPE nidus_http_requests_total counter\n");
-    for ((method, route, status), count) in &state.requests_total {
+    for ((method, route, status), series) in &state.series {
         output.push_str(&format!(
             "nidus_http_requests_total{{method=\"{}\",route=\"{}\",status=\"{}\"}} {}\n",
             escape_label(method),
             escape_label(route),
             status,
-            count
+            series.requests
         ));
     }
     output.push_str("# TYPE nidus_http_request_duration_seconds histogram\n");
-    for ((method, route, status), histogram) in &state.durations {
+    for ((method, route, status), series) in &state.series {
+        let histogram = &series.histogram;
         for (bucket, count) in HTTP_DURATION_BUCKETS
             .iter()
             .zip(histogram.bucket_counts.iter())
@@ -237,13 +238,16 @@ fn render_prometheus(state: &PrometheusState) -> String {
         ));
     }
     output.push_str("# TYPE nidus_http_errors_total counter\n");
-    for ((method, route, status), count) in &state.errors_total {
+    for ((method, route, status), series) in &state.series {
+        if series.errors == 0 {
+            continue;
+        }
         output.push_str(&format!(
             "nidus_http_errors_total{{method=\"{}\",route=\"{}\",status=\"{}\"}} {}\n",
             escape_label(method),
             escape_label(route),
             status,
-            count
+            series.errors
         ));
     }
     output
@@ -282,44 +286,30 @@ impl HttpMetricsHook for PrometheusMetrics {
         status: StatusCode,
         latency: Duration,
     ) {
-        if !self.should_record(route) {
-            return;
-        }
-        let method = method.as_str().to_owned();
-        let route = route.unwrap_or("<unknown>").to_owned();
-        let status = status.as_u16();
-        let mut state = self
-            .state
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let route = match self.max_series {
-            Some(max) => state.admit_route(route, max),
-            None => route,
-        };
-        *state
-            .requests_total
-            .entry((method.clone(), route.clone(), status))
-            .or_default() += 1;
-        state
-            .durations
-            .entry((method.clone(), route.clone(), status))
-            .or_default()
-            .observe(latency);
-        if StatusCode::from_u16(status)
-            .is_ok_and(|status| status.is_client_error() || status.is_server_error())
-        {
-            *state
-                .errors_total
-                .entry((method.clone(), route.clone(), status))
-                .or_default() += 1;
-        }
-        let key = (method, route);
-        if let Some(count) = state.in_flight.get_mut(&key) {
-            *count = count.saturating_sub(1);
-        }
+        let is_error = status.is_client_error() || status.is_server_error();
+        self.record_completion(method, route, status.as_u16(), latency, is_error);
     }
 
     fn on_error(&self, method: &Method, route: Option<&str>, latency: Duration) {
+        self.record_completion(
+            method,
+            route,
+            StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
+            latency,
+            true,
+        );
+    }
+}
+
+impl PrometheusMetrics {
+    fn record_completion(
+        &self,
+        method: &Method,
+        route: Option<&str>,
+        status: u16,
+        latency: Duration,
+        is_error: bool,
+    ) {
         if !self.should_record(route) {
             return;
         }
@@ -333,34 +323,35 @@ impl HttpMetricsHook for PrometheusMetrics {
             Some(max) => state.admit_route(route, max),
             None => route,
         };
-        let status = StatusCode::INTERNAL_SERVER_ERROR.as_u16();
-        *state
-            .requests_total
-            .entry((method.clone(), route.clone(), status))
-            .or_default() += 1;
-        state
-            .durations
-            .entry((method.clone(), route.clone(), status))
-            .or_default()
-            .observe(latency);
-        *state
-            .errors_total
-            .entry((method.clone(), route.clone(), status))
-            .or_default() += 1;
+        // Update in-flight first so the owned key can then be moved into the
+        // series key without cloning either label.
         let key = (method, route);
         if let Some(count) = state.in_flight.get_mut(&key) {
             *count = count.saturating_sub(1);
+        }
+        let (method, route) = key;
+        let series = state.series.entry((method, route, status)).or_default();
+        series.requests += 1;
+        series.histogram.observe(latency);
+        if is_error {
+            series.errors += 1;
         }
     }
 }
 
 #[derive(Clone, Debug, Default)]
 struct PrometheusState {
-    requests_total: BTreeMap<(String, String, u16), u64>,
-    durations: BTreeMap<(String, String, u16), DurationHistogram>,
+    series: BTreeMap<(String, String, u16), StatusSeries>,
     in_flight: BTreeMap<(String, String), u64>,
-    errors_total: BTreeMap<(String, String, u16), u64>,
     known_routes: BTreeSet<String>,
+}
+
+/// Counters and histogram for one `(method, route, status)` label set.
+#[derive(Clone, Debug, Default)]
+struct StatusSeries {
+    requests: u64,
+    errors: u64,
+    histogram: DurationHistogram,
 }
 
 impl PrometheusState {
