@@ -57,22 +57,20 @@ where
     }
 
     fn call(&mut self, request: Request<RequestBody>) -> Self::Future {
-        let request_id = request.headers().get(request_id_header()).cloned();
+        let request_id = request.headers().get(&REQUEST_ID_HEADER).cloned();
         let future = self.inner.call(request);
         Box::pin(async move {
             let mut response = future.await?;
             response
                 .headers_mut()
-                .entry(request_id_header())
+                .entry(&REQUEST_ID_HEADER)
                 .or_insert_with(|| request_id.unwrap_or_else(new_request_id));
             Ok(response)
         })
     }
 }
 
-fn request_id_header() -> HeaderName {
-    HeaderName::from_static("x-request-id")
-}
+static REQUEST_ID_HEADER: HeaderName = HeaderName::from_static("x-request-id");
 
 fn new_request_id() -> HeaderValue {
     HeaderValue::from_str(&Uuid::new_v4().to_string())
@@ -143,7 +141,7 @@ impl RequestIdConfig {
     /// `400 Bad Request`. Missing IDs are generated and accepted.
     pub fn production() -> Self {
         Self {
-            header_name: HeaderName::from_static("x-request-id"),
+            header_name: REQUEST_ID_HEADER.clone(),
             mode: RequestIdMode::Strict,
             generator: Arc::new(|| Uuid::new_v4().to_string()),
         }
@@ -288,14 +286,28 @@ where
     fn call(&mut self, request: Request<Body>) -> Self::Future {
         let config = self.config.clone();
         let (mut parts, body) = request.into_parts();
-        let incoming = parts
-            .headers
-            .get(config.header())
-            .and_then(|value| value.to_str().ok())
-            .map(str::to_owned);
-        let request_id = match incoming {
-            Some(value) if is_valid_request_id(&value) => value,
-            Some(_) if config.validation_mode() == RequestIdMode::Strict => {
+
+        enum Inbound {
+            Valid(String, HeaderValue),
+            Invalid,
+            Missing,
+        }
+
+        let inbound = match parts.headers.get(config.header()) {
+            None => Inbound::Missing,
+            Some(value) => match value.to_str() {
+                // Reuse the inbound header value instead of re-parsing the
+                // validated string into a fresh HeaderValue.
+                Ok(text) if is_valid_request_id(text) => {
+                    Inbound::Valid(text.to_owned(), value.clone())
+                }
+                _ => Inbound::Invalid,
+            },
+        };
+
+        let (request_id, header_value) = match inbound {
+            Inbound::Valid(request_id, header_value) => (request_id, header_value),
+            Inbound::Invalid if config.validation_mode() == RequestIdMode::Strict => {
                 let (request_id, header_value) = match generated_request_id_header(&config) {
                     Some(generated) => generated,
                     None => {
@@ -310,39 +322,20 @@ where
                     .insert(config.header().clone(), header_value);
                 return Box::pin(async move { Ok(response) });
             }
-            Some(_) | None => {
-                let (request_id, header_value) = match generated_request_id_header(&config) {
-                    Some(generated) => generated,
-                    None => {
-                        return Box::pin(async move {
-                            Ok(invalid_generated_request_id_response(parts.uri.path()))
-                        });
-                    }
-                };
-                parts
-                    .headers
-                    .insert(config.header().clone(), header_value.clone());
-                let context = RequestContext::from_parts(&parts, request_id.clone());
-                parts.extensions.insert(context);
-                let future = self.inner.call(Request::from_parts(parts, body));
-
-                return Box::pin(async move {
-                    let mut response = future.await?;
-                    response
-                        .headers_mut()
-                        .entry(config.header().clone())
-                        .or_insert(header_value);
-                    Ok(response)
-                });
-            }
+            Inbound::Invalid | Inbound::Missing => match generated_request_id_header(&config) {
+                Some(generated) => generated,
+                None => {
+                    return Box::pin(async move {
+                        Ok(invalid_generated_request_id_response(parts.uri.path()))
+                    });
+                }
+            },
         };
 
-        let header_value = HeaderValue::from_str(&request_id)
-            .unwrap_or_else(|_| unreachable!("accepted inbound request id came from a header"));
         parts
             .headers
             .insert(config.header().clone(), header_value.clone());
-        let context = RequestContext::from_parts(&parts, request_id.clone());
+        let context = RequestContext::from_parts(&parts, request_id);
         parts.extensions.insert(context);
         let future = self.inner.call(Request::from_parts(parts, body));
 

@@ -104,9 +104,10 @@ impl RequestContext {
     /// by request ID middleware.
     pub fn from_parts(parts: &Parts, request_id: impl Into<String>) -> Self {
         let request_id = request_id.into();
-        let mut context = Self::new(request_id.clone(), parts.method.clone(), parts.uri.path());
-        context.correlation_id = header_to_string(&parts.headers, "x-correlation-id")
-            .or_else(|| Some(request_id).filter(|value| !value.is_empty()));
+        let correlation_id = header_to_string(&parts.headers, "x-correlation-id")
+            .or_else(|| (!request_id.is_empty()).then(|| request_id.clone()));
+        let mut context = Self::new(request_id, parts.method.clone(), parts.uri.path());
+        context.correlation_id = correlation_id;
         context.route = parts
             .extensions
             .get::<axum::extract::MatchedPath>()
