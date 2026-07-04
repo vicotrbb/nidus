@@ -472,12 +472,15 @@ where
     fn call(&mut self, request: Request<RequestBody>) -> Self::Future {
         let method = request.method().clone();
         let hook = self.hook.clone();
-        let route = self.route.clone().or_else(|| {
-            request
-                .extensions()
-                .get::<axum::extract::MatchedPath>()
-                .map(|path| Cow::Owned(path.as_str().to_owned()))
-        });
+        let route = match self.route.clone() {
+            Some(route) => RouteLabel::Fixed(route),
+            // MatchedPath wraps an Arc<str>; cloning it avoids copying the
+            // route pattern into a fresh String on every request.
+            None => match request.extensions().get::<axum::extract::MatchedPath>() {
+                Some(path) => RouteLabel::Matched(path.clone()),
+                None => RouteLabel::Unknown,
+            },
+        };
         hook.on_request(&method, route.as_deref());
         let started_at = Instant::now();
         let future = self.inner.call(request);
@@ -499,6 +502,24 @@ where
                 }
             }
         })
+    }
+}
+
+/// Route label carried across the metrics service future without copying
+/// matched route patterns.
+enum RouteLabel {
+    Fixed(Cow<'static, str>),
+    Matched(axum::extract::MatchedPath),
+    Unknown,
+}
+
+impl RouteLabel {
+    fn as_deref(&self) -> Option<&str> {
+        match self {
+            Self::Fixed(route) => Some(route),
+            Self::Matched(path) => Some(path.as_str()),
+            Self::Unknown => None,
+        }
     }
 }
 
