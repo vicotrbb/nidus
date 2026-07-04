@@ -36,7 +36,8 @@ The current benchmark surface covers:
 - validation extraction
 - request-scoped dependency resolution through HTTP
 - per-layer middleware: security headers, body limit, legacy request ID,
-  validated request ID, request context, error envelope, and timeout response
+  validated request ID, request context, error envelope, timeout response, and
+  rate limit
 - production default stack with and without in-process metrics
 - Prometheus metrics record-response, record-error, and render-text paths
 

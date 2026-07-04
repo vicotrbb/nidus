@@ -253,25 +253,16 @@ fn rate_limited_response(decision: RateLimitDecision) -> Response<Body> {
     insert_rate_limit_headers(response.headers_mut(), &decision);
     response.headers_mut().insert(
         http::header::RETRY_AFTER,
-        HeaderValue::from_str(&decision.reset_after.as_secs().max(1).to_string())
-            .expect("retry-after must be a valid header"),
+        HeaderValue::from(decision.reset_after.as_secs().max(1)),
     );
     response
 }
 
 fn insert_rate_limit_headers(headers: &mut http::HeaderMap, decision: &RateLimitDecision) {
-    headers.insert(
-        "ratelimit-limit",
-        HeaderValue::from_str(&decision.limit.to_string()).expect("limit header must be valid"),
-    );
-    headers.insert(
-        "ratelimit-remaining",
-        HeaderValue::from_str(&decision.remaining.to_string())
-            .expect("remaining header must be valid"),
-    );
+    headers.insert("ratelimit-limit", HeaderValue::from(decision.limit));
+    headers.insert("ratelimit-remaining", HeaderValue::from(decision.remaining));
     headers.insert(
         "ratelimit-reset",
-        HeaderValue::from_str(&decision.reset_after.as_secs().max(1).to_string())
-            .expect("reset header must be valid"),
+        HeaderValue::from(decision.reset_after.as_secs().max(1)),
     );
 }
