@@ -4,6 +4,27 @@
 
 - No unreleased changes yet.
 
+## 1.0.6 - 2026-07-04
+
+- Sped up dependency resolution: constructed singletons resolve through a
+  lock-free cache and provider maps hash `TypeId` keys with an identity
+  hasher (singleton resolution 11.78 ns -> 3.96 ns locally).
+- Cut per-request allocations in the validated request ID middleware, request
+  context construction, and the error envelope layer (production default
+  stack 2.109 us -> 1.962 us locally).
+- Merged the in-process Prometheus collector's per-status maps into one
+  series map (record response 126.7 ns -> 81.3 ns) and rewrote text
+  exposition to write directly into the output (render 30.1 us -> 7.2 us),
+  with unchanged output.
+- Amortized in-memory rate limit pruning to at most one sweep per window
+  (check with 10k tracked identities 27.5 us -> 32 ns) and switched rate
+  limit headers to infallible integer conversions.
+- Fixed the guard service to honor the Tower readiness contract by moving
+  the polled-ready inner service into the response future.
+- Added Criterion rows for the rate limit layer and a 10k-identity store
+  check, plus focused tests for singleton reuse/retry, `TypeId` hashing, and
+  Prometheus bucket label sync.
+
 ## 1.0.5 - 2026-07-02
 
 - Added the optional `nidus-dashboard` crate and facade `dashboard` feature for

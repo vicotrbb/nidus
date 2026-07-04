@@ -1,15 +1,15 @@
 [package]
 name = "nidus-example-production-api"
-version = "1.0.5"
+version = "1.0.6"
 edition.workspace = true
 license.workspace = true
 publish = false
 
 [dependencies]
 axum.workspace = true
-nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.5", features = ["observability"] }
+nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.6", features = ["observability"] }
 serde.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
-nidus-testing = { path = "../../crates/nidus-testing", version = "1.0.5" }
+nidus-testing = { path = "../../crates/nidus-testing", version = "1.0.6" }

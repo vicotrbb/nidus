@@ -4,7 +4,7 @@
 optional config loading, health checks, and observability hooks.
 
 ```toml
-nidus-sqlx = { version = "1.0.5", features = ["sqlite", "nidus-config", "health", "observability"] }
+nidus-sqlx = { version = "1.0.6", features = ["sqlite", "nidus-config", "health", "observability"] }
 ```
 
 Use `sqlite` or `postgres` to select the SQLx backend. Add `nidus-config` when

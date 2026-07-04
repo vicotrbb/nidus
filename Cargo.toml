@@ -64,10 +64,10 @@ harness = false
 async-trait.workspace = true
 axum.workspace = true
 criterion.workspace = true
-nidus-auth = { path = "crates/nidus-auth", version = "1.0.5" }
-nidus-core = { path = "crates/nidus-core", version = "1.0.5" }
-nidus-http = { path = "crates/nidus-http", version = "1.0.5" }
-nidus-validation = { path = "crates/nidus-validation", version = "1.0.5" }
+nidus-auth = { path = "crates/nidus-auth", version = "1.0.6" }
+nidus-core = { path = "crates/nidus-core", version = "1.0.6" }
+nidus-http = { path = "crates/nidus-http", version = "1.0.6" }
+nidus-validation = { path = "crates/nidus-validation", version = "1.0.6" }
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
@@ -75,7 +75,7 @@ tower.workspace = true
 garde.workspace = true
 
 [workspace.package]
-version = "1.0.5"
+version = "1.0.6"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/vicotrbb/nidus"
@@ -95,7 +95,7 @@ criterion = "0.7"
 futures-util = "0.3"
 http = "1"
 insta = "1"
-nidus-core = { path = "crates/nidus-core", version = "1.0.5" }
+nidus-core = { path = "crates/nidus-core", version = "1.0.6" }
 proc-macro2 = "1"
 quote = "1"
 serde = { version = "1", features = ["derive"] }

@@ -4,7 +4,7 @@
 cache modules.
 
 ```toml
-nidus-cache = { version = "1.0.5", features = ["moka", "health", "observability"] }
+nidus-cache = { version = "1.0.6", features = ["moka", "health", "observability"] }
 ```
 
 Use `moka` for the default async cache backend. Add `health` when readiness

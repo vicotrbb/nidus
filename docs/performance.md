@@ -38,6 +38,7 @@ The current benchmark surface covers:
 - per-layer middleware: security headers, body limit, legacy request ID,
   validated request ID, request context, error envelope, timeout response, and
   rate limit
+- rate limit store check with 10,000 tracked identities
 - production default stack with and without in-process metrics
 - Prometheus metrics record-response, record-error, and render-text paths
 
@@ -55,15 +56,20 @@ regressions/improvements versus local saved history, including raw or unrelated
 benchmarks moving in different directions. Treat the table as a current
 reference point, not publish-grade proof.
 
-The latest durable local result artifacts are:
-
-- `benchmarks/results/2026-06-27-dependency-resolution-wave46.md`
-- `benchmarks/results/2026-06-27-routing-wave46.md`
-- `benchmarks/results/2026-06-27-request-lifecycle-wave43.md`
-
-Prefer those artifacts for current local benchmark evidence. The table below
+The 1.0.6 optimization pass re-measured the rows it changed; see
+`docs/release-1-0-6.md` for the per-change before/after figures and
+methodology (stash-based A/B runs on the same machine). The table below
 remains a compact reference that mixes the original full-table capture with
-later follow-up runs.
+later follow-up runs and predates the 1.0.6 improvements for the affected
+rows.
+
+Headline 1.0.6 deltas measured locally on 2026-07-03/04:
+
+- singleton dependency resolution: 11.78 ns -> 3.96 ns
+- production default stack request: 2.109 us -> 1.962 us
+- Prometheus record response: 126.7 ns -> 81.3 ns; render text: 30.1 us ->
+  7.2 us
+- rate limit store check with 10k identities: 27.54 us -> 32.4 ns
 
 | Benchmark | Central estimate | Notes |
 | --- | ---: | --- |
