@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet},
+    fmt::Write as _,
     future::Future,
     pin::Pin,
     sync::{Arc, Mutex},
@@ -179,76 +180,72 @@ impl PrometheusMetrics {
 }
 
 fn render_prometheus(state: &PrometheusState) -> String {
+    // Writes into the output String are infallible; ignore the fmt::Result.
     let mut output = String::new();
     output.push_str("# TYPE nidus_http_requests_total counter\n");
     for ((method, route, status), series) in &state.series {
-        output.push_str(&format!(
-            "nidus_http_requests_total{{method=\"{}\",route=\"{}\",status=\"{}\"}} {}\n",
+        let _ = writeln!(
+            output,
+            "nidus_http_requests_total{{method=\"{}\",route=\"{}\",status=\"{}\"}} {}",
             escape_label(method),
             escape_label(route),
             status,
             series.requests
-        ));
+        );
     }
     output.push_str("# TYPE nidus_http_request_duration_seconds histogram\n");
     for ((method, route, status), series) in &state.series {
         let histogram = &series.histogram;
-        for (bucket, count) in HTTP_DURATION_BUCKETS
+        let method = escape_label(method);
+        let route = escape_label(route);
+        for (bucket, count) in HTTP_DURATION_BUCKET_LABELS
             .iter()
             .zip(histogram.bucket_counts.iter())
         {
-            output.push_str(&format!(
-                    "nidus_http_request_duration_seconds_bucket{{method=\"{}\",route=\"{}\",status=\"{}\",le=\"{}\"}} {}\n",
-                    escape_label(method),
-                    escape_label(route),
-                    status,
-                    format_bucket(*bucket),
-                    count
-                ));
+            let _ = writeln!(
+                output,
+                "nidus_http_request_duration_seconds_bucket{{method=\"{method}\",route=\"{route}\",status=\"{status}\",le=\"{bucket}\"}} {count}",
+            );
         }
-        output.push_str(&format!(
-                "nidus_http_request_duration_seconds_bucket{{method=\"{}\",route=\"{}\",status=\"{}\",le=\"+Inf\"}} {}\n",
-                escape_label(method),
-                escape_label(route),
-                status,
-                histogram.count
-            ));
-        output.push_str(&format!(
-                "nidus_http_request_duration_seconds_count{{method=\"{}\",route=\"{}\",status=\"{}\"}} {}\n",
-                escape_label(method),
-                escape_label(route),
-                status,
-                histogram.count
-            ));
-        output.push_str(&format!(
-                "nidus_http_request_duration_seconds_sum{{method=\"{}\",route=\"{}\",status=\"{}\"}} {:.6}\n",
-                escape_label(method),
-                escape_label(route),
-                status,
-                histogram.sum
-            ));
+        let _ = writeln!(
+            output,
+            "nidus_http_request_duration_seconds_bucket{{method=\"{method}\",route=\"{route}\",status=\"{status}\",le=\"+Inf\"}} {}",
+            histogram.count
+        );
+        let _ = writeln!(
+            output,
+            "nidus_http_request_duration_seconds_count{{method=\"{method}\",route=\"{route}\",status=\"{status}\"}} {}",
+            histogram.count
+        );
+        let _ = writeln!(
+            output,
+            "nidus_http_request_duration_seconds_sum{{method=\"{method}\",route=\"{route}\",status=\"{status}\"}} {:.6}",
+            histogram.sum
+        );
     }
     output.push_str("# TYPE nidus_http_in_flight_requests gauge\n");
     for ((method, route), count) in &state.in_flight {
-        output.push_str(&format!(
-            "nidus_http_in_flight_requests{{method=\"{}\",route=\"{}\"}} {}\n",
+        let _ = writeln!(
+            output,
+            "nidus_http_in_flight_requests{{method=\"{}\",route=\"{}\"}} {}",
             escape_label(method),
             escape_label(route),
             count
-        ));
+        );
     }
     output.push_str("# TYPE nidus_http_errors_total counter\n");
     for ((method, route, status), series) in &state.series {
         if series.errors == 0 {
             continue;
         }
-        output.push_str(&format!(
-            "nidus_http_errors_total{{method=\"{}\",route=\"{}\",status=\"{}\"}} {}\n",
+        let _ = writeln!(
+            output,
+            "nidus_http_errors_total{{method=\"{}\",route=\"{}\",status=\"{}\"}} {}",
             escape_label(method),
             escape_label(route),
             status,
             series.errors
-        ));
+        );
     }
     output
 }
@@ -373,6 +370,11 @@ impl PrometheusState {
 
 const HTTP_DURATION_BUCKETS: [f64; 11] = [
     0.005, 0.010, 0.025, 0.050, 0.100, 0.250, 0.500, 1.000, 2.500, 5.000, 10.000,
+];
+
+/// Rendered `le` labels for [`HTTP_DURATION_BUCKETS`], kept in sync by test.
+const HTTP_DURATION_BUCKET_LABELS: [&str; 11] = [
+    "0.005", "0.01", "0.025", "0.05", "0.1", "0.25", "0.5", "1", "2.5", "5", "10",
 ];
 
 #[derive(Clone, Debug, Default)]
@@ -500,18 +502,49 @@ where
     }
 }
 
-fn escape_label(value: &str) -> String {
-    value
-        .replace('\\', r"\\")
-        .replace('\n', r"\n")
-        .replace('"', r#"\""#)
+fn escape_label(value: &str) -> Cow<'_, str> {
+    if value.contains(['\\', '\n', '"']) {
+        Cow::Owned(
+            value
+                .replace('\\', r"\\")
+                .replace('\n', r"\n")
+                .replace('"', r#"\""#),
+        )
+    } else {
+        Cow::Borrowed(value)
+    }
 }
 
+#[cfg(test)]
 fn format_bucket(bucket: f64) -> String {
     if bucket.fract() == 0.0 {
         format!("{bucket:.0}")
     } else {
         let formatted = format!("{bucket:.3}");
         formatted.trim_end_matches('0').to_owned()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{HTTP_DURATION_BUCKET_LABELS, HTTP_DURATION_BUCKETS, escape_label, format_bucket};
+
+    #[test]
+    fn duration_bucket_labels_match_formatted_buckets() {
+        for (bucket, label) in HTTP_DURATION_BUCKETS
+            .iter()
+            .zip(HTTP_DURATION_BUCKET_LABELS.iter())
+        {
+            assert_eq!(&format_bucket(*bucket), label);
+        }
+    }
+
+    #[test]
+    fn escape_label_borrows_clean_values_and_escapes_special_characters() {
+        assert!(matches!(
+            escape_label("/users/{id}"),
+            std::borrow::Cow::Borrowed("/users/{id}")
+        ));
+        assert_eq!(escape_label("a\\b\nc\"d"), r#"a\\b\nc\"d"#);
     }
 }
