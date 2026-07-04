@@ -236,7 +236,12 @@ where
 
     fn call(&mut self, request: Request) -> Self::Future {
         let path = request.uri().path().to_owned();
-        let context = request.extensions().get::<RequestContext>().cloned();
+        // Only the request id is needed if the response turns out to be an
+        // error; avoid cloning the full RequestContext on every request.
+        let request_id = request
+            .extensions()
+            .get::<RequestContext>()
+            .map(|context| context.request_id().to_owned());
         let future = self.inner.call(request);
 
         Box::pin(async move {
@@ -244,14 +249,14 @@ where
             if !response.status().is_client_error() && !response.status().is_server_error() {
                 return Ok(response);
             }
-            Ok(envelope_response(response, context, path).await)
+            Ok(envelope_response(response, request_id, path).await)
         })
     }
 }
 
 async fn envelope_response(
     response: axum::response::Response,
-    context: Option<RequestContext>,
+    request_id: Option<String>,
     path: String,
 ) -> axum::response::Response {
     let (mut parts, body) = response.into_parts();
@@ -278,7 +283,7 @@ async fn envelope_response(
         tracing::error!(
             http.status = status.as_u16(),
             error.code = %code,
-            request.id = context.as_ref().map(RequestContext::request_id).unwrap_or(""),
+            request.id = request_id.as_deref().unwrap_or(""),
             http.path = %path,
             "http error envelope"
         );
@@ -297,11 +302,7 @@ async fn envelope_response(
             details,
             timestamp: timestamp_now(),
             path,
-            request_id: context
-                .as_ref()
-                .map(RequestContext::request_id)
-                .unwrap_or("")
-                .to_owned(),
+            request_id: request_id.unwrap_or_default(),
         },
     };
     let body = serde_json::to_vec(&envelope).expect("error envelope should serialize");
