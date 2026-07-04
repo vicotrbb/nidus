@@ -1,6 +1,5 @@
 use std::{
     any::{Any, TypeId, type_name},
-    collections::HashMap,
     sync::{Arc, Condvar, Mutex, MutexGuard},
 };
 
@@ -8,12 +7,12 @@ use crate::{
     Container, Inject, NidusError, Optional, ProviderLifetime, Result, Scoped, resolution,
 };
 
-use super::downcast;
+use super::{TypeIdMap, downcast};
 
 /// Per-request dependency scope.
 pub struct RequestScope<'a> {
     container: RequestScopeContainer<'a>,
-    request_instances: Mutex<HashMap<TypeId, RequestInstanceState>>,
+    request_instances: Mutex<TypeIdMap<RequestInstanceState>>,
     request_instance_ready: Condvar,
 }
 
@@ -43,7 +42,7 @@ impl<'a> RequestScope<'a> {
     pub(super) fn borrowed(container: &'a Container) -> Self {
         Self {
             container: RequestScopeContainer::Borrowed(container),
-            request_instances: Mutex::new(HashMap::new()),
+            request_instances: Mutex::new(TypeIdMap::default()),
             request_instance_ready: Condvar::new(),
         }
     }
@@ -159,7 +158,7 @@ impl RequestScope<'static> {
     pub fn from_shared_container(container: Arc<Container>) -> Self {
         Self {
             container: RequestScopeContainer::Shared(container),
-            request_instances: Mutex::new(HashMap::new()),
+            request_instances: Mutex::new(TypeIdMap::default()),
             request_instance_ready: Condvar::new(),
         }
     }

@@ -6,6 +6,7 @@ mod request_scope;
 use std::{
     any::{Any, TypeId, type_name},
     collections::HashMap,
+    hash::{BuildHasherDefault, Hasher},
     sync::Arc,
 };
 
@@ -14,10 +15,40 @@ use crate::{NidusError, ProviderEntry, ProviderLifetime, Result};
 pub use dependency::{Factory, Inject, Lazy, Optional, Scoped};
 pub use request_scope::{RequestScope, SharedRequestScope};
 
+/// Hash map keyed by `TypeId` using the identity hasher below.
+pub(crate) type TypeIdMap<V> = HashMap<TypeId, V, BuildHasherDefault<TypeIdHasher>>;
+
+/// Identity hasher for `TypeId` keys.
+///
+/// `TypeId`'s `Hash` impl feeds an already high-quality compiler-generated
+/// 64-bit hash through `write_u64`, so mixing it again through the default
+/// SipHash only adds cost. Store that value directly, mirroring the map used
+/// by `http::Extensions`.
+#[derive(Default)]
+pub(crate) struct TypeIdHasher(u64);
+
+impl Hasher for TypeIdHasher {
+    fn write(&mut self, bytes: &[u8]) {
+        // TypeId only calls write_u64; keep a correct fallback for any other
+        // key shape rather than assuming the std implementation never changes.
+        for &byte in bytes {
+            self.0 = self.0.rotate_left(8) ^ u64::from(byte);
+        }
+    }
+
+    fn write_u64(&mut self, value: u64) {
+        self.0 = value;
+    }
+
+    fn finish(&self) -> u64 {
+        self.0
+    }
+}
+
 /// Type-indexed dependency container.
 #[derive(Default)]
 pub struct Container {
-    providers: HashMap<TypeId, ProviderEntry>,
+    providers: TypeIdMap<ProviderEntry>,
 }
 
 impl Container {
@@ -240,4 +271,39 @@ where
         .map_err(|_| NidusError::MissingProvider {
             type_name: type_name::<T>(),
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        any::TypeId,
+        hash::{Hash, Hasher},
+    };
+
+    use super::TypeIdHasher;
+
+    #[test]
+    fn type_id_hasher_uses_written_u64_directly() {
+        let mut hasher = TypeIdHasher::default();
+        hasher.write_u64(42);
+        assert_eq!(hasher.finish(), 42);
+    }
+
+    #[test]
+    fn type_id_hasher_distinguishes_type_ids() {
+        let mut first = TypeIdHasher::default();
+        TypeId::of::<u32>().hash(&mut first);
+        let mut second = TypeIdHasher::default();
+        TypeId::of::<u64>().hash(&mut second);
+        assert_ne!(first.finish(), second.finish());
+    }
+
+    #[test]
+    fn type_id_hasher_byte_fallback_mixes_all_bytes() {
+        let mut first = TypeIdHasher::default();
+        first.write(b"ab");
+        let mut second = TypeIdHasher::default();
+        second.write(b"ba");
+        assert_ne!(first.finish(), second.finish());
+    }
 }
