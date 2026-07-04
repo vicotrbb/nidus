@@ -1,8 +1,4 @@
-use std::{
-    future::Future,
-    pin::Pin,
-    task::{Context, Poll},
-};
+use std::task::{Context, Poll};
 
 use axum::extract::Request;
 use tower::{Layer, Service};
@@ -57,13 +53,15 @@ where
 {
     type Response = S::Response;
     type Error = S::Error;
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+    // All context work happens before the inner call, so the inner future can
+    // be returned directly without a per-request box.
+    type Future = S::Future;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, mut request: Request) -> Self::Future {
+    fn call(&mut self, request: Request) -> Self::Future {
         let (mut parts, body) = request.into_parts();
         let request_id = parts
             .extensions
@@ -73,8 +71,6 @@ where
             .unwrap_or_else(|| "unknown".to_owned());
         let context = RequestContext::from_parts(&parts, request_id);
         parts.extensions.insert(context);
-        request = Request::from_parts(parts, body);
-        let future = self.inner.call(request);
-        Box::pin(future)
+        self.inner.call(Request::from_parts(parts, body))
     }
 }
