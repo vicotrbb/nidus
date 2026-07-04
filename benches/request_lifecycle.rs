@@ -13,9 +13,9 @@ use nidus_http::{
     error::ErrorEnvelopeLayer,
     middleware::{
         ApiDefaults, HttpMetricsHook, InMemoryRateLimitStore, PrometheusMetrics, RateLimitConfig,
-        RequestIdConfig, body_limit_layer, request_context_layer, request_id_layer,
-        request_scope_layer, security_headers_layer, timeout_response_layer,
-        validated_request_id_layer,
+        RateLimitStore as _, RequestIdConfig, RequestIdentity, body_limit_layer,
+        request_context_layer, request_id_layer, request_scope_layer, security_headers_layer,
+        timeout_response_layer, validated_request_id_layer,
     },
     router::RouteDefinition,
 };
@@ -356,6 +356,28 @@ fn request_lifecycle_setup(c: &mut Criterion) {
                 )
                 .unwrap();
             black_box(response.status());
+        });
+    });
+
+    let populated_store = InMemoryRateLimitStore::new();
+    let store_window = Duration::from_secs(3600);
+    for index in 0..10_000 {
+        populated_store
+            .check(
+                &RequestIdentity::new(format!("client-{index}")),
+                u64::MAX,
+                store_window,
+            )
+            .unwrap();
+    }
+    let store_identity = RequestIdentity::new("client-0");
+    c.bench_function("nidus rate limit store check with 10k identities", |b| {
+        b.iter(|| {
+            black_box(
+                populated_store
+                    .check(&store_identity, u64::MAX, store_window)
+                    .unwrap(),
+            );
         });
     });
 

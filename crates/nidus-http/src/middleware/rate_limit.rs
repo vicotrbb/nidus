@@ -59,12 +59,21 @@ pub trait RateLimitStore: Send + Sync + 'static {
 /// In-memory rate-limit store intended for local development and single-process apps.
 ///
 /// The store tracks counters in process memory and opportunistically removes
-/// expired identity windows whenever [`RateLimitStore::check`] runs. It is not
+/// expired identity windows during [`RateLimitStore::check`], scanning at most
+/// once per window duration so a large identity set does not add a full-map
+/// sweep to every request. Rate-limit decisions never depend on that sweep:
+/// each identity's window resets itself on its next check. The store is not
 /// shared across processes, not durable across restarts, and not a substitute
 /// for a distributed limiter at multi-instance production boundaries.
 #[derive(Clone, Default)]
 pub struct InMemoryRateLimitStore {
-    state: Arc<Mutex<HashMap<String, WindowState>>>,
+    state: Arc<Mutex<StoreState>>,
+}
+
+#[derive(Default)]
+struct StoreState {
+    windows: HashMap<String, WindowState>,
+    last_prune: Option<Instant>,
 }
 
 impl InMemoryRateLimitStore {
@@ -75,12 +84,13 @@ impl InMemoryRateLimitStore {
 
     /// Returns the number of identity windows currently retained by the store.
     ///
-    /// Expired windows are pruned opportunistically during [`RateLimitStore::check`],
+    /// Expired windows are pruned opportunistically during
+    /// [`RateLimitStore::check`] (at most one full sweep per window duration),
     /// so this value is mainly useful for tests, diagnostics, and local tools.
     pub fn len(&self) -> usize {
         self.state
             .lock()
-            .map(|state| state.len())
+            .map(|state| state.windows.len())
             .unwrap_or_default()
     }
 
@@ -102,8 +112,20 @@ impl RateLimitStore for InMemoryRateLimitStore {
             .state
             .lock()
             .map_err(|_| RateLimitError::new("rate limit store poisoned"))?;
-        state.retain(|_, window_state| now.duration_since(window_state.started_at) < window);
+        // Garbage-collect expired windows at most once per window duration.
+        // Decisions never depend on this sweep: each identity's window resets
+        // itself below when its own expiry has passed.
+        if state
+            .last_prune
+            .is_none_or(|last_prune| now.duration_since(last_prune) >= window)
+        {
+            state
+                .windows
+                .retain(|_, window_state| now.duration_since(window_state.started_at) < window);
+            state.last_prune = Some(now);
+        }
         let window_state = state
+            .windows
             .entry(identity.as_str().to_owned())
             .or_insert_with(|| WindowState {
                 started_at: now,
