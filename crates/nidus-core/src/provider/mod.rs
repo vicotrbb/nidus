@@ -3,7 +3,7 @@
 use std::{
     any::{Any, TypeId},
     panic::{AssertUnwindSafe, catch_unwind},
-    sync::{Arc, Condvar, Mutex, MutexGuard},
+    sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock},
 };
 
 use crate::{Container, NidusError, RequestScope, Result, resolution};
@@ -38,6 +38,10 @@ pub struct ProviderEntry {
     request_factory: Option<Arc<RequestProviderFactory>>,
     singleton: Mutex<SingletonState>,
     singleton_ready: Condvar,
+    // Lock-free read path for constructed singletons. Set exactly once, after a
+    // factory succeeds; failed or panicking factories leave it empty so the
+    // `singleton` state machine keeps its retry semantics.
+    singleton_cache: OnceLock<Arc<ErasedProvider>>,
 }
 
 enum SingletonState {
@@ -62,6 +66,7 @@ impl ProviderEntry {
             request_factory: None,
             singleton: Mutex::new(SingletonState::Empty),
             singleton_ready: Condvar::new(),
+            singleton_cache: OnceLock::new(),
         }
     }
 
@@ -80,6 +85,7 @@ impl ProviderEntry {
             request_factory: Some(request_factory),
             singleton: Mutex::new(SingletonState::Empty),
             singleton_ready: Condvar::new(),
+            singleton_cache: OnceLock::new(),
         }
     }
 
@@ -122,6 +128,9 @@ impl ProviderEntry {
     }
 
     fn resolve_singleton(&self, container: &Container) -> Result<Arc<ErasedProvider>> {
+        if let Some(instance) = self.singleton_cache.get() {
+            return Ok(Arc::clone(instance));
+        }
         loop {
             let mut singleton = lock_unpoisoned(&self.singleton);
             match &*singleton {
@@ -154,6 +163,7 @@ impl ProviderEntry {
                     match instance {
                         Ok(instance) => {
                             *singleton = SingletonState::Ready(Arc::clone(&instance));
+                            let _ = self.singleton_cache.set(Arc::clone(&instance));
                             self.singleton_ready.notify_all();
                             return Ok(instance);
                         }
@@ -202,6 +212,54 @@ mod tests {
 
     use super::{ProviderEntry, ProviderLifetime};
     use crate::Container;
+
+    #[test]
+    fn singleton_provider_reuses_the_constructed_instance() {
+        let provider = ProviderEntry::new(
+            std::any::TypeId::of::<String>(),
+            type_name::<String>(),
+            ProviderLifetime::Singleton,
+            Arc::new(|_container| Ok(Arc::new("ready".to_owned()) as Arc<dyn Any + Send + Sync>)),
+        );
+        let container = Container::new();
+
+        let first = provider.resolve_erased(&container).unwrap();
+        let second = provider.resolve_erased(&container).unwrap();
+        assert!(Arc::ptr_eq(&first, &second));
+    }
+
+    #[test]
+    fn singleton_provider_retries_after_factory_error() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let failed_once = Arc::new(AtomicBool::new(false));
+        let provider = ProviderEntry::new(
+            std::any::TypeId::of::<String>(),
+            type_name::<String>(),
+            ProviderLifetime::Singleton,
+            Arc::new({
+                let failed_once = Arc::clone(&failed_once);
+                move |_container| {
+                    if failed_once.swap(true, Ordering::SeqCst) {
+                        Ok(Arc::new("recovered".to_owned()) as Arc<dyn Any + Send + Sync>)
+                    } else {
+                        Err(crate::NidusError::MissingProvider {
+                            type_name: "transient failure",
+                        })
+                    }
+                }
+            }),
+        );
+        let container = Container::new();
+
+        assert!(provider.resolve_erased(&container).is_err());
+        let value = provider
+            .resolve_erased(&container)
+            .unwrap()
+            .downcast::<String>()
+            .unwrap();
+        assert_eq!(&*value, "recovered");
+    }
 
     #[test]
     fn singleton_provider_recovers_from_poisoned_cache() {
