@@ -113,8 +113,13 @@ impl RequestContext {
             .get::<axum::extract::MatchedPath>()
             .map(|path| path.as_str().to_owned());
         context.client_kind = infer_client_kind(&parts.headers);
-        context.trace_id = header_to_string(&parts.headers, "traceparent")
-            .and_then(|value| value.split('-').nth(1).map(str::to_owned));
+        context.trace_id = parts
+            .headers
+            .get("traceparent")
+            .and_then(|value| value.to_str().ok())
+            .filter(|value| !value.is_empty())
+            .and_then(|value| value.split('-').nth(1))
+            .map(str::to_owned);
         context
     }
 

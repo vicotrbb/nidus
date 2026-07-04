@@ -83,7 +83,10 @@ where
         let state = self.state.clone();
         let route_label = self.route_label.clone();
         let guard = self.guard.clone();
-        let inner = self.inner.clone();
+        // Move the service that was driven to readiness into the future and
+        // leave the fresh clone behind, per the Tower readiness contract.
+        let clone = self.inner.clone();
+        let inner = std::mem::replace(&mut self.inner, clone);
 
         Box::pin(async move {
             let (parts, body) = request.into_parts();
