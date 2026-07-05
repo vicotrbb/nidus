@@ -11,7 +11,7 @@ axum.workspace = true
 nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.6", features = ["auth", "config", "events", "jobs", "observability", "openapi", "otel", "validation"] }
 serde.workspace = true
 serde_json.workspace = true
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite"] }
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite"] }
 tokio.workspace = true
 tracing.workspace = true
 utoipa.workspace = true

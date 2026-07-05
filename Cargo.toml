@@ -91,7 +91,7 @@ async-trait = "0.1"
 axum = "0.8"
 bytes = "1"
 clap = { version = "4", features = ["derive"] }
-criterion = "0.7"
+criterion = "0.8"
 futures-util = "0.3"
 http = "1"
 insta = "1"
@@ -101,14 +101,14 @@ quote = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_urlencoded = "0.7"
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite"] }
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite"] }
 syn = { version = "2", features = ["full"] }
 thiserror = "2"
 time = { version = "0.3", features = ["formatting"] }
 tokio = { version = "1", features = ["macros", "net", "rt-multi-thread"] }
 tokio-stream = "0.1"
 tower = { version = "0.5", features = ["limit", "timeout", "util"] }
-tower-http = { version = "0.6", features = ["compression-gzip", "cors", "limit", "trace"] }
+tower-http = { version = "0.7", features = ["compression-gzip", "cors", "limit", "trace"] }
 tracing = "0.1"
 tracing-core = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
