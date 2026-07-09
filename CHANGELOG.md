@@ -2,7 +2,16 @@
 
 ## Unreleased
 
-- No unreleased changes yet.
+- Removed one boxed-future allocation per request from the security-header,
+  declared body-limit, and timeout-response middleware. In repeated local
+  Criterion comparisons, the isolated middleware rows improved by 29% to 53%;
+  the final composed production-default sample was too noisy to establish a
+  statistically significant change.
+- Fixed request-scoped provider resolution after a factory panic: the
+  in-progress cache entry is now cleared and waiters are notified, matching
+  singleton-provider recovery instead of leaving the scope permanently stuck.
+- Updated the transitive `crossbeam-epoch` dependency used by the cache adapter
+  and benchmark tooling from 0.9.18 to 0.9.20 to address RUSTSEC-2026-0204.
 
 ## 1.0.6 - 2026-07-04
 
