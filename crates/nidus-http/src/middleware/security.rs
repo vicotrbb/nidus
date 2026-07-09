@@ -1,11 +1,13 @@
 use std::{
-    future::Future,
-    pin::Pin,
     task::{Context, Poll},
     time::Duration,
 };
 
 use axum::{body::Body, extract::Request};
+use futures_util::{
+    FutureExt, TryFutureExt,
+    future::{Either, Map, MapOk, Ready, ready},
+};
 use http::{HeaderValue, Response, StatusCode, header};
 use tower::{Layer, Service};
 use tower_http::limit::RequestBodyLimitLayer;
@@ -52,29 +54,31 @@ where
 {
     type Response = Response<Body>;
     type Error = S::Error;
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+    type Future = MapOk<S::Future, fn(Response<Body>) -> Response<Body>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        let future = self.inner.call(request);
-        Box::pin(async move {
-            let mut response = future.await?;
-            response.headers_mut().insert(
-                "x-content-type-options",
-                HeaderValue::from_static("nosniff"),
-            );
-            response
-                .headers_mut()
-                .insert("x-frame-options", HeaderValue::from_static("DENY"));
-            response
-                .headers_mut()
-                .insert("referrer-policy", HeaderValue::from_static("no-referrer"));
-            Ok(response)
-        })
+        self.inner
+            .call(request)
+            .map_ok(apply_security_headers as fn(Response<Body>) -> Response<Body>)
     }
+}
+
+fn apply_security_headers(mut response: Response<Body>) -> Response<Body> {
+    response.headers_mut().insert(
+        "x-content-type-options",
+        HeaderValue::from_static("nosniff"),
+    );
+    response
+        .headers_mut()
+        .insert("x-frame-options", HeaderValue::from_static("DENY"));
+    response
+        .headers_mut()
+        .insert("referrer-policy", HeaderValue::from_static("no-referrer"));
+    response
 }
 
 /// Creates a request body limit layer using the declared `Content-Length`.
@@ -162,7 +166,7 @@ where
 {
     type Response = Response<Body>;
     type Error = S::Error;
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+    type Future = Either<Ready<Result<Self::Response, Self::Error>>, S::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
@@ -176,12 +180,10 @@ where
             .and_then(|value| value.parse::<u64>().ok())
             .is_some_and(|length| length > self.max_bytes);
         if too_large {
-            let webhook_boundary = self.webhook_boundary;
-            return Box::pin(async move { Ok(body_too_large_response(webhook_boundary)) });
+            return Either::Left(ready(Ok(body_too_large_response(self.webhook_boundary))));
         }
 
-        let future = self.inner.call(request);
-        Box::pin(future)
+        Either::Right(self.inner.call(request))
     }
 }
 
@@ -234,6 +236,9 @@ pub struct TimeoutResponseService<S> {
     timeout: Duration,
 }
 
+type TimeoutResult<E> = std::result::Result<Result<Response<Body>, E>, tokio::time::error::Elapsed>;
+type TimeoutResultMapper<E> = fn(TimeoutResult<E>) -> Result<Response<Body>, E>;
+
 impl<S> Service<Request> for TimeoutResponseService<S>
 where
     S: Service<Request, Response = Response<Body>> + Send + 'static,
@@ -242,21 +247,22 @@ where
 {
     type Response = Response<Body>;
     type Error = S::Error;
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+    type Future = Map<tokio::time::Timeout<S::Future>, TimeoutResultMapper<S::Error>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        let timeout_duration = self.timeout;
-        let future = self.inner.call(request);
-        Box::pin(async move {
-            match tokio::time::timeout(timeout_duration, future).await {
-                Ok(response) => response,
-                Err(_) => Ok(timeout_response()),
-            }
-        })
+        tokio::time::timeout(self.timeout, self.inner.call(request))
+            .map(map_timeout_result::<S::Error> as TimeoutResultMapper<S::Error>)
+    }
+}
+
+fn map_timeout_result<E>(result: TimeoutResult<E>) -> Result<Response<Body>, E> {
+    match result {
+        Ok(response) => response,
+        Err(_) => Ok(timeout_response()),
     }
 }
 
