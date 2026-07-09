@@ -99,6 +99,47 @@ fn request_factory_runs_once_under_concurrent_first_resolution_in_scope() {
 }
 
 #[test]
+fn request_factory_recovers_after_panic() {
+    let attempts = Arc::new(AtomicUsize::new(0));
+    let mut container = Container::new();
+    container
+        .register_request::<Database, _>({
+            let attempts = Arc::clone(&attempts);
+            move |_container| {
+                let attempt = attempts.fetch_add(1, Ordering::SeqCst);
+                if attempt == 0 {
+                    panic!("request factory panicked on first construction");
+                }
+                Ok(Database("recovered"))
+            }
+        })
+        .unwrap();
+    let scope = Arc::new(nidus_core::RequestScope::from_shared_container(Arc::new(
+        container,
+    )));
+
+    let first = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let _ = scope.resolve::<Database>();
+    }));
+    assert!(first.is_err(), "first resolution should panic");
+    assert_eq!(attempts.load(Ordering::SeqCst), 1);
+
+    let (tx, rx) = std::sync::mpsc::channel();
+    {
+        let scope = Arc::clone(&scope);
+        thread::spawn(move || {
+            let _ = tx.send(scope.resolve::<Database>());
+        });
+    }
+    let recovered = rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("request provider resolution deadlocked after a panicking factory")
+        .expect("request provider should be re-resolvable after a panicking factory");
+    assert_eq!(recovered.0, "recovered");
+    assert_eq!(attempts.load(Ordering::SeqCst), 2);
+}
+
+#[test]
 fn request_scope_reports_self_circular_resolution() {
     let mut container = Container::new();
     container

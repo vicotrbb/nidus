@@ -1,5 +1,6 @@
 use std::{
     any::{Any, TypeId, type_name},
+    panic::{AssertUnwindSafe, catch_unwind},
     sync::{Arc, Condvar, Mutex, MutexGuard},
 };
 
@@ -130,7 +131,16 @@ impl RequestScope<'_> {
                     let initializer = create
                         .take()
                         .expect("request instance factory can only be used by initializer");
-                    let instance = initializer();
+                    let instance = match catch_unwind(AssertUnwindSafe(initializer)) {
+                        Ok(outcome) => outcome,
+                        Err(panic_payload) => {
+                            let mut instances = lock_unpoisoned(&self.request_instances);
+                            instances.remove(&type_id);
+                            self.request_instance_ready.notify_all();
+                            drop(instances);
+                            std::panic::resume_unwind(panic_payload);
+                        }
+                    };
                     let mut instances = lock_unpoisoned(&self.request_instances);
                     match instance {
                         Ok(instance) => {
