@@ -138,7 +138,7 @@ mod tests {
             "openapi": "3.1.0",
             "info": {
                 "title": "Nidus Example API",
-                "version": "1.0.6"
+                "version": "1.0.7"
             },
             "paths": {
                 "/users": {

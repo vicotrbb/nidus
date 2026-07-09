@@ -5,6 +5,8 @@ use std::{collections::BTreeMap, future::Future};
 use http::{HeaderMap, HeaderValue};
 use tracing::Instrument;
 
+use crate::context::parse_traceparent;
+
 /// OpenTelemetry configuration for service resources and OTLP export settings.
 ///
 /// This type is available with the `otel` feature. It stores resource
@@ -76,7 +78,8 @@ impl OtelConfig {
 ///
 /// The parser accepts version, trace ID, span ID, and flags in the W3C
 /// `traceparent` shape `00-<32 lower-hex trace id>-<16 lower-hex span id>-<2
-/// lower-hex flags>`. All-zero trace IDs or span IDs are rejected.
+/// lower-hex flags>`. All-zero trace IDs or span IDs and the forbidden `ff`
+/// version are rejected. Extensions on future versions are ignored.
 ///
 /// ```
 /// use http::HeaderMap;
@@ -114,30 +117,16 @@ impl TraceContext {
 
     /// Parses a W3C `traceparent` header.
     ///
-    /// Returns `None` for malformed headers, uppercase hex, extra segments,
-    /// invalid flag bytes, or all-zero trace/span IDs.
+    /// Returns `None` for malformed headers, uppercase hex, version `ff`,
+    /// invalid flag bytes, or all-zero trace/span IDs. Version `00` must have
+    /// exactly four fields; extensions on future versions are ignored.
     pub fn parse(value: &str) -> Option<Self> {
-        let mut parts = value.split('-');
-        let version = parts.next()?;
-        let trace_id = parts.next()?;
-        let span_id = parts.next()?;
-        let flags = parts.next()?;
-        if parts.next().is_some()
-            || version.len() != 2
-            || trace_id.len() != 32
-            || span_id.len() != 16
-            || flags.len() != 2
-            || !is_lower_hex(version)
-            || !is_lower_hex(trace_id)
-            || !is_lower_hex(span_id)
-            || !is_lower_hex(flags)
-            || trace_id.chars().all(|character| character == '0')
-            || span_id.chars().all(|character| character == '0')
-        {
-            return None;
-        }
-        let flags = u8::from_str_radix(flags, 16).ok()?;
-        Some(Self::new(trace_id, span_id, flags & 1 == 1))
+        let parsed = parse_traceparent(value)?;
+        Some(Self::new(
+            parsed.trace_id,
+            parsed.parent_id,
+            parsed.flags & 1 == 1,
+        ))
     }
 
     /// Returns the trace id.
@@ -216,10 +205,4 @@ pub fn shutdown_otel(shutdown: Option<&dyn OtelShutdown>) {
     if let Some(shutdown) = shutdown {
         shutdown.shutdown();
     }
-}
-
-fn is_lower_hex(value: &str) -> bool {
-    value
-        .bytes()
-        .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }

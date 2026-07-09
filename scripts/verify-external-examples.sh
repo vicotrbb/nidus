@@ -14,6 +14,7 @@ COMMERCE_PID=""
 TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/nidus-external-examples.XXXXXX")"
 
 cleanup() {
+  status=$?
   if [ -n "$SUPPORT_PID" ] && kill -0 "$SUPPORT_PID" 2>/dev/null; then
     kill "$SUPPORT_PID" 2>/dev/null || true
     wait "$SUPPORT_PID" 2>/dev/null || true
@@ -21,6 +22,14 @@ cleanup() {
   if [ -n "$COMMERCE_PID" ] && kill -0 "$COMMERCE_PID" 2>/dev/null; then
     kill "$COMMERCE_PID" 2>/dev/null || true
     wait "$COMMERCE_PID" 2>/dev/null || true
+  fi
+  if [ "$status" -ne 0 ]; then
+    for log in "$TEMP_DIR/support.log" "$TEMP_DIR/commerce.log"; do
+      if [ -s "$log" ]; then
+        printf '\n==> failure log: %s\n' "$log" >&2
+        tail -n 200 "$log" >&2
+      fi
+    done
   fi
   rm -rf "$TEMP_DIR"
 }
@@ -65,6 +74,15 @@ nidus-testing = { path = "$ROOT/crates/nidus-testing" }
 EOF_PATCH
 
   printf '\n==> using temporary local [patch.crates-io] entries for unpublished Nidus crates\n'
+}
+
+assert_port_available() {
+  port="$1"
+  name="$2"
+  if (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
+    printf '%s example port %s is already in use\n' "$name" "$port" >&2
+    exit 1
+  fi
 }
 
 wait_for_http() {
@@ -116,17 +134,22 @@ run cargo fmt --all --check
 run cargo test -p cargo-nidus cargo_nidus_new_generates_compilable_nidus_project --all-features
 assert_no_external_path_dependencies
 prepare_local_patch_examples
+assert_port_available "$SUPPORT_PORT" "support"
+assert_port_available "$COMMERCE_PORT" "commerce"
 
 run cargo fmt --manifest-path "$SUPPORT_DIR/Cargo.toml" --check
 run cargo test --manifest-path "$SUPPORT_DIR/Cargo.toml"
+run cargo build --manifest-path "$SUPPORT_DIR/Cargo.toml"
 run cargo fmt --manifest-path "$COMMERCE_DIR/Cargo.toml" --check
 run cargo test --manifest-path "$COMMERCE_DIR/Cargo.toml"
+run cargo build --manifest-path "$COMMERCE_DIR/Cargo.toml"
 
 printf '\n==> start support desk example\n'
 (
   cd "$SUPPORT_DIR"
-  NIDUS_ADDR="127.0.0.1:$SUPPORT_PORT" cargo run >"$TEMP_DIR/support.log" 2>&1
-) &
+  exec env NIDUS_ADDR="127.0.0.1:$SUPPORT_PORT" \
+    ./target/debug/nidus-external-support-desk
+) >"$TEMP_DIR/support.log" 2>&1 &
 SUPPORT_PID="$!"
 wait_for_http "http://127.0.0.1:$SUPPORT_PORT/health/live" "$SUPPORT_PID" "support"
 
@@ -166,8 +189,9 @@ request 404 "$support_body" "http://127.0.0.1:$SUPPORT_PORT/tickets/404" \
 printf '\n==> start commerce example\n'
 (
   cd "$COMMERCE_DIR"
-  NIDUS_ADDR="127.0.0.1:$COMMERCE_PORT" cargo run >"$TEMP_DIR/commerce.log" 2>&1
-) &
+  exec env NIDUS_ADDR="127.0.0.1:$COMMERCE_PORT" \
+    ./target/debug/nidus-external-commerce
+) >"$TEMP_DIR/commerce.log" 2>&1 &
 COMMERCE_PID="$!"
 wait_for_http "http://127.0.0.1:$COMMERCE_PORT/health/live" "$COMMERCE_PID" "commerce"
 

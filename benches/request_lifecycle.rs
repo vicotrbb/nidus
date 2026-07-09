@@ -11,6 +11,7 @@ use nidus_core::{Container, Inject, SharedRequestScope};
 use nidus_http::{
     controller::Controller,
     error::ErrorEnvelopeLayer,
+    logging::{LoggingConfig, StructuredMakeSpan},
     middleware::{
         ApiDefaults, HttpMetricsHook, InMemoryRateLimitStore, PrometheusMetrics, RateLimitConfig,
         RateLimitStore as _, RequestIdConfig, RequestIdentity, body_limit_layer,
@@ -30,6 +31,7 @@ use std::{
     time::Duration,
 };
 use tower::ServiceExt;
+use tower_http::trace::MakeSpan;
 
 #[derive(Clone)]
 struct AllowGuard;
@@ -173,6 +175,17 @@ fn request_lifecycle_setup(c: &mut Criterion) {
                 },
             ),
         ));
+    let mut structured_make_span =
+        StructuredMakeSpan::new(LoggingConfig::production("bench-api")).route("/users/{id}");
+    let structured_logging_request = Request::builder()
+        .uri("/users/42")
+        .header("x-request-id", "018f4ad7-56ce-4f6a-a759-29f4438d8d78")
+        .header(
+            "traceparent",
+            "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+        )
+        .body(Body::empty())
+        .expect("benchmark request should be valid");
 
     c.bench_function("raw axum baseline request", |b| {
         b.iter(|| {
@@ -378,6 +391,12 @@ fn request_lifecycle_setup(c: &mut Criterion) {
                     .check(&store_identity, u64::MAX, store_window)
                     .unwrap(),
             );
+        });
+    });
+
+    c.bench_function("nidus structured logging span creation", |b| {
+        b.iter(|| {
+            black_box(structured_make_span.make_span(&structured_logging_request));
         });
     });
 

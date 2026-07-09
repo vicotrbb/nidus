@@ -14,12 +14,12 @@ categories.workspace = true
 
 [dependencies]
 axum.workspace = true
-nidus-http = { path = "../nidus-http", version = "1.0.6" }
+nidus-http = { path = "../nidus-http", version = "1.0.7" }
 serde_json.workspace = true
 thiserror.workspace = true
 utoipa.workspace = true
 
 [dev-dependencies]
 http.workspace = true
-nidus-testing = { path = "../nidus-testing", version = "1.0.6" }
+nidus-testing = { path = "../nidus-testing", version = "1.0.7" }
 tokio.workspace = true

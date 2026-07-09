@@ -43,7 +43,7 @@ impl ClientKind {
 /// Fields are inferred from request headers and Axum extensions:
 /// - `request_id`: the final validated/generated `x-request-id`
 /// - `correlation_id`: `x-correlation-id`, falling back to the request ID
-/// - `trace_id`: the trace-id segment from `traceparent`
+/// - `trace_id` / `span_id`: validated IDs from `traceparent`
 /// - `client_kind`: `x-api-key` means API key, otherwise `Authorization` means
 ///   authenticated, otherwise anonymous
 /// - `route`: Axum's [`axum::extract::MatchedPath`] when it is available at the
@@ -113,13 +113,15 @@ impl RequestContext {
             .get::<axum::extract::MatchedPath>()
             .map(|path| path.as_str().to_owned());
         context.client_kind = infer_client_kind(&parts.headers);
-        context.trace_id = parts
+        if let Some(trace_context) = parts
             .headers
             .get("traceparent")
             .and_then(|value| value.to_str().ok())
-            .filter(|value| !value.is_empty())
-            .and_then(|value| value.split('-').nth(1))
-            .map(str::to_owned);
+            .and_then(parse_traceparent)
+        {
+            context.trace_id = Some(trace_context.trace_id.to_owned());
+            context.span_id = Some(trace_context.parent_id.to_owned());
+        }
         context
     }
 
@@ -164,14 +166,12 @@ impl RequestContext {
 
     /// Returns the trace id when available.
     ///
-    /// The value is extracted from the second segment of the W3C `traceparent`
-    /// header. Use [`crate::otel::extract_trace_context`] when the `otel`
-    /// feature is enabled and you need full trace/span validation.
+    /// The value is extracted only when the W3C `traceparent` header is valid.
     pub fn trace_id(&self) -> Option<&str> {
         self.trace_id.as_deref()
     }
 
-    /// Returns the span id when available.
+    /// Returns the validated parent span id from `traceparent` when available.
     pub fn span_id(&self) -> Option<&str> {
         self.span_id.as_deref()
     }
@@ -346,11 +346,59 @@ fn forwarded_for_ip(headers: &HeaderMap) -> Option<IpAddr> {
 }
 
 pub(crate) fn header_to_string(headers: &HeaderMap, name: &'static str) -> Option<String> {
+    header_to_str(headers, name).map(str::to_owned)
+}
+
+pub(crate) fn header_to_str<'a>(headers: &'a HeaderMap, name: &'static str) -> Option<&'a str> {
     headers
         .get(name)
         .and_then(|value| value.to_str().ok())
         .filter(|value| !value.is_empty())
-        .map(str::to_owned)
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct ParsedTraceParent<'a> {
+    pub(crate) trace_id: &'a str,
+    pub(crate) parent_id: &'a str,
+    pub(crate) flags: u8,
+}
+
+pub(crate) fn parse_traceparent(value: &str) -> Option<ParsedTraceParent<'_>> {
+    let bytes = value.as_bytes();
+    if bytes.len() < 55 || bytes[2] != b'-' || bytes[35] != b'-' || bytes[52] != b'-' {
+        return None;
+    }
+
+    let version = &bytes[..2];
+    let trace_id = &bytes[3..35];
+    let parent_id = &bytes[36..52];
+    let flags = &bytes[53..55];
+    if !is_lower_hex(version)
+        || version == b"ff"
+        || !is_valid_id(trace_id)
+        || !is_valid_id(parent_id)
+        || !is_lower_hex(flags)
+        || (version == b"00" && bytes.len() != 55)
+        || (bytes.len() > 55 && bytes[55] != b'-')
+    {
+        return None;
+    }
+
+    Some(ParsedTraceParent {
+        trace_id: &value[3..35],
+        parent_id: &value[36..52],
+        flags: u8::from_str_radix(&value[53..55], 16).ok()?,
+    })
+}
+
+fn is_valid_id(value: &[u8]) -> bool {
+    is_lower_hex(value) && value.iter().any(|byte| *byte != b'0')
+}
+
+fn is_lower_hex(value: &[u8]) -> bool {
+    value
+        .iter()
+        .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(byte))
 }
 
 fn infer_client_kind(headers: &HeaderMap) -> ClientKind {
@@ -373,6 +421,46 @@ mod tests {
         let context = RequestContext::new("req-123", Method::GET, "/users");
 
         assert_eq!(context.into_request_id(), "req-123");
+    }
+
+    #[test]
+    fn request_context_extracts_valid_trace_and_parent_span_ids() {
+        let (parts, ()) = Request::builder()
+            .uri("/users/42")
+            .header(
+                "traceparent",
+                "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+            )
+            .body(())
+            .unwrap()
+            .into_parts();
+
+        let context = RequestContext::from_parts(&parts, "request-1");
+
+        assert_eq!(context.trace_id(), Some("4bf92f3577b34da6a3ce929d0e0e4736"));
+        assert_eq!(context.span_id(), Some("00f067aa0ba902b7"));
+    }
+
+    #[test]
+    fn request_context_ignores_invalid_traceparent_values() {
+        for traceparent in [
+            "not-a-traceparent",
+            "ff-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+            "00-00000000000000000000000000000000-00f067aa0ba902b7-01",
+            "00-4BF92F3577B34DA6A3CE929D0E0E4736-00f067aa0ba902b7-01",
+            "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01-extra",
+        ] {
+            let (parts, ()) = Request::builder()
+                .uri("/")
+                .header("traceparent", traceparent)
+                .body(())
+                .unwrap()
+                .into_parts();
+            let context = RequestContext::from_parts(&parts, "request-1");
+
+            assert_eq!(context.trace_id(), None, "{traceparent}");
+            assert_eq!(context.span_id(), None, "{traceparent}");
+        }
     }
 
     #[test]

@@ -11,6 +11,7 @@ Run the full local benchmark surface with:
 cargo bench --bench dependency_resolution
 cargo bench --bench routing
 cargo bench --bench request_lifecycle
+cargo bench --bench event_bus
 ```
 
 For a quick smoke run with reduced Criterion sampling:
@@ -19,6 +20,7 @@ For a quick smoke run with reduced Criterion sampling:
 cargo bench --bench dependency_resolution -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
 cargo bench --bench routing -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
 cargo bench --bench request_lifecycle -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
+cargo bench --bench event_bus -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
 ```
 
 ## Coverage
@@ -39,6 +41,8 @@ The current benchmark surface covers:
   validated request ID, request context, error envelope, timeout response, and
   rate limit
 - rate limit store check with 10,000 tracked identities
+- structured logging span creation with request and trace headers
+- bounded event publication at a full 10,000-event subscriber capacity
 - production default stack with and without in-process metrics
 - Prometheus metrics record-response, record-error, and render-text paths
 
@@ -47,6 +51,32 @@ composition baselines where they are meaningful. Other rows are microbenchmarks
 for specific framework behavior and should be compared to their own history.
 
 ## Local Results
+
+### 1.0.7 optimization pass (2026-07-09)
+
+The bounded event queue and structured logging changes were measured with saved
+Criterion baselines on the same `aarch64-apple-darwin` machine and `rustc
+1.96.0`. The intervals below are Criterion's 100-sample estimates; they are
+local evidence, not universal throughput claims.
+
+```bash
+cargo bench --bench event_bus -- 'nidus bounded event publish at 10k capacity' --warm-up-time 2 --measurement-time 5 --sample-size 100 --save-baseline before-event-queue
+cargo bench --bench event_bus -- 'nidus bounded event publish at 10k capacity' --warm-up-time 2 --measurement-time 5 --sample-size 100 --baseline before-event-queue
+
+cargo bench --bench request_lifecycle -- '(rate limit store check with 10k identities|structured logging span creation)' --warm-up-time 2 --measurement-time 5 --sample-size 100 --save-baseline before-http-hotpaths
+cargo bench --bench request_lifecycle -- 'structured logging span creation' --warm-up-time 2 --measurement-time 5 --sample-size 100 --baseline before-http-hotpaths
+```
+
+| Benchmark | Before | After | Criterion change |
+| --- | ---: | ---: | ---: |
+| Bounded event publish at 10k capacity | 1.0719-1.1939 us | 67.098-78.214 ns | 93.9%-94.7% faster |
+| Structured logging span creation | 158.54-159.89 ns | 83.327-86.991 ns | 37.9%-42.0% faster |
+
+The rate-limit row was included in the saved HTTP baseline to evaluate a
+borrowed-key lookup experiment. That experiment regressed the measured row and
+was reverted; the rate-limit implementation is unchanged by this pass.
+
+### Historical reference
 
 These numbers are one local validation run, not a universal performance claim.
 They were captured on 2026-06-25 at commit `4d19496` with `cargo bench`, `rustc

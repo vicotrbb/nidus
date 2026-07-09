@@ -52,23 +52,46 @@ fn logging_config_builds_production_json_subscriber_with_redaction_metadata() {
 
 #[test]
 fn structured_make_span_records_service_request_and_route_fields() {
+    let writer = SharedLogWriter::default();
     let config = LoggingConfig::production("users-api").environment("test");
+    let subscriber = config.subscriber_with_writer(writer.clone());
     let mut make_span = StructuredMakeSpan::new(config).route("/users/{id}");
     let request = Request::builder()
         .method(Method::GET)
         .uri("/users/42")
         .header("x-request-id", "018f4ad7-56ce-4f6a-a759-29f4438d8d78")
+        .header(
+            "traceparent",
+            "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+        )
         .body(())
         .unwrap();
 
-    let span = make_span.make_span(&request);
-    let fields = span.metadata().unwrap().fields();
+    tracing::subscriber::with_default(subscriber, || {
+        let span = make_span.make_span(&request);
+        let fields = span.metadata().unwrap().fields();
 
-    assert!(fields.field("service.name").is_some());
-    assert!(fields.field("deployment.environment").is_some());
-    assert!(fields.field("request.id").is_some());
-    assert!(fields.field("http.method").is_some());
-    assert!(fields.field("http.route").is_some());
+        assert!(fields.field("service.name").is_some());
+        assert!(fields.field("deployment.environment").is_some());
+        assert!(fields.field("request.id").is_some());
+        assert!(fields.field("trace.id").is_some());
+        assert!(fields.field("http.method").is_some());
+        assert!(fields.field("http.route").is_some());
+
+        let _entered = span.enter();
+        tracing::info!("request observed");
+    });
+
+    let logs = writer.contents();
+    assert!(
+        logs.contains(r#""request.id":"018f4ad7-56ce-4f6a-a759-29f4438d8d78""#),
+        "{logs}"
+    );
+    assert!(
+        logs.contains(r#""trace.id":"4bf92f3577b34da6a3ce929d0e0e4736""#),
+        "{logs}"
+    );
+    assert!(logs.contains(r#""http.route":"/users/{id}""#), "{logs}");
 }
 
 #[tokio::test]

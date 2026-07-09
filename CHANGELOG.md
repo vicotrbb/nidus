@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 1.0.7 - 2026-07-09
+
+- Replaced front-draining `Vec` storage for bounded event subscribers with a
+  ring buffer while retaining the existing `Vec` fast path for unbounded
+  subscribers. At a full 10,000-event bound, local Criterion publication time
+  moved from 1.129 us to 72.47 ns (94.3% lower mean estimate).
+- Consolidated W3C `traceparent` validation across request context,
+  OpenTelemetry helpers, and structured logging; request context now populates
+  the parent span ID, version `ff` and malformed version-00 extensions are
+  rejected, and future-version extensions are ignored. Structured spans now
+  borrow request, trace, and route fields instead of allocating owned strings
+  (159.2 ns to 84.99 ns locally; 40.0% lower mean estimate).
 - Removed one boxed-future allocation per request from the security-header,
   declared body-limit, and timeout-response middleware. In repeated local
   Criterion comparisons, the isolated middleware rows improved by 29% to 53%;
@@ -12,6 +24,9 @@
   singleton-provider recovery instead of leaving the scope permanently stuck.
 - Updated the transitive `crossbeam-epoch` dependency used by the cache adapter
   and benchmark tooling from 0.9.18 to 0.9.20 to address RUSTSEC-2026-0204.
+- Hardened standalone-example release verification against occupied ports and
+  orphaned `cargo run` children; the verifier now owns the real server PIDs and
+  prints captured server logs when a runtime smoke fails.
 
 ## 1.0.6 - 2026-07-04
 

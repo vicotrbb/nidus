@@ -24,26 +24,26 @@ Application dependencies stay explicit:
 
 ```toml
 [dependencies]
-nidus = { package = "nidus-rs", version = "1.0.6", features = ["http", "config", "openapi", "validation"] }
+nidus = { package = "nidus-rs", version = "1.0.7", features = ["http", "config", "openapi", "validation"] }
 ```
 
 For production observability through the facade:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.6", features = ["observability", "events", "jobs", "otel"] }
+nidus = { package = "nidus-rs", version = "1.0.7", features = ["observability", "events", "jobs", "otel"] }
 ```
 
 For embedded dashboard introspection:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.6", features = ["dashboard"] }
+nidus = { package = "nidus-rs", version = "1.0.7", features = ["dashboard"] }
 ```
 
 Official integrations are separate crates:
 
 ```toml
-nidus-sqlx = { version = "1.0.6", features = ["sqlite"] }
-nidus-cache = { version = "1.0.6", features = ["moka"] }
+nidus-sqlx = { version = "1.0.7", features = ["sqlite"] }
+nidus-cache = { version = "1.0.7", features = ["moka"] }
 ```
 
 ## Which Crate Do I Install?
@@ -188,7 +188,7 @@ cargo run -p nidus-example-realworld-api
 The `external-*` examples are standalone Cargo packages with their own
 `[workspace]` tables. Verify them from their folders or with
 `bash scripts/verify-external-examples.sh`; they intentionally do not use local
-workspace path dependencies. Before `1.0.6` is published to crates.io, verify
+workspace path dependencies. Before `1.0.7` is published to crates.io, verify
 the same examples against temporary local patches:
 
 ```bash
@@ -214,7 +214,10 @@ npm run verify
 
 ## Release Status
 
-Nidus 1.0.0 established the public crate set. The current release track is 1.0.6, focused on measured performance improvements across dependency resolution, request middleware, metrics recording and rendering, and rate limiting, with benchmark evidence recorded per change. Publishing still requires crates.io credentials and should be reported with exact evidence when it is not performed.
+Nidus 1.0.0 established the public crate set. The current release track is
+1.0.7, focused on bounded event throughput, allocation-conscious structured
+tracing, W3C trace-context correctness, and request-runtime hardening, with
+benchmark or deterministic test evidence recorded for every change.
 
 ## Fuzzing
 

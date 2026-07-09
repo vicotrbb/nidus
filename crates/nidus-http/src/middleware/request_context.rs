@@ -25,7 +25,7 @@ pub fn request_context_layer() -> RequestContextLayer {
 /// The inserted context reads:
 /// - `x-request-id` from the existing [`RequestContext`] or request header
 /// - `x-correlation-id`, falling back to the request ID
-/// - `traceparent` trace ID
+/// - validated `traceparent` trace and parent span IDs
 /// - `x-api-key` / `Authorization` for client classification
 /// - Axum [`axum::extract::MatchedPath`] when available at this layer
 #[derive(Clone, Copy, Debug, Default)]

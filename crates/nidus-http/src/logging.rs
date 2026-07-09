@@ -12,7 +12,7 @@ use tracing_subscriber::{
     util::SubscriberInitExt,
 };
 
-use crate::context::header_to_string;
+use crate::context::{header_to_str, parse_traceparent};
 
 /// Structured logging output format.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -240,21 +240,21 @@ impl StructuredMakeSpan {
 
 impl<B> MakeSpan<B> for StructuredMakeSpan {
     fn make_span(&mut self, request: &Request<B>) -> Span {
-        let request_id = header_to_string(request.headers(), "x-request-id").unwrap_or_default();
-        let trace_id = header_to_string(request.headers(), "traceparent")
-            .and_then(|value| value.split('-').nth(1).map(str::to_owned))
+        let request_id = header_to_str(request.headers(), "x-request-id").unwrap_or_default();
+        let trace_id = header_to_str(request.headers(), "traceparent")
+            .and_then(parse_traceparent)
+            .map(|context| context.trace_id)
             .unwrap_or_default();
         let route = self
             .route
             .as_deref()
-            .map(str::to_owned)
             .or_else(|| {
                 request
                     .extensions()
                     .get::<axum::extract::MatchedPath>()
-                    .map(|path| path.as_str().to_owned())
+                    .map(axum::extract::MatchedPath::as_str)
             })
-            .unwrap_or_else(|| "<unknown>".to_owned());
+            .unwrap_or("<unknown>");
 
         tracing::span!(
             Level::INFO,

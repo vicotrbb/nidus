@@ -7,7 +7,7 @@
 //! durable queue and does not deliver events across processes.
 
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, VecDeque},
     sync::mpsc,
     sync::{Arc, Mutex, MutexGuard, Weak},
 };
@@ -20,34 +20,49 @@ use std::{
 /// never grow memory without limit.
 #[derive(Clone, Debug)]
 struct SubscriberBuffer<T> {
-    events: Vec<T>,
-    capacity: Option<usize>,
+    events: SubscriberEvents<T>,
+}
+
+#[derive(Clone, Debug)]
+enum SubscriberEvents<T> {
+    Unbounded(Vec<T>),
+    Bounded {
+        events: VecDeque<T>,
+        capacity: usize,
+    },
 }
 
 impl<T> Default for SubscriberBuffer<T> {
     fn default() -> Self {
         Self {
-            events: Vec::new(),
-            capacity: None,
+            events: SubscriberEvents::Unbounded(Vec::new()),
         }
     }
 }
 
 impl<T> SubscriberBuffer<T> {
     fn push(&mut self, event: T) {
-        match self.capacity {
-            Some(capacity) if self.events.len() >= capacity => {
-                if capacity == 0 {
+        match &mut self.events {
+            SubscriberEvents::Unbounded(events) => events.push(event),
+            SubscriberEvents::Bounded { events, capacity } => {
+                if *capacity == 0 {
                     // A zero-capacity subscriber keeps nothing.
                     return;
                 }
-                // Evict from the front so the most recent events survive.
-                let excess = self.events.len() + 1 - capacity;
-                self.events.drain(..excess);
+                if events.len() == *capacity {
+                    // VecDeque makes oldest-event eviction constant-time.
+                    events.pop_front();
+                }
+                events.push_back(event);
             }
-            _ => {}
         }
-        self.events.push(event);
+    }
+
+    fn drain(&mut self) -> Vec<T> {
+        match &mut self.events {
+            SubscriberEvents::Unbounded(events) => std::mem::take(events),
+            SubscriberEvents::Bounded { events, .. } => std::mem::take(events).into(),
+        }
     }
 }
 
@@ -306,8 +321,12 @@ where
     /// observer side-effect matters).
     pub fn subscribe_with_capacity(&self, capacity: usize) -> EventSubscriber<T> {
         self.subscribe_with_buffer(SubscriberBuffer {
-            events: Vec::new(),
-            capacity: Some(capacity),
+            events: SubscriberEvents::Bounded {
+                // Preserve the previous lazy-allocation behavior: declaring a
+                // large bound should not allocate until events arrive.
+                events: VecDeque::new(),
+                capacity,
+            },
         })
     }
 
@@ -374,7 +393,7 @@ pub struct EventSubscriber<T> {
 impl<T> EventSubscriber<T> {
     /// Drains all received events.
     pub fn drain(&self) -> Vec<T> {
-        std::mem::take(&mut lock_unpoisoned(&self.queue).events)
+        lock_unpoisoned(&self.queue).drain()
     }
 }
 
@@ -526,6 +545,17 @@ mod tests {
         bus.publish(UserCreated(5));
         bus.publish(UserCreated(6));
         assert_eq!(bounded.drain(), vec![UserCreated(5), UserCreated(6)]);
+    }
+
+    #[test]
+    fn zero_capacity_subscriber_never_retains_events() {
+        let bus = EventBus::<UserCreated>::new();
+        let subscriber = bus.subscribe_with_capacity(0);
+
+        bus.publish(UserCreated(1));
+        bus.publish(UserCreated(2));
+
+        assert!(subscriber.drain().is_empty());
     }
 
     #[test]

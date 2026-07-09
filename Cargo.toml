@@ -60,22 +60,29 @@ name = "request_lifecycle"
 path = "benches/request_lifecycle.rs"
 harness = false
 
+[[bench]]
+name = "event_bus"
+path = "benches/event_bus.rs"
+harness = false
+
 [dev-dependencies]
 async-trait.workspace = true
 axum.workspace = true
 criterion.workspace = true
-nidus-auth = { path = "crates/nidus-auth", version = "1.0.6" }
-nidus-core = { path = "crates/nidus-core", version = "1.0.6" }
-nidus-http = { path = "crates/nidus-http", version = "1.0.6" }
-nidus-validation = { path = "crates/nidus-validation", version = "1.0.6" }
+nidus-auth = { path = "crates/nidus-auth", version = "1.0.7" }
+nidus-core = { path = "crates/nidus-core", version = "1.0.7" }
+nidus-events = { path = "crates/nidus-events", version = "1.0.7" }
+nidus-http = { path = "crates/nidus-http", version = "1.0.7" }
+nidus-validation = { path = "crates/nidus-validation", version = "1.0.7" }
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 tower.workspace = true
+tower-http.workspace = true
 garde.workspace = true
 
 [workspace.package]
-version = "1.0.6"
+version = "1.0.7"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/vicotrbb/nidus"
@@ -95,7 +102,7 @@ criterion = "0.7"
 futures-util = "0.3"
 http = "1"
 insta = "1"
-nidus-core = { path = "crates/nidus-core", version = "1.0.6" }
+nidus-core = { path = "crates/nidus-core", version = "1.0.7" }
 proc-macro2 = "1"
 quote = "1"
 serde = { version = "1", features = ["derive"] }

@@ -44,3 +44,27 @@ fn otel_trace_context_extracts_and_injects_traceparent_headers() {
 
     assert!(TraceContext::parse("not-a-traceparent").is_none());
 }
+
+#[test]
+fn otel_trace_context_rejects_invalid_w3c_identifiers_and_versions() {
+    for value in [
+        "ff-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+        "00-00000000000000000000000000000000-00f067aa0ba902b7-01",
+        "00-4bf92f3577b34da6a3ce929d0e0e4736-0000000000000000-01",
+        "00-4BF92F3577B34DA6A3CE929D0E0E4736-00f067aa0ba902b7-01",
+        "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01-extra",
+    ] {
+        assert!(TraceContext::parse(value).is_none(), "{value}");
+    }
+}
+
+#[test]
+fn otel_trace_context_accepts_and_ignores_future_version_extensions() {
+    let context =
+        TraceContext::parse("01-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-03-vendor-data")
+            .unwrap();
+
+    assert_eq!(context.trace_id(), "4bf92f3577b34da6a3ce929d0e0e4736");
+    assert_eq!(context.span_id(), "00f067aa0ba902b7");
+    assert!(context.sampled());
+}
