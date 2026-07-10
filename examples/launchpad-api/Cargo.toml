@@ -1,6 +1,6 @@
 [package]
 name = "nidus-example-launchpad-api"
-version = "1.0.8"
+version = "1.0.9"
 edition = "2024"
 publish = false
 
@@ -8,10 +8,10 @@ publish = false
 async-trait.workspace = true
 axum.workspace = true
 garde.workspace = true
-nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.8", features = ["auth", "config", "events", "jobs", "observability", "openapi", "otel", "validation"] }
-nidus-cache = { path = "../../crates/nidus-cache", version = "1.0.8", features = ["health", "observability"] }
-nidus-sqlx = { path = "../../crates/nidus-sqlx", version = "1.0.8", features = ["sqlite", "nidus-config", "health", "observability"] }
-nidus-testing = { path = "../../crates/nidus-testing", version = "1.0.8" }
+nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.9", features = ["auth", "config", "events", "jobs", "observability", "openapi", "otel", "validation"] }
+nidus-cache = { path = "../../crates/nidus-cache", version = "1.0.9", features = ["health", "observability"] }
+nidus-sqlx = { path = "../../crates/nidus-sqlx", version = "1.0.9", features = ["sqlite", "nidus-config", "health", "observability"] }
+nidus-testing = { path = "../../crates/nidus-testing", version = "1.0.9" }
 serde.workspace = true
 serde_json.workspace = true
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite"] }

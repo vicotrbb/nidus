@@ -5,9 +5,9 @@ vendor dependencies enter the application only when the application chooses
 that backend.
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.8", features = ["http", "config"] }
-nidus-sqlx = { version = "1.0.8", features = ["sqlite", "health", "observability"] }
-nidus-cache = { version = "1.0.8", features = ["moka", "health", "observability"] }
+nidus = { package = "nidus-rs", version = "1.0.9", features = ["http", "config"] }
+nidus-sqlx = { version = "1.0.9", features = ["sqlite", "health", "observability"] }
+nidus-cache = { version = "1.0.9", features = ["moka", "health", "observability"] }
 ```
 
 Adapters should register typed providers, expose health/readiness hooks when

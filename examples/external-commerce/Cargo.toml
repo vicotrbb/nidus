@@ -7,13 +7,13 @@ publish = false
 [workspace]
 
 [dependencies]
-nidus = { package = "nidus-rs", version = "1.0.8", features = ["http", "observability"] }
-nidus-cache = { version = "1.0.8", features = ["health", "observability"] }
-nidus-sqlx = { version = "1.0.8", features = ["sqlite", "health", "observability"] }
+nidus = { package = "nidus-rs", version = "1.0.9", features = ["http", "observability"] }
+nidus-cache = { version = "1.0.9", features = ["health", "observability"] }
+nidus-sqlx = { version = "1.0.9", features = ["sqlite", "health", "observability"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite"] }
 
 [dev-dependencies]
-nidus-testing = "1.0.8"
+nidus-testing = "1.0.9"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

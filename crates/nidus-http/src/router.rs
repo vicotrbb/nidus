@@ -9,8 +9,7 @@ use http::Method;
 use crate::error::RoutePathError;
 
 pub use metadata::{OpenApiSchemaRegistrar, RouteMetadata};
-pub(crate) use path::join_paths;
-use path::normalize_path;
+pub(crate) use path::{join_normalized_paths, join_paths, normalize_mount_prefix, normalize_path};
 
 /// A route declaration that can be mounted by a controller.
 pub struct RouteDefinition {

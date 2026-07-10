@@ -24,26 +24,26 @@ Application dependencies stay explicit:
 
 ```toml
 [dependencies]
-nidus = { package = "nidus-rs", version = "1.0.8", features = ["http", "config", "openapi", "validation"] }
+nidus = { package = "nidus-rs", version = "1.0.9", features = ["http", "config", "openapi", "validation"] }
 ```
 
 For production observability through the facade:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.8", features = ["observability", "events", "jobs", "otel"] }
+nidus = { package = "nidus-rs", version = "1.0.9", features = ["observability", "events", "jobs", "otel"] }
 ```
 
 For embedded dashboard introspection:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.8", features = ["dashboard"] }
+nidus = { package = "nidus-rs", version = "1.0.9", features = ["dashboard"] }
 ```
 
 Official integrations are separate crates:
 
 ```toml
-nidus-sqlx = { version = "1.0.8", features = ["sqlite"] }
-nidus-cache = { version = "1.0.8", features = ["moka"] }
+nidus-sqlx = { version = "1.0.9", features = ["sqlite"] }
+nidus-cache = { version = "1.0.9", features = ["moka"] }
 ```
 
 ## Which Crate Do I Install?
@@ -188,7 +188,7 @@ cargo run -p nidus-example-realworld-api
 The `external-*` examples are standalone Cargo packages with their own
 `[workspace]` tables. Verify them from their folders or with
 `bash scripts/verify-external-examples.sh`; they intentionally do not use local
-workspace path dependencies. Before `1.0.8` is published to crates.io, verify
+workspace path dependencies. Before `1.0.9` is published to crates.io, verify
 the same examples against temporary local patches:
 
 ```bash
@@ -215,9 +215,9 @@ npm run verify
 ## Release Status
 
 Nidus 1.0.0 established the public crate set. The current release track is
-1.0.8, focused on faster controller assembly, cheap copy-on-write request
-context cloning, and pre-rendered immutable OpenAPI responses, with benchmark
-or deterministic test evidence recorded for every change.
+1.0.9, focused on allocation-conscious route normalization and in-place OpenAPI
+schema registration, with benchmark and deterministic regression evidence for
+both changes.
 
 ## Fuzzing
 

@@ -75,6 +75,38 @@ struct CreateUserDto {
     email: String,
 }
 
+struct BenchmarkSchema<const INDEX: usize>;
+
+impl<const INDEX: usize> utoipa::PartialSchema for BenchmarkSchema<INDEX> {
+    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+        <String as utoipa::PartialSchema>::schema()
+    }
+}
+
+impl<const INDEX: usize> utoipa::ToSchema for BenchmarkSchema<INDEX> {
+    fn name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Owned(format!("BenchmarkSchema{INDEX:02}"))
+    }
+}
+
+macro_rules! schema_registrars {
+    ($($index:literal),+ $(,)?) => {
+        &[$(OpenApiDocument::schema::<BenchmarkSchema<$index>>,)+]
+    };
+}
+
+fn build_benchmark_schema_document() -> OpenApiDocument {
+    let registrars: &[fn(OpenApiDocument) -> OpenApiDocument] = schema_registrars!(
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+        25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+        48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
+    );
+    registrars.iter().fold(
+        OpenApiDocument::new("Benchmark API", "1.0.0"),
+        |document, register| register(document),
+    )
+}
+
 fn request_lifecycle_setup(c: &mut Criterion) {
     let runtime = tokio::runtime::Runtime::new().unwrap();
     let raw_router = Router::<()>::new().route("/health", get(|| async { "ok" }));
@@ -448,6 +480,10 @@ fn request_lifecycle_setup(c: &mut Criterion) {
                 .unwrap();
             black_box(response.status());
         });
+    });
+
+    c.bench_function("nidus 64-schema openapi document construction", |b| {
+        b.iter(|| black_box(build_benchmark_schema_document()));
     });
 
     c.bench_function("nidus api defaults production request", |b| {

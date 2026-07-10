@@ -22,8 +22,8 @@ want a real app shape before adding their own database.
 ## Dependencies
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.8", features = ["http"] }
-nidus-testing = "1.0.8"
+nidus = { package = "nidus-rs", version = "1.0.9", features = ["http"] }
+nidus-testing = "1.0.9"
 ```
 
 The manifest has its own `[workspace]` table so this folder remains a standalone

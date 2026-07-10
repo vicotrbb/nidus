@@ -219,6 +219,46 @@ fn register_schema<T: utoipa::ToSchema>(
     Ok(())
 }
 
+fn register_first_shared_schema(
+    schemas: &mut Vec<(String, serde_json::Value)>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    schemas.push((
+        "SharedSchema".to_owned(),
+        serde_json::json!({ "source": "first" }),
+    ));
+    Ok(())
+}
+
+fn register_second_shared_schema(
+    schemas: &mut Vec<(String, serde_json::Value)>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    schemas.push((
+        "SharedSchema".to_owned(),
+        serde_json::json!({ "source": "second" }),
+    ));
+    Ok(())
+}
+
+#[test]
+fn openapi_document_keeps_first_schema_when_registrars_collide() {
+    let routes = [
+        RouteMetadata::new("POST", "/users").with_openapi_schema_registrars(
+            Some(register_first_shared_schema),
+            Some(register_second_shared_schema),
+        ),
+    ];
+
+    let document = OpenApiDocument::new("Nidus API", "1.0.0")
+        .try_schemas_from_route_metadata(&routes)
+        .unwrap();
+    let json = document.to_json_value();
+
+    assert_eq!(
+        json["components"]["schemas"]["SharedSchema"]["source"],
+        "first"
+    );
+}
+
 #[test]
 fn openapi_document_uses_schema_refs_from_route_metadata() {
     let routes = [RouteMetadata::with_openapi_annotations(

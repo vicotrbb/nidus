@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 1.0.9 - 2026-07-10
+
+- Normalized controller mount prefixes once and converted route parameters into
+  one pre-sized output buffer instead of allocating per segment and
+  re-normalizing every stored route. Local Criterion measurements improved
+  32-route controller construction by 34.1%-35.8%; existing routing behavior
+  and focused path-invariant tests remain green.
+- Registered OpenAPI schemas directly into the document's owned map instead of
+  cloning every previously registered schema for each addition. A new
+  64-schema construction benchmark improved by 92.0%-92.1% locally, with a
+  regression test preserving first-registration-wins behavior for duplicate
+  schema names.
+- Rejected and reverted a request-context refresh experiment after repeated
+  composed-stack measurements ranged from a small improvement to no change and
+  a metrics-stack regression.
+
 ## 1.0.8 - 2026-07-10
 
 - Mounted controller routes directly into their destination router instead of

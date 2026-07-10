@@ -22,9 +22,9 @@ otel = ["nidus-http?/otel"]
 [dependencies]
 axum = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
-nidus-events = { path = "../nidus-events", version = "1.0.8", optional = true }
-nidus-http = { path = "../nidus-http", version = "1.0.8", optional = true }
-nidus-jobs = { path = "../nidus-jobs", version = "1.0.8", optional = true }
+nidus-events = { path = "../nidus-events", version = "1.0.9", optional = true }
+nidus-http = { path = "../nidus-http", version = "1.0.9", optional = true }
+nidus-jobs = { path = "../nidus-jobs", version = "1.0.9", optional = true }
 tower = { workspace = true, optional = true }
 tracing.workspace = true
 
@@ -32,8 +32,8 @@ tracing.workspace = true
 async-trait.workspace = true
 axum.workspace = true
 http.workspace = true
-nidus-events = { path = "../nidus-events", version = "1.0.8" }
-nidus-http = { path = "../nidus-http", version = "1.0.8" }
-nidus-jobs = { path = "../nidus-jobs", version = "1.0.8" }
+nidus-events = { path = "../nidus-events", version = "1.0.9" }
+nidus-http = { path = "../nidus-http", version = "1.0.9" }
+nidus-jobs = { path = "../nidus-jobs", version = "1.0.9" }
 tokio.workspace = true
 tower.workspace = true

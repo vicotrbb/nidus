@@ -133,7 +133,7 @@ impl OpenApiDocument {
     where
         T: ToSchema,
     {
-        self.schemas = self.register_schemas(Self::try_collect_openapi_schemas::<T>()?);
+        self.register_schemas(Self::try_collect_openapi_schemas::<T>()?);
         Ok(self)
     }
 
@@ -269,15 +269,13 @@ impl OpenApiDocument {
         registrar(&mut schemas).map_err(|error| OpenApiDocumentError::SchemaRegistration {
             message: error.to_string(),
         })?;
-        self.schemas = self.register_schemas(schemas);
+        self.register_schemas(schemas);
         Ok(self)
     }
 
-    fn register_schemas(&self, schemas: Vec<(String, Value)>) -> BTreeMap<String, Value> {
-        let mut registered = self.schemas.clone();
+    fn register_schemas(&mut self, schemas: Vec<(String, Value)>) {
         for (name, schema) in schemas {
-            registered.entry(name).or_insert(schema);
+            self.schemas.entry(name).or_insert(schema);
         }
-        registered
     }
 }

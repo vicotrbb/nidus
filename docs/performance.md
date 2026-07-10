@@ -46,6 +46,7 @@ The current benchmark surface covers:
 - structured logging span creation with request and trace headers
 - bounded event publication at a full 10,000-event subscriber capacity
 - production default stack with and without in-process metrics
+- constructing an OpenAPI document with 64 distinct schemas
 - serving a 100-route OpenAPI document
 - Prometheus metrics record-response, record-error, and render-text paths
 
@@ -54,6 +55,37 @@ composition baselines where they are meaningful. Other rows are microbenchmarks
 for specific framework behavior and should be compared to their own history.
 
 ## Local Results
+
+### 1.0.9 routing and OpenAPI builder pass (2026-07-10)
+
+Repeated path normalization and cumulative OpenAPI schema-map cloning were
+measured with saved Criterion baselines on the same `aarch64-apple-darwin`
+machine and `rustc 1.96.0`. Each reported row used 150 samples. The benchmark
+definition was identical on both sides of each comparison.
+
+```bash
+cargo bench --bench request_lifecycle -- 'nidus (32-route controller app|middleware request context request|api defaults production request|api defaults production with metrics request)' --warm-up-time 2 --measurement-time 5 --sample-size 150 --save-baseline pre_elite_pass
+cargo bench --bench request_lifecycle -- 'nidus 64-schema openapi document construction' --warm-up-time 2 --measurement-time 5 --sample-size 150 --save-baseline pre_elite_pass
+cargo bench --bench request_lifecycle -- 'nidus (32-route controller app|64-schema openapi document construction)' --warm-up-time 2 --measurement-time 5 --sample-size 150 --baseline pre_elite_pass
+```
+
+| Benchmark | Before | After | Criterion change |
+| --- | ---: | ---: | ---: |
+| 32-route controller construction | 24.195-24.331 us | 15.885-16.102 us | 34.1%-35.8% faster |
+| 64-schema OpenAPI construction | 177.04-179.30 us | 14.324-14.425 us | 92.0%-92.1% faster |
+
+The routing change normalizes a controller mount prefix once and joins route
+paths that were already normalized by `RouteDefinition`. Path normalization
+also writes into one pre-sized `String` rather than allocating a temporary
+`String` for every segment plus a `Vec` and joined output. The OpenAPI change
+uses the document's owned `BTreeMap` entry API directly, preserving its existing
+first-registration-wins rule without cloning accumulated schemas.
+
+A request-context in-place refresh was also tested against the production
+defaults rows. Repeated comparisons were inconsistent: one isolated run showed
+a small improvement, while a later run found no significant change without
+metrics and a 9.8%-15.2% regression with metrics. The experiment was reverted
+and is not included in this pass.
 
 ### 1.0.8 framework hot-path pass (2026-07-10)
 
