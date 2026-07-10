@@ -3,6 +3,7 @@
 use std::{
     future::Future,
     net::{IpAddr, SocketAddr},
+    sync::Arc,
 };
 
 use axum::extract::FromRequestParts;
@@ -49,6 +50,10 @@ impl ClientKind {
 /// - `route`: Axum's [`axum::extract::MatchedPath`] when it is available at the
 ///   point the context layer runs
 ///
+/// Clones share the immutable string metadata. Consuming enrichment methods
+/// such as [`Self::with_user_id`] use copy-on-write, so changing a clone does
+/// not change the original context.
+///
 /// ```
 /// use nidus_http::{Json, context::RequestContext};
 ///
@@ -61,14 +66,19 @@ impl ClientKind {
 /// ```
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RequestContext {
+    inner: Arc<RequestContextInner>,
+    method: Method,
+    client_kind: ClientKind,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct RequestContextInner {
     request_id: String,
     correlation_id: Option<String>,
-    method: Method,
     route: Option<String>,
     path: String,
     trace_id: Option<String>,
     span_id: Option<String>,
-    client_kind: ClientKind,
     user_id: Option<String>,
     tenant_id: Option<String>,
     session_id: Option<String>,
@@ -82,17 +92,19 @@ impl RequestContext {
     /// remain empty/default until set explicitly or built via [`Self::from_parts`].
     pub fn new(request_id: impl Into<String>, method: Method, path: impl Into<String>) -> Self {
         Self {
-            request_id: request_id.into(),
-            correlation_id: None,
+            inner: Arc::new(RequestContextInner {
+                request_id: request_id.into(),
+                correlation_id: None,
+                route: None,
+                path: path.into(),
+                trace_id: None,
+                span_id: None,
+                user_id: None,
+                tenant_id: None,
+                session_id: None,
+            }),
             method,
-            route: None,
-            path: path.into(),
-            trace_id: None,
-            span_id: None,
             client_kind: ClientKind::Anonymous,
-            user_id: None,
-            tenant_id: None,
-            session_id: None,
         }
     }
 
@@ -107,8 +119,9 @@ impl RequestContext {
         let correlation_id = header_to_string(&parts.headers, "x-correlation-id")
             .or_else(|| (!request_id.is_empty()).then(|| request_id.clone()));
         let mut context = Self::new(request_id, parts.method.clone(), parts.uri.path());
-        context.correlation_id = correlation_id;
-        context.route = parts
+        let inner = Arc::make_mut(&mut context.inner);
+        inner.correlation_id = correlation_id;
+        inner.route = parts
             .extensions
             .get::<axum::extract::MatchedPath>()
             .map(|path| path.as_str().to_owned());
@@ -119,8 +132,8 @@ impl RequestContext {
             .and_then(|value| value.to_str().ok())
             .and_then(parse_traceparent)
         {
-            context.trace_id = Some(trace_context.trace_id.to_owned());
-            context.span_id = Some(trace_context.parent_id.to_owned());
+            inner.trace_id = Some(trace_context.trace_id.to_owned());
+            inner.span_id = Some(trace_context.parent_id.to_owned());
         }
         context
     }
@@ -130,11 +143,14 @@ impl RequestContext {
     /// With [`crate::middleware::validated_request_id_layer`], this is either a
     /// valid inbound UUID v4 or a generated ID.
     pub fn request_id(&self) -> &str {
-        &self.request_id
+        &self.inner.request_id
     }
 
     pub(crate) fn into_request_id(self) -> String {
-        self.request_id
+        match Arc::try_unwrap(self.inner) {
+            Ok(inner) => inner.request_id,
+            Err(inner) => inner.request_id.clone(),
+        }
     }
 
     /// Returns the correlation id when available.
@@ -142,7 +158,7 @@ impl RequestContext {
     /// [`Self::from_parts`] prefers `x-correlation-id` and falls back to the
     /// request ID when no correlation header is present.
     pub fn correlation_id(&self) -> Option<&str> {
-        self.correlation_id.as_deref()
+        self.inner.correlation_id.as_deref()
     }
 
     /// Returns the request method.
@@ -156,24 +172,24 @@ impl RequestContext {
     /// present before the context is built. Layer placement can affect whether
     /// this is available for a given router shape.
     pub fn route(&self) -> Option<&str> {
-        self.route.as_deref()
+        self.inner.route.as_deref()
     }
 
     /// Returns the raw request path.
     pub fn path(&self) -> &str {
-        &self.path
+        &self.inner.path
     }
 
     /// Returns the trace id when available.
     ///
     /// The value is extracted only when the W3C `traceparent` header is valid.
     pub fn trace_id(&self) -> Option<&str> {
-        self.trace_id.as_deref()
+        self.inner.trace_id.as_deref()
     }
 
     /// Returns the validated parent span id from `traceparent` when available.
     pub fn span_id(&self) -> Option<&str> {
-        self.span_id.as_deref()
+        self.inner.span_id.as_deref()
     }
 
     /// Returns the inferred client kind.
@@ -186,40 +202,40 @@ impl RequestContext {
 
     /// Returns the optional application user id.
     pub fn user_id(&self) -> Option<&str> {
-        self.user_id.as_deref()
+        self.inner.user_id.as_deref()
     }
 
     /// Returns the optional application tenant id.
     pub fn tenant_id(&self) -> Option<&str> {
-        self.tenant_id.as_deref()
+        self.inner.tenant_id.as_deref()
     }
 
     /// Returns the optional application session id.
     pub fn session_id(&self) -> Option<&str> {
-        self.session_id.as_deref()
+        self.inner.session_id.as_deref()
     }
 
     /// Sets the stable matched route pattern.
     pub fn with_route(mut self, route: impl Into<String>) -> Self {
-        self.route = Some(route.into());
+        Arc::make_mut(&mut self.inner).route = Some(route.into());
         self
     }
 
     /// Sets an application user id.
     pub fn with_user_id(mut self, user_id: impl Into<String>) -> Self {
-        self.user_id = Some(user_id.into());
+        Arc::make_mut(&mut self.inner).user_id = Some(user_id.into());
         self
     }
 
     /// Sets an application tenant id.
     pub fn with_tenant_id(mut self, tenant_id: impl Into<String>) -> Self {
-        self.tenant_id = Some(tenant_id.into());
+        Arc::make_mut(&mut self.inner).tenant_id = Some(tenant_id.into());
         self
     }
 
     /// Sets an application session id.
     pub fn with_session_id(mut self, session_id: impl Into<String>) -> Self {
-        self.session_id = Some(session_id.into());
+        Arc::make_mut(&mut self.inner).session_id = Some(session_id.into());
         self
     }
 }
@@ -421,6 +437,27 @@ mod tests {
         let context = RequestContext::new("req-123", Method::GET, "/users");
 
         assert_eq!(context.into_request_id(), "req-123");
+    }
+
+    #[test]
+    fn cloned_request_context_uses_copy_on_write_for_enrichment() {
+        let original = RequestContext::new("req-123", Method::GET, "/users");
+        let shared = original.clone();
+        assert!(Arc::ptr_eq(&original.inner, &shared.inner));
+
+        let enriched = shared
+            .with_route("/users/{id}")
+            .with_user_id("user-42")
+            .with_tenant_id("tenant-7")
+            .with_session_id("session-9");
+
+        assert!(!Arc::ptr_eq(&original.inner, &enriched.inner));
+        assert_eq!(original.route(), None);
+        assert_eq!(original.user_id(), None);
+        assert_eq!(enriched.route(), Some("/users/{id}"));
+        assert_eq!(enriched.user_id(), Some("user-42"));
+        assert_eq!(enriched.tenant_id(), Some("tenant-7"));
+        assert_eq!(enriched.session_id(), Some("session-9"));
     }
 
     #[test]

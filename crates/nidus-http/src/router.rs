@@ -120,8 +120,8 @@ impl RouteDefinition {
         &self.method
     }
 
-    pub(crate) fn into_router(self, full_path: String) -> Router {
-        Router::new().route(&full_path, self.route)
+    pub(crate) fn mount(self, router: Router, full_path: String) -> Router {
+        router.route(&full_path, self.route)
     }
 
     fn try_new(

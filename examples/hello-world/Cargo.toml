@@ -1,12 +1,12 @@
 [package]
 name = "nidus-example-hello-world"
-version = "1.0.7"
+version = "1.0.8"
 edition = "2024"
 publish = false
 
 [dependencies]
-nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.7" }
+nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.8" }
 tokio.workspace = true
 
 [dev-dependencies]
-nidus-testing = { path = "../../crates/nidus-testing", version = "1.0.7" }
+nidus-testing = { path = "../../crates/nidus-testing", version = "1.0.8" }

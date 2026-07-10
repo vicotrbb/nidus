@@ -30,6 +30,7 @@ The current benchmark surface covers:
 - singleton dependency resolution
 - raw Axum route composition
 - Nidus controller route composition
+- multi-route Nidus controller construction
 - raw Axum baseline request handling
 - hello-world request handling and app construction
 - controller plus injected service request handling and app construction
@@ -37,6 +38,7 @@ The current benchmark surface covers:
 - guard middleware
 - validation extraction
 - request-scoped dependency resolution through HTTP
+- request context cloning
 - per-layer middleware: security headers, body limit, legacy request ID,
   validated request ID, request context, error envelope, timeout response, and
   rate limit
@@ -44,6 +46,7 @@ The current benchmark surface covers:
 - structured logging span creation with request and trace headers
 - bounded event publication at a full 10,000-event subscriber capacity
 - production default stack with and without in-process metrics
+- serving a 100-route OpenAPI document
 - Prometheus metrics record-response, record-error, and render-text paths
 
 The request lifecycle benchmark includes equivalent raw Axum request and routing
@@ -51,6 +54,40 @@ composition baselines where they are meaningful. Other rows are microbenchmarks
 for specific framework behavior and should be compared to their own history.
 
 ## Local Results
+
+### 1.0.8 framework hot-path pass (2026-07-10)
+
+Controller assembly, request-context cloning, and immutable OpenAPI responses
+were measured with saved Criterion baselines on the same
+`aarch64-apple-darwin` machine and `rustc 1.96.0`. Each row used 150 samples.
+The new benchmark rows were applied identically to the pre-change and current
+source trees; the request-stack baseline was rebuilt from the pre-change commit
+before comparison.
+
+```bash
+cargo bench --bench request_lifecycle -- 'nidus (hello-world app|controller \+ service app|controller setup|guarded route|rate limit store check with 10k identities)' --sample-size 150 --save-baseline pre_nidus_quality
+cargo bench --bench request_lifecycle -- 'nidus (32-route controller app|request context clone|100-route openapi json request)' --sample-size 150 --save-baseline pre_nidus_quality
+cargo bench --bench request_lifecycle -- 'nidus (hello-world app|32-route controller app|request context clone|100-route openapi json request)' --sample-size 150 --baseline pre_nidus_quality
+
+cargo bench --bench request_lifecycle -- 'nidus (middleware request context request|api defaults production request|api defaults production with metrics request)' --sample-size 150 --save-baseline pre_context_stack
+cargo bench --bench request_lifecycle -- 'nidus (middleware request context request|api defaults production request|api defaults production with metrics request)' --sample-size 150 --baseline pre_context_stack
+```
+
+| Benchmark | Before | After | Criterion change |
+| --- | ---: | ---: | ---: |
+| Hello-world controller construction | 1.9211-1.9452 us | 1.0304-1.0447 us | 45.9%-46.7% faster |
+| 32-route controller construction | 52.792-53.242 us | 23.881-23.947 us | 55.1%-56.2% faster |
+| Request context clone | 92.385-92.924 ns | 3.6536-3.6717 ns | 96.0%-96.1% faster |
+| 100-route OpenAPI JSON response | 188.42-190.58 us | 519.09-520.22 ns | 99.7% faster |
+| Request context middleware | 973.37-1009.1 ns | 896.81-901.10 ns | 3.8%-6.0% faster |
+| Production defaults | 2.6012-2.6602 us | 2.2908-2.3400 us | 14.7%-17.2% faster |
+| Production defaults with metrics | 2.9016-2.9701 us | 2.6952-2.7014 us | 7.1%-8.7% faster |
+
+These are local latency and construction-time measurements, not universal
+throughput claims. A borrowed-key rate-limit lookup and a request-scope clone
+avoidance experiment were also measured. The former regressed its benchmark
+and the latter stayed within Criterion's noise threshold, so both were
+reverted.
 
 ### 1.0.7 optimization pass (2026-07-09)
 

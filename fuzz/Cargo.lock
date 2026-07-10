@@ -480,7 +480,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-config"
-version = "1.0.7"
+version = "1.0.8"
 dependencies = [
  "serde",
  "serde_json",
@@ -489,7 +489,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-core"
-version = "1.0.7"
+version = "1.0.8"
 dependencies = [
  "async-trait",
  "thiserror",
@@ -509,7 +509,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-http"
-version = "1.0.7"
+version = "1.0.8"
 dependencies = [
  "axum",
  "futures-util",
@@ -529,7 +529,7 @@ dependencies = [
 
 [[package]]
 name = "nidus-openapi"
-version = "1.0.7"
+version = "1.0.8"
 dependencies = [
  "axum",
  "nidus-http",

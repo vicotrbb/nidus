@@ -9,6 +9,7 @@ use garde::Validate;
 use nidus_auth::{Guard, GuardContext, GuardError, guard_layer};
 use nidus_core::{Container, Inject, SharedRequestScope};
 use nidus_http::{
+    context::RequestContext as HttpRequestContext,
     controller::Controller,
     error::ErrorEnvelopeLayer,
     logging::{LoggingConfig, StructuredMakeSpan},
@@ -20,6 +21,7 @@ use nidus_http::{
     },
     router::RouteDefinition,
 };
+use nidus_openapi::{OpenApiDocument, OpenApiRoute};
 use nidus_validation::ValidatedJson;
 use serde::Deserialize;
 use std::{
@@ -186,6 +188,30 @@ fn request_lifecycle_setup(c: &mut Criterion) {
         )
         .body(Body::empty())
         .expect("benchmark request should be valid");
+    let (request_context_parts, ()) = Request::builder()
+        .method(Method::GET)
+        .uri("/users/42")
+        .header("x-correlation-id", "customer-import-42")
+        .header("x-api-key", "benchmark-key")
+        .header(
+            "traceparent",
+            "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+        )
+        .body(())
+        .expect("benchmark request should be valid")
+        .into_parts();
+    let request_context = HttpRequestContext::from_parts(
+        &request_context_parts,
+        "018f4ad7-56ce-4f6a-a759-29f4438d8d78",
+    );
+    let mut openapi = OpenApiDocument::new("Benchmark API", "1.0.0");
+    for index in 0..100 {
+        openapi = openapi.route(
+            OpenApiRoute::get(format!("/resources/{index}/:id"))
+                .summary(format!("Fetch resource {index}")),
+        );
+    }
+    let openapi_router = openapi.into_router();
 
     c.bench_function("raw axum baseline request", |b| {
         b.iter(|| {
@@ -210,6 +236,17 @@ fn request_lifecycle_setup(c: &mut Criterion) {
             Controller::new("/")
                 .route(RouteDefinition::get("/", || async { "hello" }))
                 .into_router()
+        });
+    });
+
+    c.bench_function("nidus 32-route controller app", |b| {
+        b.iter(|| {
+            let controller = (0..32).fold(Controller::new("/api"), |controller, index| {
+                controller.route(RouteDefinition::get(format!("/route-{index}"), || async {
+                    "ok"
+                }))
+            });
+            black_box(controller.into_router())
         });
     });
 
@@ -397,6 +434,19 @@ fn request_lifecycle_setup(c: &mut Criterion) {
     c.bench_function("nidus structured logging span creation", |b| {
         b.iter(|| {
             black_box(structured_make_span.make_span(&structured_logging_request));
+        });
+    });
+
+    c.bench_function("nidus request context clone", |b| {
+        b.iter(|| black_box(request_context.clone()));
+    });
+
+    c.bench_function("nidus 100-route openapi json request", |b| {
+        b.iter(|| {
+            let response = runtime
+                .block_on(openapi_router.clone().oneshot(get_request("/openapi.json")))
+                .unwrap();
+            black_box(response.status());
         });
     });
 

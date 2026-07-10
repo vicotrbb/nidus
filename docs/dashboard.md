@@ -7,13 +7,13 @@ enabled by default.
 Enable it through the facade:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.7", features = ["dashboard"] }
+nidus = { package = "nidus-rs", version = "1.0.8", features = ["dashboard"] }
 ```
 
 Or depend on the crate directly when building lower-level integration code:
 
 ```toml
-nidus-dashboard = "1.0.7"
+nidus-dashboard = "1.0.8"
 ```
 
 ## Setup

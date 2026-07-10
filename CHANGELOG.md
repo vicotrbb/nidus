@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## 1.0.8 - 2026-07-10
+
+- Mounted controller routes directly into their destination router instead of
+  constructing and merging a temporary router per route. Local Criterion
+  measurements improved 32-route controller construction by 55.1%-56.2%; a
+  focused regression test preserves same-path, different-method routing.
+- Made `RequestContext` clones share immutable string metadata with
+  copy-on-write enrichment while preserving all public methods and their
+  behavior. Clone time improved by 96.0%-96.1% locally, and composed request
+  stack benchmarks improved by 3.8%-17.2% across the measured configurations.
+- Pre-rendered immutable OpenAPI JSON and Swagger UI responses at router
+  construction time. A 100-route JSON response improved from 188.42-190.58 us
+  to 519.09-520.22 ns locally while preserving the response media types and
+  parsed document content.
+- Added focused Criterion rows for multi-route controller construction,
+  request-context cloning, and OpenAPI document serving, plus copy-on-write,
+  routing-composition, and content-type regression coverage.
+
 ## 1.0.7 - 2026-07-09
 
 - Replaced front-draining `Vec` storage for bounded event subscribers with a

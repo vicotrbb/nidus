@@ -46,7 +46,7 @@ impl Controller {
         let mut router = Router::new();
         for route in self.routes {
             let full_path = join_paths(&self.prefix, route.path())?;
-            router = router.merge(route.into_router(full_path));
+            router = route.mount(router, full_path);
         }
         Ok(router)
     }

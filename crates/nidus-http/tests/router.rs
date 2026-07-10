@@ -1,4 +1,7 @@
+use axum::body::{Body, to_bytes};
+use http::{Method, Request, StatusCode};
 use nidus_http::{controller::Controller, router::RouteDefinition, router::RouteMetadata};
+use tower::ServiceExt;
 
 #[test]
 fn route_metadata_composes_controller_prefix_with_normalized_path() {
@@ -73,4 +76,45 @@ fn controller_try_into_router_rejects_invalid_prefix() {
     };
 
     assert_eq!(error.path(), "/:");
+}
+
+#[tokio::test]
+async fn controller_mounts_multiple_methods_at_the_same_path() {
+    let router = Controller::new("/users")
+        .route(RouteDefinition::get("/", || async { "listed" }))
+        .route(RouteDefinition::post("/", || async { "created" }))
+        .into_router();
+
+    let get = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/users")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let post = router
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/users")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(get.status(), StatusCode::OK);
+    assert_eq!(post.status(), StatusCode::OK);
+    assert_eq!(
+        to_bytes(get.into_body(), usize::MAX).await.unwrap(),
+        "listed"
+    );
+    assert_eq!(
+        to_bytes(post.into_body(), usize::MAX).await.unwrap(),
+        "created"
+    );
 }

@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use axum::{Json, Router, response::Html, routing::get};
+use axum::{Router, body::Bytes, http::header, response::Html, routing::get};
 use nidus_http::error::RoutePathError;
 use nidus_http::router::{OpenApiSchemaRegistrar, RouteMetadata};
 use serde_json::{Value, json};
@@ -231,16 +231,22 @@ impl OpenApiDocument {
     }
 
     /// Builds an Axum router serving OpenAPI JSON and Swagger UI docs.
+    ///
+    /// Both immutable responses are rendered once when the router is built;
+    /// requests only clone their reference-counted byte buffers.
     pub fn into_router(self) -> Router {
-        let json = self.to_json_value();
-        let docs = docs_html(&self.title, "/openapi.json");
+        let json = Bytes::from(
+            serde_json::to_vec(&self.to_json_value())
+                .expect("OpenAPI values should always serialize as JSON"),
+        );
+        let docs = Bytes::from(docs_html(&self.title, "/openapi.json"));
 
         Router::new()
             .route(
                 "/openapi.json",
                 get(move || {
                     let json = json.clone();
-                    async move { Json(json) }
+                    async move { ([(header::CONTENT_TYPE, "application/json")], json) }
                 }),
             )
             .route(

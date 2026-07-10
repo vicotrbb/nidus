@@ -215,6 +215,7 @@ async fn openapi_document_serves_json_and_docs_routes() {
 
     let json = app.get("/openapi.json").send().await;
     json.assert_status(http::StatusCode::OK);
+    json.assert_header("content-type", "application/json");
     json.assert_json(serde_json::json!({
         "info": {
             "title": "Nidus API",
@@ -248,6 +249,7 @@ async fn openapi_document_serves_json_and_docs_routes() {
 
     let docs = app.get("/docs").send().await;
     docs.assert_status(http::StatusCode::OK);
+    docs.assert_header("content-type", "text/html; charset=utf-8");
     let html = String::from_utf8(docs.body().to_vec()).unwrap();
     assert!(html.contains("<!doctype html>"));
     assert!(html.contains("<title>Nidus API Documentation</title>"));
