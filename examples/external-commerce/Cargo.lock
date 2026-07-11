@@ -159,15 +159,15 @@ checksum = "72f5acc6cb2ba439de613abc23857ec3d78374d8ed5ac84e9d11336e87da8649"
 
 [[package]]
 name = "bytes"
-version = "1.12.0"
+version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ae3f5d315924270530207e2a68396c3cc547f6dca3fbdca317cfb1a51edb593"
+checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
 name = "cc"
-version = "1.2.65"
+version = "1.2.67"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e228eec9be7c17ccb640b59b36a5cd805ea2a564a4c5e162c2f659fea30d3b96"
+checksum = "e17dd265a7d0f31ef544e1b20e03add05d3b45b491b633b10d67145d2acc1a38"
 dependencies = [
  "find-msvc-tools",
  "shlex",
@@ -240,9 +240,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-channel"
-version = "0.5.15"
+version = "0.5.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82b8f8f868b36967f9606790d1903570de9ceaf870a7bf9fbbd3016d636a2cb2"
+checksum = "d85363c37faeca707aef026efa9f3b34d077bce547e48f770770625c6013679e"
 dependencies = [
  "crossbeam-utils",
 ]
@@ -258,18 +258,18 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-queue"
-version = "0.3.12"
+version = "0.3.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f58bbc28f91df819d0aa2a2c00cd19754769c2fad90579b3592b1c9ba7a3115"
+checksum = "803d13fb3b09d88be9f4dbc29062c66b19bf7170867ceb746d2a8689bf6c7a26"
 dependencies = [
  "crossbeam-utils",
 ]
 
 [[package]]
 name = "crossbeam-utils"
-version = "0.8.21"
+version = "0.8.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
+checksum = "61803da095bee82a81bb1a452ecc25d3b2f1416d1897eb86430c6159ef717c17"
 
 [[package]]
 name = "crypto-common"
@@ -349,6 +349,12 @@ dependencies = [
  "event-listener",
  "pin-project-lite",
 ]
+
+[[package]]
+name = "fastrand"
+version = "2.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f1f227452a390804cdb637b74a86990f2a7d7ba4b7d5693aac9b4dd6defd8d6"
 
 [[package]]
 name = "find-msvc-tools"
@@ -807,9 +813,9 @@ checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "memchr"
-version = "2.8.2"
+version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88904434abc2901f197fe8cc55f0445e7ded921dba5911dad2e2b39b48e663c4"
+checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "mime"
@@ -860,9 +866,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-cache"
-version = "1.0.9"
+version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac809262b871f1c5d56573bc33a2af2dd2d94d7155725f44474f9c8c22d33003"
+checksum = "e65a088f3e76bc7d98b1554c0e0fb98d6ad067890295478e527cd045462ef57e"
 dependencies = [
  "moka",
  "nidus-core",
@@ -873,9 +879,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-config"
-version = "1.0.9"
+version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "217062c244b17b039923a8ef542631d2c7edb88b5989935828cf177e569648f8"
+checksum = "1dd9acdeb39f30f5f191a5e7704568b0f697c179c0c3bccc89c16c1335c73c73"
 dependencies = [
  "serde",
  "serde_json",
@@ -884,9 +890,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-core"
-version = "1.0.9"
+version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ecaf1a88f3e8c3ffdd079a5a26b9514c6bd8ff0fb93b0e98dbb2278c4ae853a7"
+checksum = "ce4ce5c685299d1b20f8a6503bc38c7d281fa104b69b4bb7860eda5103994a89"
 dependencies = [
  "async-trait",
  "thiserror",
@@ -896,9 +902,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-events"
-version = "1.0.9"
+version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa2060876dcb90b35949e2e00c685e26e036e944530938b4921a26a441edc121"
+checksum = "8ac630e231b0f840e58f890c49b50456dce71680ee5e8e1c501108cf374c1acc"
 dependencies = [
  "tracing",
  "uuid",
@@ -920,9 +926,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-http"
-version = "1.0.9"
+version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8faa8cea8b75d933fddf281f4d22c77745f615df174363e7ed0e04aff48258bc"
+checksum = "fa286b8b61d2d8317940358c85010227efc884d737c248cd4e20063edc783294"
 dependencies = [
  "axum",
  "futures-util",
@@ -941,23 +947,45 @@ dependencies = [
 ]
 
 [[package]]
-name = "nidus-jobs"
-version = "1.0.9"
+name = "nidus-integrations"
+version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa2649caa7799c0e966276c5e38b5cb3ab1e60e16f816fdcc04135a6261357d4"
+checksum = "fa32568ea894b6c27ad1427676335f0adc79c524de85c9ee27237e88ab44691f"
 dependencies = [
  "async-trait",
  "futures-util",
+ "nidus-observability",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "time",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "nidus-jobs"
+version = "1.0.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2dd0e5a95766a242418239af626c991ba6a1698ad56de268316a9d161eb150b"
+dependencies = [
+ "async-trait",
+ "fastrand",
+ "futures-util",
+ "serde",
+ "serde_json",
+ "thiserror",
  "tokio",
+ "tokio-util",
  "tracing",
  "uuid",
 ]
 
 [[package]]
 name = "nidus-macros"
-version = "1.0.9"
+version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "636e2a9cc89a94287d24b38961e90a9de9a42073a176ae956f344853a0d23aa6"
+checksum = "d9905d1be0eb2179aa15983dc02472448c3943af4b8583ae03989214453577a5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -966,9 +994,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-observability"
-version = "1.0.9"
+version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8083220ece95bd8afae889a0bb5986618da1659f3ab39e212eca2dfe7c70f980"
+checksum = "5638026b2f1068a9b64745f589a3107f20342ba083e46b7bde64e8bc0d81216e"
 dependencies = [
  "axum",
  "http",
@@ -981,9 +1009,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-rs"
-version = "1.0.9"
+version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25eb9e0a9e09b32ed934820eed2aabc97573ae6822a3905de91e5a6cbdff4957"
+checksum = "83009fbd3f2c0e929f8e251e4d55ce6f40c21c8d9626767a426f9406c5601c62"
 dependencies = [
  "nidus-config",
  "nidus-core",
@@ -998,12 +1026,16 @@ dependencies = [
 
 [[package]]
 name = "nidus-sqlx"
-version = "1.0.9"
+version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fec7b8304184ef0825811a194312d9ca181888cafb9c7afe921d244dd3069b8"
+checksum = "4028c56b06c3ee9e0f0159bfe1abe9e8906ce174a3178ed68e25dcc56eea2977"
 dependencies = [
+ "async-trait",
+ "fastrand",
+ "futures-util",
  "nidus-core",
  "nidus-http",
+ "nidus-integrations",
  "nidus-observability",
  "serde",
  "sqlx",
@@ -1012,9 +1044,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-testing"
-version = "1.0.9"
+version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "328ece812e30f0113565703a71d4ef9caf5e12a2445a706c0607835a15bf048b"
+checksum = "4e5e3cf5270a1a395bf90c45e8147616bcd0554fd5cdcb21292f4feb74866bee"
 dependencies = [
  "axum",
  "http",
@@ -1161,9 +1193,9 @@ dependencies = [
 
 [[package]]
 name = "regex-automata"
-version = "0.4.14"
+version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e1dd4122fc1595e8162618945476892eefca7b88c52820e74af6262213cae8f"
+checksum = "1f388202e4b80542a0921078cc23b6333bcf1409c1e3f86404cae4766a6131db"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -1178,9 +1210,9 @@ checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
 name = "rustversion"
-version = "1.0.22"
+version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
+checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
 name = "ryu"
@@ -1489,9 +1521,9 @@ dependencies = [
 
 [[package]]
 name = "thread_local"
-version = "1.1.9"
+version = "1.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f60246a4944f24f6e018aa17cdeffb7818b76356965d03b07d6a9886e8962185"
+checksum = "1ad99c4c6d32803332c548b1af0540b357b3f5fc0be8f6c6bfe8b2e6ae784070"
 dependencies = [
  "cfg-if",
 ]
@@ -1582,6 +1614,7 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-sink",
+ "futures-util",
  "pin-project-lite",
  "tokio",
 ]
