@@ -80,6 +80,10 @@ jobs:
         run: |
           rustup toolchain install 1.96.0 --profile minimal
           rustup default 1.96.0
+      - name: Install native Kafka build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes libcurl4-openssl-dev
       - name: Test first-party service adapters and cleanup
         run: bash scripts/test-integration-services.sh
 

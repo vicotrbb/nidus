@@ -9,7 +9,7 @@ cd "${repo_root}"
 # and disable cargo-audit's duplicate online yank query below.
 cargo deny check advisories
 
-rsa_path="$(cargo tree -p nidus-sqlx --all-features -i rsa)"
+rsa_path="$(cargo tree --color never -p nidus-sqlx --all-features -i rsa)"
 if ! grep -q '^└── sqlx-mysql ' <<<"${rsa_path}"; then
   echo "RUSTSEC-2023-0071 exception is no longer limited to sqlx-mysql" >&2
   printf '%s\n' "${rsa_path}" >&2
