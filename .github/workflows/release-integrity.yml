@@ -43,6 +43,10 @@ jobs:
           rustup toolchain install 1.96.0 --profile minimal
           rustup default 1.96.0
           rustup component add llvm-tools-preview
+      - name: Install native Kafka build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes libcurl4-openssl-dev
       - name: Install cargo-llvm-cov
         run: cargo install cargo-llvm-cov --locked
       - name: Generate LCOV
@@ -62,6 +66,10 @@ jobs:
         run: |
           rustup toolchain install 1.96.0 --profile minimal
           rustup default 1.96.0
+      - name: Install native Kafka build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes libcurl4-openssl-dev
       - name: Install cargo-semver-checks
         run: cargo install cargo-semver-checks --locked
       - name: Check publishable crate APIs
