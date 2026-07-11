@@ -40,6 +40,8 @@ jobs:
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - name: Test
         run: cargo test --workspace --all-features
+      - name: Integration feature matrix
+        run: bash scripts/check-integration-feature-matrix.sh
       - name: Docs
         run: cargo doc --workspace --all-features --no-deps
       - name: List package files for publishable crates
@@ -62,8 +64,24 @@ jobs:
           rustup default 1.96.0
       - name: Install cargo-deny
         run: cargo install cargo-deny --locked
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
       - name: Check dependencies
         run: cargo deny check
+      - name: Audit RustSec advisories
+        run: bash scripts/audit-dependencies.sh
+
+  live-integrations:
+    name: live integration services
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # actions/checkout@v4
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal
+          rustup default 1.96.0
+      - name: Test first-party service adapters and cleanup
+        run: bash scripts/test-integration-services.sh
 
   website:
     name: website

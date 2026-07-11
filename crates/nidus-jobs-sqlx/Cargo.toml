@@ -1,0 +1,39 @@
+[package]
+name = "nidus-jobs-sqlx"
+version.workspace = true
+edition.workspace = true
+description = "SQLx-backed durable jobs for Nidus with SQLite, PostgreSQL, CockroachDB, and MySQL support."
+readme = "../../README.md"
+documentation = "https://docs.rs/nidus-jobs-sqlx"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[features]
+default = ["sqlite"]
+sqlite = ["sqlx/sqlite"]
+postgres = ["sqlx/postgres", "sqlx/tls-rustls-ring-native-roots"]
+mysql = ["sqlx/mysql", "sqlx/tls-rustls-ring-native-roots"]
+cockroach = ["postgres"]
+dashboard = ["nidus-integrations/dashboard"]
+health = ["dep:nidus-http"]
+observability = ["nidus-integrations/observability"]
+
+[dependencies]
+async-trait.workspace = true
+nidus-core.workspace = true
+nidus-http = { path = "../nidus-http", version = "1.0.10", optional = true }
+nidus-integrations.workspace = true
+nidus-jobs.workspace = true
+serde_json.workspace = true
+sqlx = { workspace = true, features = ["any"] }
+tracing.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["sync", "time"] }
+tokio-util.workspace = true
+uuid.workspace = true

@@ -12,6 +12,7 @@ cargo bench --bench dependency_resolution
 cargo bench --bench routing
 cargo bench --bench request_lifecycle
 cargo bench --bench event_bus
+cargo bench --bench integration_hot_paths
 ```
 
 For a quick smoke run with reduced Criterion sampling:
@@ -21,6 +22,7 @@ cargo bench --bench dependency_resolution -- --warm-up-time 0.1 --measurement-ti
 cargo bench --bench routing -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
 cargo bench --bench request_lifecycle -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
 cargo bench --bench event_bus -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
+cargo bench --bench integration_hot_paths -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
 ```
 
 ## Coverage
@@ -49,12 +51,58 @@ The current benchmark surface covers:
 - constructing an OpenAPI document with 64 distinct schemas
 - serving a 100-route OpenAPI document
 - Prometheus metrics record-response, record-error, and render-text paths
+- shared integration envelope serialization/deserialization at a 1 KiB payload
+- durable job validation/construction and retry-bound calculation
+
+The integration benchmark uses a 5% Criterion noise threshold. A change beyond
+that bound must be explained or reverted before release; smaller movement is
+reported but is not treated as a regression, particularly for the sub-2 ns
+retry arithmetic row.
 
 The request lifecycle benchmark includes equivalent raw Axum request and routing
 composition baselines where they are meaningful. Other rows are microbenchmarks
 for specific framework behavior and should be compared to their own history.
 
 ## Local Results
+
+### First-party integration baseline (2026-07-11)
+
+The new envelope and durable-job hot paths were captured and immediately
+repeated on the same `aarch64-apple-darwin` machine with `rustc 1.96.0`, 100
+samples, a one-second warm-up, and a three-second measurement window:
+
+```bash
+cargo bench --bench integration_hot_paths -- --warm-up-time 1 --measurement-time 3 --sample-size 100 --save-baseline integration_initial
+cargo bench --bench integration_hot_paths -- --warm-up-time 1 --measurement-time 3 --sample-size 100 --baseline integration_initial
+```
+
+| Benchmark | Initial interval | Confirming interval | Result |
+| --- | ---: | ---: | --- |
+| Envelope serialize, 1 KiB | 558.23-562.54 ns | 560.33-563.86 ns | no change |
+| Envelope deserialize, 1 KiB | 534.84-550.46 ns | 525.53-527.74 ns | within threshold, lower |
+| Durable job validate/construct, 1 KiB | 1.3829-1.3907 us | 1.3754-1.3985 us | within threshold |
+| Retry bound calculation | 1.4657-1.4753 ns | 1.3555-1.3609 ns | improved |
+
+An intervening identical-binary sample moved the 1.5 ns retry arithmetic row
+by 2.8%, demonstrating why this suite uses an explicit 5% noise threshold. The
+confirming run had no regressions beyond that threshold.
+
+The final release-state run repeated the same command after all service and
+failure-path gates. A pre-final sample had reported a 6.47% regression in job
+construction, so it was not waived: payload validation was changed from
+serializing into a temporary `Vec` to an allocation-free bounded counting
+writer while preserving the exact 1 MiB serialized-size limit. A 150-sample
+isolated confirmation then reported `[1.4033 us, 1.4258 us]`, a statistically
+insignificant `+0.75%` (`p = 0.31`). The complete final run reported:
+
+| Benchmark | Final interval | Change from saved baseline | Result |
+| --- | ---: | ---: | --- |
+| Envelope serialize, 1 KiB | 575.80-580.08 ns | +2.15% | within threshold |
+| Envelope deserialize, 1 KiB | 538.50-540.29 ns | +0.91% | within threshold |
+| Durable job validate/construct, 1 KiB | 1.3464-1.3521 us | -4.17% | within threshold |
+| Retry bound calculation | 1.4157-1.4317 ns | -2.81% | within threshold |
+
+No final row exceeded the documented 5% release threshold.
 
 ### 1.0.9 routing and OpenAPI builder pass (2026-07-10)
 

@@ -32,18 +32,18 @@ testing = ["dep:nidus-testing"]
 tracing = []
 
 [dependencies]
-nidus-core = { path = "../nidus-core", version = "1.0.9" }
-nidus-macros = { path = "../nidus-macros", version = "1.0.9" }
-nidus-http = { path = "../nidus-http", version = "1.0.9", optional = true }
-nidus-observability = { path = "../nidus-observability", version = "1.0.9", optional = true }
-nidus-dashboard = { path = "../nidus-dashboard", version = "1.0.9", optional = true }
-nidus-config = { path = "../nidus-config", version = "1.0.9", optional = true }
-nidus-openapi = { path = "../nidus-openapi", version = "1.0.9", optional = true }
-nidus-validation = { path = "../nidus-validation", version = "1.0.9", optional = true }
-nidus-auth = { path = "../nidus-auth", version = "1.0.9", optional = true }
-nidus-events = { path = "../nidus-events", version = "1.0.9", optional = true }
-nidus-jobs = { path = "../nidus-jobs", version = "1.0.9", optional = true }
-nidus-testing = { path = "../nidus-testing", version = "1.0.9", optional = true }
+nidus-core = { path = "../nidus-core", version = "1.0.10" }
+nidus-macros = { path = "../nidus-macros", version = "1.0.10" }
+nidus-http = { path = "../nidus-http", version = "1.0.10", optional = true }
+nidus-observability = { path = "../nidus-observability", version = "1.0.10", optional = true }
+nidus-dashboard = { path = "../nidus-dashboard", version = "1.0.10", optional = true }
+nidus-config = { path = "../nidus-config", version = "1.0.10", optional = true }
+nidus-openapi = { path = "../nidus-openapi", version = "1.0.10", optional = true }
+nidus-validation = { path = "../nidus-validation", version = "1.0.10", optional = true }
+nidus-auth = { path = "../nidus-auth", version = "1.0.10", optional = true }
+nidus-events = { path = "../nidus-events", version = "1.0.10", optional = true }
+nidus-jobs = { path = "../nidus-jobs", version = "1.0.10", optional = true }
+nidus-testing = { path = "../nidus-testing", version = "1.0.10", optional = true }
 tokio.workspace = true
 tower-http.workspace = true
 serde_json.workspace = true

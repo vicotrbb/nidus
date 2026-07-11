@@ -24,26 +24,31 @@ Application dependencies stay explicit:
 
 ```toml
 [dependencies]
-nidus = { package = "nidus-rs", version = "1.0.9", features = ["http", "config", "openapi", "validation"] }
+nidus = { package = "nidus-rs", version = "1.0.10", features = ["http", "config", "openapi", "validation"] }
 ```
 
 For production observability through the facade:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.9", features = ["observability", "events", "jobs", "otel"] }
+nidus = { package = "nidus-rs", version = "1.0.10", features = ["observability", "events", "jobs", "otel"] }
 ```
 
 For embedded dashboard introspection:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.9", features = ["dashboard"] }
+nidus = { package = "nidus-rs", version = "1.0.10", features = ["dashboard"] }
 ```
 
 Official integrations are separate crates:
 
 ```toml
-nidus-sqlx = { version = "1.0.9", features = ["sqlite"] }
-nidus-cache = { version = "1.0.9", features = ["moka"] }
+nidus-sqlx = { version = "1.0.10", features = ["sqlite"] }
+nidus-cache = { version = "1.0.10", features = ["moka"] }
+nidus-redis = { version = "1.0.10", features = ["health"] }
+nidus-kafka = { version = "1.0.10", features = ["health"] }
+nidus-jobs-sqlx = { version = "1.0.10", features = ["postgres"] }
+nidus-opentelemetry = "1.0.10"
+nidus-sentry = "1.0.10"
 ```
 
 ## Which Crate Do I Install?
@@ -51,7 +56,8 @@ nidus-cache = { version = "1.0.9", features = ["moka"] }
 - Use `cargo-nidus` for `cargo nidus new`, route inspection, graph inspection, and OpenAPI generation.
 - Use `nidus-rs` as the application facade. Import it as `nidus` in `Cargo.toml`.
 - Enable facade features such as `http`, `config`, `openapi`, `validation`, `auth`, `events`, `jobs`, `observability`, and `otel` only when the app needs them.
-- Add `nidus-sqlx` or `nidus-cache` when choosing those official adapters.
+- Add only the data, messaging, durable-job, and telemetry adapter crates the
+  application uses; the facade does not pull them transitively.
 - Depend on lower-level crates such as `nidus-core` or `nidus-http` only when building framework extensions.
 
 ## Common Imports And Extension Traits
@@ -166,7 +172,14 @@ and HTTP clients remain explicit application instrumentation.
 
 ## Adapter Story
 
-The `nidus` facade stays lean. SQLx and cache integration live in `nidus-sqlx` and `nidus-cache`, with direct access to the underlying ecosystem clients. This keeps vendor dependencies out of core applications until they are explicitly installed.
+The `nidus` facade stays lean. Redis and SQLx data access, Kafka,
+NATS/JetStream, RabbitMQ, SQS, SQLx-backed durable jobs, OpenTelemetry, and
+Sentry live in separately installable crates. Each adapter exposes the native
+ecosystem client and composes with typed DI, lifecycle, health, observability,
+and dashboard events. Shared envelopes and correlation live in
+`nidus-integrations`; broker-specific semantics are not hidden behind a generic
+queue API. Delivery is documented as at-most-once or at-least-once where
+appropriate, never as universal exactly-once processing.
 
 ## Examples
 
@@ -176,6 +189,9 @@ The `nidus` facade stays lean. SQLx and cache integration live in `nidus-sqlx` a
 - `examples/dashboard-api`: embedded dashboard runtime cockpit with bearer or local-disabled auth, SQLite storage, metadata-only capture, route snapshots, Atlas graph, Timeline event/job filters, APIs, SSE, and live curl checks.
 - `examples/realworld-api`: team tasks API with modules, SQLite, validation, OpenAPI, health, observability, request IDs, guards, CORS, limits, timeouts, events, and jobs.
 - `examples/sqlx-app` and `examples/cache-app`: official adapter wiring.
+- `examples/integrations-production`: runnable Redis, MySQL, CockroachDB,
+  Kafka, NATS/JetStream, RabbitMQ, SQS, durable jobs, OpenTelemetry, and Sentry
+  entrypoints.
 - `examples/external-support-desk`: copyable external-user support desk API using crates.io-style dependencies, DI, ticket lifecycle routes, API-key auth, request IDs, validation errors, not-found behavior, and `nidus-testing`.
 - `examples/external-commerce`: copyable external-user commerce API using crates.io-style dependencies, `nidus-sqlx` SQLite wiring, `nidus-cache`, products, carts, inventory, idempotent checkout, health/readiness, metrics, and `nidus-testing`.
 
@@ -188,7 +204,7 @@ cargo run -p nidus-example-realworld-api
 The `external-*` examples are standalone Cargo packages with their own
 `[workspace]` tables. Verify them from their folders or with
 `bash scripts/verify-external-examples.sh`; they intentionally do not use local
-workspace path dependencies. Before `1.0.9` is published to crates.io, verify
+workspace path dependencies. Before `1.0.10` is published to crates.io, verify
 the same examples against temporary local patches:
 
 ```bash
@@ -215,9 +231,9 @@ npm run verify
 ## Release Status
 
 Nidus 1.0.0 established the public crate set. The current release track is
-1.0.9, focused on allocation-conscious route normalization and in-place OpenAPI
-schema registration, with benchmark and deterministic regression evidence for
-both changes.
+1.0.10, adding separately installable data, messaging, durable-job,
+OpenTelemetry, and Sentry integrations while preserving the facade and
+existing 1.x APIs.
 
 ## Fuzzing
 

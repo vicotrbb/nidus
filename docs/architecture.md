@@ -13,8 +13,15 @@ The workspace is split into focused crates:
 - `nidus-auth`: guards.
 - `nidus-events`: typed event bus with weak subscriber cleanup.
 - `nidus-jobs`: background jobs with explicit run reports.
-- `nidus-sqlx`: separately installable SQLx adapter.
-- `nidus-cache`: separately installable cache adapter.
+- `nidus-integrations`: stable envelopes, correlation, lifecycle telemetry,
+  observability, and dashboard composition shared by optional adapters.
+- `nidus-sqlx`, `nidus-redis`, and `nidus-cache`: separately installable data
+  adapters that preserve native client access.
+- `nidus-kafka`, `nidus-nats`, `nidus-rabbitmq`, and `nidus-sqs`: native
+  messaging adapters without a lowest-common-denominator queue interface.
+- `nidus-jobs-sqlx`: persisted at-least-once jobs over SQLx backends.
+- `nidus-opentelemetry` and `nidus-sentry`: explicitly owned telemetry and
+  error-reporting pipelines with graceful shutdown.
 - `nidus-testing`: app test helpers.
 - `cargo-nidus`: CLI tooling.
 

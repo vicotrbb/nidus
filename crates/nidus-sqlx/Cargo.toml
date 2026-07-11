@@ -14,22 +14,30 @@ categories.workspace = true
 
 [features]
 default = []
-postgres = ["sqlx/postgres"]
+postgres = ["sqlx/postgres", "sqlx/tls-rustls-ring-native-roots"]
+mysql = ["sqlx/mysql", "sqlx/tls-rustls-ring-native-roots"]
+cockroach = ["postgres", "dep:tokio"]
 sqlite = ["sqlx/sqlite"]
 nidus-config = ["dep:nidus-config"]
 health = ["dep:nidus-http"]
-observability = ["dep:nidus-observability"]
+observability = ["dep:nidus-observability", "nidus-integrations/observability"]
+dashboard = ["nidus-integrations/dashboard"]
 
 [dependencies]
-nidus-core = { path = "../nidus-core", version = "1.0.9" }
-nidus-config = { path = "../nidus-config", version = "1.0.9", optional = true }
-nidus-http = { path = "../nidus-http", version = "1.0.9", optional = true }
-nidus-observability = { path = "../nidus-observability", version = "1.0.9", optional = true }
+async-trait.workspace = true
+nidus-core = { path = "../nidus-core", version = "1.0.10" }
+nidus-config = { path = "../nidus-config", version = "1.0.10", optional = true }
+nidus-http = { path = "../nidus-http", version = "1.0.10", optional = true }
+nidus-integrations.workspace = true
+nidus-observability = { path = "../nidus-observability", version = "1.0.10", optional = true }
+fastrand.workspace = true
+futures-util.workspace = true
 serde.workspace = true
 sqlx.workspace = true
 thiserror.workspace = true
+tokio = { workspace = true, optional = true, features = ["time"] }
 
 [dev-dependencies]
-nidus-config = { path = "../nidus-config", version = "1.0.9" }
+nidus-config = { path = "../nidus-config", version = "1.0.10" }
 tokio = { workspace = true, features = ["time"] }
 trybuild.workspace = true

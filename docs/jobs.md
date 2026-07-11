@@ -1,118 +1,100 @@
-# Jobs
+# Jobs and durable workflows
 
-`nidus-jobs` provides lightweight in-memory queues for synchronous and
-Tokio-backed asynchronous background work.
+`nidus-jobs` preserves the existing lightweight `JobQueue`, `AsyncJobQueue`,
+and `ObservedJobRunner` APIs for in-process work. It also provides a
+backend-neutral durable job contract and bounded worker runtime. Install
+`nidus-jobs-sqlx` when persisted delivery is required.
 
-```rust
-struct SendDigest;
-
-impl Job for SendDigest {
-    fn name(&self) -> &'static str {
-        "send_digest"
-    }
-
-    fn run(&self) -> nidus_jobs::Result<()> {
-        Ok(())
-    }
-}
-
-let mut queue = JobQueue::new();
-assert!(queue.is_empty());
-queue.push(SendDigest);
-assert_eq!(queue.len(), 1);
-
-let report = queue.run_all();
-assert!(report.is_success());
-```
-
-`run_all` executes jobs in insertion order and continues after failures. The
-returned `JobReport` records completed job names and failed jobs with their
-`JobError` details.
-
-Use `AsyncJob` and `AsyncJobQueue` when a job awaits I/O or other Tokio tasks:
+## In-process jobs
 
 ```rust
 struct SendDigest;
 
-#[async_trait::async_trait]
-impl AsyncJob for SendDigest {
-    fn name(&self) -> &'static str {
-        "send_digest"
-    }
-
-    async fn run(&self) -> nidus_jobs::Result<()> {
-        Ok(())
-    }
+impl nidus_jobs::Job for SendDigest {
+    fn name(&self) -> &'static str { "send_digest" }
+    fn run(&self) -> nidus_jobs::Result<()> { Ok(()) }
 }
 
-let mut queue = AsyncJobQueue::new();
+let mut queue = nidus_jobs::JobQueue::new();
 queue.push(SendDigest);
-
-let report = queue.run_all().await;
-assert!(report.is_success());
+assert!(queue.run_all().is_success());
 ```
 
-## Observed Jobs
+In-process queues are intentionally non-durable. Existing public APIs and
+observability wrappers remain source compatible.
 
-`ObservedJobRunner` wraps individual `Job` and `AsyncJob` runs with operation
-spans, generated run IDs, duration capture, status reporting, and context
-attributes. It does not replace `JobQueue`; use it where workers execute jobs.
+## Durable jobs
+
+The durable runtime consists of:
+
+- `NewJob`, including schedule time, maximum attempts, correlation, and a
+  backend-enforced idempotency key scoped to the handler name;
+- `DurableJobStore`, whose lease and terminal mutations are atomic and compare
+  both the current worker owner and attempt-generation fence;
+- `DurableJobRegistry`, a typed set of named async handlers;
+- `DurableJobWorker`, with bounded concurrency, lease heartbeats, exponential
+  full-jitter retries, panic containment, crash recovery, cancellation, and a
+  graceful drain deadline;
+- `nidus-jobs-sqlx`, with SQLite, PostgreSQL, CockroachDB, and MySQL schemas,
+  indexed ready/recovery/dead-letter paths, state counts, cancellation, and
+  dead-letter inspection.
+
+`nidus-jobs-sqlx` enables SQLite by default. Select `postgres`, `cockroach`, or
+`mysql` for other stores; `health` adds `health_status` and
+`register_ready_check`, `observability` adds the standard adapter observer, and
+`dashboard` records redaction-safe adapter operations. `register` installs the
+native store as a typed singleton, while its lifecycle hook migrates on startup
+and closes the pool on shutdown.
+
+PostgreSQL and CockroachDB require `sslmode=verify-full`, and MySQL requires
+`ssl-mode=VERIFY_IDENTITY`. Plaintext is accepted only through a backend-
+specific, loopback-only development opt-in.
 
 ```rust
-#[derive(Clone)]
-struct MetricsObserver;
+use nidus_jobs::{DurableJobStore, NewJob};
+use nidus_jobs_sqlx::{SqlxJobStore, SqlxJobStoreConfig};
 
-impl JobObserver for MetricsObserver {
-    fn on_job_started(&self, context: &ObservedJobContext) {
-        tracing::info!(job.name = context.job_name(), job.run_id = context.run_id());
-    }
-
-    fn on_job_finished(&self, context: &ObservedJobContext, status: JobResultStatus) {
-        tracing::info!(
-            job.name = context.job_name(),
-            job.run_id = context.run_id(),
-            ?status,
-            duration_ms = context.duration().map(|duration| duration.as_millis())
-        );
-    }
-}
-
-let runner = ObservedJobRunner::new(MetricsObserver)
-    .context("request_id", "req-123");
-runner.run(&SendDigest)?;
+let store = SqlxJobStore::connect(
+    SqlxJobStoreConfig::postgres(std::env::var("DATABASE_URL")?)
+        .with_max_connections(20)?,
+).await?;
+store.migrate().await?;
+let result = store.enqueue(
+    NewJob::new("email.welcome", serde_json::json!({"user_id": 42}))?
+        .with_idempotency_key("welcome-user-42")?
+        .with_max_attempts(8)?,
+).await?;
 ```
 
-Observers are replaceable, so applications can record Prometheus metrics, emit
-events, or forward data to an external worker system without changing the job
-trait.
+Handlers return `JobExecutionError::retryable` or `permanent`. Persisted error
+messages are capped and must already be stripped of secrets and PII. Retryable
+failures are scheduled with bounded exponential full jitter. Exhausted,
+permanent, panicking, and missing-handler executions move to `dead_lettered`.
 
-For the recommended production path, pass `Observability::job_observer()`:
+## Delivery guarantee and idempotency
 
-```rust
-let observability = Observability::production("users-api").prometheus();
-let runner = observability.job_runner();
-runner.run(&SendDigest)?;
-```
+Durable jobs are at-least-once, never exactly-once. A process can perform a
+side effect and crash before acknowledging the lease. Lease expiry then makes
+the job eligible for another worker. Design handlers around an application
+idempotency key, a database uniqueness constraint, compare-and-set state, or a
+transactional outbox. The enqueue idempotency key prevents duplicate durable
+records; it cannot make an arbitrary remote side effect exactly once.
 
-Only runs that go through `ObservedJobRunner` emit job metrics. Plain queue
-execution stays available for applications that do not want instrumentation.
+## Scheduling, cancellation, and shutdown
 
-When observation needs slower export work, use a channel-backed observer:
+`scheduled_at_ms` controls the first eligible lease time. Cancellation marks a
+pending or running record and clears its lease; an executing handler also sees
+a cancelled `CancellationToken` and must stop at cancellation-safe boundaries.
+On shutdown, workers stop leasing immediately, cancel handler contexts, keep
+heartbeating active leases during the configured grace window, and report any
+tasks abandoned after the deadline.
 
-```rust
-let (observer, receiver) = job_observer_channel();
-let runner = ObservedJobRunner::new(observer);
+The worker runs migrations and expired-lease recovery before polling. It also
+repeats recovery while running, so multiple workers can safely compete for the
+same database. The live suite proves concurrent lease exclusion on MySQL 8.4
+and CockroachDB v26.2.0; SQLite deterministic tests cover retries, DLQs,
+recovery, cancellation, panic/failure paths, and file cleanup.
 
-runner.run(&SendDigest)?;
-
-for event in receiver.try_iter() {
-    match event {
-        ObservedJobEvent::Started(context) => {
-            tracing::info!(job.name = context.job_name(), job.run_id = context.run_id());
-        }
-        ObservedJobEvent::Finished { context, status } => {
-            tracing::info!(job.name = context.job_name(), ?status);
-        }
-    }
-}
-```
+See the runnable `durable-jobs` binary in
+`examples/integrations-production` and run all real-service checks with
+`bash scripts/test-integration-services.sh`.

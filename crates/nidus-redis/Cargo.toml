@@ -1,0 +1,37 @@
+[package]
+name = "nidus-redis"
+version.workspace = true
+edition.workspace = true
+description = "First-party Redis data adapter for Nidus with typed DI, bounded reconnects, health, and native client access."
+readme = "../../README.md"
+documentation = "https://docs.rs/nidus-redis"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[features]
+default = ["tls-rustls"]
+tls-rustls = ["redis/tokio-rustls-comp"]
+nidus-config = ["dep:nidus-config"]
+health = ["dep:nidus-http"]
+observability = ["nidus-integrations/observability"]
+dashboard = ["nidus-integrations/dashboard"]
+
+[dependencies]
+async-trait.workspace = true
+nidus-config = { path = "../nidus-config", version = "1.0.10", optional = true }
+nidus-core = { path = "../nidus-core", version = "1.0.10" }
+nidus-http = { path = "../nidus-http", version = "1.0.10", optional = true }
+nidus-integrations.workspace = true
+redis.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "time"] }
+url.workspace = true
+
+[dev-dependencies]
+nidus-config = { path = "../nidus-config", version = "1.0.10" }
+uuid.workspace = true

@@ -16,7 +16,7 @@ requiring external services by default.
 | `production-api` | Production API preset (`nidus-example-production-api`) with health, observability, request context extraction, validated request IDs, error envelopes, and route-local rate limiting. |
 | `sqlx-app` | Separate `nidus-sqlx` SQLite adapter with repository injection and direct SQLx query access. |
 | `cache-app` | Separate `nidus-cache` Moka adapter with an optional cache dependency in a service. |
-| `integrations-production` | Production-shaped integration wiring with typed config, SQLite, Moka cache, health checks, and adapter observability without binding a live port in tests. |
+| `integrations-production` | Per-adapter runnable binaries for envelopes, Redis, MySQL, CockroachDB, Kafka, NATS/JetStream, RabbitMQ, SQS, durable SQLx jobs, OpenTelemetry, and Sentry, plus production-shaped typed config, health, and observability wiring. |
 | `external-support-desk` | Standalone external-user support desk API with crates.io-style dependencies, DI, tickets, comments, priorities, statuses, assignment, close transition, validation failures, `x-api-key` auth, request IDs, not-found behavior, live curl instructions, and `nidus-testing`. |
 | `external-commerce` | Standalone external-user commerce API with crates.io-style dependencies, `nidus-sqlx` SQLite, `nidus-cache`, products, carts, inventory, idempotent checkout, env config, health/readiness, metrics, live curl instructions, and database/cache tests. |
 
@@ -63,10 +63,10 @@ members; each has its own `[workspace]` table and uses published dependency
 declarations such as:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.9", features = ["http"] }
-nidus-sqlx = { version = "1.0.9", features = ["sqlite", "health", "observability"] }
-nidus-cache = { version = "1.0.9", features = ["health", "observability"] }
-nidus-testing = "1.0.9"
+nidus = { package = "nidus-rs", version = "1.0.10", features = ["http"] }
+nidus-sqlx = { version = "1.0.10", features = ["sqlite", "health", "observability"] }
+nidus-cache = { version = "1.0.10", features = ["health", "observability"] }
+nidus-testing = "1.0.10"
 ```
 
 Verify both examples with:
@@ -75,7 +75,7 @@ Verify both examples with:
 bash scripts/verify-external-examples.sh
 ```
 
-Before `1.0.9` is published to crates.io, use the pre-publish proof mode:
+Before `1.0.10` is published to crates.io, use the pre-publish proof mode:
 
 ```bash
 NIDUS_EXTERNAL_EXAMPLES_LOCAL_PATCH=1 bash scripts/verify-external-examples.sh
@@ -83,7 +83,7 @@ NIDUS_EXTERNAL_EXAMPLES_LOCAL_PATCH=1 bash scripts/verify-external-examples.sh
 
 That mode copies both external examples into a temporary directory and appends
 temporary `[patch.crates-io]` entries there only. It proves the examples against
-the current local `1.0.9` crates without adding path dependencies to the
+the current local `1.0.10` crates without adding path dependencies to the
 checked-in manifests. The default command remains the post-publish crates.io
 verification path.
 

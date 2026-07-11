@@ -1,0 +1,38 @@
+[package]
+name = "nidus-sentry"
+version.workspace = true
+edition.workspace = true
+description = "Production Sentry error, tracing, panic, and Tower integration for Nidus."
+readme = "../../README.md"
+documentation = "https://docs.rs/nidus-sentry"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[features]
+default = []
+dashboard = ["dep:nidus-dashboard"]
+health = ["dep:nidus-http"]
+
+[dependencies]
+async-trait.workspace = true
+http.workspace = true
+nidus-core.workspace = true
+nidus-dashboard = { path = "../nidus-dashboard", version = "1.0.10", optional = true }
+nidus-http = { path = "../nidus-http", version = "1.0.10", optional = true }
+sentry.workspace = true
+sentry-tower.workspace = true
+sentry-tracing.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "time"] }
+tower.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+axum.workspace = true
+sentry = { workspace = true, features = ["test"] }
+tower.workspace = true

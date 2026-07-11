@@ -22,14 +22,16 @@ It is additive. The lower-level APIs remain available:
 Enable the facade feature when using `nidus::prelude::*`:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.9", features = ["observability", "events", "jobs", "otel"] }
+nidus = { package = "nidus-rs", version = "1.0.10", features = ["observability", "events", "jobs", "otel"] }
 ```
 
 Official adapters expose observability hooks behind their own feature flags:
 
 ```toml
-nidus-sqlx = { version = "1.0.9", features = ["sqlite", "health", "observability"] }
-nidus-cache = { version = "1.0.9", features = ["health", "observability"] }
+nidus-sqlx = { version = "1.0.10", features = ["sqlite", "health", "observability"] }
+nidus-cache = { version = "1.0.10", features = ["health", "observability"] }
+nidus-opentelemetry = { version = "1.0.10", features = ["health", "dashboard"] }
+nidus-sentry = { version = "1.0.10", features = ["health", "dashboard"] }
 ```
 
 ## Common Imports And Extension Traits
@@ -83,9 +85,10 @@ let app = Nidus::create::<AppModule>()
 enabled, records module graph validation metrics, and installs the standard HTTP
 trace layer when `.tracing()` is set.
 
-OpenTelemetry setup remains explicit. `otel_from_env()` builds resource config
-from Nidus metadata and `OTEL_EXPORTER_OTLP_ENDPOINT`; it does not install a
-process-global exporter or subscriber.
+The facade's existing `otel_from_env()` remains a metadata/configuration helper
+for compatibility. Install `nidus-opentelemetry` when the application needs a
+real SDK pipeline and OTLP exporter. Neither path installs a process-global
+subscriber; the application retains explicit ownership and shutdown order.
 
 ## Tower-First Setup
 
@@ -208,3 +211,82 @@ Nidus-owned paths emit stable span names:
 - `adapter.operation`
 
 Export depends on the subscriber/exporter the application installs.
+
+## OpenTelemetry SDK and OTLP
+
+`nidus-opentelemetry` builds a real OpenTelemetry SDK tracer provider with a
+bounded `BatchSpanProcessor`, parent-based trace ID ratio sampling, resource
+attributes, the `tracing-opentelemetry` bridge, and either OTLP/gRPC or
+OTLP/HTTP protobuf over rustls.
+
+```rust
+use nidus_opentelemetry::{OpenTelemetryConfig, OpenTelemetryPipeline};
+use tracing_subscriber::prelude::*;
+
+let config = OpenTelemetryConfig::from_env("users-api")?
+    .with_service_version(env!("CARGO_PKG_VERSION"))
+    .with_environment("production")
+    .with_batching(8_192, 512, std::time::Duration::from_secs(5))?;
+let pipeline = OpenTelemetryPipeline::init(config)?;
+let subscriber = tracing_subscriber::registry().with(pipeline.tracing_layer());
+let _default = tracing::subscriber::set_default(subscriber);
+```
+
+Standard `traceparent`, `tracestate`, and baggage propagation is available
+through `inject_current_context`, `extract_context`, and
+`set_parent_from_headers`. `install_global_propagator` is explicit for clients
+that require the upstream global propagator; local header helpers do not mutate
+global state.
+
+On shutdown, stop accepting work, drain application tasks, then call
+`force_flush().await` and `shutdown().await`. Both move blocking SDK work off
+Tokio worker threads and are safe to call repeatedly. HTTPS endpoints are
+required unless loopback plaintext is explicitly enabled. Exporter header
+values are redacted from `Debug` output.
+
+`register` makes the pipeline available through typed DI, and its lifecycle
+hook shuts the provider down. With the `health` feature,
+`register_ready_check` reports whether shutdown has begun. With `dashboard`,
+`record_dashboard_status` writes a redaction-safe readiness operation to the
+dashboard timeline.
+
+## Sentry
+
+`nidus-sentry` owns client initialization, tracing and panic capture, bounded
+duplicate suppression, request scrubbing, and graceful transport flushing.
+Its Tower layer creates an isolated hub per request and names performance
+transactions from Axum's matched route rather than the raw URL, preventing
+cross-request scope leakage and high-cardinality transaction names.
+
+```rust
+use axum::body::Body;
+use nidus_sentry::{SentryConfig, SentryIntegration};
+use tracing_subscriber::prelude::*;
+
+let sentry = SentryIntegration::init(
+    SentryConfig::from_env()?
+        .with_release(env!("CARGO_PKG_VERSION"))
+        .with_environment("production")
+        .with_sample_rates(1.0, 0.1)?,
+)?;
+let router = router.layer(sentry.tower_layer::<Body>());
+let subscriber = tracing_subscriber::registry().with(sentry.tracing_layer());
+```
+
+Authorization, cookies, proxy credentials, API keys, query strings, request
+bodies, users, and other PII-bearing fields are removed before transport.
+`send_default_pii` stays disabled. Errors can be captured through
+`capture_error`, error-level tracing events become Sentry events, warnings and
+information become breadcrumbs, and the panic integration captures panics.
+Call `flush().await` before shutdown when needed, then `shutdown().await` to
+restore the prior hub client and drain the transport off the async runtime.
+
+`register` makes the integration available through typed DI, and its lifecycle
+hook performs graceful shutdown. The optional `health` and `dashboard`
+features provide `register_ready_check` and `record_dashboard_status` with the
+same composition model as the OpenTelemetry pipeline.
+
+The integration tests use in-memory exporters/transports and prove batching,
+propagation, flush idempotence, concurrent Tower request isolation,
+matched-route transaction names, redaction, and deduplication without mutating
+the process-global subscriber.

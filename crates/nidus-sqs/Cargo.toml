@@ -1,0 +1,35 @@
+[package]
+name = "nidus-sqs"
+version.workspace = true
+edition.workspace = true
+description = "First-party AWS SQS adapter for Nidus built on the official AWS SDK for Rust."
+readme = "../../README.md"
+documentation = "https://docs.rs/nidus-sqs"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[features]
+default = []
+health = ["dep:nidus-http"]
+observability = ["nidus-integrations/observability"]
+dashboard = ["nidus-integrations/dashboard"]
+
+[dependencies]
+async-trait.workspace = true
+aws-config.workspace = true
+aws-sdk-sqs.workspace = true
+nidus-core.workspace = true
+nidus-http = { path = "../nidus-http", version = "1.0.10", optional = true }
+nidus-integrations.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "time"] }
+url.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+uuid.workspace = true

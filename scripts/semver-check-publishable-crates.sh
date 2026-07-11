@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+temp_files=()
+cleanup() {
+  rm -f "${temp_files[@]}"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+
 crates=(
   nidus-core
   nidus-macros
@@ -14,6 +23,15 @@ crates=(
   nidus-openapi
   nidus-observability
   nidus-dashboard
+  nidus-integrations
+  nidus-opentelemetry
+  nidus-sentry
+  nidus-jobs-sqlx
+  nidus-redis
+  nidus-kafka
+  nidus-nats
+  nidus-rabbitmq
+  nidus-sqs
   nidus-rs
   nidus-cache
   nidus-sqlx
@@ -23,6 +41,7 @@ crates=(
 for crate in "${crates[@]}"; do
   echo "checking ${crate}"
   output="$(mktemp)"
+  temp_files+=("${output}")
   set +e
   cargo semver-checks check-release --package "${crate}" "$@" 2>&1 | tee "${output}"
   status=${PIPESTATUS[0]}

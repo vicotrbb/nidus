@@ -1,0 +1,35 @@
+[package]
+name = "nidus-rabbitmq"
+version.workspace = true
+edition.workspace = true
+description = "First-party RabbitMQ AMQP 0-9-1 adapter for Nidus built on Lapin."
+readme = "../../README.md"
+documentation = "https://docs.rs/nidus-rabbitmq"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[features]
+default = []
+health = ["dep:nidus-http"]
+observability = ["nidus-integrations/observability"]
+dashboard = ["nidus-integrations/dashboard"]
+
+[dependencies]
+async-trait.workspace = true
+lapin.workspace = true
+nidus-core.workspace = true
+nidus-http = { path = "../nidus-http", version = "1.0.10", optional = true }
+nidus-integrations.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "time"] }
+url.workspace = true
+
+[dev-dependencies]
+futures-util.workspace = true
+serde_json.workspace = true
+uuid.workspace = true

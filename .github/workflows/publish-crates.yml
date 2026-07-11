@@ -202,6 +202,15 @@ jobs:
           publish_one nidus-openapi
           publish_one nidus-observability
           publish_one nidus-dashboard
+          publish_one nidus-integrations
+          publish_one nidus-opentelemetry
+          publish_one nidus-sentry
+          publish_one nidus-jobs-sqlx
+          publish_one nidus-redis
+          publish_one nidus-kafka
+          publish_one nidus-nats
+          publish_one nidus-rabbitmq
+          publish_one nidus-sqs
           publish_one nidus-rs
           publish_one nidus-cache
           publish_one nidus-sqlx

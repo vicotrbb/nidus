@@ -24,6 +24,15 @@ crates=(
   nidus-openapi
   nidus-observability
   nidus-dashboard
+  nidus-integrations
+  nidus-opentelemetry
+  nidus-sentry
+  nidus-jobs-sqlx
+  nidus-redis
+  nidus-kafka
+  nidus-nats
+  nidus-rabbitmq
+  nidus-sqs
   nidus-rs
   nidus-cache
   nidus-sqlx

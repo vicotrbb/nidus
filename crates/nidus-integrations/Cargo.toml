@@ -1,0 +1,34 @@
+[package]
+name = "nidus-integrations"
+version.workspace = true
+edition.workspace = true
+description = "Stable envelope, correlation, lifecycle telemetry, and adapter composition primitives for Nidus integrations."
+readme = "../../README.md"
+documentation = "https://docs.rs/nidus-integrations"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[features]
+default = []
+dashboard = ["dep:nidus-dashboard"]
+observability = ["dep:nidus-observability"]
+
+[dependencies]
+async-trait.workspace = true
+futures-util.workspace = true
+nidus-dashboard = { path = "../nidus-dashboard", version = "1.0.10", optional = true }
+nidus-observability = { path = "../nidus-observability", version = "1.0.10", optional = true }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+nidus-dashboard = { path = "../nidus-dashboard", version = "1.0.10" }
+tokio.workspace = true

@@ -24,10 +24,10 @@ folder out of the Nidus repository and keep the same manifest shape.
 ## Dependencies
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.9", features = ["http", "observability"] }
-nidus-sqlx = { version = "1.0.9", features = ["sqlite", "health", "observability"] }
-nidus-cache = { version = "1.0.9", features = ["health", "observability"] }
-nidus-testing = "1.0.9"
+nidus = { package = "nidus-rs", version = "1.0.10", features = ["http", "observability"] }
+nidus-sqlx = { version = "1.0.10", features = ["sqlite", "health", "observability"] }
+nidus-cache = { version = "1.0.10", features = ["health", "observability"] }
+nidus-testing = "1.0.10"
 ```
 
 The manifest has its own `[workspace]` table so Cargo treats it as an external

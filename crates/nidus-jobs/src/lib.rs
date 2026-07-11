@@ -6,6 +6,15 @@
 //! `AsyncJobQueue` run jobs stored in the current process; they do not persist,
 //! schedule, retry, distribute, or reserve jobs across workers.
 
+mod durable;
+
+pub use durable::{
+    DurableJobError, DurableJobHandler, DurableJobRecord, DurableJobRegistry, DurableJobStore,
+    DurableJobWorker, DurableResult, EnqueueResult, JobDisposition, JobExecutionContext,
+    JobExecutionError, JobRetryPolicy, JobStatus, LeaseRequest, NewJob, StoreStats, WorkerConfig,
+    WorkerReport,
+};
+
 use std::{
     collections::BTreeMap,
     error::Error,

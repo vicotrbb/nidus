@@ -1,0 +1,38 @@
+[package]
+name = "nidus-opentelemetry"
+version.workspace = true
+edition.workspace = true
+description = "Production OpenTelemetry SDK and OTLP tracing pipeline for Nidus."
+readme = "../../README.md"
+documentation = "https://docs.rs/nidus-opentelemetry"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[features]
+default = []
+dashboard = ["dep:nidus-dashboard"]
+health = ["dep:nidus-http"]
+
+[dependencies]
+async-trait.workspace = true
+http.workspace = true
+nidus-core.workspace = true
+nidus-dashboard = { path = "../nidus-dashboard", version = "1.0.10", optional = true }
+nidus-http = { path = "../nidus-http", version = "1.0.10", optional = true }
+opentelemetry.workspace = true
+opentelemetry-otlp.workspace = true
+opentelemetry_sdk.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "time"] }
+tonic.workspace = true
+tracing.workspace = true
+tracing-opentelemetry.workspace = true
+tracing-subscriber.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+opentelemetry_sdk = { workspace = true, features = ["testing"] }

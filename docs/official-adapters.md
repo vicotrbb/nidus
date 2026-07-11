@@ -1,18 +1,27 @@
-# Official Adapters
+# Official adapters
 
-Official adapters are separately installable crates. The facade stays lean, and
-vendor dependencies enter the application only when the application chooses
-that backend.
+Official adapters are separately installable crates. The facade stays lean,
+and vendor dependencies enter the build only when selected.
+
+| Area | Crates |
+| --- | --- |
+| Data | `nidus-redis`, `nidus-sqlx`, `nidus-cache` |
+| Messaging | `nidus-kafka`, `nidus-nats`, `nidus-rabbitmq`, `nidus-sqs` |
+| Durable jobs | `nidus-jobs`, `nidus-jobs-sqlx` |
+| Telemetry and errors | `nidus-opentelemetry`, `nidus-sentry` |
+| Shared composition | `nidus-integrations` |
+
+Adapters register typed providers, integrate with configuration, lifecycle,
+health/readiness, observability, and dashboard events, and expose their native
+clients. There is no lowest-common-denominator message queue API.
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.9", features = ["http", "config"] }
-nidus-sqlx = { version = "1.0.9", features = ["sqlite", "health", "observability"] }
-nidus-cache = { version = "1.0.9", features = ["moka", "health", "observability"] }
+nidus-redis = { version = "1.0.10", features = ["health", "observability"] }
+nidus-jobs-sqlx = { version = "1.0.10", features = ["postgres", "observability"] }
+nidus-opentelemetry = "1.0.10"
+nidus-sentry = "1.0.10"
 ```
 
-Adapters should register typed providers, expose health/readiness hooks when
-useful, add observability at adapter-owned boundaries, and still leave direct
-access to the underlying ecosystem client.
-
-See [SQLx](sqlx.md), [Cache](cache.md), and the detailed
-[integration contract](integrations.md) for the concrete adapter shape.
+See [first-party integrations](integrations.md), [SQLx](sqlx.md),
+[jobs](jobs.md), [observability](observability.md), and the runnable
+`examples/integrations-production` package.

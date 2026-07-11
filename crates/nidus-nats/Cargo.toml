@@ -1,0 +1,36 @@
+[package]
+name = "nidus-nats"
+version.workspace = true
+edition.workspace = true
+description = "First-party NATS and JetStream adapter for Nidus built on async-nats."
+readme = "../../README.md"
+documentation = "https://docs.rs/nidus-nats"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[features]
+default = []
+health = ["dep:nidus-http"]
+observability = ["nidus-integrations/observability"]
+dashboard = ["nidus-integrations/dashboard"]
+
+[dependencies]
+async-nats.workspace = true
+async-trait.workspace = true
+bytes.workspace = true
+nidus-core.workspace = true
+nidus-http = { path = "../nidus-http", version = "1.0.10", optional = true }
+nidus-integrations.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "time"] }
+url.workspace = true
+
+[dev-dependencies]
+futures-util.workspace = true
+serde_json.workspace = true
+uuid.workspace = true

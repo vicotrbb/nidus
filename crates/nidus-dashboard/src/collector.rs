@@ -132,6 +132,32 @@ where
         self.record_and_prune(operation).await
     }
 
+    /// Records a first-party adapter operation without capturing payloads.
+    pub async fn record_adapter(
+        &self,
+        name: impl Into<String>,
+        correlation_id: Option<&str>,
+        success: bool,
+        duration_ms: u64,
+    ) -> Result<()> {
+        let operation = DashboardOperation {
+            id: uuid::Uuid::new_v4().to_string(),
+            kind: DashboardOperationKind::Adapter,
+            name: name.into(),
+            status: if success {
+                DashboardOperationStatus::Success
+            } else {
+                DashboardOperationStatus::Failure
+            },
+            timestamp_ms: now_ms(),
+            duration_ms: Some(duration_ms),
+            correlation_id: correlation_id.map(str::to_owned),
+            attributes: BTreeMap::new(),
+            payload: None,
+        };
+        self.record_and_prune(operation).await
+    }
+
     async fn record_and_prune(&self, operation: DashboardOperation) -> Result<()> {
         self.storage.record_operation(operation).await?;
         self.storage.prune(self.retention.max_event_count()).await

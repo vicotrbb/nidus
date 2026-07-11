@@ -1,6 +1,23 @@
 # Changelog
 
-## Unreleased
+## 1.0.10 - 2026-07-11
+
+- Added separately installable Redis, Kafka, NATS/JetStream, RabbitMQ, SQS,
+  OpenTelemetry, Sentry, shared-integration, and SQLx durable-job crates while
+  keeping the `nidus-rs` facade dependency surface unchanged.
+- Added SQLx MySQL and explicitly tested CockroachDB support with verify-full
+  TLS and bounded SQLSTATE `40001` transaction retries that exclude ambiguous
+  results and external side effects.
+- Added an at-least-once durable job runtime with scheduling, idempotent
+  enqueue, attempt-fenced multi-worker leases, indexed ready/recovery/DLQ
+  paths, heartbeats, full-jitter retries, crash recovery, cancellation,
+  graceful draining, and dead-letter inspection.
+- Added bounded lifecycle admission and shutdown for adapter-owned operations,
+  parsed-host enforcement for local plaintext escape hatches, redacted durable
+  diagnostics, and panic isolation for custom telemetry observers.
+- Added a pinned real-service suite with container, network, volume, schema,
+  broker-resource, temporary-file, port, and worktree cleanup proof, plus an
+  isolated feature matrix and integration hot-path benchmarks.
 
 ## 1.0.9 - 2026-07-10
 
