@@ -54,6 +54,12 @@ nidus-redis = { version = "1.0.10", features = ["health", "observability"] }
 nidus-kafka = { version = "1.0.10", features = ["health", "observability"] }
 ```
 
+`nidus-kafka` compiles librdkafka from source. Linux build images must provide
+CMake, a C/C++ toolchain, `pkg-config`, and libcurl development headers (for
+example, `libcurl4-openssl-dev` on Debian or Ubuntu). TLS itself uses vendored
+OpenSSL by default. The Nidus CI and release workflows install and validate
+these prerequisites on clean Ubuntu runners.
+
 ## Delivery semantics
 
 - Kafka producer idempotence and `acks=all` reduce duplicate writes by one

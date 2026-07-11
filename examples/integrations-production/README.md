@@ -4,6 +4,10 @@ Each binary demonstrates one separately installable first-party adapter while
 retaining native client access. Secure transport is required by default; the
 `NIDUS_ALLOW_LOCAL_PLAINTEXT=1` escape hatch works only with loopback URLs.
 
+The Kafka binary builds librdkafka from source. On Debian or Ubuntu build
+images, install CMake, a C/C++ toolchain, `pkg-config`, and
+`libcurl4-openssl-dev` before compiling it.
+
 ```bash
 cargo run -p nidus-example-integrations-production --bin envelope
 REDIS_URL=rediss://redis.example.test cargo run -p nidus-example-integrations-production --bin redis

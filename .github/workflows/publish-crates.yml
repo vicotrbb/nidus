@@ -30,6 +30,10 @@ jobs:
           rustup toolchain install 1.96.0 --profile minimal
           rustup default 1.96.0
           rustup component add rustfmt clippy
+      - name: Install native Kafka build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes libcurl4-openssl-dev
       - name: Check release tag
         if: ${{ github.event_name == 'push' }}
         run: |
