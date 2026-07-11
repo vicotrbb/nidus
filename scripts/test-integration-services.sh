@@ -17,6 +17,7 @@ cockroach_port=""
 kafka_port=""
 nats_port=""
 rabbit_port=""
+rabbit_volume=""
 sqs_port=""
 
 cleanup_resources() {
@@ -261,20 +262,30 @@ remove_container "${nats_name}"
 echo "[integration] RabbitMQ 4.1"
 allocate_port rabbit_port
 rabbit_name="${run_id}-rabbitmq"
-rabbit_dir="${temp_dir}/rabbitmq"
-mkdir -p "${rabbit_dir}"
-chmod 0777 "${rabbit_dir}"
+rabbit_volume="${run_id}-rabbitmq-data"
+rabbit_init_name="${run_id}-rabbitmq-init"
+rabbit_cookie="nidustest${RANDOM}${RANDOM}"
+docker volume create \
+  --label "${label_key}=${run_id}" \
+  "${rabbit_volume}" >/dev/null
+docker run --rm --name "${rabbit_init_name}" \
+  --label "${label_key}=${run_id}" \
+  --entrypoint sh \
+  -e "NIDUS_TEST_COOKIE=${rabbit_cookie}" \
+  -v "${rabbit_volume}:/var/lib/rabbitmq" \
+  rabbitmq:4.1-alpine \
+  -c 'umask 077; printf %s "$NIDUS_TEST_COOKIE" > /var/lib/rabbitmq/.erlang.cookie; chown rabbitmq:rabbitmq /var/lib/rabbitmq/.erlang.cookie; chmod 0400 /var/lib/rabbitmq/.erlang.cookie'
 docker run -d --name "${rabbit_name}" \
   --label "${label_key}=${run_id}" \
   --network "${network}" \
   -p "127.0.0.1:${rabbit_port}:5672" \
-  -v "${rabbit_dir}:/var/lib/rabbitmq" \
-  -e "RABBITMQ_ERLANG_COOKIE=nidustest${RANDOM}${RANDOM}" \
+  -v "${rabbit_volume}:/var/lib/rabbitmq" \
   rabbitmq:4.1-alpine >/dev/null
 wait_for RabbitMQ docker exec "${rabbit_name}" rabbitmq-diagnostics -q ping
 NIDUS_TEST_RABBITMQ_URL="amqp://guest:guest@127.0.0.1:${rabbit_port}/%2f" \
   cargo test -p nidus-rabbitmq --all-features --test live -- --ignored --exact real_rabbitmq_confirm_consume_ack_and_cleanup
 remove_container "${rabbit_name}"
+docker volume rm "${rabbit_volume}" >/dev/null
 
 echo "[integration] AWS SQS via LocalStack 4.6"
 allocate_port sqs_port
