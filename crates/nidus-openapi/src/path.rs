@@ -1,18 +1,30 @@
 use nidus_http::error::RoutePathError;
 
 pub(crate) fn openapi_path(path: &str) -> Result<String, RoutePathError> {
-    let mut segments = Vec::new();
+    let mut parameter_count = 0;
     for segment in path.split('/') {
         if segment == ":" {
             return Err(RoutePathError::empty_parameter(path));
         }
-        if let Some(name) = segment.strip_prefix(':') {
-            segments.push(format!("{{{name}}}"));
-        } else {
-            segments.push(segment.to_owned());
+        if segment.starts_with(':') {
+            parameter_count += 1;
         }
     }
-    Ok(segments.join("/"))
+
+    let mut normalized = String::with_capacity(path.len() + parameter_count);
+    for (index, segment) in path.split('/').enumerate() {
+        if index > 0 {
+            normalized.push('/');
+        }
+        if let Some(name) = segment.strip_prefix(':') {
+            normalized.push('{');
+            normalized.push_str(name);
+            normalized.push('}');
+        } else {
+            normalized.push_str(segment);
+        }
+    }
+    Ok(normalized)
 }
 
 pub(crate) fn openapi_path_parameters(path: &str) -> Vec<String> {
@@ -25,7 +37,10 @@ pub(crate) fn openapi_path_parameters(path: &str) -> Vec<String> {
 }
 
 pub(crate) fn operation_id(method: &str, path: &str) -> String {
-    let mut parts = vec![method.to_owned()];
+    let parameter_count = path.bytes().filter(|byte| *byte == b'{').count();
+    let mut operation = String::with_capacity(method.len() + path.len() + parameter_count * 3 + 5);
+    operation.push_str(method);
+    let mut has_path_segment = false;
     for segment in path.split('/') {
         if segment.is_empty() {
             continue;
@@ -34,20 +49,22 @@ pub(crate) fn operation_id(method: &str, path: &str) -> String {
             .strip_prefix('{')
             .and_then(|value| value.strip_suffix('}'))
         {
-            parts.push("by".to_owned());
-            parts.push(identifier_segment(name));
+            operation.push_str("_by_");
+            push_identifier_segment(&mut operation, name);
         } else {
-            parts.push(identifier_segment(segment));
+            operation.push('_');
+            push_identifier_segment(&mut operation, segment);
         }
+        has_path_segment = true;
     }
-    if parts.len() == 1 {
-        parts.push("root".to_owned());
+    if !has_path_segment {
+        operation.push_str("_root");
     }
-    parts.join("_")
+    operation
 }
 
-fn identifier_segment(segment: &str) -> String {
-    let mut output = String::new();
+fn push_identifier_segment(output: &mut String, segment: &str) {
+    let start = output.len();
     let mut previous_was_separator = true;
     for character in segment.chars() {
         if character.is_ascii_alphanumeric() {
@@ -58,13 +75,11 @@ fn identifier_segment(segment: &str) -> String {
             previous_was_separator = true;
         }
     }
-    if output.ends_with('_') {
+    if output.len() > start && output.ends_with('_') {
         output.pop();
     }
-    if output.is_empty() {
-        "value".to_owned()
-    } else {
-        output
+    if output.len() == start {
+        output.push_str("value");
     }
 }
 
@@ -78,6 +93,7 @@ mod tests {
             openapi_path("/users/:user_id/posts/:post-id").unwrap(),
             "/users/{user_id}/posts/{post-id}"
         );
+        assert_eq!(openapi_path("//users//:id/").unwrap(), "//users//{id}/");
     }
 
     #[test]
@@ -102,5 +118,6 @@ mod tests {
             "get_users_by_user_id_posts_by_post_id"
         );
         assert_eq!(operation_id("get", "/"), "get_root");
+        assert_eq!(operation_id("post", "/---/{...}"), "post_value_by_value");
     }
 }

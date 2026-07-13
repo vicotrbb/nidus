@@ -48,6 +48,7 @@ Nidus is a modular Rust backend framework that keeps framework behavior explicit
 
 - [Architecture](architecture.md)
 - [API Reference](api-reference.md)
+- [Release 1.0.11](release-1-0-11.md)
 - [Release 1.0.10](release-1-0-10.md)
 - [Release 1.0.9](release-1-0-9.md)
 - [Release 1.0.8](release-1-0-8.md)
@@ -60,7 +61,7 @@ Nidus is a modular Rust backend framework that keeps framework behavior explicit
 ## Current Status
 
 Nidus 1.0.0 established the public crate set. The current release track is
-1.0.10, adding separately installable data, messaging, durable-job,
+1.0.11, adding separately installable data, messaging, durable-job,
 OpenTelemetry, and Sentry integrations while retaining the lean facade and 1.x
 public compatibility.
 

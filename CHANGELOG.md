@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.11 - 2026-07-13
+
+- Built OpenAPI paths and operation IDs directly into pre-sized strings instead
+  of allocating temporary segment vectors and strings. A repeated local
+  100-route document-build benchmark improved by 18.40%-20.56% while focused
+  path and operation-ID behavior tests remained unchanged.
+- Made application shutdown attempt every lifecycle hook in reverse order even
+  after a hook fails, while preserving the existing `Result` API by returning
+  the first error after all cleanup callbacks have run.
+- Added focused lifecycle regression coverage, OpenAPI construction benchmark
+  coverage, and documentation for the measured performance and shutdown
+  semantics.
+
 ## 1.0.10 - 2026-07-11
 
 - Added separately installable Redis, Kafka, NATS/JetStream, RabbitMQ, SQS,

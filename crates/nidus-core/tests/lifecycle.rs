@@ -145,6 +145,31 @@ async fn lifecycle_runner_starts_in_order_and_shuts_down_in_reverse_order() {
     );
 }
 
+#[tokio::test]
+async fn lifecycle_runner_attempts_remaining_shutdown_hooks_after_failure() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let runner = LifecycleRunner::new()
+        .hook(RecordingHook {
+            name: "database",
+            events: Arc::clone(&events),
+        })
+        .hook(FailingShutdownHook {
+            name: "cache",
+            events: Arc::clone(&events),
+        });
+
+    let error = runner.shutdown().await.unwrap_err();
+
+    assert!(matches!(
+        error,
+        NidusError::DuplicateProvider { type_name: "cache" }
+    ));
+    assert_eq!(
+        *events.lock().unwrap(),
+        ["cache:shutdown", "database:shutdown"]
+    );
+}
+
 #[test]
 fn lifecycle_runner_emits_startup_and_shutdown_debug_logs() {
     let _capture_guard = TRACING_CAPTURE_LOCK

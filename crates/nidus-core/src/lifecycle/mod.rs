@@ -88,14 +88,38 @@ impl LifecycleRunner {
     }
 
     /// Runs shutdown hooks in reverse registration order.
+    ///
+    /// Every hook is attempted even when an earlier hook fails. The first
+    /// failure in shutdown order is returned after the remaining hooks run.
     pub async fn shutdown(&self) -> Result<()> {
         let span = tracing::info_span!("lifecycle.shutdown", hook_count = self.hooks.len());
         let _entered = span.enter();
         tracing::debug!(hook_count = self.hooks.len(), "lifecycle shutdown begin");
+        let mut first_error = None;
+        let mut error_count = 0_usize;
         for (index, hook) in self.hooks.iter().enumerate().rev() {
             tracing::debug!(hook_index = index, "lifecycle shutdown hook begin");
-            hook.on_shutdown().await?;
-            tracing::debug!(hook_index = index, "lifecycle shutdown hook complete");
+            if let Err(error) = hook.on_shutdown().await {
+                error_count += 1;
+                tracing::error!(
+                    hook_index = index,
+                    error = %error,
+                    "lifecycle shutdown hook failed"
+                );
+                if first_error.is_none() {
+                    first_error = Some(error);
+                }
+            } else {
+                tracing::debug!(hook_index = index, "lifecycle shutdown hook complete");
+            }
+        }
+        if let Some(error) = first_error {
+            tracing::error!(
+                hook_count = self.hooks.len(),
+                error_count,
+                "lifecycle shutdown completed with errors"
+            );
+            return Err(error);
         }
         tracing::debug!(hook_count = self.hooks.len(), "lifecycle shutdown complete");
         Ok(())

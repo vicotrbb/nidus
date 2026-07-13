@@ -1,6 +1,6 @@
 [package]
 name = "nidus-example-realworld-api"
-version = "1.0.10"
+version = "1.0.11"
 edition = "2024"
 publish = false
 
@@ -8,7 +8,7 @@ publish = false
 anyhow.workspace = true
 async-trait.workspace = true
 axum.workspace = true
-nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.10", features = ["auth", "config", "events", "jobs", "observability", "openapi", "otel", "validation"] }
+nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.11", features = ["auth", "config", "events", "jobs", "observability", "openapi", "otel", "validation"] }
 serde.workspace = true
 serde_json.workspace = true
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite"] }
@@ -18,4 +18,4 @@ utoipa.workspace = true
 garde.workspace = true
 
 [dev-dependencies]
-nidus-testing = { path = "../../crates/nidus-testing", version = "1.0.10" }
+nidus-testing = { path = "../../crates/nidus-testing", version = "1.0.11" }

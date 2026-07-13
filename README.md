@@ -24,31 +24,31 @@ Application dependencies stay explicit:
 
 ```toml
 [dependencies]
-nidus = { package = "nidus-rs", version = "1.0.10", features = ["http", "config", "openapi", "validation"] }
+nidus = { package = "nidus-rs", version = "1.0.11", features = ["http", "config", "openapi", "validation"] }
 ```
 
 For production observability through the facade:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.10", features = ["observability", "events", "jobs", "otel"] }
+nidus = { package = "nidus-rs", version = "1.0.11", features = ["observability", "events", "jobs", "otel"] }
 ```
 
 For embedded dashboard introspection:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.10", features = ["dashboard"] }
+nidus = { package = "nidus-rs", version = "1.0.11", features = ["dashboard"] }
 ```
 
 Official integrations are separate crates:
 
 ```toml
-nidus-sqlx = { version = "1.0.10", features = ["sqlite"] }
-nidus-cache = { version = "1.0.10", features = ["moka"] }
-nidus-redis = { version = "1.0.10", features = ["health"] }
-nidus-kafka = { version = "1.0.10", features = ["health"] }
-nidus-jobs-sqlx = { version = "1.0.10", features = ["postgres"] }
-nidus-opentelemetry = "1.0.10"
-nidus-sentry = "1.0.10"
+nidus-sqlx = { version = "1.0.11", features = ["sqlite"] }
+nidus-cache = { version = "1.0.11", features = ["moka"] }
+nidus-redis = { version = "1.0.11", features = ["health"] }
+nidus-kafka = { version = "1.0.11", features = ["health"] }
+nidus-jobs-sqlx = { version = "1.0.11", features = ["postgres"] }
+nidus-opentelemetry = "1.0.11"
+nidus-sentry = "1.0.11"
 ```
 
 ## Which Crate Do I Install?
@@ -204,7 +204,7 @@ cargo run -p nidus-example-realworld-api
 The `external-*` examples are standalone Cargo packages with their own
 `[workspace]` tables. Verify them from their folders or with
 `bash scripts/verify-external-examples.sh`; they intentionally do not use local
-workspace path dependencies. Before `1.0.10` is published to crates.io, verify
+workspace path dependencies. Before `1.0.11` is published to crates.io, verify
 the same examples against temporary local patches:
 
 ```bash
@@ -231,7 +231,7 @@ npm run verify
 ## Release Status
 
 Nidus 1.0.0 established the public crate set. The current release track is
-1.0.10, adding separately installable data, messaging, durable-job,
+1.0.11, adding separately installable data, messaging, durable-job,
 OpenTelemetry, and Sentry integrations while preserving the facade and
 existing 1.x APIs.
 

@@ -68,3 +68,6 @@ shutdown failures.
 Lifecycle startup, shutdown, and rollback emit `tracing` events with hook
 indexes and hook counts. Applications can collect those events with any
 `tracing` subscriber without coupling Nidus to a specific logging backend.
+Shutdown attempts every hook in reverse registration order even when a hook
+fails, then returns the first shutdown error. This keeps one adapter failure
+from preventing unrelated resources from receiving their cleanup callback.

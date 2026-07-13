@@ -83,14 +83,14 @@ harness = false
 async-trait.workspace = true
 axum.workspace = true
 criterion.workspace = true
-nidus-auth = { path = "crates/nidus-auth", version = "1.0.10" }
-nidus-core = { path = "crates/nidus-core", version = "1.0.10" }
-nidus-events = { path = "crates/nidus-events", version = "1.0.10" }
-nidus-http = { path = "crates/nidus-http", version = "1.0.10" }
-nidus-integrations = { path = "crates/nidus-integrations", version = "1.0.10" }
-nidus-jobs = { path = "crates/nidus-jobs", version = "1.0.10" }
-nidus-openapi = { path = "crates/nidus-openapi", version = "1.0.10" }
-nidus-validation = { path = "crates/nidus-validation", version = "1.0.10" }
+nidus-auth = { path = "crates/nidus-auth", version = "1.0.11" }
+nidus-core = { path = "crates/nidus-core", version = "1.0.11" }
+nidus-events = { path = "crates/nidus-events", version = "1.0.11" }
+nidus-http = { path = "crates/nidus-http", version = "1.0.11" }
+nidus-integrations = { path = "crates/nidus-integrations", version = "1.0.11" }
+nidus-jobs = { path = "crates/nidus-jobs", version = "1.0.11" }
+nidus-openapi = { path = "crates/nidus-openapi", version = "1.0.11" }
+nidus-validation = { path = "crates/nidus-validation", version = "1.0.11" }
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
@@ -100,7 +100,7 @@ utoipa.workspace = true
 garde.workspace = true
 
 [workspace.package]
-version = "1.0.10"
+version = "1.0.11"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/vicotrbb/nidus"
@@ -127,9 +127,9 @@ opentelemetry = { version = "0.32", default-features = false, features = ["trace
 opentelemetry-otlp = { version = "0.32", default-features = false, features = ["trace", "grpc-tonic", "http-proto", "reqwest-client", "reqwest-rustls-webpki-roots", "tls-ring", "tls-webpki-roots"] }
 opentelemetry_sdk = { version = "0.32", default-features = false, features = ["trace"] }
 insta = "1"
-nidus-core = { path = "crates/nidus-core", version = "1.0.10" }
-nidus-integrations = { path = "crates/nidus-integrations", version = "1.0.10" }
-nidus-jobs = { path = "crates/nidus-jobs", version = "1.0.10" }
+nidus-core = { path = "crates/nidus-core", version = "1.0.11" }
+nidus-integrations = { path = "crates/nidus-integrations", version = "1.0.11" }
+nidus-jobs = { path = "crates/nidus-jobs", version = "1.0.11" }
 proc-macro2 = "1"
 quote = "1"
 serde = { version = "1", features = ["derive"] }

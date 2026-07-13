@@ -3,7 +3,7 @@
 Install the Nidus CLI from crates.io:
 
 ```bash
-cargo install cargo-nidus --version 1.0.10
+cargo install cargo-nidus --version 1.0.11
 cargo nidus new hello-nidus
 cd hello-nidus
 cargo run
@@ -20,20 +20,20 @@ Applications depend on the facade crate and opt into feature groups explicitly:
 
 ```toml
 [dependencies]
-nidus = { package = "nidus-rs", version = "1.0.10", features = ["http", "config", "openapi", "validation"] }
+nidus = { package = "nidus-rs", version = "1.0.11", features = ["http", "config", "openapi", "validation"] }
 ```
 
 Official adapters are separate crates, so the core facade stays lean:
 
 ```toml
-nidus-sqlx = { version = "1.0.10", features = ["sqlite"] }
-nidus-cache = { version = "1.0.10", features = ["moka"] }
+nidus-sqlx = { version = "1.0.11", features = ["sqlite"] }
+nidus-cache = { version = "1.0.11", features = ["moka"] }
 ```
 
 The embedded dashboard is optional through the facade:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.10", features = ["dashboard"] }
+nidus = { package = "nidus-rs", version = "1.0.11", features = ["dashboard"] }
 ```
 
 ## Feature Flags

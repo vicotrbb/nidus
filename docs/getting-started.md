@@ -25,7 +25,7 @@ crate directly:
 
 ```toml
 [dependencies]
-nidus = { package = "nidus-rs", version = "1.0.10", features = ["http"] }
+nidus = { package = "nidus-rs", version = "1.0.11", features = ["http"] }
 ```
 
 Use `nidus-rs` for applications, `cargo-nidus` for the CLI, and adapter crates
@@ -33,9 +33,9 @@ such as `nidus-sqlx` or `nidus-cache` only when the app chooses those backends.
 Feature groups keep the facade explicit:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.10", features = ["http", "config", "openapi", "validation"] }
-nidus-sqlx = { version = "1.0.10", features = ["sqlite"] }
-nidus-cache = { version = "1.0.10", features = ["moka"] }
+nidus = { package = "nidus-rs", version = "1.0.11", features = ["http", "config", "openapi", "validation"] }
+nidus-sqlx = { version = "1.0.11", features = ["sqlite"] }
+nidus-cache = { version = "1.0.11", features = ["moka"] }
 ```
 
 ## Common Imports And Extension Traits

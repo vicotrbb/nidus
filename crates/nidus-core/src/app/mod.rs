@@ -42,7 +42,10 @@ impl Application {
         &self.modules
     }
 
-    /// Runs application shutdown hooks.
+    /// Runs every application shutdown hook in reverse registration order.
+    ///
+    /// If hooks fail, cleanup continues and the first shutdown error is
+    /// returned after all hooks have been attempted.
     pub async fn shutdown(&self) -> Result<()> {
         self.lifecycle.shutdown().await
     }

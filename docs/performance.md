@@ -49,6 +49,7 @@ The current benchmark surface covers:
 - bounded event publication at a full 10,000-event subscriber capacity
 - production default stack with and without in-process metrics
 - constructing an OpenAPI document with 64 distinct schemas
+- constructing and rendering a 100-route OpenAPI document
 - serving a 100-route OpenAPI document
 - Prometheus metrics record-response, record-error, and render-text paths
 - shared integration envelope serialization/deserialization at a 1 KiB payload
@@ -64,6 +65,25 @@ composition baselines where they are meaningful. Other rows are microbenchmarks
 for specific framework behavior and should be compared to their own history.
 
 ## Local Results
+
+### OpenAPI path and operation-ID allocation pass (2026-07-12)
+
+OpenAPI path normalization and operation-ID rendering were changed from a
+temporary `Vec<String>` plus per-segment strings to one pre-sized output
+`String`. A new 100-route construction/render row was applied identically
+before and after the implementation change. Both sides used 150 samples, a
+two-second warm-up, and a five-second measurement window on the same
+`aarch64-apple-darwin` machine with `rustc 1.96.0`:
+
+```bash
+cargo bench --bench request_lifecycle -- 'nidus 100-route openapi document render' --warm-up-time 2 --measurement-time 5 --sample-size 150 --save-baseline pre_elite_20260712
+cargo bench --bench request_lifecycle -- 'nidus 100-route openapi document render' --warm-up-time 2 --measurement-time 5 --sample-size 150 --baseline pre_elite_20260712
+```
+
+The saved baseline measured `341.66-351.44 us`. The confirming implementation
+run measured `280.76-283.64 us`, with Criterion reporting an
+`18.40%-20.56%` improvement (`p = 0.00`). This is a local document-build
+microbenchmark, not an HTTP throughput claim.
 
 ### First-party integration baseline (2026-07-11)
 

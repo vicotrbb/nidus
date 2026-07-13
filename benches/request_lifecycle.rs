@@ -107,6 +107,19 @@ fn build_benchmark_schema_document() -> OpenApiDocument {
     )
 }
 
+fn build_benchmark_route_document() -> serde_json::Value {
+    let mut document = OpenApiDocument::new("Benchmark API", "1.0.0");
+    for index in 0..100 {
+        document = document.route(
+            OpenApiRoute::get(format!(
+                "/organizations/{index}/projects/:project_id/resources/:resource_id"
+            ))
+            .summary(format!("Fetch resource {index}")),
+        );
+    }
+    document.to_json_value()
+}
+
 fn request_lifecycle_setup(c: &mut Criterion) {
     let runtime = tokio::runtime::Runtime::new().unwrap();
     let raw_router = Router::<()>::new().route("/health", get(|| async { "ok" }));
@@ -484,6 +497,10 @@ fn request_lifecycle_setup(c: &mut Criterion) {
 
     c.bench_function("nidus 64-schema openapi document construction", |b| {
         b.iter(|| black_box(build_benchmark_schema_document()));
+    });
+
+    c.bench_function("nidus 100-route openapi document render", |b| {
+        b.iter(|| black_box(build_benchmark_route_document()));
     });
 
     c.bench_function("nidus api defaults production request", |b| {
