@@ -112,6 +112,12 @@ IP. Requests without peer information fall back to the shared `"anonymous"`
 identity, which is suitable for in-memory tests but should not be treated as a
 multi-client production boundary.
 
+For forwarded chains, Nidus starts with the connected peer and walks every
+`X-Forwarded-For` value from right to left while each proxy hop is explicitly
+trusted. The first non-trusted address becomes the client identity. Configure
+every proxy that may append to the chain; an untrusted or malformed prefix is
+never selected as the client.
+
 The layer emits `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`,
 and `Retry-After` headers when a request is rejected.
 

@@ -305,11 +305,12 @@ impl ApiDefaults {
     /// 4. metrics, when configured
     /// 5. [`ErrorEnvelopeLayer`]
     /// 6. [`timeout_response_layer`]
-    /// 7. [`body_limit_layer`] `Content-Length` boundary
-    /// 8. rate limiting, when configured
-    /// 9. [`catch_panic_layer`], when enabled (innermost, a handler panic is
-    ///    caught and surfaced as a `500` through every outer layer)
-    /// 10. route handlers
+    /// 7. [`streaming_body_limit_layer`], when configured
+    /// 8. [`body_limit_layer`] `Content-Length` boundary
+    /// 9. rate limiting, when configured
+    /// 10. [`catch_panic_layer`], when enabled (innermost, a handler panic is
+    ///     caught and surfaced as a `500` through every outer layer)
+    /// 11. route handlers
     ///
     /// `body_limit` sits inside the request-id, metrics, and error-envelope
     /// layers so an oversized-body `413` is enveloped, metered, and carries a

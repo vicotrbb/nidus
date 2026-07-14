@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Hardened trusted-proxy client identity by walking every `X-Forwarded-For`
+  value from the connected peer toward the first non-trusted hop. This prevents
+  attacker-controlled leftmost prefixes from selecting a rate-limit identity,
+  handles split header fields, and stops safely on malformed chains.
+- Borrowed forwarded header values during parsing and shared immutable trusted
+  proxy lists across extractor clones. Two repeated 150-sample comparisons
+  classified extraction as 8.88%-12.64% faster and extractor cloning as
+  79.22%-80.25% faster on the measured configurations.
 - Reused the request ID as the default correlation ID without cloning its
   backing string. Sequential detached-worktree comparisons classified both the
   request-context middleware and composed production defaults as improvements

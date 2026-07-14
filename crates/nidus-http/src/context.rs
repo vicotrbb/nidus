@@ -344,20 +344,21 @@ pub fn client_ip_identity() -> impl IdentityExtractor {
 /// trusted proxy IPs. Requests from untrusted peers ignore `X-Forwarded-For`
 /// and use the direct peer IP. Requests without peer information fall back to
 /// `"anonymous"`.
+///
+/// Forwarded chains are evaluated from right to left across every header value.
+/// Traversal continues only while the current hop is trusted and stops at the
+/// first untrusted or malformed address. Configure every proxy that is allowed
+/// to extend the chain; untrusted prefixes cannot select the returned identity.
 pub fn trusted_proxy_client_ip_identity(
     trusted_proxies: impl IntoIterator<Item = IpAddr>,
 ) -> impl IdentityExtractor {
-    let trusted_proxies = trusted_proxies.into_iter().collect::<Vec<_>>();
+    let trusted_proxies: Arc<[IpAddr]> = trusted_proxies.into_iter().collect::<Vec<_>>().into();
     move |parts: &Parts| {
         peer_ip(parts)
             .map(|peer| {
-                if trusted_proxies.contains(&peer)
-                    && let Some(forwarded_ip) = forwarded_for_ip(&parts.headers)
-                {
-                    RequestIdentity::new(forwarded_ip.to_string())
-                } else {
-                    RequestIdentity::new(peer.to_string())
-                }
+                let client_ip =
+                    trusted_forwarded_client_ip(&parts.headers, peer, trusted_proxies.as_ref());
+                RequestIdentity::new(client_ip.to_string())
             })
             .or_else(|| Some(RequestIdentity::new("anonymous")))
     }
@@ -370,15 +371,27 @@ fn peer_ip(parts: &Parts) -> Option<IpAddr> {
         .map(|connect| connect.0.ip())
 }
 
-fn forwarded_for_ip(headers: &HeaderMap) -> Option<IpAddr> {
-    header_to_string(headers, "x-forwarded-for").and_then(|value| {
-        value
-            .split(',')
-            .next()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .and_then(|value| value.parse().ok())
-    })
+fn trusted_forwarded_client_ip(
+    headers: &HeaderMap,
+    peer: IpAddr,
+    trusted_proxies: &[IpAddr],
+) -> IpAddr {
+    let mut client_ip = peer;
+    'chain: for value in headers.get_all("x-forwarded-for").iter().rev() {
+        let Ok(value) = value.to_str() else {
+            break;
+        };
+        for hop in value.rsplit(',') {
+            if !trusted_proxies.contains(&client_ip) {
+                break 'chain;
+            }
+            let Ok(hop) = hop.trim().parse() else {
+                break 'chain;
+            };
+            client_ip = hop;
+        }
+    }
+    client_ip
 }
 
 pub(crate) fn header_to_string(headers: &HeaderMap, name: &'static str) -> Option<String> {
@@ -586,11 +599,48 @@ mod tests {
     fn trusted_proxy_client_ip_identity_uses_forwarded_header_from_trusted_peer() {
         let parts = request_parts(Some("127.0.0.1:5000"), Some("203.0.113.10, 10.0.0.5"));
         let trusted_proxy = "127.0.0.1".parse::<IpAddr>().unwrap();
+        let intermediate_proxy = "10.0.0.5".parse::<IpAddr>().unwrap();
+        let identity = trusted_proxy_client_ip_identity([trusted_proxy, intermediate_proxy])
+            .extract(&parts)
+            .unwrap();
+
+        assert_eq!(identity.as_str(), "203.0.113.10");
+    }
+
+    #[test]
+    fn trusted_proxy_client_ip_identity_rejects_untrusted_forwarded_prefixes() {
+        let parts = request_parts(Some("127.0.0.1:5000"), Some("198.51.100.200, 203.0.113.10"));
+        let trusted_proxy = "127.0.0.1".parse::<IpAddr>().unwrap();
         let identity = trusted_proxy_client_ip_identity([trusted_proxy])
             .extract(&parts)
             .unwrap();
 
         assert_eq!(identity.as_str(), "203.0.113.10");
+    }
+
+    #[test]
+    fn trusted_proxy_client_ip_identity_scans_all_forwarded_header_values() {
+        let mut parts = request_parts(Some("127.0.0.1:5000"), Some("198.51.100.200"));
+        parts
+            .headers
+            .append("x-forwarded-for", "203.0.113.10".parse().unwrap());
+        let trusted_proxy = "127.0.0.1".parse::<IpAddr>().unwrap();
+        let identity = trusted_proxy_client_ip_identity([trusted_proxy])
+            .extract(&parts)
+            .unwrap();
+
+        assert_eq!(identity.as_str(), "203.0.113.10");
+    }
+
+    #[test]
+    fn trusted_proxy_client_ip_identity_stops_at_malformed_forwarded_hop() {
+        let parts = request_parts(Some("127.0.0.1:5000"), Some("203.0.113.10, not-an-ip"));
+        let trusted_proxy = "127.0.0.1".parse::<IpAddr>().unwrap();
+        let identity = trusted_proxy_client_ip_identity([trusted_proxy])
+            .extract(&parts)
+            .unwrap();
+
+        assert_eq!(identity.as_str(), "127.0.0.1");
     }
 
     #[test]

@@ -162,7 +162,9 @@ The built-in `listen` and `serve` helpers populate Axum `ConnectInfo`, so
 `client_ip_identity()` can classify by the direct peer IP and ignores
 `X-Forwarded-For` by default. If the deployment intentionally trusts a reverse
 proxy to set `X-Forwarded-For`, use `trusted_proxy_client_ip_identity([...])`
-with explicit trusted proxy IPs.
+with every trusted proxy IP in the chain. Nidus walks forwarded values from
+right to left and stops at the first non-trusted or malformed hop, so an
+attacker-controlled leftmost prefix cannot select the rate-limit identity.
 
 Use the lower-level helpers directly when an application needs a different
 composition order.

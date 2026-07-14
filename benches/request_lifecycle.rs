@@ -10,7 +10,10 @@ use nidus::{controller, get, guard, injectable, routes};
 use nidus_auth::{Guard, GuardContext, GuardError, guard_layer};
 use nidus_core::{Container, Inject, SharedRequestScope};
 use nidus_http::{
-    context::RequestContext as HttpRequestContext,
+    context::{
+        IdentityExtractor as _, RequestContext as HttpRequestContext,
+        trusted_proxy_client_ip_identity,
+    },
     controller::Controller,
     error::ErrorEnvelopeLayer,
     health::{HealthRegistry, HealthStatus},
@@ -28,6 +31,7 @@ use nidus_validation::ValidatedJson;
 use serde::Deserialize;
 use std::{
     hint::black_box,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::{
         Arc,
         atomic::{AtomicUsize, Ordering},
@@ -298,6 +302,23 @@ fn request_lifecycle_setup(c: &mut Criterion) {
         &request_context_parts,
         "018f4ad7-56ce-4f6a-a759-29f4438d8d78",
     );
+    let trusted_proxy = "127.0.0.1".parse::<IpAddr>().unwrap();
+    let trusted_proxy_identity = trusted_proxy_client_ip_identity([trusted_proxy]);
+    let trusted_proxy_clone_identity = trusted_proxy_client_ip_identity(
+        (1..=8).map(|octet| IpAddr::V4(Ipv4Addr::new(10, 0, 0, octet))),
+    );
+    let (mut trusted_proxy_parts, ()) = Request::builder()
+        .uri("/users/42")
+        .header("x-forwarded-for", "203.0.113.10")
+        .body(())
+        .expect("benchmark request should be valid")
+        .into_parts();
+    trusted_proxy_parts
+        .extensions
+        .insert(axum::extract::ConnectInfo(SocketAddr::new(
+            trusted_proxy,
+            5000,
+        )));
     let mut openapi = OpenApiDocument::new("Benchmark API", "1.0.0");
     for index in 0..100 {
         openapi = openapi.route(
@@ -577,6 +598,20 @@ fn request_lifecycle_setup(c: &mut Criterion) {
 
     c.bench_function("nidus request context clone", |b| {
         b.iter(|| black_box(request_context.clone()));
+    });
+
+    c.bench_function("nidus trusted proxy client ip identity", |b| {
+        b.iter(|| {
+            black_box(
+                trusted_proxy_identity
+                    .extract(black_box(&trusted_proxy_parts))
+                    .unwrap(),
+            );
+        });
+    });
+
+    c.bench_function("nidus trusted proxy identity extractor clone", |b| {
+        b.iter(|| black_box(trusted_proxy_clone_identity.clone()));
     });
 
     c.bench_function("nidus 100-route openapi json request", |b| {

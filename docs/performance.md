@@ -45,6 +45,7 @@ The current benchmark surface covers:
   validated request ID, request context, error envelope, panic catching,
   timeout response, and rate limit
 - rate limit store check with 10,000 tracked identities
+- trusted-proxy identity extraction and extractor cloning
 - structured logging span creation with request and trace headers
 - bounded event publication at a full 10,000-event subscriber capacity, plus
   one- and four-subscriber fan-out controls
@@ -67,6 +68,40 @@ composition baselines where they are meaningful. Other rows are microbenchmarks
 for specific framework behavior and should be compared to their own history.
 
 ## Local Results
+
+### Trusted-proxy identity pass (2026-07-14)
+
+`trusted_proxy_client_ip_identity` previously copied the complete
+`X-Forwarded-For` header before parsing one address and captured the configured
+proxy list in a `Vec`, so cloning the extractor also cloned that allocation.
+Forwarded values are now parsed in place, while the immutable proxy list is
+shared as `Arc<[IpAddr]>`.
+
+The trust algorithm now starts at Axum's connected peer and walks all forwarded
+header values from right to left only while each hop is trusted. The first
+non-trusted address is the client identity; malformed hops stop traversal at
+the last verified address. Focused tests cover trusted multi-proxy chains,
+attacker-controlled prefixes, split header fields, malformed values, and
+untrusted direct peers.
+
+The same `aarch64-apple-darwin` checkout and `rustc 1.96.0` used 150 samples, a
+two-second warm-up, and a five-second measurement window. The extraction row
+uses one trusted direct proxy and one forwarded client; the clone row uses an
+eight-proxy configuration:
+
+```bash
+cargo bench --bench request_lifecycle --all-features -- 'nidus trusted proxy' --warm-up-time 2 --measurement-time 5 --sample-size 150 --save-baseline pre_trusted_proxy_chain_20260714
+cargo bench --bench request_lifecycle --all-features -- 'nidus trusted proxy' --warm-up-time 2 --measurement-time 5 --sample-size 150 --baseline pre_trusted_proxy_chain_20260714
+```
+
+| Benchmark | Before | First implementation run | Repeated implementation run |
+| --- | ---: | ---: | ---: |
+| Client-IP extraction | 112.47-114.32 ns | 99.445-100.75 ns (8.88%-11.18% faster) | 98.781-100.97 ns (11.19%-12.64% faster) |
+| Eight-proxy extractor clone | 15.533-16.226 ns | 3.3060-3.3782 ns (79.22%-79.95% faster) | 3.2071-3.2477 ns (79.57%-80.25% faster) |
+
+Criterion classified all four comparisons as improvements (`p = 0.00`). These
+are isolated in-process identity microbenchmarks, not end-to-end request or
+server-throughput claims.
 
 ### OpenAPI method allocation pass (2026-07-14)
 

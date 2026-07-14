@@ -1,5 +1,6 @@
 use std::{
     convert::Infallible,
+    net::{IpAddr, SocketAddr},
     sync::{
         Arc,
         atomic::{AtomicUsize, Ordering},
@@ -10,7 +11,7 @@ use std::{
 use axum::{
     Json, Router,
     body::{Body, Bytes, to_bytes},
-    extract::MatchedPath,
+    extract::{ConnectInfo, MatchedPath},
     routing::{get, post},
 };
 use http::{HeaderValue, Method, Request, Response, StatusCode};
@@ -20,7 +21,7 @@ use nidus_http::{
     middleware::{
         ApiDefaults, HttpMetricsHook, InMemoryRateLimitStore, PrometheusMetrics, RateLimitConfig,
         RequestContext, RequestIdConfig, RequestIdMode, client_ip_identity, request_context_layer,
-        validated_request_id_layer,
+        trusted_proxy_client_ip_identity, validated_request_id_layer,
     },
 };
 use serde_json::json;
@@ -822,6 +823,37 @@ async fn production_api_defaults_composes_routes_layers_and_overrides() {
         .unwrap();
     assert_eq!(second.status(), StatusCode::TOO_MANY_REQUESTS);
     assert!(second.headers().contains_key("retry-after"));
+}
+
+#[tokio::test]
+async fn trusted_proxy_rate_limit_cannot_be_bypassed_with_a_spoofed_prefix() {
+    let trusted_proxy = "127.0.0.1".parse::<IpAddr>().unwrap();
+    let app = Router::new().route("/", get(|| async { "ok" })).layer(
+        RateLimitConfig::new(1, Duration::from_secs(60), InMemoryRateLimitStore::new())
+            .identity(trusted_proxy_client_ip_identity([trusted_proxy]))
+            .layer(),
+    );
+    let request = |forwarded_for: &'static str| {
+        Request::builder()
+            .uri("/")
+            .header("x-forwarded-for", forwarded_for)
+            .extension(ConnectInfo(SocketAddr::new(trusted_proxy, 5000)))
+            .body(Body::empty())
+            .unwrap()
+    };
+
+    let first = app
+        .clone()
+        .oneshot(request("198.51.100.200, 203.0.113.10"))
+        .await
+        .unwrap();
+    let second = app
+        .oneshot(request("192.0.2.200, 203.0.113.10"))
+        .await
+        .unwrap();
+
+    assert_eq!(first.status(), StatusCode::OK);
+    assert_eq!(second.status(), StatusCode::TOO_MANY_REQUESTS);
 }
 
 #[tokio::test]

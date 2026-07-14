@@ -8,6 +8,7 @@ inspectable, but it does not replace application security design.
 - guard traits, guard combinators, and Tower guard layers for authorization
 - typed validation pipes and stable validation error responses
 - production HTTP defaults for security headers, body limits, timeouts, request IDs, and error envelopes
+- direct-peer client identity by default, with explicit right-to-left trust-chain validation for configured proxies
 - explicit feature flags so optional surfaces and dependencies remain visible in Cargo manifests
 - source-driven CLI inspection for routes and module graphs
 
@@ -18,6 +19,7 @@ inspectable, but it does not replace application security design.
 - SQL migrations, query review, transaction boundaries, and data-retention policy
 - cache key design and cache invalidation semantics
 - deployment TLS, DNS, secrets, network policy, and runtime sandboxing
+- complete trusted-proxy enumeration and reverse-proxy ownership of forwarded headers
 - security review of any raw Axum/Tower layers added outside the Nidus defaults
 
 ## Release Boundary
