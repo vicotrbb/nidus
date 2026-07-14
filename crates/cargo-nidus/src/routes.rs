@@ -9,6 +9,7 @@ use syn::{Attribute, ImplItem, Item, ItemImpl, ItemStruct, LitStr, Meta, PathArg
 
 use crate::route_order::sort_discovered_routes;
 use crate::route_path::join_route;
+use crate::source_files::rust_source_files;
 use crate::source_openapi::parse_openapi_args;
 
 pub(crate) fn inspect_routes(root: &Path) -> Result<()> {
@@ -52,26 +53,17 @@ pub(crate) struct DiscoveredRoute {
 }
 
 pub(crate) fn discover_routes(root: &Path) -> Result<Vec<DiscoveredRoute>> {
-    let controllers = root.join("src/controllers");
-    if !controllers.exists() {
-        return Ok(Vec::new());
-    }
-
     let mut routes = Vec::new();
-    for entry in
-        fs::read_dir(&controllers).with_context(|| format!("reading {}", controllers.display()))?
-    {
-        let path = entry?.path();
-        if path.extension().and_then(|extension| extension.to_str()) != Some("rs") {
-            continue;
-        }
+    for path in rust_source_files(&root.join("src"))? {
         let contents =
             fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
-        if has_unterminated_openapi_attr(&contents) {
-            bail!("unterminated #[openapi] metadata");
-        }
-        let file =
-            syn::parse_file(&contents).with_context(|| format!("parsing {}", path.display()))?;
+        let file = syn::parse_file(&contents).map_err(|error| {
+            if has_unterminated_openapi_attr(&contents) {
+                anyhow::anyhow!("unterminated #[openapi] metadata")
+            } else {
+                anyhow::Error::new(error).context(format!("parsing {}", path.display()))
+            }
+        })?;
         routes.extend(discover_controller_routes(&file)?);
     }
     sort_discovered_routes(&mut routes);

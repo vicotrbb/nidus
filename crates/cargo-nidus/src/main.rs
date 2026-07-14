@@ -20,6 +20,7 @@ mod route_order;
 mod route_path;
 mod routes;
 mod schema;
+mod source_files;
 mod source_openapi;
 
 use check::check_project;

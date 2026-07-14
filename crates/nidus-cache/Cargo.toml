@@ -26,4 +26,9 @@ moka = { workspace = true, optional = true }
 thiserror.workspace = true
 
 [dev-dependencies]
+criterion.workspace = true
 tokio = { workspace = true, features = ["time"] }
+
+[[bench]]
+name = "cache_hot_paths"
+harness = false

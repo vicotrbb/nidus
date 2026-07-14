@@ -8,6 +8,8 @@ use anyhow::{Context, Result};
 use serde_json::{Value, json};
 use syn::{Field, Fields, GenericArgument, Item, LitStr, PathArguments, Type};
 
+use crate::source_files::rust_source_files;
+
 pub(crate) fn discover_schemas(
     root: &Path,
     names: &BTreeSet<String>,
@@ -51,28 +53,6 @@ pub(crate) fn discover_schemas(
     }
 
     Ok(schemas)
-}
-
-fn rust_source_files(root: &Path) -> Result<Vec<std::path::PathBuf>> {
-    let mut files = Vec::new();
-    if !root.exists() {
-        return Ok(files);
-    }
-    collect_rust_source_files(root, &mut files)?;
-    files.sort();
-    Ok(files)
-}
-
-fn collect_rust_source_files(path: &Path, files: &mut Vec<std::path::PathBuf>) -> Result<()> {
-    for entry in fs::read_dir(path).with_context(|| format!("reading {}", path.display()))? {
-        let path = entry?.path();
-        if path.is_dir() {
-            collect_rust_source_files(&path, files)?;
-        } else if path.extension().and_then(|extension| extension.to_str()) == Some("rs") {
-            files.push(path);
-        }
-    }
-    Ok(())
 }
 
 #[derive(Clone)]

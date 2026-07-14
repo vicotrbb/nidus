@@ -20,6 +20,8 @@ cargo nidus expand --dry-run
 | `cargo nidus openapi` | render OpenAPI JSON from route metadata | a JSON document with configurable title and version |
 | `cargo nidus expand --dry-run` | show the macro expansion command | the `cargo expand` invocation without running it |
 
-The CLI is source-driven. It inspects Rust files and macro metadata rather than
-depending on hidden runtime registration. Use it before commits when route
+The CLI is source-driven. It recursively inspects Rust files under `src` and
+macro metadata rather than depending on hidden runtime registration, so both
+generated `src/controllers` projects and feature-oriented layouts such as
+`src/users/controller.rs` are supported. Use it before commits when route
 shape, module graph shape, or OpenAPI output matters.

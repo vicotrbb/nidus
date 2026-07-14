@@ -13,6 +13,7 @@ cargo bench --bench routing
 cargo bench --bench request_lifecycle
 cargo bench --bench event_bus
 cargo bench --bench integration_hot_paths
+cargo bench -p nidus-cache --bench cache_hot_paths
 ```
 
 For a quick smoke run with reduced Criterion sampling:
@@ -23,6 +24,7 @@ cargo bench --bench routing -- --warm-up-time 0.1 --measurement-time 0.2 --sampl
 cargo bench --bench request_lifecycle -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
 cargo bench --bench event_bus -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
 cargo bench --bench integration_hot_paths -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
+cargo bench -p nidus-cache --bench cache_hot_paths -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
 ```
 
 ## Coverage
@@ -59,6 +61,7 @@ The current benchmark surface covers:
 - durable job validation/construction and retry-bound calculation
 - lifecycle, adapter, and event observability recording with repeated bounded
   labels
+- Moka cache hits with and without a configured key namespace
 
 The integration benchmark uses a 5% Criterion noise threshold. A change beyond
 that bound must be explained or reverted before release; smaller movement is
@@ -70,6 +73,37 @@ composition baselines where they are meaningful. Other rows are microbenchmarks
 for specific framework behavior and should be compared to their own history.
 
 ## Local Results
+
+### Moka cache key allocation pass (2026-07-14)
+
+`MokaCacheProvider::get` and `invalidate` previously constructed an owned
+`CacheKey` for every operation, even when no namespace was configured and Moka
+could look up the existing `String` key through a borrowed `&str`. The
+unnamespaced paths now pass that borrowed key directly. Namespaced keys still
+own one string, but compose it into one exactly sized buffer instead of using
+formatting machinery. Inserts remain owned because Moka must retain their keys.
+
+The benchmark definition was added before the implementation change. Both
+sides ran in the same dedicated target directory on the same
+`aarch64-apple-darwin` machine with `rustc 1.96.0`, using 150 samples, a
+two-second warm-up, and a five-second measurement window. Empty cached values
+keep value cloning out of the measured key-path comparison:
+
+```bash
+CARGO_TARGET_DIR=target/cache-key-pass cargo bench -p nidus-cache --bench cache_hot_paths -- --save-baseline before-cache-key-pass-20260714 --noplot --warm-up-time 2 --measurement-time 5 --sample-size 150
+CARGO_TARGET_DIR=target/cache-key-pass cargo bench -p nidus-cache --bench cache_hot_paths -- --baseline before-cache-key-pass-20260714 --noplot --warm-up-time 2 --measurement-time 5 --sample-size 150
+```
+
+| Benchmark | Before | First final-source run | Repeated final-source run |
+| --- | ---: | ---: | ---: |
+| Get without namespace | 172.49-175.69 ns | 139.48-143.27 ns (23.71%-33.17% faster) | 137.10-140.61 ns (26.96%-35.99% faster) |
+| Get with namespace | 180.27-182.59 ns | 148.77-156.04 ns (18.09%-20.22% faster) | 145.21-146.15 ns (20.15%-21.44% faster) |
+
+Criterion classified all four final comparisons as improvements (`p = 0.00`).
+These are isolated in-process cache-hit measurements, not end-to-end request or
+service-throughput claims. An initial `Cow<str>` implementation improved the
+unnamespaced row but regressed the namespaced control by 11.53%-17.21%; it was
+rejected in favor of the explicit branches and pre-sized owned-key path above.
 
 ### Observability label interning pass (2026-07-14)
 

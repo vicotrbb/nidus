@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Avoided allocating a temporary Moka cache key for unnamespaced reads and
+  invalidations, and composed namespaced keys into one exactly sized string.
+  Two repeated 150-sample comparisons classified both cache-read paths as
+  improvements while focused tests preserve key, lookup, and invalidation
+  behavior.
+- Made `cargo nidus routes` and `cargo nidus openapi` discover controllers
+  recursively under `src`, matching Nidus's generated and feature-oriented
+  example layouts. Route, graph, and schema inspection now share one
+  deterministic source-file walker, and valid source text containing an
+  OpenAPI attribute example no longer triggers a false malformed-attribute
+  error.
 - Hardened trusted-proxy client identity by walking every `X-Forwarded-For`
   value from the connected peer toward the first non-trusted hop. This prevents
   attacker-controlled leftmost prefixes from selecting a rate-limit identity,

@@ -85,11 +85,17 @@ impl CacheKey {
     /// Creates a cache key from optional namespace and logical key parts.
     pub fn new(namespace: Option<&str>, key: impl AsRef<str>) -> Self {
         match namespace {
-            Some(namespace) if !namespace.is_empty() => {
-                Self(format!("{namespace}:{}", key.as_ref()))
-            }
+            Some(namespace) if !namespace.is_empty() => Self::namespaced(namespace, key.as_ref()),
             _ => Self(key.as_ref().to_owned()),
         }
+    }
+
+    fn namespaced(namespace: &str, key: &str) -> Self {
+        let mut backend_key = String::with_capacity(namespace.len() + 1 + key.len());
+        backend_key.push_str(namespace);
+        backend_key.push(':');
+        backend_key.push_str(key);
+        Self(backend_key)
     }
 
     /// Returns the full backend key.
@@ -231,7 +237,14 @@ mod moka_backend {
         pub async fn get(&self, key: impl AsRef<str>) -> Option<Vec<u8>> {
             #[cfg(feature = "observability")]
             let started_at = Instant::now();
-            let result = self.cache.get(self.cache_key(key).as_str()).await;
+            let key = key.as_ref();
+            let result = match self.namespace.as_deref() {
+                Some(namespace) if !namespace.is_empty() => {
+                    let key = CacheKey::namespaced(namespace, key);
+                    self.cache.get(key.as_str()).await
+                }
+                _ => self.cache.get(key).await,
+            };
             #[cfg(feature = "observability")]
             self.record(
                 "get",
@@ -245,7 +258,14 @@ mod moka_backend {
         pub async fn invalidate(&self, key: impl AsRef<str>) {
             #[cfg(feature = "observability")]
             let started_at = Instant::now();
-            self.cache.invalidate(self.cache_key(key).as_str()).await;
+            let key = key.as_ref();
+            match self.namespace.as_deref() {
+                Some(namespace) if !namespace.is_empty() => {
+                    let key = CacheKey::namespaced(namespace, key);
+                    self.cache.invalidate(key.as_str()).await;
+                }
+                _ => self.cache.invalidate(key).await,
+            }
             #[cfg(feature = "observability")]
             self.record(
                 "invalidate",

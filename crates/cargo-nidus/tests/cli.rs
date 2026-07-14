@@ -8,6 +8,57 @@ use std::os::unix::fs::PermissionsExt;
 use support::{temp_project_root, workspace_root};
 
 #[test]
+fn cargo_nidus_routes_and_openapi_inspect_feature_oriented_sources() {
+    let root = temp_project_root("routes_inspect_feature_oriented_sources");
+    let controller_directory = root.join("src/domains/users");
+    fs::create_dir_all(&controller_directory).unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        r##"const OPENAPI_EXAMPLE: &str = "#[openapi(";"##,
+    )
+    .unwrap();
+    fs::write(
+        controller_directory.join("controller.rs"),
+        r#"
+#[controller("/users")]
+struct UsersController;
+
+#[routes]
+impl UsersController {
+    #[get("/:id")]
+    #[openapi(summary = "Find nested user", tags = ["users"])]
+    async fn find_user(&self) {}
+}
+"#,
+    )
+    .unwrap();
+
+    let routes = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "routes", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+    assert!(routes.status.success());
+    assert!(
+        String::from_utf8(routes.stdout)
+            .unwrap()
+            .contains("GET /users/{id} - Find nested user")
+    );
+
+    let openapi = Command::new(env!("CARGO_BIN_EXE_cargo-nidus"))
+        .args(["nidus", "openapi", "--path"])
+        .arg(&root)
+        .output()
+        .unwrap();
+    assert!(openapi.status.success());
+    let document: serde_json::Value = serde_json::from_slice(&openapi.stdout).unwrap();
+    assert_eq!(
+        document["paths"]["/users/{id}"]["get"]["summary"],
+        "Find nested user"
+    );
+}
+
+#[test]
 fn cargo_nidus_routes_and_graph_inspect_generated_sources() {
     let root = temp_project_root("routes_and_graph_inspect_generated_sources");
     for (kind, name) in [("module", "users"), ("controller", "users")] {

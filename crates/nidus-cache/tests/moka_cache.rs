@@ -1,10 +1,17 @@
 use std::time::Duration;
 
-use nidus_cache::{CacheConfig, MokaCacheProvider};
+use nidus_cache::{CacheConfig, CacheKey, MokaCacheProvider};
 use nidus_core::{Container, ProviderRegistrant};
 
 #[cfg(feature = "health")]
 use {nidus_http::health::HealthRegistry, std::sync::Arc};
+
+#[test]
+fn cache_keys_preserve_namespaced_and_unnamespaced_forms() {
+    assert_eq!(CacheKey::new(None, "42").as_str(), "42");
+    assert_eq!(CacheKey::new(Some(""), "42").as_str(), "42");
+    assert_eq!(CacheKey::new(Some("users"), "42").as_str(), "users:42");
+}
 
 #[tokio::test]
 async fn moka_cache_namespaces_keys_and_expires_values() {
@@ -78,6 +85,18 @@ async fn moka_cache_from_cache_wraps_an_existing_moka_instance() {
     let cache = MokaCacheProvider::from_cache(raw, Some("users".to_owned()));
     assert_eq!(cache.namespace(), Some("users"));
     assert_eq!(cache.get("42").await.unwrap(), b"Ada".to_vec());
+}
+
+#[tokio::test]
+async fn moka_cache_without_namespace_reads_and_invalidates_backend_keys_directly() {
+    let raw = moka::future::Cache::<String, Vec<u8>>::builder().build();
+    raw.insert("42".to_owned(), b"Ada".to_vec()).await;
+
+    let cache = MokaCacheProvider::from_cache(raw.clone(), None);
+    assert_eq!(cache.get("42").await.unwrap(), b"Ada".to_vec());
+
+    cache.invalidate("42").await;
+    assert!(raw.get("42").await.is_none());
 }
 
 #[cfg(feature = "health")]

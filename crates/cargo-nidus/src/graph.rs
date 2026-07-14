@@ -1,8 +1,4 @@
-use std::{
-    collections::BTreeSet,
-    fs,
-    path::{Path, PathBuf},
-};
+use std::{fs, path::Path};
 
 use anyhow::{Context, Result};
 use syn::{Expr, Item, Lit, Stmt};
@@ -10,6 +6,7 @@ use syn::{Expr, Item, Lit, Stmt};
 use crate::graph_metadata::{
     DiscoveredModule, discover_module_macro_metadata, extract_struct_names,
 };
+use crate::source_files::rust_source_files;
 
 pub(crate) fn inspect_graph(root: &Path) -> Result<()> {
     for module in discover_modules(root)? {
@@ -31,7 +28,7 @@ pub(crate) fn inspect_graph(root: &Path) -> Result<()> {
 }
 
 fn discover_modules(root: &Path) -> Result<Vec<DiscoveredModule>> {
-    let sources = discover_source_files(&root.join("src"))?;
+    let sources = rust_source_files(&root.join("src"))?;
 
     let mut discovered = Vec::new();
     for path in sources {
@@ -53,30 +50,6 @@ fn discover_modules(root: &Path) -> Result<Vec<DiscoveredModule>> {
     }
     discovered.sort_by(|left, right| left.name.cmp(&right.name));
     Ok(discovered)
-}
-
-fn discover_source_files(src: &Path) -> Result<Vec<PathBuf>> {
-    let mut sources = BTreeSet::new();
-    collect_source_files(src, &mut sources)?;
-    Ok(sources.into_iter().collect())
-}
-
-fn collect_source_files(directory: &Path, sources: &mut BTreeSet<PathBuf>) -> Result<()> {
-    if !directory.exists() {
-        return Ok(());
-    }
-
-    for entry in
-        fs::read_dir(directory).with_context(|| format!("reading {}", directory.display()))?
-    {
-        let path = entry?.path();
-        if path.is_dir() {
-            collect_source_files(&path, sources)?;
-        } else if path.extension().and_then(|extension| extension.to_str()) == Some("rs") {
-            sources.insert(path);
-        }
-    }
-    Ok(())
 }
 
 fn discover_modules_in_source(file: &syn::File) -> Vec<DiscoveredModule> {

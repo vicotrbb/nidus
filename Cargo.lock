@@ -2954,6 +2954,7 @@ dependencies = [
 name = "nidus-cache"
 version = "1.0.11"
 dependencies = [
+ "criterion",
  "moka",
  "nidus-core",
  "nidus-http",
