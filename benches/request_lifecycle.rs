@@ -21,7 +21,7 @@ use nidus_http::{
         request_context_layer, request_id_layer, request_scope_layer, security_headers_layer,
         timeout_response_layer, validated_request_id_layer,
     },
-    router::RouteDefinition,
+    router::{RouteDefinition, RouteMetadata},
 };
 use nidus_openapi::{OpenApiDocument, OpenApiRoute};
 use nidus_validation::ValidatedJson;
@@ -145,9 +145,9 @@ fn build_benchmark_route_document() -> serde_json::Value {
     document.to_json_value()
 }
 
-fn construct_benchmark_route_document() -> OpenApiDocument {
+fn construct_benchmark_route_document(route_count: usize) -> OpenApiDocument {
     let mut document = OpenApiDocument::new("Benchmark API", "1.0.0");
-    for index in 0..100 {
+    for index in 0..route_count {
         document = document.route(
             OpenApiRoute::get(format!(
                 "/organizations/{index}/projects/:project_id/resources/:resource_id"
@@ -306,6 +306,15 @@ fn request_lifecycle_setup(c: &mut Criterion) {
         );
     }
     let openapi_router = openapi.into_router();
+    let bulk_openapi_routes = (0..100)
+        .map(|index| {
+            let path: &'static str = Box::leak(
+                format!("/organizations/{index}/projects/:project_id/resources/:resource_id")
+                    .into_boxed_str(),
+            );
+            RouteMetadata::new("GET", path)
+        })
+        .collect::<Vec<_>>();
 
     c.bench_function("raw axum baseline request", |b| {
         b.iter(|| {
@@ -588,7 +597,21 @@ fn request_lifecycle_setup(c: &mut Criterion) {
     });
 
     c.bench_function("nidus 100-route openapi document construction", |b| {
-        b.iter(|| black_box(construct_benchmark_route_document()));
+        b.iter(|| black_box(construct_benchmark_route_document(100)));
+    });
+
+    c.bench_function("nidus 100-route openapi metadata construction", |b| {
+        b.iter(|| {
+            black_box(OpenApiDocument::from_route_metadata(
+                "Benchmark API",
+                "1.0.0",
+                &bulk_openapi_routes,
+            ))
+        });
+    });
+
+    c.bench_function("nidus 8-route openapi document construction", |b| {
+        b.iter(|| black_box(construct_benchmark_route_document(8)));
     });
 
     c.bench_function("nidus api defaults production request", |b| {

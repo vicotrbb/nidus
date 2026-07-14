@@ -15,6 +15,15 @@ struct CreateUserDto {
 }
 
 #[test]
+fn openapi_document_lowercases_uncommon_route_metadata_methods() {
+    let routes = [RouteMetadata::new("OPTIONS", "/health")];
+
+    let json = OpenApiDocument::from_route_metadata("Nidus API", "1.0.0", &routes).to_json_value();
+
+    assert!(json["paths"]["/health"]["options"].is_object());
+}
+
+#[test]
 fn openapi_document_emits_error_responses_for_guarded_validating_routes() {
     // O-1: guarded/validating routes must advertise the error statuses they can
     // return (401/403 for guards, 422 for validation), so clients can discover

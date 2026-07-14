@@ -46,10 +46,12 @@ The current benchmark surface covers:
   timeout response, and rate limit
 - rate limit store check with 10,000 tracked identities
 - structured logging span creation with request and trace headers
-- bounded event publication at a full 10,000-event subscriber capacity
+- bounded event publication at a full 10,000-event subscriber capacity, plus
+  one- and four-subscriber fan-out controls
 - production default stack with and without in-process metrics
 - constructing an OpenAPI document with 64 distinct schemas
-- separately constructing and rendering a 100-route OpenAPI document
+- separately constructing 8- and 100-route OpenAPI documents, constructing a
+  100-route document from generated metadata, and rendering 100 routes
 - serving a 100-route OpenAPI document
 - Prometheus metrics record-response, record-error, and render-text paths
 - shared integration envelope serialization/deserialization at a 1 KiB payload
@@ -65,6 +67,48 @@ composition baselines where they are meaningful. Other rows are microbenchmarks
 for specific framework behavior and should be compared to their own history.
 
 ## Local Results
+
+### OpenAPI method allocation pass (2026-07-14)
+
+`OpenApiRoute` previously stored its fixed HTTP method as an owned `String`, so
+each manual `get`, `post`, `put`, `patch`, or `delete` route paid for a heap
+allocation. The private field now uses `Cow<'static, str>` and borrows those five
+lowercase literals. Generated `RouteMetadata` uses the same borrowed literals
+for the framework-supported uppercase/lowercase methods and retains an owned
+lowercase fallback for uncommon methods.
+
+The same `aarch64-apple-darwin` checkout and `rustc 1.96.0` used 100 samples, a
+two-second warm-up, and a five-second measurement window:
+
+```bash
+cargo bench --bench request_lifecycle -- 'nidus 100-route openapi document construction' --warm-up-time 2 --measurement-time 5 --sample-size 100 --save-baseline before-openapi-index-100-20260714
+cargo bench --bench request_lifecycle -- 'nidus 100-route openapi document construction' --warm-up-time 2 --measurement-time 5 --sample-size 100 --baseline before-openapi-index-100-20260714
+cargo bench --bench request_lifecycle -- 'nidus 8-route openapi document construction' --warm-up-time 2 --measurement-time 5 --sample-size 100 --save-baseline before-openapi-index-8-20260714
+cargo bench --bench request_lifecycle -- 'nidus 8-route openapi document construction' --warm-up-time 2 --measurement-time 5 --sample-size 100 --baseline before-openapi-index-8-20260714
+cargo bench --bench request_lifecycle -- 'nidus 100-route openapi metadata construction' --warm-up-time 2 --measurement-time 5 --sample-size 100 --save-baseline before-openapi-metadata-cow-20260714
+cargo bench --bench request_lifecycle -- 'nidus 100-route openapi metadata construction' --warm-up-time 2 --measurement-time 5 --sample-size 100 --baseline before-openapi-metadata-cow-20260714
+```
+
+| Benchmark | Before | After | Criterion change |
+| --- | ---: | ---: | ---: |
+| 8-route manual construction | 2.7585-2.8047 us | 2.6277-2.6494 us | 4.23%-5.72% faster |
+| 100-route manual construction | 40.022-40.766 us | 37.607-38.027 us | 5.69%-7.87% faster |
+| 100-route generated-metadata construction | 31.437-31.650 us | 31.245-31.552 us | no change detected |
+
+Criterion classified both manual-route comparisons as improvements (`p =
+0.00`). The generated-metadata control was statistically unchanged (`p =
+0.90`, change interval -0.55% to +0.50%), so no generated-metadata performance
+claim is made. Tests cover all five manual builders, generated metadata,
+duplicate operations after many routes and cloning, and the uncommon-method
+lowercase fallback.
+
+Several broader experiments were rejected. An event-bus single-subscriber
+inline collector improved that row by more than 58%, but its best fan-out-safe
+shape still regressed four subscribers by 3.87%-5.80%. A lazy OpenAPI hash index
+improved 100 routes but regressed 16 routes by 11.63%-13.90% and 32 routes by
+9.90%-11.36%. Route/schema capacity reservations stayed within Criterion's
+noise threshold. All three experiments were reverted instead of being presented
+as general optimizations.
 
 ### Request-context correlation fallback pass (2026-07-14)
 

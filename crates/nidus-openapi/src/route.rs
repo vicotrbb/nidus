@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use nidus_http::router::RouteMetadata;
 use nidus_http::{StatusCode, error::RoutePathError};
 use serde_json::{Value, json};
@@ -8,7 +10,7 @@ use crate::path::{openapi_path, openapi_path_parameters, operation_id};
 /// OpenAPI route metadata.
 #[derive(Clone, Debug)]
 pub struct OpenApiRoute {
-    method: String,
+    method: Cow<'static, str>,
     path: String,
     path_parameters: Vec<String>,
     summary: Option<String>,
@@ -107,7 +109,7 @@ impl OpenApiRoute {
     }
 
     pub(crate) fn method(&self) -> &str {
-        &self.method
+        self.method.as_ref()
     }
 
     pub(crate) fn path(&self) -> &str {
@@ -126,11 +128,7 @@ impl OpenApiRoute {
     ) -> Result<Self, RoutePathError> {
         let path = openapi_path(path.as_ref())?;
         let path_parameters = openapi_path_parameters(&path);
-        let mut route = Self::new(
-            metadata.method().to_ascii_lowercase(),
-            path,
-            path_parameters,
-        );
+        let mut route = Self::new(openapi_method(metadata.method()), path, path_parameters);
         if let Some(summary) = metadata.summary() {
             route = route.summary(summary);
         }
@@ -254,7 +252,7 @@ impl OpenApiRoute {
     }
 
     fn new(
-        method: impl Into<String>,
+        method: impl Into<Cow<'static, str>>,
         path: impl Into<String>,
         path_parameters: Vec<String>,
     ) -> Self {
@@ -273,10 +271,56 @@ impl OpenApiRoute {
         }
     }
 
-    fn try_new(method: impl Into<String>, path: impl Into<String>) -> Result<Self, RoutePathError> {
+    fn try_new(
+        method: impl Into<Cow<'static, str>>,
+        path: impl Into<String>,
+    ) -> Result<Self, RoutePathError> {
         let path = path.into();
         let path = openapi_path(&path)?;
         let path_parameters = openapi_path_parameters(&path);
         Ok(Self::new(method, path, path_parameters))
+    }
+}
+
+fn openapi_method(method: &'static str) -> Cow<'static, str> {
+    match method {
+        "GET" | "get" => Cow::Borrowed("get"),
+        "POST" | "post" => Cow::Borrowed("post"),
+        "PUT" | "put" => Cow::Borrowed("put"),
+        "PATCH" | "patch" => Cow::Borrowed("patch"),
+        "DELETE" | "delete" => Cow::Borrowed("delete"),
+        method => Cow::Owned(method.to_ascii_lowercase()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fixed_route_methods_are_borrowed() {
+        let routes = [
+            (OpenApiRoute::get("/"), "get"),
+            (OpenApiRoute::post("/"), "post"),
+            (OpenApiRoute::put("/"), "put"),
+            (OpenApiRoute::patch("/"), "patch"),
+            (OpenApiRoute::delete("/"), "delete"),
+        ];
+
+        for (route, expected) in routes {
+            assert_eq!(route.method(), expected);
+            assert!(matches!(route.method, Cow::Borrowed(_)));
+        }
+    }
+
+    #[test]
+    fn route_metadata_borrows_supported_methods_and_owns_fallbacks() {
+        let supported =
+            OpenApiRoute::try_from_route_metadata(&RouteMetadata::new("GET", "/")).unwrap();
+        let fallback =
+            OpenApiRoute::try_from_route_metadata(&RouteMetadata::new("OPTIONS", "/")).unwrap();
+
+        assert!(matches!(supported.method, Cow::Borrowed("get")));
+        assert!(matches!(fallback.method, Cow::Owned(ref method) if method == "options"));
     }
 }

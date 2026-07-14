@@ -91,6 +91,29 @@ fn openapi_document_rejects_duplicate_operations() {
 }
 
 #[test]
+fn openapi_document_rejects_duplicates_after_many_routes_and_cloning() {
+    let mut document = OpenApiDocument::new("Nidus API", "1.0.0");
+    for index in 0..20 {
+        document = document
+            .try_route(OpenApiRoute::get(format!("/resources/{index}/:id")))
+            .unwrap();
+    }
+
+    let error = document
+        .clone()
+        .try_route(OpenApiRoute::get("/resources/17/{id}"))
+        .unwrap_err();
+
+    assert_eq!(
+        error,
+        OpenApiDocumentError::DuplicateOperation {
+            method: "get".to_owned(),
+            path: "/resources/17/{id}".to_owned(),
+        }
+    );
+}
+
+#[test]
 fn openapi_document_registers_utoipa_schemas() {
     let document = OpenApiDocument::new("Nidus API", "1.0.0").schema::<UserDto>();
 
