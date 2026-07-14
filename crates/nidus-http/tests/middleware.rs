@@ -12,8 +12,9 @@ use nidus_core::{Container, Inject, SharedRequestScope};
 use nidus_http::{
     context::RequestIdentity,
     middleware::{
-        InMemoryRateLimitStore, RateLimitStore, compression_layer, cors_layer, cors_origin_layer,
-        rate_limit_layer, request_id_layer, request_scope_layer, timeout_layer, trace_layer,
+        InMemoryRateLimitStore, RateLimitStore, catch_panic_layer, compression_layer, cors_layer,
+        cors_origin_layer, rate_limit_layer, request_id_layer, request_scope_layer, timeout_layer,
+        trace_layer,
     },
 };
 use tokio::time::sleep;
@@ -26,6 +27,21 @@ struct RequestId(usize);
 #[derive(Debug)]
 struct RequestContext {
     request_id: Inject<RequestId>,
+}
+
+#[tokio::test]
+async fn catch_panic_layer_handles_synchronous_service_panics() {
+    let service = ServiceBuilder::new()
+        .layer(catch_panic_layer())
+        .service(service_fn(
+            |_request: Request<Body>| -> std::future::Ready<Result<Response<Body>, Infallible>> {
+                panic!("service call panicked synchronously")
+            },
+        ));
+
+    let response = service.oneshot(Request::new(Body::empty())).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
 }
 
 #[tokio::test]

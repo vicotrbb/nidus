@@ -7,14 +7,16 @@
 //! metrics, instead of aborting the connection.
 
 use std::{
-    future::Future,
+    any::Any,
     panic::{AssertUnwindSafe, catch_unwind},
-    pin::Pin,
     task::{Context, Poll},
 };
 
 use axum::{body::Body, extract::Request};
-use futures_util::FutureExt;
+use futures_util::{
+    FutureExt,
+    future::{CatchUnwind, Either, Map, Ready, ready},
+};
 use http::{Response, StatusCode};
 use tower::{Layer, Service};
 
@@ -49,6 +51,15 @@ pub struct CatchPanicService<S> {
     inner: S,
 }
 
+type PanicPayload = Box<dyn Any + Send + 'static>;
+type CatchPanicResult<E> = Result<Result<Response<Body>, E>, PanicPayload>;
+type CatchPanicResultMapper<E> = fn(CatchPanicResult<E>) -> Result<Response<Body>, E>;
+type ImmediatePanicMapper<E> = fn(PanicPayload) -> Result<Response<Body>, E>;
+type CatchPanicFuture<F, E> = Either<
+    Map<CatchUnwind<AssertUnwindSafe<F>>, CatchPanicResultMapper<E>>,
+    Map<Ready<PanicPayload>, ImmediatePanicMapper<E>>,
+>;
+
 impl<S> Service<Request> for CatchPanicService<S>
 where
     S: Service<Request, Response = Response<Body>> + Send + 'static,
@@ -57,7 +68,7 @@ where
 {
     type Response = Response<Body>;
     type Error = S::Error;
-    type Future = Pin<Box<dyn Future<Output = Result<Response<Body>, S::Error>> + Send>>;
+    type Future = CatchPanicFuture<S::Future, S::Error>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
@@ -68,24 +79,32 @@ where
         // service (e.g. inside `call`), then catch a panic that occurs while the
         // inner future is polled.
         match catch_unwind(AssertUnwindSafe(|| self.inner.call(request))) {
-            Ok(future) => Box::pin(async move {
-                match AssertUnwindSafe(future).catch_unwind().await {
-                    Ok(result) => result,
-                    Err(payload) => {
-                        log_panic(&payload);
-                        Ok(internal_server_error())
-                    }
-                }
-            }),
-            Err(payload) => Box::pin(async move {
-                log_panic(&payload);
-                Ok(internal_server_error())
-            }),
+            Ok(future) => Either::Left(
+                AssertUnwindSafe(future)
+                    .catch_unwind()
+                    .map(map_catch_panic_result::<S::Error> as CatchPanicResultMapper<S::Error>),
+            ),
+            Err(payload) => Either::Right(
+                ready(payload)
+                    .map(map_immediate_panic::<S::Error> as ImmediatePanicMapper<S::Error>),
+            ),
         }
     }
 }
 
-fn log_panic(payload: &Box<dyn std::any::Any + Send + 'static>) {
+fn map_catch_panic_result<E>(result: CatchPanicResult<E>) -> Result<Response<Body>, E> {
+    match result {
+        Ok(result) => result,
+        Err(payload) => map_immediate_panic(payload),
+    }
+}
+
+fn map_immediate_panic<E>(payload: PanicPayload) -> Result<Response<Body>, E> {
+    log_panic(&payload);
+    Ok(internal_server_error())
+}
+
+fn log_panic(payload: &PanicPayload) {
     if let Some(message) = payload.downcast_ref::<String>() {
         tracing::error!(http.status = 500, panic.message = %message, "request handler panicked");
     } else if let Some(message) = payload.downcast_ref::<&'static str>() {

@@ -42,8 +42,8 @@ The current benchmark surface covers:
 - request-scoped dependency resolution through HTTP
 - request context cloning
 - per-layer middleware: security headers, body limit, legacy request ID,
-  validated request ID, request context, error envelope, timeout response, and
-  rate limit
+  validated request ID, request context, error envelope, panic catching,
+  timeout response, and rate limit
 - rate limit store check with 10,000 tracked identities
 - structured logging span creation with request and trace headers
 - bounded event publication at a full 10,000-event subscriber capacity
@@ -65,6 +65,35 @@ composition baselines where they are meaningful. Other rows are microbenchmarks
 for specific framework behavior and should be compared to their own history.
 
 ## Local Results
+
+### HTTP success-path middleware pass (2026-07-13)
+
+The production error envelope previously allocated owned path and request-ID
+strings before knowing whether the response was an error. It now retains the
+request metadata and creates those strings only for 4xx/5xx responses. The
+panic-catching layer previously boxed its response future for every request;
+it now composes the existing concrete `futures-util` future types while
+preserving both synchronous `Service::call` and asynchronous polling panic
+handling.
+
+The benchmark definitions were identical on both sides. Both measurements ran
+on the same `aarch64-apple-darwin` machine with `rustc 1.96.0`, using 150
+samples, a two-second warm-up, and a five-second measurement window:
+
+```bash
+CARGO_TARGET_DIR=target/quality-pass cargo bench --bench request_lifecycle -- 'nidus middleware (error envelope|catch panic) success request' --warm-up-time 2 --measurement-time 5 --sample-size 150 --save-baseline pre_http_success_paths
+CARGO_TARGET_DIR=target/quality-pass cargo bench --bench request_lifecycle -- 'nidus middleware (error envelope|catch panic) success request' --warm-up-time 2 --measurement-time 5 --sample-size 150 --baseline pre_http_success_paths
+```
+
+| Benchmark | Before | After | Criterion change |
+| --- | ---: | ---: | ---: |
+| Error envelope, successful response | 711.61-725.38 ns | 666.96-700.17 ns | 4.98%-7.21% faster |
+| Panic catcher, non-panicking response | 598.33-607.41 ns | 554.40-559.28 ns | 6.66%-8.19% faster |
+
+Criterion classified both changes as improvements (`p = 0.00`). These are
+isolated in-process middleware measurements, not end-to-end server throughput
+claims. Existing error-envelope behavior tests and both synchronous-call and
+future-poll panic regression tests remain green.
 
 ### Prometheus label interning pass (2026-07-13)
 

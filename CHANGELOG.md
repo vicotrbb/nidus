@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Deferred error-envelope path and request-ID string creation until a response
+  is known to be a 4xx/5xx, improving the measured successful-response path by
+  4.98%-7.21% without changing the envelope contract.
+- Replaced the panic-catching middleware's per-request boxed future with a
+  concrete future composition, improving its measured non-panicking path by
+  6.66%-8.19% while preserving synchronous-call and future-poll panic handling.
+- Added isolated panic-middleware benchmark coverage and a regression test for
+  synchronous `Service::call` panics.
 - Interned in-process Prometheus route labels and retained HTTP methods as
   typed keys, eliminating fresh label-string allocations on every recorded
   request and response while preserving exposition output and series caps.

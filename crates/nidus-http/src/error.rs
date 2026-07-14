@@ -235,13 +235,11 @@ where
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        let path = request.uri().path().to_owned();
-        // Only the request id is needed if the response turns out to be an
-        // error; avoid cloning the full RequestContext on every request.
-        let request_id = request
-            .extensions()
-            .get::<RequestContext>()
-            .map(|context| context.request_id().to_owned());
+        // URI and RequestContext clones retain shared backing storage. Defer
+        // allocating owned strings until the response actually needs an error
+        // envelope; successful responses are the common path.
+        let uri = request.uri().clone();
+        let request_context = request.extensions().get::<RequestContext>().cloned();
         let future = self.inner.call(request);
 
         Box::pin(async move {
@@ -249,6 +247,10 @@ where
             if !response.status().is_client_error() && !response.status().is_server_error() {
                 return Ok(response);
             }
+            let request_id = request_context
+                .as_ref()
+                .map(|context| context.request_id().to_owned());
+            let path = uri.path().to_owned();
             Ok(envelope_response(response, request_id, path).await)
         })
     }

@@ -15,7 +15,7 @@ use nidus_http::{
     logging::{LoggingConfig, StructuredMakeSpan},
     middleware::{
         ApiDefaults, HttpMetricsHook, InMemoryRateLimitStore, PrometheusMetrics, RateLimitConfig,
-        RateLimitStore as _, RequestIdConfig, RequestIdentity, body_limit_layer,
+        RateLimitStore as _, RequestIdConfig, RequestIdentity, body_limit_layer, catch_panic_layer,
         request_context_layer, request_id_layer, request_scope_layer, security_headers_layer,
         timeout_response_layer, validated_request_id_layer,
     },
@@ -189,6 +189,7 @@ fn request_lifecycle_setup(c: &mut Criterion) {
     let error_envelope_success_router = middleware_base_router
         .clone()
         .layer(ErrorEnvelopeLayer::new());
+    let catch_panic_success_router = middleware_base_router.clone().layer(catch_panic_layer());
     let timeout_response_router = middleware_base_router
         .clone()
         .layer(timeout_response_layer(Duration::from_secs(30)));
@@ -422,6 +423,19 @@ fn request_lifecycle_setup(c: &mut Criterion) {
                     error_envelope_success_router
                         .clone()
                         .oneshot(get_request_with_id("/middleware")),
+                )
+                .unwrap();
+            black_box(response.status());
+        });
+    });
+
+    c.bench_function("nidus middleware catch panic success request", |b| {
+        b.iter(|| {
+            let response = runtime
+                .block_on(
+                    catch_panic_success_router
+                        .clone()
+                        .oneshot(get_request("/middleware")),
                 )
                 .unwrap();
             black_box(response.status());
