@@ -90,6 +90,7 @@ nidus-events = { path = "crates/nidus-events", version = "1.0.11" }
 nidus-http = { path = "crates/nidus-http", version = "1.0.11" }
 nidus-integrations = { path = "crates/nidus-integrations", version = "1.0.11" }
 nidus-jobs = { path = "crates/nidus-jobs", version = "1.0.11" }
+nidus-observability = { path = "crates/nidus-observability", version = "1.0.11" }
 nidus-openapi = { path = "crates/nidus-openapi", version = "1.0.11" }
 nidus-validation = { path = "crates/nidus-validation", version = "1.0.11" }
 serde.workspace = true

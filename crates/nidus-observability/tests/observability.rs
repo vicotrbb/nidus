@@ -130,6 +130,50 @@ fn caps_non_http_metric_cardinality_with_overflow_label() {
 }
 
 #[test]
+fn adapter_metrics_preserve_colons_and_cap_distinct_label_pairs() {
+    let observability = Observability::production("users-api")
+        .prometheus()
+        .max_series(2);
+    let observer = observability.adapter_observer();
+
+    observer.record(
+        "adapter:primary",
+        "get",
+        OperationStatus::Success,
+        Duration::from_millis(1),
+    );
+    observer.record(
+        "adapter",
+        "primary:get",
+        OperationStatus::Success,
+        Duration::from_millis(1),
+    );
+    observer.record(
+        "adapter",
+        "set",
+        OperationStatus::Failure,
+        Duration::from_millis(1),
+    );
+
+    let rendered = observability.render_prometheus();
+    assert!(
+        rendered.contains(
+            r#"nidus_adapter_operations_total{adapter="adapter:primary",operation="get",status="success"} 1"#
+        )
+    );
+    assert!(
+        rendered.contains(
+            r#"nidus_adapter_operations_total{adapter="adapter",operation="primary:get",status="success"} 1"#
+        )
+    );
+    assert!(
+        rendered.contains(
+            r#"nidus_adapter_operations_total{adapter="<overflow>",operation="<overflow>",status="failure"} 1"#
+        )
+    );
+}
+
+#[test]
 fn disabled_surfaces_do_not_emit_metrics() {
     let observability = Observability::production("users-api")
         .prometheus()

@@ -57,6 +57,8 @@ The current benchmark surface covers:
 - Prometheus metrics record-response, record-error, and render-text paths
 - shared integration envelope serialization/deserialization at a 1 KiB payload
 - durable job validation/construction and retry-bound calculation
+- lifecycle, adapter, and event observability recording with repeated bounded
+  labels
 
 The integration benchmark uses a 5% Criterion noise threshold. A change beyond
 that bound must be explained or reverted before release; smaller movement is
@@ -68,6 +70,50 @@ composition baselines where they are meaningful. Other rows are microbenchmarks
 for specific framework behavior and should be compared to their own history.
 
 ## Local Results
+
+### Observability label interning pass (2026-07-14)
+
+The non-HTTP observability collector previously allocated fresh `String` keys
+for every repeated event, job, and lifecycle observation. Adapter recording
+also formatted the adapter and operation into one temporary string, split it
+again, and allocated the resulting fields and status for both the counter and
+histogram maps.
+
+Stable dynamic labels are now interned as `Arc<str>` values and repeated
+records clone only the shared reference. Static status values remain borrowed,
+and adapter identity is a private typed pair of static strings. Besides removing
+the recording-path allocations, the typed pair prevents two distinct adapter
+labels containing `:` from being merged or rendered with the wrong boundary.
+The public API, metric names, normal output ordering, and bounded-cardinality
+overflow policy are unchanged.
+
+The benchmark definitions were applied before the implementation change, then
+measured on both sides in the same dedicated target directory. Both sides ran
+on the same `aarch64-apple-darwin` machine with `rustc 1.96.0`, using 100
+samples, a three-second warm-up, and a five-second measurement window:
+
+```bash
+CARGO_TARGET_DIR=target/observability-label-pass cargo bench --bench integration_hot_paths --all-features -- observability --save-baseline before-observability-labels --noplot --warm-up-time 3 --measurement-time 5 --sample-size 100
+CARGO_TARGET_DIR=target/observability-label-pass cargo bench --bench integration_hot_paths --all-features -- observability --baseline before-observability-labels --noplot --warm-up-time 3 --measurement-time 5 --sample-size 100
+```
+
+| Benchmark | Before | Confirming implementation run | Criterion change |
+| --- | ---: | ---: | ---: |
+| Lifecycle record | 88.857-89.604 ns | 25.309-25.867 ns | 71.43%-72.04% faster |
+| Adapter record | 197.55-200.70 ns | 41.503-42.046 ns | 78.79%-79.23% faster |
+| Event record | 36.765-37.450 ns | 23.411-23.690 ns | 34.74%-36.27% faster |
+
+Criterion classified all three changes as improvements (`p = 0.00`). Two
+earlier implementation comparisons reported larger improvements; the table
+uses the slower final-source run. These are repeated-label, in-process collector
+microbenchmarks, not end-to-end service throughput claims.
+
+Broader candidates were deliberately rejected for this pass. Allocator swaps,
+blanket inlining, and release-profile tuning are workload or deployment
+dependent and lack an isolated repository proof. Changing provider lifetimes,
+eager singleton behavior, or HTTP lifecycle coupling would change semantics.
+Previously measured boxed-future and event fan-out experiments were not retried
+without new evidence after their control workloads regressed.
 
 ### Trusted-proxy identity pass (2026-07-14)
 

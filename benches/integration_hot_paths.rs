@@ -1,8 +1,10 @@
 use std::{hint::black_box, time::Duration};
 
 use criterion::{Criterion, criterion_group, criterion_main};
+use nidus_events::{EventObserver, ObservedEventContext};
 use nidus_integrations::{EnvelopeMetadata, MessageEnvelope};
 use nidus_jobs::{JobRetryPolicy, NewJob};
+use nidus_observability::{Observability, OperationStatus};
 use serde_json::{Value, json};
 
 fn integration_hot_paths(c: &mut Criterion) {
@@ -35,6 +37,41 @@ fn integration_hot_paths(c: &mut Criterion) {
     let retry = JobRetryPolicy::new(Duration::from_millis(25), Duration::from_secs(30)).unwrap();
     c.bench_function("durable job retry bound calculation", |b| {
         b.iter(|| retry.maximum_delay(black_box(8)));
+    });
+
+    let observability = Observability::production("benchmark")
+        .prometheus()
+        .max_series(64);
+    let adapter_observer = observability.adapter_observer();
+    let event_observer = observability.event_observer();
+    let event_context = ObservedEventContext::new("benchmark-run", "orders.created");
+
+    c.bench_function("observability lifecycle record", |b| {
+        b.iter(|| {
+            observability.record_lifecycle_operation(
+                black_box("module.graph.validate"),
+                black_box(OperationStatus::Success),
+                black_box(Duration::from_millis(1)),
+            );
+        });
+    });
+    c.bench_function("observability adapter record", |b| {
+        b.iter(|| {
+            adapter_observer.record(
+                black_box("nidus-sqlx"),
+                black_box("acquire"),
+                black_box(OperationStatus::Success),
+                black_box(Duration::from_millis(1)),
+            );
+        });
+    });
+    c.bench_function("observability event record", |b| {
+        b.iter(|| {
+            EventObserver::<()>::on_event_published(
+                black_box(&event_observer),
+                black_box(&event_context),
+            );
+        });
     });
 }
 

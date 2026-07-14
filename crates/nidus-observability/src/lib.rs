@@ -10,7 +10,7 @@ use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet},
     future::Future,
-    sync::{Arc, Mutex},
+    sync::{Arc, LazyLock, Mutex},
     time::{Duration, Instant},
 };
 
@@ -299,14 +299,15 @@ impl Observability {
         duration: Duration,
     ) {
         let mut state = lock_state(&self.state);
-        let operation = state.label("lifecycle", operation.to_owned(), self.config.max_series);
+        let operation = state.intern_label("lifecycle", operation, self.config.max_series);
+        let status = status.as_str();
         *state
             .lifecycle_total
-            .entry((operation.clone(), status.as_str().to_owned()))
+            .entry((Arc::clone(&operation), status))
             .or_default() += 1;
         state
             .lifecycle_duration
-            .entry((operation, status.as_str().to_owned()))
+            .entry((operation, status))
             .or_default()
             .observe(duration);
     }
@@ -334,24 +335,27 @@ impl Observability {
         }
     }
 
+    #[cfg(feature = "events")]
     fn record_event(&self, event_name: &str) {
         if !(self.config.prometheus && self.config.event_metrics) {
             return;
         }
         let mut state = lock_state(&self.state);
-        let event_name = state.label("events", event_name.to_owned(), self.config.max_series);
+        let event_name = state.intern_label("events", event_name, self.config.max_series);
         *state.events_published.entry(event_name).or_default() += 1;
     }
 
+    #[cfg(feature = "jobs")]
     fn record_job_started(&self, job_name: &'static str) {
         if !(self.config.prometheus && self.config.job_metrics) {
             return;
         }
         let mut state = lock_state(&self.state);
-        let job_name = state.label("jobs", job_name.to_owned(), self.config.max_series);
+        let job_name = state.intern_label("jobs", job_name, self.config.max_series);
         *state.jobs_started.entry(job_name).or_default() += 1;
     }
 
+    #[cfg(feature = "jobs")]
     fn record_job_finished(
         &self,
         job_name: &'static str,
@@ -362,11 +366,11 @@ impl Observability {
             return;
         }
         let mut state = lock_state(&self.state);
-        let job_name = state.label("jobs", job_name.to_owned(), self.config.max_series);
-        let status = status.as_str().to_owned();
+        let job_name = state.intern_label("jobs", job_name, self.config.max_series);
+        let status = status.as_str();
         *state
             .jobs_finished
-            .entry((job_name.clone(), status.clone()))
+            .entry((Arc::clone(&job_name), status))
             .or_default() += 1;
         if let Some(duration) = duration {
             state
@@ -396,20 +400,15 @@ impl Observability {
         );
         let _entered = span.enter();
         let mut state = lock_state(&self.state);
-        let series = state.label(
-            "adapters",
-            format!("{adapter}:{operation}"),
-            self.config.max_series,
-        );
-        let (adapter, operation) = split_adapter_series(&series);
-        let status = status.as_str().to_owned();
+        let series = state.adapter_series(adapter, operation, self.config.max_series);
+        let status = status.as_str();
         *state
             .adapter_operations
-            .entry((adapter.clone(), operation.clone(), status.clone()))
+            .entry((series, status))
             .or_default() += 1;
         state
             .adapter_duration
-            .entry((adapter, operation, status))
+            .entry((series, status))
             .or_default()
             .observe(duration);
     }
@@ -469,32 +468,70 @@ struct ObservabilityConfig {
 
 #[derive(Clone, Debug, Default)]
 struct ObservabilityState {
-    labels: BTreeMap<&'static str, BTreeSet<String>>,
-    events_published: BTreeMap<String, u64>,
-    jobs_started: BTreeMap<String, u64>,
-    jobs_finished: BTreeMap<(String, String), u64>,
-    job_duration: BTreeMap<(String, String), DurationHistogram>,
-    lifecycle_total: BTreeMap<(String, String), u64>,
-    lifecycle_duration: BTreeMap<(String, String), DurationHistogram>,
-    adapter_operations: BTreeMap<(String, String, String), u64>,
-    adapter_duration: BTreeMap<(String, String, String), DurationHistogram>,
+    known_labels: BTreeMap<&'static str, BTreeSet<Arc<str>>>,
+    known_adapter_series: BTreeSet<AdapterSeries>,
+    events_published: BTreeMap<Arc<str>, u64>,
+    jobs_started: BTreeMap<Arc<str>, u64>,
+    jobs_finished: BTreeMap<(Arc<str>, &'static str), u64>,
+    job_duration: BTreeMap<(Arc<str>, &'static str), DurationHistogram>,
+    lifecycle_total: BTreeMap<(Arc<str>, &'static str), u64>,
+    lifecycle_duration: BTreeMap<(Arc<str>, &'static str), DurationHistogram>,
+    adapter_operations: BTreeMap<(AdapterSeries, &'static str), u64>,
+    adapter_duration: BTreeMap<(AdapterSeries, &'static str), DurationHistogram>,
 }
 
+static OVERFLOW_LABEL: LazyLock<Arc<str>> = LazyLock::new(|| Arc::from("<overflow>"));
+
 impl ObservabilityState {
-    fn label(&mut self, family: &'static str, label: String, max_series: Option<usize>) -> String {
-        let Some(max_series) = max_series else {
-            return label;
-        };
-        let labels = self.labels.entry(family).or_default();
-        if labels.contains(&label) {
-            label
-        } else if labels.len() < max_series {
-            labels.insert(label.clone());
-            label
-        } else {
-            "<overflow>".to_owned()
+    fn intern_label(
+        &mut self,
+        family: &'static str,
+        label: &str,
+        max_series: Option<usize>,
+    ) -> Arc<str> {
+        let labels = self.known_labels.entry(family).or_default();
+        if let Some(label) = labels.get(label) {
+            return Arc::clone(label);
         }
+        if max_series.is_some_and(|max| labels.len() >= max) {
+            return Arc::clone(&OVERFLOW_LABEL);
+        }
+
+        let label: Arc<str> = Arc::from(label);
+        labels.insert(Arc::clone(&label));
+        label
     }
+
+    fn adapter_series(
+        &mut self,
+        adapter: &'static str,
+        operation: &'static str,
+        max_series: Option<usize>,
+    ) -> AdapterSeries {
+        let series = AdapterSeries { adapter, operation };
+        if self.known_adapter_series.contains(&series) {
+            return series;
+        }
+        if max_series.is_some_and(|max| self.known_adapter_series.len() >= max) {
+            return AdapterSeries::OVERFLOW;
+        }
+
+        self.known_adapter_series.insert(series);
+        series
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+struct AdapterSeries {
+    adapter: &'static str,
+    operation: &'static str,
+}
+
+impl AdapterSeries {
+    const OVERFLOW: Self = Self {
+        adapter: "<overflow>",
+        operation: "<overflow>",
+    };
 }
 
 /// HTTP metrics hook returned by [`Observability::http_layer`].
@@ -646,12 +683,14 @@ impl From<bool> for OperationStatus {
     }
 }
 
+#[cfg(feature = "jobs")]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum JobStatusLabel {
     Success,
     Failure,
 }
 
+#[cfg(feature = "jobs")]
 impl JobStatusLabel {
     const fn as_str(self) -> &'static str {
         match self {
@@ -719,7 +758,7 @@ fn render_observability_metrics(state: &ObservabilityState) -> String {
         state
             .job_duration
             .iter()
-            .map(|((job, status), histogram)| (vec![job.as_str(), status.as_str()], histogram)),
+            .map(|((job, status), histogram)| (vec![job.as_ref(), *status], histogram)),
     );
     output.push_str("# TYPE nidus_lifecycle_total counter\n");
     for ((operation, status), count) in &state.lifecycle_total {
@@ -737,16 +776,14 @@ fn render_observability_metrics(state: &ObservabilityState) -> String {
         state
             .lifecycle_duration
             .iter()
-            .map(|((operation, status), histogram)| {
-                (vec![operation.as_str(), status.as_str()], histogram)
-            }),
+            .map(|((operation, status), histogram)| (vec![operation.as_ref(), *status], histogram)),
     );
     output.push_str("# TYPE nidus_adapter_operations_total counter\n");
-    for ((adapter, operation, status), count) in &state.adapter_operations {
+    for ((series, status), count) in &state.adapter_operations {
         output.push_str(&format!(
             "nidus_adapter_operations_total{{adapter=\"{}\",operation=\"{}\",status=\"{}\"}} {}\n",
-            escape_label(adapter),
-            escape_label(operation),
+            escape_label(series.adapter),
+            escape_label(series.operation),
             escape_label(status),
             count
         ));
@@ -758,11 +795,8 @@ fn render_observability_metrics(state: &ObservabilityState) -> String {
         state
             .adapter_duration
             .iter()
-            .map(|((adapter, operation, status), histogram)| {
-                (
-                    vec![adapter.as_str(), operation.as_str(), status.as_str()],
-                    histogram,
-                )
+            .map(|((series, status), histogram)| {
+                (vec![series.adapter, series.operation, *status], histogram)
             }),
     );
     output
@@ -822,18 +856,43 @@ fn escape_label(value: &str) -> String {
         .replace('"', r#"\""#)
 }
 
-fn split_adapter_series(series: &str) -> (String, String) {
-    if series == "<overflow>" {
-        return ("<overflow>".to_owned(), "<overflow>".to_owned());
-    }
-    series
-        .split_once(':')
-        .map(|(adapter, operation)| (adapter.to_owned(), operation.to_owned()))
-        .unwrap_or_else(|| (series.to_owned(), "<unknown>".to_owned()))
-}
-
 fn lock_state(state: &Mutex<ObservabilityState>) -> std::sync::MutexGuard<'_, ObservabilityState> {
     state
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::{AdapterSeries, ObservabilityState};
+
+    #[test]
+    fn state_reuses_interned_and_overflow_labels() {
+        let mut state = ObservabilityState::default();
+        let first = state.intern_label("events", "orders.created", None);
+        let repeated = state.intern_label("events", "orders.created", None);
+        assert!(Arc::ptr_eq(&first, &repeated));
+
+        let first_overflow = state.intern_label("events", "orders.updated", Some(1));
+        let second_overflow = state.intern_label("events", "orders.deleted", Some(1));
+        assert_eq!(&*first_overflow, "<overflow>");
+        assert!(Arc::ptr_eq(&first_overflow, &second_overflow));
+    }
+
+    #[test]
+    fn adapter_series_preserve_label_boundaries_and_share_overflow() {
+        let mut state = ObservabilityState::default();
+        let first = state.adapter_series("adapter:primary", "get", Some(2));
+        let second = state.adapter_series("adapter", "primary:get", Some(2));
+        assert_ne!(first, second);
+        assert_eq!(
+            state.adapter_series("adapter:primary", "get", Some(2)),
+            first
+        );
+
+        let overflow = state.adapter_series("adapter", "set", Some(2));
+        assert_eq!(overflow, AdapterSeries::OVERFLOW);
+    }
 }

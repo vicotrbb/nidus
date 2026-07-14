@@ -3513,6 +3513,7 @@ dependencies = [
  "nidus-http",
  "nidus-integrations",
  "nidus-jobs",
+ "nidus-observability",
  "nidus-openapi",
  "nidus-rs",
  "nidus-validation",
