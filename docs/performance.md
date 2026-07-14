@@ -66,6 +66,45 @@ for specific framework behavior and should be compared to their own history.
 
 ## Local Results
 
+### Request-context correlation fallback pass (2026-07-14)
+
+`RequestContext::from_parts` previously cloned the final request-ID `String`
+when no explicit `x-correlation-id` header was present. That is the normal
+production path, and the clone existed only so `correlation_id()` could return
+the same bytes. The private context representation now records that the
+correlation ID refers to the existing request ID, while preserving the public
+constructor and getter behavior for explicit, fallback, and absent values.
+
+The saved baseline was built from a detached worktree at the exact pre-change
+commit (`6dad920`). The edited checkout then used the same target directory and
+Criterion baseline. Both sides used 200 samples, a five-second warm-up, and a
+ten-second measurement window on the same `aarch64-apple-darwin` machine with
+`rustc 1.96.0`:
+
+```bash
+# Run from the detached 6dad920 worktree.
+CARGO_TARGET_DIR="$NIDUS_TARGET" cargo bench --bench request_lifecycle --all-features -- --save-baseline context-clean-before-20260714 --warm-up-time 5 --measurement-time 10 --sample-size 200 'nidus (middleware request context|api defaults production) request'
+
+# Run twice from the edited checkout.
+CARGO_TARGET_DIR="$NIDUS_TARGET" cargo bench --bench request_lifecycle --all-features -- --baseline context-clean-before-20260714 --warm-up-time 5 --measurement-time 10 --sample-size 200 'nidus (middleware request context|api defaults production) request'
+```
+
+| Benchmark | Before | First implementation run | Repeated implementation run |
+| --- | ---: | ---: | ---: |
+| Request-context middleware | 909.95-923.93 ns | 861.19-865.31 ns (6.35%-7.96% faster) | 871.02-879.19 ns (4.51%-6.28% faster) |
+| Production defaults | 2.3833-2.4454 us | 2.2166-2.2481 us (6.96%-9.79% faster) | 2.2055-2.2262 us (7.83%-10.59% faster) |
+
+Criterion classified all four comparisons as improvements (`p = 0.00`). These
+are local in-process request measurements, not end-to-end throughput claims.
+Focused tests also inspect the private fallback state, deterministically proving
+that it carries no second owned `String`.
+
+An additional experiment replaced the error-envelope service's boxed future
+with a concrete `futures-util` composition. A clean detached-worktree A/B moved
+the successful-response row from `671.67-676.20 ns` to `719.08-733.51 ns`, a
+`7.67%-9.62%` regression (`p = 0.00`). That experiment was reverted; the public
+Tower service future and the measured implementation remain unchanged.
+
 ### Guard route-label sharing pass (2026-07-14)
 
 `GuardLayer`, `GuardService`, and `GuardContext` previously retained route

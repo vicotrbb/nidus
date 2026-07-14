@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Reused the request ID as the default correlation ID without cloning its
+  backing string. Sequential detached-worktree comparisons classified both the
+  request-context middleware and composed production defaults as improvements
+  in two repeated 200-sample runs, while focused tests preserve constructor,
+  explicit-header, and empty-ID behavior.
+- Sanitized SQLite and Postgres readiness failures so default health responses
+  no longer expose SQLx or database error details. An end-to-end closed-pool
+  test now asserts the public `503` JSON diagnostic.
+- Added the missing version constraint to the workspace's local facade
+  dev-dependency and updated transitive `spin` from yanked `0.9.8` to compatible
+  `0.9.9`, restoring the dependency-policy gate without suppressions.
 - Shared immutable guard route labels across guard contexts, layers, services,
   and generated module routes instead of cloning owned labels per request. The
   existing guarded-route benchmark improved by 18.33%-22.87% in the immediate

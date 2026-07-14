@@ -239,7 +239,7 @@ mod sqlite {
             );
             match result {
                 Ok(_) => nidus_http::health::HealthStatus::up(),
-                Err(error) => nidus_http::health::HealthStatus::down(error.to_string()),
+                Err(_) => nidus_http::health::HealthStatus::down("sqlite readiness check failed"),
             }
         }
 
@@ -512,7 +512,7 @@ mod postgres {
             );
             match result {
                 Ok(_) => nidus_http::health::HealthStatus::up(),
-                Err(error) => nidus_http::health::HealthStatus::down(error.to_string()),
+                Err(_) => nidus_http::health::HealthStatus::down("postgres readiness check failed"),
             }
         }
 

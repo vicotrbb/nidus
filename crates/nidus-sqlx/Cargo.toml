@@ -38,6 +38,9 @@ thiserror.workspace = true
 tokio = { workspace = true, optional = true, features = ["time"] }
 
 [dev-dependencies]
+axum.workspace = true
 nidus-config = { path = "../nidus-config", version = "1.0.11" }
+serde_json.workspace = true
 tokio = { workspace = true, features = ["time"] }
+tower.workspace = true
 trybuild.workspace = true

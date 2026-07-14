@@ -74,7 +74,7 @@ pub struct RequestContext {
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct RequestContextInner {
     request_id: String,
-    correlation_id: Option<String>,
+    correlation_id: CorrelationId,
     route: Option<String>,
     path: String,
     trace_id: Option<String>,
@@ -82,6 +82,23 @@ struct RequestContextInner {
     user_id: Option<String>,
     tenant_id: Option<String>,
     session_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum CorrelationId {
+    None,
+    RequestId,
+    Explicit(String),
+}
+
+impl CorrelationId {
+    fn as_str<'a>(&'a self, request_id: &'a str) -> Option<&'a str> {
+        match self {
+            Self::None => None,
+            Self::RequestId => Some(request_id),
+            Self::Explicit(value) => Some(value),
+        }
+    }
 }
 
 impl RequestContext {
@@ -94,7 +111,7 @@ impl RequestContext {
         Self {
             inner: Arc::new(RequestContextInner {
                 request_id: request_id.into(),
-                correlation_id: None,
+                correlation_id: CorrelationId::None,
                 route: None,
                 path: path.into(),
                 trace_id: None,
@@ -116,8 +133,11 @@ impl RequestContext {
     /// by request ID middleware.
     pub fn from_parts(parts: &Parts, request_id: impl Into<String>) -> Self {
         let request_id = request_id.into();
-        let correlation_id = header_to_string(&parts.headers, "x-correlation-id")
-            .or_else(|| (!request_id.is_empty()).then(|| request_id.clone()));
+        let correlation_id = match header_to_string(&parts.headers, "x-correlation-id") {
+            Some(value) => CorrelationId::Explicit(value),
+            None if request_id.is_empty() => CorrelationId::None,
+            None => CorrelationId::RequestId,
+        };
         let mut context = Self::new(request_id, parts.method.clone(), parts.uri.path());
         let inner = Arc::make_mut(&mut context.inner);
         inner.correlation_id = correlation_id;
@@ -158,7 +178,7 @@ impl RequestContext {
     /// [`Self::from_parts`] prefers `x-correlation-id` and falls back to the
     /// request ID when no correlation header is present.
     pub fn correlation_id(&self) -> Option<&str> {
-        self.inner.correlation_id.as_deref()
+        self.inner.correlation_id.as_str(&self.inner.request_id)
     }
 
     /// Returns the request method.
@@ -437,6 +457,60 @@ mod tests {
         let context = RequestContext::new("req-123", Method::GET, "/users");
 
         assert_eq!(context.into_request_id(), "req-123");
+    }
+
+    #[test]
+    fn request_context_new_does_not_implicitly_set_a_correlation_id() {
+        let context = RequestContext::new("req-123", Method::GET, "/users");
+
+        assert_eq!(context.correlation_id(), None);
+        assert_eq!(context.inner.correlation_id, CorrelationId::None);
+    }
+
+    #[test]
+    fn request_context_from_parts_reuses_request_id_as_correlation_fallback() {
+        let (parts, ()) = Request::builder()
+            .uri("/users")
+            .body(())
+            .unwrap()
+            .into_parts();
+
+        let context = RequestContext::from_parts(&parts, "req-123");
+
+        assert_eq!(context.correlation_id(), Some("req-123"));
+        assert_eq!(context.inner.correlation_id, CorrelationId::RequestId);
+    }
+
+    #[test]
+    fn request_context_from_parts_preserves_explicit_correlation_id() {
+        let (parts, ()) = Request::builder()
+            .uri("/users")
+            .header("x-correlation-id", "corr-456")
+            .body(())
+            .unwrap()
+            .into_parts();
+
+        let context = RequestContext::from_parts(&parts, "req-123");
+
+        assert_eq!(context.correlation_id(), Some("corr-456"));
+        assert_eq!(
+            context.inner.correlation_id,
+            CorrelationId::Explicit("corr-456".to_owned())
+        );
+    }
+
+    #[test]
+    fn request_context_from_parts_keeps_empty_ids_absent() {
+        let (parts, ()) = Request::builder()
+            .uri("/users")
+            .body(())
+            .unwrap()
+            .into_parts();
+
+        let context = RequestContext::from_parts(&parts, "");
+
+        assert_eq!(context.correlation_id(), None);
+        assert_eq!(context.inner.correlation_id, CorrelationId::None);
     }
 
     #[test]
