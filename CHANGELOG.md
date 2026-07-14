@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Interned in-process Prometheus route labels and retained HTTP methods as
+  typed keys, eliminating fresh label-string allocations on every recorded
+  request and response while preserving exposition output and series caps.
+- Made lifecycle tracing async-safe so a startup or shutdown span is active
+  only while its future is being polled, preventing unrelated work on the same
+  executor thread from inheriting the lifecycle span.
+- Added focused allocation-reuse and tracing-scope regression coverage.
+
 ## 1.0.11 - 2026-07-13
 
 - Built OpenAPI paths and operation IDs directly into pre-sized strings instead

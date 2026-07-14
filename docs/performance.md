@@ -66,6 +66,34 @@ for specific framework behavior and should be compared to their own history.
 
 ## Local Results
 
+### Prometheus label interning pass (2026-07-13)
+
+The in-process collector previously converted both the HTTP method and route
+label into new `String` values on request start and completion. It now keeps
+`http::Method` as the map key and interns each admitted route as an `Arc<str>`,
+including one shared overflow label for capped collectors. The public API,
+rendered metric names and labels, and route-cardinality policy are unchanged.
+
+The same three existing Criterion rows were measured before and after the
+change on the same `aarch64-apple-darwin` machine with `rustc 1.96.0`. Both
+sides used 150 samples, a two-second warm-up, and a five-second measurement
+window:
+
+```bash
+cargo bench --bench request_lifecycle -- 'nidus (metrics record response|metrics record inner error|api defaults production with metrics request)' --warm-up-time 2 --measurement-time 5 --sample-size 150 --save-baseline pre_quality_20260713
+cargo bench --bench request_lifecycle -- 'nidus (metrics record response|metrics record inner error|api defaults production with metrics request)' --warm-up-time 2 --measurement-time 5 --sample-size 150 --baseline pre_quality_20260713
+```
+
+| Benchmark | Before | After | Criterion change |
+| --- | ---: | ---: | ---: |
+| Production defaults with metrics | 3.4368-3.5288 us | 2.6430-2.6622 us | 22.44%-24.35% faster |
+| Metrics record response | 117.25-121.13 ns | 48.162-48.397 ns | 60.37%-61.42% faster |
+| Metrics record inner error | 117.54-122.23 ns | 48.725-48.935 ns | 56.66%-57.84% faster |
+
+Criterion classified all three changes as improvements (`p = 0.00`). These are
+local request-lifecycle and collector microbenchmarks, not end-to-end server
+throughput claims.
+
 ### OpenAPI path and operation-ID allocation pass (2026-07-12)
 
 OpenAPI path normalization and operation-ID rendering were changed from a

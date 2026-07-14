@@ -2,8 +2,14 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use nidus_core::{LifecycleHook, LifecycleRunner, NidusError};
-use tracing::Level;
-use tracing_subscriber::{Layer, fmt::MakeWriter, layer::SubscriberExt};
+use tokio::sync::Notify;
+use tracing::{Event, Level, Subscriber};
+use tracing_subscriber::{
+    Layer,
+    fmt::MakeWriter,
+    layer::{Context, SubscriberExt},
+    registry::LookupSpan,
+};
 
 static TRACING_CAPTURE_LOCK: Mutex<()> = Mutex::new(());
 
@@ -63,6 +69,58 @@ struct FailingStartupHook {
 struct FailingShutdownHook {
     name: &'static str,
     events: Arc<Mutex<Vec<String>>>,
+}
+
+struct PausingHook {
+    started: Arc<Notify>,
+    resume: Arc<Notify>,
+}
+
+struct PausingShutdownHook {
+    started: Arc<Notify>,
+    resume: Arc<Notify>,
+}
+
+#[async_trait]
+impl LifecycleHook for PausingHook {
+    async fn on_startup(&self) -> nidus_core::Result<()> {
+        self.started.notify_one();
+        self.resume.notified().await;
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl LifecycleHook for PausingShutdownHook {
+    async fn on_shutdown(&self) -> nidus_core::Result<()> {
+        self.started.notify_one();
+        self.resume.notified().await;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Default)]
+struct EventScopeCapture {
+    scope_names: Arc<Mutex<Vec<String>>>,
+}
+
+impl<S> Layer<S> for EventScopeCapture
+where
+    S: Subscriber + for<'lookup> LookupSpan<'lookup>,
+{
+    fn on_event(&self, event: &Event<'_>, context: Context<'_, S>) {
+        if event.metadata().target() != "outside_lifecycle" {
+            return;
+        }
+        let mut scope_names = self.scope_names.lock().unwrap();
+        scope_names.extend(
+            context
+                .event_scope(event)
+                .into_iter()
+                .flat_map(|scope| scope.from_root())
+                .map(|span| span.metadata().name().to_owned()),
+        );
+    }
 }
 
 #[async_trait]
@@ -142,6 +200,80 @@ async fn lifecycle_runner_starts_in_order_and_shuts_down_in_reverse_order() {
             "server:shutdown",
             "database:shutdown"
         ]
+    );
+}
+
+#[test]
+fn lifecycle_span_does_not_leak_into_unrelated_task_while_hook_is_pending() {
+    let _capture_guard = TRACING_CAPTURE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let capture = EventScopeCapture::default();
+    let captured_scope_names = Arc::clone(&capture.scope_names);
+    let subscriber = tracing_subscriber::registry().with(capture);
+    let started = Arc::new(Notify::new());
+    let resume = Arc::new(Notify::new());
+    let runner = LifecycleRunner::new().hook(PausingHook {
+        started: Arc::clone(&started),
+        resume: Arc::clone(&resume),
+    });
+
+    tracing::subscriber::with_default(subscriber, || {
+        runtime.block_on(async {
+            let (startup, ()) = tokio::join!(runner.startup(), async {
+                started.notified().await;
+                tracing::info!(target: "outside_lifecycle", "unrelated task ran");
+                resume.notify_one();
+            });
+            startup.unwrap();
+        });
+    });
+
+    let captured_scope_names = captured_scope_names.lock().unwrap().clone();
+    assert!(
+        captured_scope_names.is_empty(),
+        "unrelated event inherited lifecycle spans: {captured_scope_names:?}"
+    );
+}
+
+#[test]
+fn shutdown_span_does_not_leak_into_unrelated_task_while_hook_is_pending() {
+    let _capture_guard = TRACING_CAPTURE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let capture = EventScopeCapture::default();
+    let captured_scope_names = Arc::clone(&capture.scope_names);
+    let subscriber = tracing_subscriber::registry().with(capture);
+    let started = Arc::new(Notify::new());
+    let resume = Arc::new(Notify::new());
+    let runner = LifecycleRunner::new().hook(PausingShutdownHook {
+        started: Arc::clone(&started),
+        resume: Arc::clone(&resume),
+    });
+
+    tracing::subscriber::with_default(subscriber, || {
+        runtime.block_on(async {
+            let (shutdown, ()) = tokio::join!(runner.shutdown(), async {
+                started.notified().await;
+                tracing::info!(target: "outside_lifecycle", "unrelated task ran");
+                resume.notify_one();
+            });
+            shutdown.unwrap();
+        });
+    });
+
+    let captured_scope_names = captured_scope_names.lock().unwrap().clone();
+    assert!(
+        captured_scope_names.is_empty(),
+        "unrelated event inherited lifecycle spans: {captured_scope_names:?}"
     );
 }
 

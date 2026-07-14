@@ -4,7 +4,7 @@ use std::{
     fmt::Write as _,
     future::Future,
     pin::Pin,
-    sync::{Arc, Mutex},
+    sync::{Arc, LazyLock, Mutex},
     task::{Context, Poll},
     time::{Duration, Instant},
 };
@@ -187,7 +187,7 @@ fn render_prometheus(state: &PrometheusState) -> String {
         let _ = writeln!(
             output,
             "nidus_http_requests_total{{method=\"{}\",route=\"{}\",status=\"{}\"}} {}",
-            escape_label(method),
+            escape_label(method.as_str()),
             escape_label(route),
             status,
             series.requests
@@ -196,7 +196,7 @@ fn render_prometheus(state: &PrometheusState) -> String {
     output.push_str("# TYPE nidus_http_request_duration_seconds histogram\n");
     for ((method, route, status), series) in &state.series {
         let histogram = &series.histogram;
-        let method = escape_label(method);
+        let method = escape_label(method.as_str());
         let route = escape_label(route);
         for (bucket, count) in HTTP_DURATION_BUCKET_LABELS
             .iter()
@@ -228,7 +228,7 @@ fn render_prometheus(state: &PrometheusState) -> String {
         let _ = writeln!(
             output,
             "nidus_http_in_flight_requests{{method=\"{}\",route=\"{}\"}} {}",
-            escape_label(method),
+            escape_label(method.as_str()),
             escape_label(route),
             count
         );
@@ -241,7 +241,7 @@ fn render_prometheus(state: &PrometheusState) -> String {
         let _ = writeln!(
             output,
             "nidus_http_errors_total{{method=\"{}\",route=\"{}\",status=\"{}\"}} {}",
-            escape_label(method),
+            escape_label(method.as_str()),
             escape_label(route),
             status,
             series.errors
@@ -261,19 +261,12 @@ impl HttpMetricsHook for PrometheusMetrics {
         if !self.should_record(route) {
             return;
         }
-        let route = route.unwrap_or("<unknown>").to_owned();
         let mut state = self
             .state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let route = match self.max_series {
-            Some(max) => state.admit_route(route, max),
-            None => route,
-        };
-        *state
-            .in_flight
-            .entry((method.as_str().to_owned(), route))
-            .or_default() += 1;
+        let route = state.intern_route(route.unwrap_or("<unknown>"), self.max_series);
+        *state.in_flight.entry((method.clone(), route)).or_default() += 1;
     }
 
     fn on_response(
@@ -310,19 +303,14 @@ impl PrometheusMetrics {
         if !self.should_record(route) {
             return;
         }
-        let method = method.as_str().to_owned();
-        let route = route.unwrap_or("<unknown>").to_owned();
         let mut state = self
             .state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let route = match self.max_series {
-            Some(max) => state.admit_route(route, max),
-            None => route,
-        };
+        let route = state.intern_route(route.unwrap_or("<unknown>"), self.max_series);
         // Update in-flight first so the owned key can then be moved into the
         // series key without cloning either label.
-        let key = (method, route);
+        let key = (method.clone(), route);
         if let Some(count) = state.in_flight.get_mut(&key) {
             *count = count.saturating_sub(1);
         }
@@ -338,10 +326,12 @@ impl PrometheusMetrics {
 
 #[derive(Clone, Debug, Default)]
 struct PrometheusState {
-    series: BTreeMap<(String, String, u16), StatusSeries>,
-    in_flight: BTreeMap<(String, String), u64>,
-    known_routes: BTreeSet<String>,
+    series: BTreeMap<(Method, Arc<str>, u16), StatusSeries>,
+    in_flight: BTreeMap<(Method, Arc<str>), u64>,
+    known_routes: BTreeSet<Arc<str>>,
 }
+
+static OVERFLOW_ROUTE: LazyLock<Arc<str>> = LazyLock::new(|| Arc::from("<overflow>"));
 
 /// Counters and histogram for one `(method, route, status)` label set.
 #[derive(Clone, Debug, Default)]
@@ -352,19 +342,20 @@ struct StatusSeries {
 }
 
 impl PrometheusState {
-    /// Returns the label to record for `route`, honoring a cap on the number of
-    /// distinct route labels. Already-admitted routes are returned unchanged;
-    /// once the cap is reached, new labels collapse to `"<overflow>"`. Callers
-    /// with no cap must skip this call entirely (the uncapped path pays nothing).
-    fn admit_route(&mut self, route: String, max_series: usize) -> String {
-        if self.known_routes.contains(&route) {
-            route
-        } else if self.known_routes.len() < max_series {
-            self.known_routes.insert(route.clone());
-            route
-        } else {
-            "<overflow>".to_owned()
+    /// Interns stable route labels so repeated request/response observations
+    /// clone an `Arc` instead of allocating fresh `String` keys. When a cap is
+    /// configured, labels beyond it collapse into the shared overflow label.
+    fn intern_route(&mut self, route: &str, max_series: Option<usize>) -> Arc<str> {
+        if let Some(route) = self.known_routes.get(route) {
+            return Arc::clone(route);
         }
+        if max_series.is_some_and(|max| self.known_routes.len() >= max) {
+            return Arc::clone(&OVERFLOW_ROUTE);
+        }
+
+        let route: Arc<str> = Arc::from(route);
+        self.known_routes.insert(Arc::clone(&route));
+        route
     }
 }
 
@@ -548,7 +539,25 @@ fn format_bucket(bucket: f64) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{HTTP_DURATION_BUCKET_LABELS, HTTP_DURATION_BUCKETS, escape_label, format_bucket};
+    use std::sync::Arc;
+
+    use super::{
+        HTTP_DURATION_BUCKET_LABELS, HTTP_DURATION_BUCKETS, PrometheusState, escape_label,
+        format_bucket,
+    };
+
+    #[test]
+    fn prometheus_state_reuses_interned_and_overflow_route_labels() {
+        let mut state = PrometheusState::default();
+        let first = state.intern_route("/users/{id}", None);
+        let repeated = state.intern_route("/users/{id}", None);
+        assert!(Arc::ptr_eq(&first, &repeated));
+
+        let first_overflow = state.intern_route("/projects/{id}", Some(1));
+        let second_overflow = state.intern_route("/teams/{id}", Some(1));
+        assert_eq!(&*first_overflow, "<overflow>");
+        assert!(Arc::ptr_eq(&first_overflow, &second_overflow));
+    }
 
     #[test]
     fn duration_bucket_labels_match_formatted_buckets() {

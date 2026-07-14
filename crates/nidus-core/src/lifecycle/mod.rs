@@ -1,8 +1,7 @@
 //! Application lifecycle hooks.
 
-use async_trait::async_trait;
-
 use crate::{NidusError, Result};
+use async_trait::async_trait;
 
 /// Application lifecycle hook.
 #[async_trait]
@@ -40,9 +39,12 @@ impl LifecycleRunner {
     }
 
     /// Runs startup hooks in registration order.
+    #[tracing::instrument(
+        name = "lifecycle.startup",
+        skip_all,
+        fields(hook_count = self.hooks.len())
+    )]
     pub async fn startup(&self) -> Result<()> {
-        let span = tracing::info_span!("lifecycle.startup", hook_count = self.hooks.len());
-        let _entered = span.enter();
         let mut started: Vec<usize> = Vec::new();
 
         tracing::debug!(hook_count = self.hooks.len(), "lifecycle startup begin");
@@ -91,9 +93,12 @@ impl LifecycleRunner {
     ///
     /// Every hook is attempted even when an earlier hook fails. The first
     /// failure in shutdown order is returned after the remaining hooks run.
+    #[tracing::instrument(
+        name = "lifecycle.shutdown",
+        skip_all,
+        fields(hook_count = self.hooks.len())
+    )]
     pub async fn shutdown(&self) -> Result<()> {
-        let span = tracing::info_span!("lifecycle.shutdown", hook_count = self.hooks.len());
-        let _entered = span.enter();
         tracing::debug!(hook_count = self.hooks.len(), "lifecycle shutdown begin");
         let mut first_error = None;
         let mut error_count = 0_usize;
