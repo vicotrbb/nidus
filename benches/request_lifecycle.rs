@@ -13,6 +13,7 @@ use nidus_http::{
     context::RequestContext as HttpRequestContext,
     controller::Controller,
     error::ErrorEnvelopeLayer,
+    health::{HealthRegistry, HealthStatus},
     logging::{LoggingConfig, StructuredMakeSpan},
     middleware::{
         ApiDefaults, HttpMetricsHook, InMemoryRateLimitStore, PrometheusMetrics, RateLimitConfig,
@@ -214,6 +215,11 @@ fn request_lifecycle_setup(c: &mut Criterion) {
             ),
         )
         .layer(request_scope_layer(Arc::new(request_container)));
+    let health_router = (0..8)
+        .fold(HealthRegistry::new(), |registry, index| {
+            registry.ready_check_sync(format!("dependency-{index}"), HealthStatus::up)
+        })
+        .routes();
     let middleware_base_router = Router::new().route("/middleware", get(|| async { "ok" }));
     let security_headers_router = middleware_base_router
         .clone()
@@ -401,6 +407,15 @@ fn request_lifecycle_setup(c: &mut Criterion) {
         b.iter(|| {
             let response = runtime
                 .block_on(request_scope_router.clone().oneshot(get_request("/scope")))
+                .unwrap();
+            black_box(response.status());
+        });
+    });
+
+    c.bench_function("nidus health readiness with 8 checks", |b| {
+        b.iter(|| {
+            let response = runtime
+                .block_on(health_router.clone().oneshot(get_request("/health/ready")))
                 .unwrap();
             black_box(response.status());
         });

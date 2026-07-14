@@ -5,7 +5,7 @@ use std::{collections::BTreeMap, future::Future, pin::Pin, sync::Arc, time::Dura
 use axum::{Json, Router, response::IntoResponse, routing::get};
 use http::StatusCode;
 use serde::Serialize;
-use tokio::time::timeout;
+use tokio::{task::JoinHandle, time::timeout};
 
 type HealthFuture = Pin<Box<dyn Future<Output = HealthStatus> + Send>>;
 type HealthCheck = Arc<dyn Fn() -> HealthFuture + Send + Sync>;
@@ -169,24 +169,52 @@ impl HealthRegistry {
 
     /// Returns Axum routes for `/health/live` and `/health/ready`.
     pub fn routes(self) -> Router {
-        let live = self.clone();
-        let ready = self;
+        let Self {
+            live_checks,
+            ready_checks,
+            timeout,
+            expose_details,
+        } = self;
+        let live = HealthRoute::new(live_checks, timeout, expose_details);
+        let ready = HealthRoute::new(ready_checks, timeout, expose_details);
         Router::new()
-            .route("/health/live", get(move || live.clone().run_live()))
-            .route("/health/ready", get(move || ready.clone().run_ready()))
+            .route("/health/live", get(move || live.clone().run()))
+            .route("/health/ready", get(move || ready.clone().run()))
+    }
+}
+
+impl Default for HealthRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Clone)]
+struct HealthRoute {
+    checks: Arc<[NamedHealthCheck]>,
+    timeout: Duration,
+    expose_details: bool,
+}
+
+impl HealthRoute {
+    fn new(checks: Vec<NamedHealthCheck>, timeout: Duration, expose_details: bool) -> Self {
+        Self {
+            checks: checks.into(),
+            timeout,
+            expose_details,
+        }
     }
 
-    async fn run_live(self) -> axum::response::Response {
-        let checks = self.live_checks.clone();
-        self.run_checks(checks).await.into_response()
+    async fn run(self) -> axum::response::Response {
+        self.run_checks().await.into_response()
     }
 
-    async fn run_ready(self) -> axum::response::Response {
-        let checks = self.ready_checks.clone();
-        self.run_checks(checks).await.into_response()
-    }
-
-    async fn run_checks(self, checks: Vec<NamedHealthCheck>) -> (StatusCode, Json<HealthBody>) {
+    async fn run_checks(self) -> (StatusCode, Json<HealthBody>) {
+        let Self {
+            checks,
+            timeout: timeout_duration,
+            expose_details,
+        } = self;
         if checks.is_empty() {
             return (
                 StatusCode::OK,
@@ -197,42 +225,37 @@ impl HealthRegistry {
             );
         }
 
-        let mut handles = Vec::with_capacity(checks.len());
-        for check in checks {
-            let timeout_duration = self.timeout;
-            let name = check.name.clone();
+        let mut tasks = HealthTasks::with_capacity(checks.len());
+        for check in checks.iter() {
+            let check = Arc::clone(&check.check);
             let handle = tokio::spawn(async move {
-                let result = timeout(timeout_duration, (check.check)()).await;
-                let status = result.unwrap_or_else(|_| HealthStatus::down("check timed out"));
-                (check.name, status)
+                timeout(timeout_duration, check())
+                    .await
+                    .unwrap_or_else(|_| HealthStatus::down("check timed out"))
             });
-            handles.push((name, handle));
+            tasks.push(handle);
         }
 
         let mut body_checks = BTreeMap::new();
         let mut all_up = true;
-        for (name, handle) in handles {
-            let (name, status) = match handle.await {
-                Ok(result) => result,
+        for (check, handle) in checks.iter().zip(tasks.iter_mut()) {
+            let status = match handle.await {
+                Ok(status) => status,
                 Err(error) => {
                     let message = if error.is_panic() {
                         "check panicked"
                     } else {
                         "check join failed"
                     };
-                    (name, HealthStatus::down(message))
+                    HealthStatus::down(message)
                 }
             };
             all_up &= status.is_up();
             body_checks.insert(
-                name,
+                check.name.clone(),
                 HealthCheckBody {
                     status: status.status,
-                    message: if self.expose_details {
-                        status.message
-                    } else {
-                        None
-                    },
+                    message: if expose_details { status.message } else { None },
                 },
             );
         }
@@ -256,9 +279,32 @@ impl HealthRegistry {
     }
 }
 
-impl Default for HealthRegistry {
-    fn default() -> Self {
-        Self::new()
+/// Aborts unfinished checks when a cancelled request drops its handler future.
+struct HealthTasks {
+    handles: Vec<JoinHandle<HealthStatus>>,
+}
+
+impl HealthTasks {
+    fn with_capacity(capacity: usize) -> Self {
+        Self {
+            handles: Vec::with_capacity(capacity),
+        }
+    }
+
+    fn push(&mut self, handle: JoinHandle<HealthStatus>) {
+        self.handles.push(handle);
+    }
+
+    fn iter_mut(&mut self) -> impl Iterator<Item = &mut JoinHandle<HealthStatus>> {
+        self.handles.iter_mut()
+    }
+}
+
+impl Drop for HealthTasks {
+    fn drop(&mut self) {
+        for handle in &self.handles {
+            handle.abort();
+        }
     }
 }
 

@@ -24,7 +24,16 @@ use nidus_http::{
     },
 };
 use serde_json::json;
+use tokio::sync::{Barrier, Notify};
 use tower::{ServiceBuilder, ServiceExt, service_fn};
+
+struct NotifyOnDrop(Arc<Notify>);
+
+impl Drop for NotifyOnDrop {
+    fn drop(&mut self) {
+        self.0.notify_one();
+    }
+}
 
 #[tokio::test]
 async fn validated_request_id_accepts_valid_ids_and_inserts_context() {
@@ -372,10 +381,25 @@ async fn error_envelope_skips_oversized_legacy_error_bodies() {
 
 #[tokio::test]
 async fn health_registry_runs_ready_checks_in_parallel_and_controls_details() {
+    let ready_barrier = Arc::new(Barrier::new(2));
+    let database_barrier = Arc::clone(&ready_barrier);
+    let cache_barrier = Arc::clone(&ready_barrier);
     let registry = HealthRegistry::new()
         .live_check_sync("process", HealthStatus::up)
-        .ready_check("database", || async { HealthStatus::up() })
-        .ready_check_sync("cache", || HealthStatus::down("cache unavailable"))
+        .ready_check("database", move || {
+            let ready_barrier = Arc::clone(&database_barrier);
+            async move {
+                ready_barrier.wait().await;
+                HealthStatus::up()
+            }
+        })
+        .ready_check("cache", move || {
+            let ready_barrier = Arc::clone(&cache_barrier);
+            async move {
+                ready_barrier.wait().await;
+                HealthStatus::down("cache unavailable")
+            }
+        })
         .timeout(Duration::from_secs(1))
         .hide_details();
     let app = Router::new().merge(registry.routes());
@@ -406,8 +430,74 @@ async fn health_registry_runs_ready_checks_in_parallel_and_controls_details() {
 
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(body["status"], "down");
+    assert_eq!(body["checks"]["database"]["status"], "up");
     assert_eq!(body["checks"]["cache"]["status"], "down");
     assert!(body["checks"]["cache"].get("message").is_none());
+}
+
+#[tokio::test]
+async fn health_registry_reports_timed_out_checks_as_down() {
+    let registry = HealthRegistry::new()
+        .ready_check("database", std::future::pending::<HealthStatus>)
+        .timeout(Duration::from_millis(20));
+    let app = Router::new().merge(registry.routes());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/health/ready")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = response_json(response).await;
+
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(body["status"], "down");
+    assert_eq!(body["checks"]["database"]["status"], "down");
+    assert_eq!(body["checks"]["database"]["message"], "check timed out");
+}
+
+#[tokio::test]
+async fn health_registry_cancels_checks_when_request_is_cancelled() {
+    let started = Arc::new(Notify::new());
+    let cancelled = Arc::new(Notify::new());
+    let registry = HealthRegistry::new()
+        .ready_check("database", {
+            let started = Arc::clone(&started);
+            let cancelled = Arc::clone(&cancelled);
+            move || {
+                let started = Arc::clone(&started);
+                let cancelled = Arc::clone(&cancelled);
+                async move {
+                    let _notify_on_drop = NotifyOnDrop(cancelled);
+                    started.notify_one();
+                    std::future::pending::<HealthStatus>().await
+                }
+            }
+        })
+        .timeout(Duration::from_secs(60));
+    let app = Router::new().merge(registry.routes());
+
+    let request = tokio::spawn(
+        app.oneshot(
+            Request::builder()
+                .uri("/health/ready")
+                .body(Body::empty())
+                .unwrap(),
+        ),
+    );
+    tokio::time::timeout(Duration::from_secs(1), started.notified())
+        .await
+        .expect("health check should start before the request is cancelled");
+    request.abort();
+    assert!(request.await.unwrap_err().is_cancelled());
+
+    tokio::time::timeout(Duration::from_secs(1), cancelled.notified())
+        .await
+        .expect("cancelled health requests should abort unfinished checks");
 }
 
 #[tokio::test]
