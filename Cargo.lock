@@ -3511,6 +3511,7 @@ dependencies = [
  "nidus-integrations",
  "nidus-jobs",
  "nidus-openapi",
+ "nidus-rs",
  "nidus-validation",
  "serde",
  "serde_json",

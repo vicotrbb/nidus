@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Shared immutable guard route labels across guard contexts, layers, services,
+  and generated module routes instead of cloning owned labels per request. The
+  existing guarded-route benchmark improved by 18.33%-22.87% in the immediate
+  comparison, with a repeated run also classed as an improvement.
+- Removed one redundant header-map clone from every macro-generated guarded
+  request, added explicit direct-versus-module guard documentation, and added a
+  two-guard runtime regression test that preserves ordered header enforcement.
 - Deferred error-envelope path and request-ID string creation until a response
   is known to be a 4xx/5xx, improving the measured successful-response path by
   4.98%-7.21% without changing the envelope contract.

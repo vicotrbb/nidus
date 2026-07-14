@@ -48,9 +48,35 @@ fn envelope_rejects_invalid_trace_context_headers_and_oversized_payloads() {
     ));
 
     let envelope = MessageEnvelope::new("large", vec![0_u8; DEFAULT_MAX_ENVELOPE_BYTES]).unwrap();
+    let actual = serde_json::to_vec(&envelope).unwrap().len();
     assert!(matches!(
         envelope.to_json(),
-        Err(IntegrationError::EnvelopeTooLarge { .. })
+        Err(IntegrationError::EnvelopeTooLarge {
+            actual: reported,
+            maximum: DEFAULT_MAX_ENVELOPE_BYTES,
+        }) if reported == actual
+    ));
+}
+
+#[test]
+fn explicit_envelope_limit_preserves_exact_boundary_behavior() {
+    let envelope = MessageEnvelope::new(
+        "small",
+        UserCreated {
+            email: "ada@example.com".to_owned(),
+        },
+    )
+    .unwrap();
+    let expected = serde_json::to_vec(&envelope).unwrap();
+
+    assert_eq!(
+        envelope.to_json_with_limit(expected.len()).unwrap(),
+        expected
+    );
+    assert!(matches!(
+        envelope.to_json_with_limit(expected.len() - 1),
+        Err(IntegrationError::EnvelopeTooLarge { actual, maximum })
+            if actual == expected.len() && maximum == expected.len() - 1
     ));
 }
 

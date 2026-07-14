@@ -168,13 +168,22 @@ fn expand_routes_impl(item: ItemImpl) -> TokenStream {
                     let #clone_ident = ::std::sync::Arc::clone(&#ident);
                 }
             });
+            let guard_count = guards.len();
             let guard_checks = guards.iter().enumerate().map(|(index, _guard)| {
                 let ident = format_ident!("__nidus_guard_{index}");
+                let headers = if index + 1 == guard_count {
+                    quote!(__nidus_headers)
+                } else {
+                    quote!(__nidus_headers.clone())
+                };
                 quote! {
                     if let Err(__nidus_error) = ::nidus::prelude::Guard::check(
                         #ident.as_ref(),
-                        ::nidus::prelude::GuardContext::new((), #label)
-                            .with_headers(__nidus_headers.clone()),
+                        ::nidus::prelude::GuardContext::from_shared_route_label(
+                            (),
+                            ::std::sync::Arc::clone(&__nidus_guard_route_label),
+                        )
+                        .with_headers(#headers),
                     ).await {
                         return ::nidus::prelude::IntoResponse::into_response(__nidus_error);
                     }
@@ -183,11 +192,15 @@ fn expand_routes_impl(item: ItemImpl) -> TokenStream {
             quote! {
                 {
                     #(#guard_bindings)*
+                    let __nidus_guard_route_label: ::std::sync::Arc<str> =
+                        ::std::sync::Arc::from(#label);
                     let __nidus_controller = ::std::sync::Arc::clone(&__nidus_controller);
                     ::nidus::prelude::RouteDefinition::#route_constructor(
                         #path,
                         move |#guarded_handler_args| {
                             let __nidus_controller = ::std::sync::Arc::clone(&__nidus_controller);
+                            let __nidus_guard_route_label =
+                                ::std::sync::Arc::clone(&__nidus_guard_route_label);
                             #(#guard_clones)*
                             async move {
                                 #(#guard_checks)*

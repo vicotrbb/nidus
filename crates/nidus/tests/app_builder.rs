@@ -91,6 +91,58 @@ struct MissingProviderModule {
     controllers: [GreetingController],
 }
 
+#[cfg(feature = "auth")]
+#[injectable]
+struct FirstHeaderGuard;
+
+#[cfg(feature = "auth")]
+#[async_trait::async_trait]
+impl Guard<()> for FirstHeaderGuard {
+    async fn check(&self, ctx: GuardContext<()>) -> std::result::Result<(), GuardError> {
+        match ctx.header_str("x-first-guard")? {
+            Some("allowed") => Ok(()),
+            _ => Err(GuardError::unauthorized("first guard rejected request")),
+        }
+    }
+}
+
+#[cfg(feature = "auth")]
+#[injectable]
+struct SecondHeaderGuard;
+
+#[cfg(feature = "auth")]
+#[async_trait::async_trait]
+impl Guard<()> for SecondHeaderGuard {
+    async fn check(&self, ctx: GuardContext<()>) -> std::result::Result<(), GuardError> {
+        match ctx.header_str("x-second-guard")? {
+            Some("allowed") => Ok(()),
+            _ => Err(GuardError::forbidden("second guard rejected request")),
+        }
+    }
+}
+
+#[cfg(feature = "auth")]
+#[controller("/guarded")]
+struct MultiGuardController;
+
+#[cfg(feature = "auth")]
+#[routes]
+impl MultiGuardController {
+    #[get("/")]
+    #[guard(FirstHeaderGuard)]
+    #[guard(SecondHeaderGuard)]
+    async fn guarded(&self) -> &'static str {
+        "authorized"
+    }
+}
+
+#[cfg(feature = "auth")]
+#[module]
+struct GuardedModule {
+    providers: (FirstHeaderGuard, SecondHeaderGuard),
+    controllers: [MultiGuardController],
+}
+
 #[tokio::test]
 async fn root_module_builds_provider_backed_controller_routes() {
     let app = Nidus::create::<AppModule>().build().await.unwrap();
@@ -157,6 +209,41 @@ async fn controller_dependency_errors_surface_during_build() {
 
     assert!(matches!(error, NidusError::MissingProvider { .. }));
     assert!(error.to_string().contains("GreetingService"));
+}
+
+#[cfg(feature = "auth")]
+#[tokio::test]
+async fn module_composed_route_executes_each_guard_with_request_headers() {
+    let app = Nidus::create::<GuardedModule>().build().await.unwrap();
+    let router = app.into_router();
+
+    let rejected = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/guarded")
+                .header("x-first-guard", "allowed")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(rejected.status(), StatusCode::FORBIDDEN);
+
+    let authorized = router
+        .oneshot(
+            Request::builder()
+                .uri("/guarded")
+                .header("x-first-guard", "allowed")
+                .header("x-second-guard", "allowed")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(authorized.status(), StatusCode::OK);
+    let body = to_bytes(authorized.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(&body[..], b"authorized");
 }
 
 #[cfg(feature = "openapi")]

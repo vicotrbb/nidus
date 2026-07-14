@@ -1,6 +1,7 @@
 use std::{
     future::Future,
     pin::Pin,
+    sync::Arc,
     task::{Context, Poll},
 };
 
@@ -22,7 +23,7 @@ pub fn guard_layer<S, G>(state: S, route_label: impl Into<String>, guard: G) -> 
 #[derive(Clone, Debug)]
 pub struct GuardLayer<S, G> {
     state: S,
-    route_label: String,
+    route_label: Arc<str>,
     guard: G,
 }
 
@@ -31,7 +32,7 @@ impl<S, G> GuardLayer<S, G> {
     pub fn new(state: S, route_label: impl Into<String>, guard: G) -> Self {
         Self {
             state,
-            route_label: route_label.into(),
+            route_label: Arc::from(route_label.into()),
             guard,
         }
     }
@@ -48,7 +49,7 @@ where
         GuardService {
             inner,
             state: self.state.clone(),
-            route_label: self.route_label.clone(),
+            route_label: Arc::clone(&self.route_label),
             guard: self.guard.clone(),
         }
     }
@@ -59,7 +60,7 @@ where
 pub struct GuardService<Inner, S, G> {
     inner: Inner,
     state: S,
-    route_label: String,
+    route_label: Arc<str>,
     guard: G,
 }
 
@@ -81,7 +82,7 @@ where
 
     fn call(&mut self, request: Request<Body>) -> Self::Future {
         let state = self.state.clone();
-        let route_label = self.route_label.clone();
+        let route_label = Arc::clone(&self.route_label);
         let guard = self.guard.clone();
         // Move the service that was driven to readiness into the future and
         // leave the fresh clone behind, per the Tower readiness contract.
@@ -90,7 +91,8 @@ where
 
         Box::pin(async move {
             let (parts, body) = request.into_parts();
-            let context = GuardContext::new(state, route_label).with_headers(parts.headers.clone());
+            let context = GuardContext::from_shared_route_label(state, route_label)
+                .with_headers(parts.headers.clone());
 
             if let Err(error) = guard.check(context).await {
                 return Ok(error.into_response());
@@ -100,5 +102,27 @@ where
             let mut inner = inner;
             inner.call(request).await
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::GuardLayer;
+    use crate::GuardContext;
+
+    #[test]
+    fn cloned_guard_layers_share_their_immutable_route_label() {
+        let layer = GuardLayer::new((), "/users/{id}", ());
+        let cloned = layer.clone();
+        let context = GuardContext::new((), "/users/{id}");
+        let cloned_context = context.clone();
+
+        assert!(Arc::ptr_eq(&layer.route_label, &cloned.route_label));
+        assert!(Arc::ptr_eq(
+            &context.route_label,
+            &cloned_context.route_label
+        ));
     }
 }

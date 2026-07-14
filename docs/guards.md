@@ -28,6 +28,19 @@ let fallback = ApiKeyGuard.or(SessionGuard);
 both guards fail, it returns the first guard error so the primary authorization
 failure stays visible.
 
+## Module-Declared Guards
+
+`#[guard(AuthGuard)]` is executable when a controller is composed through a
+Nidus module. Register the injectable guard as a provider visible to the
+controller's module; the generated controller registrant resolves it from the
+container and checks it before calling the handler. Guard failures bypass the
+handler and become the guard's HTTP response.
+
+The direct `controller.into_router()` path has no provider container. For that
+standalone path, apply `guard_layer` explicitly as shown below. This distinction
+keeps direct Axum composition explicit while making module-declared guards
+enforceable rather than documentation-only metadata.
+
 Use `guard_layer` to enforce a guard on an Axum route or router layer:
 
 ```rust

@@ -168,12 +168,13 @@ pub fn controller(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// and tests where invalid static paths are programming mistakes.
 ///
 /// Handler parameters are normal Axum extractors such as `Path<T>`, `Query<T>`,
-/// `Json<T>`, and Nidus extractors such as `RequestScoped<T>`. Guards, pipes,
-/// validation, and OpenAPI attributes attached to methods are stored in route
-/// metadata; Tower layers and extractors are still the execution path for actual
-/// request enforcement and transformation. Common errors include using route
-/// macros outside a `#[routes]` impl, omitting `&self`, duplicating method
-/// metadata, or assuming guard/pipe metadata automatically installs middleware.
+/// `Json<T>`, and Nidus extractors such as `RequestScoped<T>`. Module-composed
+/// controllers resolve and execute `#[guard]` providers before the handler. A
+/// controller converted directly with `into_router()` has no provider container,
+/// so it requires an explicit guard layer instead. Pipes, validation, and OpenAPI
+/// attributes remain metadata or extractor-driven behavior. Common errors include
+/// using route macros outside a `#[routes]` impl, omitting `&self`, duplicating
+/// method metadata, or assuming pipe metadata transforms a request by itself.
 #[proc_macro_attribute]
 pub fn routes(attr: TokenStream, item: TokenStream) -> TokenStream {
     routes::expand_routes(attr.into(), item.into()).into()
@@ -350,10 +351,11 @@ pub fn openapi(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 /// Declares guard metadata for a controller route method.
 ///
-/// `#[guard]` is valid only on methods inside a `#[routes]` impl block. It is
-/// metadata-only behavior in the macro layer: the guard type is recorded on the
-/// generated `RouteMetadata`, while actual request enforcement should be wired
-/// through Tower layers, Axum extractors, or explicit handler/service code.
+/// `#[guard]` is valid only on methods inside a `#[routes]` impl block. The guard
+/// type is recorded on the generated `RouteMetadata`. When Nidus builds the
+/// controller through a module container, it also resolves that provider and
+/// executes the guard before the handler. Direct `into_router()` conversion has
+/// no provider container and therefore requires an explicit `guard_layer`.
 ///
 /// Basic syntax:
 ///
@@ -369,9 +371,9 @@ pub fn openapi(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 ///
 /// Guard metadata composes with `nidus-auth` guard implementations and CLI or
-/// OpenAPI route inspection. Common errors are omitting the guard type, using
-/// the attribute on a non-route item, or assuming metadata alone installs a
-/// `GuardLayer`.
+/// OpenAPI route inspection. Common errors are omitting the guard type, failing
+/// to register it as a provider for module composition, or expecting a directly
+/// converted controller to resolve providers without a container.
 #[proc_macro_attribute]
 pub fn guard(attr: TokenStream, item: TokenStream) -> TokenStream {
     guard::expand(attr.into(), item.into()).into()

@@ -110,7 +110,7 @@ where
 #[derive(Clone, Debug)]
 pub struct GuardContext<S> {
     state: S,
-    route_label: String,
+    route_label: Arc<str>,
     headers: HeaderMap,
 }
 
@@ -119,7 +119,21 @@ impl<S> GuardContext<S> {
     pub fn new(state: S, route_label: impl Into<String>) -> Self {
         Self {
             state,
-            route_label: route_label.into(),
+            route_label: Arc::from(route_label.into()),
+            headers: HeaderMap::new(),
+        }
+    }
+
+    /// Creates a context from an already shared immutable route label.
+    ///
+    /// This constructor supports framework-generated handlers that retain one
+    /// route label for the lifetime of a service. Most application code should
+    /// use [`Self::new`].
+    #[doc(hidden)]
+    pub fn from_shared_route_label(state: S, route_label: Arc<str>) -> Self {
+        Self {
+            state,
+            route_label,
             headers: HeaderMap::new(),
         }
     }

@@ -49,7 +49,7 @@ The current benchmark surface covers:
 - bounded event publication at a full 10,000-event subscriber capacity
 - production default stack with and without in-process metrics
 - constructing an OpenAPI document with 64 distinct schemas
-- constructing and rendering a 100-route OpenAPI document
+- separately constructing and rendering a 100-route OpenAPI document
 - serving a 100-route OpenAPI document
 - Prometheus metrics record-response, record-error, and render-text paths
 - shared integration envelope serialization/deserialization at a 1 KiB payload
@@ -65,6 +65,45 @@ composition baselines where they are meaningful. Other rows are microbenchmarks
 for specific framework behavior and should be compared to their own history.
 
 ## Local Results
+
+### Guard route-label sharing pass (2026-07-14)
+
+`GuardLayer`, `GuardService`, and `GuardContext` previously retained route
+labels as owned `String` values. Router/service cloning and every guarded
+request therefore cloned an immutable label. They now retain one `Arc<str>` and
+clone only its reference count. Macro-generated container-composed guards also
+retain one shared route label per route and move the final synthetic header map
+into the last guard context instead of cloning it again.
+
+The existing explicit guard row was measured immediately before and after the
+change on the same `aarch64-apple-darwin` machine with `rustc 1.96.0`. Both
+sides used 150 samples, a two-second warm-up, and a five-second measurement
+window:
+
+```bash
+cargo bench --bench request_lifecycle -- 'nidus guarded route' --warm-up-time 2 --measurement-time 5 --sample-size 150 --save-baseline pre_guard_label_arc_20260714
+cargo bench --bench request_lifecycle -- 'nidus guarded route$' --warm-up-time 2 --measurement-time 5 --sample-size 150 --baseline pre_guard_label_arc_20260714
+```
+
+The saved baseline measured `886.93-927.27 ns`. The immediate implementation
+run measured `687.71-710.61 ns`, with Criterion reporting an
+`18.33%-22.87%` improvement (`p = 0.00`). A later repeat measured
+`629.59-647.08 ns` and was also classified as an improvement. These are local
+in-process route measurements, not end-to-end throughput claims.
+
+A new `nidus module-composed guarded route` benchmark separately covers the
+generated container path:
+
+```bash
+cargo bench --bench request_lifecycle -- 'nidus module-composed guarded route' --warm-up-time 2 --measurement-time 5 --sample-size 150 --save-baseline pre_macro_guard_context_20260714
+cargo bench --bench request_lifecycle -- 'nidus module-composed guarded route' --warm-up-time 2 --measurement-time 5 --sample-size 150 --baseline pre_macro_guard_context_20260714
+```
+
+Its repeated latency comparison moved only
+`0.45%-1.61%` lower and remained within Criterion's noise threshold, so no
+latency improvement is claimed for that row. The source change deterministically
+removes the final header-map clone and per-request label allocation, while a
+two-guard runtime test proves that ordered checks still receive request headers.
 
 ### HTTP success-path middleware pass (2026-07-13)
 

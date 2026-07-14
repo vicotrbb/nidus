@@ -6,6 +6,7 @@ use axum::{
 };
 use criterion::{Criterion, criterion_group, criterion_main};
 use garde::Validate;
+use nidus::{controller, get, guard, injectable, routes};
 use nidus_auth::{Guard, GuardContext, GuardError, guard_layer};
 use nidus_core::{Container, Inject, SharedRequestScope};
 use nidus_http::{
@@ -42,6 +43,29 @@ struct AllowGuard;
 impl Guard<()> for AllowGuard {
     async fn check(&self, _ctx: GuardContext<()>) -> Result<(), GuardError> {
         Ok(())
+    }
+}
+
+#[injectable]
+#[derive(Clone)]
+struct MacroAllowGuard;
+
+#[async_trait::async_trait]
+impl Guard<()> for MacroAllowGuard {
+    async fn check(&self, _ctx: GuardContext<()>) -> Result<(), GuardError> {
+        Ok(())
+    }
+}
+
+#[controller("/macro")]
+struct MacroGuardedController;
+
+#[routes]
+impl MacroGuardedController {
+    #[get("/guarded")]
+    #[guard(MacroAllowGuard)]
+    async fn guarded(&self) -> &'static str {
+        "guarded"
     }
 }
 
@@ -120,6 +144,19 @@ fn build_benchmark_route_document() -> serde_json::Value {
     document.to_json_value()
 }
 
+fn construct_benchmark_route_document() -> OpenApiDocument {
+    let mut document = OpenApiDocument::new("Benchmark API", "1.0.0");
+    for index in 0..100 {
+        document = document.route(
+            OpenApiRoute::get(format!(
+                "/organizations/{index}/projects/:project_id/resources/:resource_id"
+            ))
+            .summary(format!("Fetch resource {index}")),
+        );
+    }
+    document
+}
+
 fn request_lifecycle_setup(c: &mut Criterion) {
     let runtime = tokio::runtime::Runtime::new().unwrap();
     let raw_router = Router::<()>::new().route("/health", get(|| async { "ok" }));
@@ -136,6 +173,11 @@ fn request_lifecycle_setup(c: &mut Criterion) {
         .route(RouteDefinition::get("/guarded", || async { "guarded" }))
         .into_router()
         .layer(guard_layer((), "/guarded", AllowGuard));
+    let mut macro_guard_container = Container::new();
+    MacroAllowGuard::register_provider(&mut macro_guard_container).unwrap();
+    let macro_guarded_router = MacroGuardedController
+        .try_into_router_with_container(&macro_guard_container)
+        .unwrap();
     let validation_router = Router::new().route(
         "/users",
         post(
@@ -329,6 +371,19 @@ fn request_lifecycle_setup(c: &mut Criterion) {
         });
     });
 
+    c.bench_function("nidus module-composed guarded route", |b| {
+        b.iter(|| {
+            let response = runtime
+                .block_on(
+                    macro_guarded_router
+                        .clone()
+                        .oneshot(get_request("/macro/guarded")),
+                )
+                .unwrap();
+            black_box(response.status());
+        });
+    });
+
     c.bench_function("nidus validation route", |b| {
         b.iter(|| {
             let response = runtime
@@ -515,6 +570,10 @@ fn request_lifecycle_setup(c: &mut Criterion) {
 
     c.bench_function("nidus 100-route openapi document render", |b| {
         b.iter(|| black_box(build_benchmark_route_document()));
+    });
+
+    c.bench_function("nidus 100-route openapi document construction", |b| {
+        b.iter(|| black_box(construct_benchmark_route_document()));
     });
 
     c.bench_function("nidus api defaults production request", |b| {
