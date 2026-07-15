@@ -21,8 +21,8 @@ health = ["dep:nidus-http"]
 async-trait.workspace = true
 http.workspace = true
 nidus-core.workspace = true
-nidus-dashboard = { path = "../nidus-dashboard", version = "1.0.11", optional = true }
-nidus-http = { path = "../nidus-http", version = "1.0.11", optional = true }
+nidus-dashboard = { path = "../nidus-dashboard", version = "1.0.12", optional = true }
+nidus-http = { path = "../nidus-http", version = "1.0.12", optional = true }
 sentry.workspace = true
 sentry-tower.workspace = true
 sentry-tracing.workspace = true

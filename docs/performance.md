@@ -67,8 +67,8 @@ claim. The complete cross-framework tables, raw summaries, integrity checks,
 sanitized runtime identities, and evidence manifest are available on the
 [benchmark page](benchmarks/) and in the
 [machine-readable result set](benchmark-data/v1.0.12/summary.json). The
-1.0.12 name is the benchmark candidate label; public installation metadata
-remains at 1.0.11 until the release is cut.
+benchmark candidate is the code now released as 1.0.12; only documentation and
+release metadata changed after the measured source commit.
 
 ## Coverage
 

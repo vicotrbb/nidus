@@ -1,6 +1,6 @@
 [package]
 name = "nidus-example-integrations-production"
-version = "1.0.11"
+version = "1.0.12"
 edition = "2024"
 publish = false
 default-run = "nidus-example-integrations-production"
@@ -9,19 +9,19 @@ default-run = "nidus-example-integrations-production"
 anyhow.workspace = true
 async-trait.workspace = true
 axum.workspace = true
-nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.11", features = ["http", "config", "observability"] }
-nidus-cache = { path = "../../crates/nidus-cache", version = "1.0.11", features = ["health", "observability"] }
-nidus-integrations = { path = "../../crates/nidus-integrations", version = "1.0.11" }
-nidus-jobs = { path = "../../crates/nidus-jobs", version = "1.0.11" }
-nidus-jobs-sqlx = { path = "../../crates/nidus-jobs-sqlx", version = "1.0.11", features = ["sqlite"] }
-nidus-kafka = { path = "../../crates/nidus-kafka", version = "1.0.11", features = ["health"] }
-nidus-nats = { path = "../../crates/nidus-nats", version = "1.0.11", features = ["health"] }
-nidus-opentelemetry = { path = "../../crates/nidus-opentelemetry", version = "1.0.11" }
-nidus-rabbitmq = { path = "../../crates/nidus-rabbitmq", version = "1.0.11", features = ["health"] }
-nidus-redis = { path = "../../crates/nidus-redis", version = "1.0.11", features = ["health"] }
-nidus-sentry = { path = "../../crates/nidus-sentry", version = "1.0.11" }
-nidus-sqlx = { path = "../../crates/nidus-sqlx", version = "1.0.11", features = ["sqlite", "mysql", "cockroach", "health", "observability"] }
-nidus-sqs = { path = "../../crates/nidus-sqs", version = "1.0.11", features = ["health"] }
+nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.12", features = ["http", "config", "observability"] }
+nidus-cache = { path = "../../crates/nidus-cache", version = "1.0.12", features = ["health", "observability"] }
+nidus-integrations = { path = "../../crates/nidus-integrations", version = "1.0.12" }
+nidus-jobs = { path = "../../crates/nidus-jobs", version = "1.0.12" }
+nidus-jobs-sqlx = { path = "../../crates/nidus-jobs-sqlx", version = "1.0.12", features = ["sqlite"] }
+nidus-kafka = { path = "../../crates/nidus-kafka", version = "1.0.12", features = ["health"] }
+nidus-nats = { path = "../../crates/nidus-nats", version = "1.0.12", features = ["health"] }
+nidus-opentelemetry = { path = "../../crates/nidus-opentelemetry", version = "1.0.12" }
+nidus-rabbitmq = { path = "../../crates/nidus-rabbitmq", version = "1.0.12", features = ["health"] }
+nidus-redis = { path = "../../crates/nidus-redis", version = "1.0.12", features = ["health"] }
+nidus-sentry = { path = "../../crates/nidus-sentry", version = "1.0.12" }
+nidus-sqlx = { path = "../../crates/nidus-sqlx", version = "1.0.12", features = ["sqlite", "mysql", "cockroach", "health", "observability"] }
+nidus-sqs = { path = "../../crates/nidus-sqs", version = "1.0.12", features = ["health"] }
 sentry.workspace = true
 serde_json.workspace = true
 sqlx = { workspace = true, features = ["mysql", "postgres", "sqlite"] }

@@ -1,14 +1,14 @@
 [package]
 name = "nidus-example-rest-api"
-version = "1.0.11"
+version = "1.0.12"
 edition = "2024"
 publish = false
 
 [dependencies]
-nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.11" }
+nidus = { package = "nidus-rs", path = "../../crates/nidus", version = "1.0.12" }
 serde.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
-nidus-testing = { path = "../../crates/nidus-testing", version = "1.0.11" }
+nidus-testing = { path = "../../crates/nidus-testing", version = "1.0.12" }
 serde_json.workspace = true

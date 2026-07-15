@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.0.12 - 2026-07-15
+
 - Avoided allocating a temporary Moka cache key for unnamespaced reads and
   invalidations, and composed namespaced keys into one exactly sized string.
   Two repeated 150-sample comparisons classified both cache-read paths as

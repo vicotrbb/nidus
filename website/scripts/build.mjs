@@ -11,7 +11,7 @@ const DIST = path.join(WEBSITE, 'dist');
 const BASE = normalizeBase(process.env.NIDUS_SITE_BASE ?? '/');
 const SITE_DOMAIN = (process.env.NIDUS_SITE_DOMAIN ?? '').trim();
 const SITE_ORIGIN = SITE_DOMAIN ? `https://${SITE_DOMAIN}` : '';
-const RELEASE_VERSION = '1.0.11';
+const RELEASE_VERSION = '1.0.12';
 const SITE_DESCRIPTION = 'Nidus is a modular Rust backend framework for explicit services, typed dependency injection, Axum routes, Tower middleware, OpenAPI, observability, testing, and installable adapters.';
 
 const docs = [
@@ -74,6 +74,13 @@ const docs = [
     group: 'Reference',
     source: 'docs/api-reference.md',
     summary: 'Crate map and generated Rust API reference entry points.',
+  },
+  {
+    title: 'Release 1.0.12',
+    slug: 'docs/release-1-0-12',
+    group: 'Reference',
+    source: 'docs/release-1-0-12.md',
+    summary: 'Nidus 1.0.12 request-path performance, runtime hardening, CLI discovery, and homelab benchmark evidence.',
   },
   {
     title: 'Release 1.0.11',
@@ -1256,7 +1263,7 @@ function benchmarksPage() {
           </tbody>
         </table>
       </div>
-      <p class="benchmark-table-note">The control is built from the exact <code>v1.0.4</code> tag at <code>${escapeHtml(currentBenchmark.control.sourceCommit.slice(0, 12))}</code>; the candidate benchmark label is 1.0.12 at local source <code>${escapeHtml(currentBenchmark.candidate.sourceCommit.slice(0, 12))}</code>. Public install snippets remain on 1.0.11 until the release metadata changes.</p>
+      <p class="benchmark-table-note">The control is built from the exact <code>v1.0.4</code> tag at <code>${escapeHtml(currentBenchmark.control.sourceCommit.slice(0, 12))}</code>; the 1.0.12 benchmark candidate is local source <code>${escapeHtml(currentBenchmark.candidate.sourceCommit.slice(0, 12))}</code>. Only documentation and release metadata changed after that measured source commit.</p>
     </section>
 
     <section class="benchmark-results benchmark-historical" id="benchmark-v1-0-4" aria-labelledby="benchmark-historical-title">
