@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "kind": "historical-single-run",
+  "nidusVersion": "1.0.4",
+  "runTimestampLabel": "20260630T001754Z",
+  "comparability": {
+    "eligibleForVersionComparison": false,
+    "reason": "The original raw k6 summaries and repetition series were not retained. This snapshot remains public historical evidence, but version deltas use the controlled 1.0.4 rerun packaged with the 1.0.12 campaign."
+  },
+  "configuration": {
+    "cluster": "homelab Kubernetes",
+    "virtualUsers": 8,
+    "durationSeconds": 20,
+    "thinkTimeSeconds": 0.05,
+    "mixedThinkTimeSeconds": 0.2,
+    "repetitions": 1,
+    "database": "PostgreSQL 16",
+    "applicationReplicas": 1
+  },
+  "rows": [
+    { "profile": "ping", "stack": "rust-nidus", "throughputRps": 156.890883, "averageLatencyMs": 0.42372, "p95LatencyMs": 0.65957, "httpFailureRate": 0, "checkRate": 1 },
+    { "profile": "ping", "stack": "python-fastapi", "throughputRps": 148.264889, "averageLatencyMs": 3.35, "p95LatencyMs": 4.22, "httpFailureRate": 0, "checkRate": 1 },
+    { "profile": "ping", "stack": "java-spring", "throughputRps": 154.820432, "averageLatencyMs": 1.13, "p95LatencyMs": 1.88, "httpFailureRate": 0, "checkRate": 1 },
+    { "profile": "ping", "stack": "node-express", "throughputRps": 155.442129, "averageLatencyMs": 1.08, "p95LatencyMs": 1.78, "httpFailureRate": 0, "checkRate": 1 },
+    { "profile": "users", "stack": "rust-nidus", "throughputRps": 297.482161, "averageLatencyMs": 1.59, "p95LatencyMs": 3.45, "httpFailureRate": 0, "checkRate": 1 },
+    { "profile": "users", "stack": "python-fastapi", "throughputRps": 278.858057, "averageLatencyMs": 3.32, "p95LatencyMs": 6.01, "httpFailureRate": 0, "checkRate": 1 },
+    { "profile": "users", "stack": "java-spring", "throughputRps": 292.89576, "averageLatencyMs": 1.97, "p95LatencyMs": 3.82, "httpFailureRate": 0, "checkRate": 1 },
+    { "profile": "users", "stack": "node-express", "throughputRps": 291.549083, "averageLatencyMs": 2.11, "p95LatencyMs": 4.31, "httpFailureRate": 0, "checkRate": 1 },
+    { "profile": "projects", "stack": "rust-nidus", "throughputRps": 423.939646, "averageLatencyMs": 1.95, "p95LatencyMs": 3.46, "httpFailureRate": 0, "checkRate": 1 },
+    { "profile": "projects", "stack": "python-fastapi", "throughputRps": 380.644823, "averageLatencyMs": 4.03, "p95LatencyMs": 7.17, "httpFailureRate": 0, "checkRate": 1 },
+    { "profile": "projects", "stack": "java-spring", "throughputRps": 417.118223, "averageLatencyMs": 2.26, "p95LatencyMs": 4.17, "httpFailureRate": 0, "checkRate": 1 },
+    { "profile": "projects", "stack": "node-express", "throughputRps": 414.234335, "averageLatencyMs": 2.37, "p95LatencyMs": 4.24, "httpFailureRate": 0, "checkRate": 1 },
+    { "profile": "events", "stack": "rust-nidus", "throughputRps": 282.357362, "averageLatencyMs": 2.97, "p95LatencyMs": 4.07, "httpFailureRate": 0, "checkRate": 1 },
+    { "profile": "events", "stack": "python-fastapi", "throughputRps": 267.55211, "averageLatencyMs": 4.5, "p95LatencyMs": 6.86, "httpFailureRate": 0, "checkRate": 1 },
+    { "profile": "events", "stack": "java-spring", "throughputRps": 281.790144, "averageLatencyMs": 3.03, "p95LatencyMs": 4.22, "httpFailureRate": 0, "checkRate": 1 },
+    { "profile": "events", "stack": "node-express", "throughputRps": 279.668233, "averageLatencyMs": 3.23, "p95LatencyMs": 4.65, "httpFailureRate": 0, "checkRate": 1 },
+    { "profile": "mixed", "stack": "rust-nidus", "throughputRps": 232.594368, "averageLatencyMs": 2.72, "p95LatencyMs": 7.05, "httpFailureRate": 0, "checkRate": 1 },
+    { "profile": "mixed", "stack": "python-fastapi", "throughputRps": 223.820298, "averageLatencyMs": 4.01, "p95LatencyMs": 8.35, "httpFailureRate": 0, "checkRate": 1 },
+    { "profile": "mixed", "stack": "java-spring", "throughputRps": 232.940412, "averageLatencyMs": 2.7, "p95LatencyMs": 6.84, "httpFailureRate": 0, "checkRate": 1 },
+    { "profile": "mixed", "stack": "node-express", "throughputRps": 230.302808, "averageLatencyMs": 3.03, "p95LatencyMs": 7.3, "httpFailureRate": 0, "checkRate": 1 }
+  ]
+}

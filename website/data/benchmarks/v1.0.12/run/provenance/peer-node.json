@@ -1,0 +1,83 @@
+{
+  "metadata": {
+    "name": "homelab-02",
+    "uid": "c5a4363d-5090-4439-ab3e-d30ab04caf5c",
+    "creationTimestamp": "2026-02-25T04:17:45Z"
+  },
+  "status": {
+    "capacity": {
+      "cpu": "4",
+      "ephemeral-storage": "488257Mi",
+      "hugepages-1Gi": "0",
+      "hugepages-2Mi": "0",
+      "memory": "16116304Ki",
+      "pods": "110"
+    },
+    "allocatable": {
+      "cpu": "4",
+      "ephemeral-storage": "486375843049",
+      "hugepages-1Gi": "0",
+      "hugepages-2Mi": "0",
+      "memory": "16116304Ki",
+      "pods": "110"
+    },
+    "conditions": [
+      {
+        "lastHeartbeatTime": "2026-02-25T04:40:40Z",
+        "lastTransitionTime": "2026-02-25T04:40:40Z",
+        "message": "Calico is running on this node",
+        "reason": "CalicoIsUp",
+        "status": "False",
+        "type": "NetworkUnavailable"
+      },
+      {
+        "lastHeartbeatTime": "2026-07-15T16:31:17Z",
+        "lastTransitionTime": "2026-07-10T18:17:35Z",
+        "message": "Node is a voting member of the etcd cluster",
+        "reason": "MemberNotLearner",
+        "status": "True",
+        "type": "EtcdIsVoter"
+      },
+      {
+        "lastHeartbeatTime": "2026-07-15T16:31:16Z",
+        "lastTransitionTime": "2026-02-25T04:17:45Z",
+        "message": "kubelet has sufficient memory available",
+        "reason": "KubeletHasSufficientMemory",
+        "status": "False",
+        "type": "MemoryPressure"
+      },
+      {
+        "lastHeartbeatTime": "2026-07-15T16:31:16Z",
+        "lastTransitionTime": "2026-02-25T04:17:45Z",
+        "message": "kubelet has no disk pressure",
+        "reason": "KubeletHasNoDiskPressure",
+        "status": "False",
+        "type": "DiskPressure"
+      },
+      {
+        "lastHeartbeatTime": "2026-07-15T16:31:16Z",
+        "lastTransitionTime": "2026-02-25T04:17:45Z",
+        "message": "kubelet has sufficient PID available",
+        "reason": "KubeletHasSufficientPID",
+        "status": "False",
+        "type": "PIDPressure"
+      },
+      {
+        "lastHeartbeatTime": "2026-07-15T16:31:16Z",
+        "lastTransitionTime": "2026-07-15T16:11:56Z",
+        "message": "kubelet is posting ready status",
+        "reason": "KubeletReady",
+        "status": "True",
+        "type": "Ready"
+      }
+    ],
+    "nodeInfo": {
+      "architecture": "amd64",
+      "containerRuntimeVersion": "containerd://1.7.20-k3s1",
+      "kernelVersion": "6.6.68",
+      "kubeletVersion": "v1.30.4+k3s1",
+      "operatingSystem": "linux",
+      "osImage": "NixOS 24.05 (Uakari)"
+    }
+  }
+}

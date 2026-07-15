@@ -1,0 +1,213 @@
+{
+  "schemaVersion": 1,
+  "runId": "20260715T162751Z",
+  "startedAt": "2026-07-15T16:27:52.510Z",
+  "official": true,
+  "candidateVersion": "1.0.12",
+  "candidateSourceCommit": "c0b6d82e96494850a553a1fdc5589e26d71ca4f0",
+  "controlVersion": "1.0.4",
+  "controlSourceCommit": "ddbfd3e29bfdce9612927e5ce4cccd98fe4c1c18",
+  "namespace": "nidus-framework-bench-v1-0-12",
+  "node": "homelab-01",
+  "configuration": {
+    "repetitions": 3,
+    "virtualUsers": 8,
+    "preflightDurationSeconds": 10,
+    "warmupDurationSeconds": 5,
+    "measuredDurationSeconds": 20,
+    "thinkTimeSeconds": 0.05,
+    "mixedThinkTimeSeconds": 0.2,
+    "preflightStabilitySamples": 60,
+    "preflightStabilityIntervalSeconds": 5,
+    "clusterNodes": [
+      "homelab-01",
+      "homelab-02"
+    ],
+    "controlPlaneEndpoints": [
+      "homelab-01:6443",
+      "homelab-02:6443"
+    ],
+    "loadGenerator": "one pinned k6 pod per accepted measurement stage (base, extension batch 1, and extension batch 2); no per-cell pod churn",
+    "transportStorage": "node-local hostPath; excluded from measured application data",
+    "databaseStorage": "memory-backed emptyDir with a 512Mi limit; isolates benchmark data from the etcd disk",
+    "stacks": [
+      "rust-nidus-v1-0-12",
+      "rust-nidus-v1-0-4",
+      "python-fastapi",
+      "java-spring",
+      "node-express"
+    ],
+    "profiles": [
+      "ping",
+      "users",
+      "projects",
+      "events",
+      "mixed"
+    ]
+  },
+  "acceptanceThresholds": {
+    "throughputCoefficientOfVariationPercent": 5,
+    "averageLatencyCoefficientOfVariationPercent": 15,
+    "p95LatencyCoefficientOfVariationPercent": 20,
+    "maximumIdleNodeCpuPercent": 20,
+    "requiredHttpFailureRate": 0,
+    "requiredCheckRate": 1
+  },
+  "repeatabilityExtension": {
+    "policyVersion": 1,
+    "decisionRecordedAfterBaseAnalysis": true,
+    "baseAnalysisArtifact": "base-analysis.json",
+    "baseManifestArtifact": "base-MANIFEST.sha256",
+    "rule": "For every stack/profile group that failed only a coefficient-of-variation threshold after the complete three-repetition matrix, retain all base samples and add batches of three repetitions for every flagged group. Stop after the first batch that passes every original threshold, or after two batches. Do not replace or discard any sample.",
+    "batchSizePerGroup": 3,
+    "maximumAdditionalRepetitionsPerGroup": 6,
+    "rejectedStageAttempts": [
+      {
+        "attempt": 1,
+        "observedAt": "2026-07-15T17:36:37Z",
+        "failedExecution": {
+          "repetition": 6,
+          "stack": "rust-nidus-v1-0-4",
+          "profile": "mixed"
+        },
+        "gate": "continuous explicit control-plane and node health plus the post-measure API gate",
+        "observation": "a transient control-plane readiness loss made both explicit endpoints and homelab-01 unavailable to the monitor; the immediate post-measure gate still found endpoint 2 unavailable",
+        "publishedSamples": 0,
+        "reasonIndependentOfPerformanceValues": true,
+        "resolution": "quarantined the whole stage and reran all nine declared extension cells after a new 24-sample stability gate"
+      }
+    ],
+    "admissionRetries": [
+      {
+        "attempt": 2,
+        "observedAt": "2026-07-15T17:39:15Z",
+        "publishedSamples": 0,
+        "observation": "the configured Kubernetes client briefly missed readiness while both explicit control-plane endpoints and both nodes remained healthy",
+        "resolution": "aligned the extension admission gate with the campaign rule: explicit endpoints and nodes are authoritative, while a configured-client-only miss is retained as a warning"
+      }
+    ],
+    "evidenceTransfer": {
+      "transportExitStatus": 141,
+      "observation": "the kubectl tar stream reported SIGPIPE after the complete result payload had already been extracted",
+      "expectedRawSummaries": 18,
+      "verifiedRawSummaries": 18,
+      "resolution": "validated every staged count and JSON document before the results-only merge"
+    },
+    "publicationQualification": {
+      "decisionRecordedAfterMaximumExtension": true,
+      "strictAcceptance": false,
+      "rule": "A campaign may be published as qualified, never accepted, when every remaining failure is a repeatability-CV miss on a non-Nidus peer after that group reaches the predeclared extension limit; all Nidus candidate/control groups, correctness checks, provenance checks, and infrastructure gates must pass. The exact peer failure remains visible in the summary and website.",
+      "samplesDiscarded": 0,
+      "thresholdsChanged": false
+    },
+    "triggeredGroups": [
+      {
+        "stack": "rust-nidus-v1-0-4",
+        "profile": "mixed",
+        "baseFailure": "average latency CV 17.17% exceeded 15%"
+      },
+      {
+        "stack": "java-spring",
+        "profile": "ping",
+        "baseFailure": "average latency CV 22.43% exceeded 15%"
+      },
+      {
+        "stack": "node-express",
+        "profile": "mixed",
+        "baseFailure": "average latency CV 17.82% exceeded 15%"
+      }
+    ],
+    "executions": [
+      {
+        "batch": 1,
+        "repetition": 4,
+        "stack": "rust-nidus-v1-0-4",
+        "profile": "mixed"
+      },
+      {
+        "batch": 1,
+        "repetition": 4,
+        "stack": "java-spring",
+        "profile": "ping"
+      },
+      {
+        "batch": 1,
+        "repetition": 4,
+        "stack": "node-express",
+        "profile": "mixed"
+      },
+      {
+        "batch": 1,
+        "repetition": 5,
+        "stack": "java-spring",
+        "profile": "ping"
+      },
+      {
+        "batch": 1,
+        "repetition": 5,
+        "stack": "node-express",
+        "profile": "mixed"
+      },
+      {
+        "batch": 1,
+        "repetition": 5,
+        "stack": "rust-nidus-v1-0-4",
+        "profile": "mixed"
+      },
+      {
+        "batch": 1,
+        "repetition": 6,
+        "stack": "node-express",
+        "profile": "mixed"
+      },
+      {
+        "batch": 1,
+        "repetition": 6,
+        "stack": "rust-nidus-v1-0-4",
+        "profile": "mixed"
+      },
+      {
+        "batch": 1,
+        "repetition": 6,
+        "stack": "java-spring",
+        "profile": "ping"
+      },
+      {
+        "batch": 2,
+        "repetition": 7,
+        "stack": "java-spring",
+        "profile": "ping"
+      },
+      {
+        "batch": 2,
+        "repetition": 8,
+        "stack": "java-spring",
+        "profile": "ping"
+      },
+      {
+        "batch": 2,
+        "repetition": 9,
+        "stack": "java-spring",
+        "profile": "ping"
+      }
+    ]
+  },
+  "publication": {
+    "sanitized": true,
+    "sourceRunId": "20260715T162751Z",
+    "manifest": "run/MANIFEST.sha256",
+    "included": [
+      "179 raw k6 summaries",
+      "execution order and database row-count integrity checks",
+      "cluster admission, continuous health, API gates, and idle CPU samples",
+      "candidate, control, peer, infrastructure, node, pod, and pinned k6 runner identities",
+      "base-analysis decision and both adaptive repeatability-extension completion records"
+    ],
+    "excluded": [
+      "benchmark harness and workload source",
+      "peer application source and SQL setup scripts",
+      "compiled binaries and container archives",
+      "application logs, unrelated homelab workload snapshots, and private network addresses"
+    ]
+  }
+}

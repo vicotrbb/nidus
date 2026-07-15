@@ -1,0 +1,110 @@
+[
+  {
+    "name": "java-spring-7dbbc4bffc-gmh89",
+    "app": "java-spring",
+    "uid": "5e8cc7db-86d7-4156-a336-9355c51e6b5f",
+    "node": "homelab-01",
+    "phase": "Running",
+    "images": [
+      "nidus-bench/java-spring:v1.0.12-campaign"
+    ],
+    "containers": [
+      {
+        "name": "java-spring",
+        "imageID": "sha256:a9c196d7b189ef622af1d4990190367171c1a170bc096a91cb3dafae1567f583",
+        "ready": true,
+        "restartCount": 0
+      }
+    ]
+  },
+  {
+    "name": "node-express-576f75f4fb-69qk9",
+    "app": "node-express",
+    "uid": "4932b9e8-516a-48cb-92b4-cba70a67fb23",
+    "node": "homelab-01",
+    "phase": "Running",
+    "images": [
+      "nidus-bench/node-express:v1.0.12-campaign"
+    ],
+    "containers": [
+      {
+        "name": "node-express",
+        "imageID": "sha256:d8ac68706c4eada7335e663d4fd29e93e3dbe1ceacf2c7e705435b4563c2e182",
+        "ready": true,
+        "restartCount": 0
+      }
+    ]
+  },
+  {
+    "name": "postgres-7765696975-bqwcl",
+    "app": "postgres",
+    "uid": "ba444379-cce1-4cf4-91e6-606c971629ef",
+    "node": "homelab-01",
+    "phase": "Running",
+    "images": [
+      "docker.io/library/postgres@sha256:20edbde7749f822887a1a022ad526fde0a47d6b2be9a8364433605cf65099416"
+    ],
+    "containers": [
+      {
+        "name": "postgres",
+        "imageID": "docker.io/library/postgres@sha256:20edbde7749f822887a1a022ad526fde0a47d6b2be9a8364433605cf65099416",
+        "ready": true,
+        "restartCount": 0
+      }
+    ]
+  },
+  {
+    "name": "python-fastapi-55b5c8b75b-fd9mg",
+    "app": "python-fastapi",
+    "uid": "8cc20426-0a06-4500-ad55-8c70244c8293",
+    "node": "homelab-01",
+    "phase": "Running",
+    "images": [
+      "nidus-bench/python-fastapi:v1.0.12-campaign"
+    ],
+    "containers": [
+      {
+        "name": "python-fastapi",
+        "imageID": "sha256:6b3667905a69da3287658750f26688f13f787f98745cf66ca1ad1819796313b5",
+        "ready": true,
+        "restartCount": 0
+      }
+    ]
+  },
+  {
+    "name": "rust-nidus-v1-0-12-86bff896b5-96nsz",
+    "app": "rust-nidus-v1-0-12",
+    "uid": "77ae00ad-e12e-4b90-976f-86e4b50cb4ce",
+    "node": "homelab-01",
+    "phase": "Running",
+    "images": [
+      "docker.io/library/debian@sha256:63a496b5d3b99214b39f5ed70eb71a61e590a77979c79cbee4faf991f8c0783e"
+    ],
+    "containers": [
+      {
+        "name": "rust-nidus-v1-0-12",
+        "imageID": "docker.io/library/debian@sha256:63a496b5d3b99214b39f5ed70eb71a61e590a77979c79cbee4faf991f8c0783e",
+        "ready": true,
+        "restartCount": 0
+      }
+    ]
+  },
+  {
+    "name": "rust-nidus-v1-0-4-66f887bcfc-rw4kb",
+    "app": "rust-nidus-v1-0-4",
+    "uid": "9c4ae89a-9859-4a99-b47a-a771bb764437",
+    "node": "homelab-01",
+    "phase": "Running",
+    "images": [
+      "docker.io/library/debian@sha256:63a496b5d3b99214b39f5ed70eb71a61e590a77979c79cbee4faf991f8c0783e"
+    ],
+    "containers": [
+      {
+        "name": "rust-nidus-v1-0-4",
+        "imageID": "docker.io/library/debian@sha256:63a496b5d3b99214b39f5ed70eb71a61e590a77979c79cbee4faf991f8c0783e",
+        "ready": true,
+        "restartCount": 0
+      }
+    ]
+  }
+]

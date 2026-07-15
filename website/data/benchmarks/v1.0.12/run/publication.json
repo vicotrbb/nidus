@@ -1,0 +1,18 @@
+{
+  "sanitized": true,
+  "sourceRunId": "20260715T162751Z",
+  "manifest": "run/MANIFEST.sha256",
+  "included": [
+    "179 raw k6 summaries",
+    "execution order and database row-count integrity checks",
+    "cluster admission, continuous health, API gates, and idle CPU samples",
+    "candidate, control, peer, infrastructure, node, pod, and pinned k6 runner identities",
+    "base-analysis decision and both adaptive repeatability-extension completion records"
+  ],
+  "excluded": [
+    "benchmark harness and workload source",
+    "peer application source and SQL setup scripts",
+    "compiled binaries and container archives",
+    "application logs, unrelated homelab workload snapshots, and private network addresses"
+  ]
+}

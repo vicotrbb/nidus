@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "images": [
+    {
+      "image": "nidus-bench/python-fastapi:v1.0.12-campaign",
+      "configDigest": "sha256:6b3667905a69da3287658750f26688f13f787f98745cf66ca1ad1819796313b5"
+    },
+    {
+      "image": "nidus-bench/java-spring:v1.0.12-campaign",
+      "configDigest": "sha256:a9c196d7b189ef622af1d4990190367171c1a170bc096a91cb3dafae1567f583"
+    },
+    {
+      "image": "nidus-bench/node-express:v1.0.12-campaign",
+      "configDigest": "sha256:d8ac68706c4eada7335e663d4fd29e93e3dbe1ceacf2c7e705435b4563c2e182"
+    }
+  ]
+}

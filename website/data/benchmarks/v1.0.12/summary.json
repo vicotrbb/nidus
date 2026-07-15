@@ -1,0 +1,2552 @@
+{
+  "schemaVersion": 2,
+  "status": "qualified",
+  "nidusVersion": "1.0.12",
+  "candidate": {
+    "schemaVersion": 1,
+    "candidateVersion": "1.0.12",
+    "sourceCommit": "c0b6d82e96494850a553a1fdc5589e26d71ca4f0",
+    "sourceContentSha256": "ba651438e432acadba217120df2717542eb04dcc59c1aa79e85f47b0dc4bae13",
+    "cargoLockSha256": "70ae0f897240f42c825f7285cfcb5f45ca531ee3456bf11db7fc304378d99d4b",
+    "binarySha256": "660e137501d6b908c144abb20ce879b9fa9198ab481677a71beec91f43014dc2",
+    "binaryBytes": 8893864,
+    "target": "x86_64-unknown-linux-gnu",
+    "builderImage": "docker.io/library/rust@sha256:c993d32d95cc146bd12c84d66f0b924a6a96f3988325f39c144f2f9893dea120",
+    "builtAt": "2026-07-15T15:08:30.275Z"
+  },
+  "control": {
+    "schemaVersion": 1,
+    "controlVersion": "1.0.4",
+    "sourceTag": "v1.0.4",
+    "sourceCommit": "ddbfd3e29bfdce9612927e5ce4cccd98fe4c1c18",
+    "sourceContentSha256": "d3a27a15034e8e8de4254a1637c9824812b1f98ba10531839e19d037fdd9f6e4",
+    "cargoLockSha256": "eaa6981a4582a2c3cbb70ef3a5b6e8adbbcde59ac403ca6e94283fbef4c6d3fc",
+    "binarySha256": "e96c323ec56deb9353f6ab4056eb5c75e5911fba2fcd0efa6775a75d4726992e",
+    "binaryBytes": 8846960,
+    "target": "x86_64-unknown-linux-gnu",
+    "builderImage": "docker.io/library/rust@sha256:c993d32d95cc146bd12c84d66f0b924a6a96f3988325f39c144f2f9893dea120",
+    "builtAt": "2026-07-15T15:11:01.718Z"
+  },
+  "run": {
+    "id": "20260715T162751Z",
+    "startedAt": "2026-07-15T16:27:52.510Z",
+    "completedAt": "2026-07-15T17:55:16.350Z",
+    "namespace": "nidus-framework-bench-v1-0-12",
+    "node": "homelab-01",
+    "rawEvidence": "run"
+  },
+  "method": {
+    "repetitions": 3,
+    "virtualUsers": 8,
+    "preflightDurationSeconds": 10,
+    "warmupDurationSeconds": 5,
+    "measuredDurationSeconds": 20,
+    "thinkTimeSeconds": 0.05,
+    "mixedThinkTimeSeconds": 0.2,
+    "preflightStabilitySamples": 60,
+    "preflightStabilityIntervalSeconds": 5,
+    "clusterNodes": [
+      "homelab-01",
+      "homelab-02"
+    ],
+    "controlPlaneEndpoints": [
+      "homelab-01:6443",
+      "homelab-02:6443"
+    ],
+    "loadGenerator": "one pinned k6 pod per accepted measurement stage (base, extension batch 1, and extension batch 2); no per-cell pod churn",
+    "transportStorage": "node-local hostPath; excluded from measured application data",
+    "databaseStorage": "memory-backed emptyDir with a 512Mi limit; isolates benchmark data from the etcd disk",
+    "stacks": [
+      "rust-nidus-v1-0-12",
+      "rust-nidus-v1-0-4",
+      "python-fastapi",
+      "java-spring",
+      "node-express"
+    ],
+    "profiles": [
+      "ping",
+      "users",
+      "projects",
+      "events",
+      "mixed"
+    ]
+  },
+  "quality": {
+    "accepted": false,
+    "publicationEligible": true,
+    "qualification": {
+      "scope": "non-Nidus peer repeatability only",
+      "samplesDiscarded": 0,
+      "thresholdsChanged": false,
+      "failures": [
+        {
+          "stack": "java-spring",
+          "profile": "ping",
+          "metric": "averageLatency",
+          "observedPercent": 15.579,
+          "thresholdPercent": 15,
+          "message": "java-spring/ping: average latency CV 15.58% exceeded 15%"
+        }
+      ]
+    },
+    "failures": [
+      "java-spring/ping: average latency CV 15.58% exceeded 15%"
+    ],
+    "warnings": [
+      "configured Kubernetes client endpoint briefly missed readiness at 2026-07-15T16:38:45Z while both explicit endpoints and both nodes remained healthy",
+      "configured Kubernetes client endpoint briefly missed readiness at 2026-07-15T17:54:35Z while both explicit endpoints and both nodes remained healthy",
+      "adaptive repeatability extension retained all 75 base measurements and added 12 declared measurements for 3 CV-flagged groups",
+      "1 extension stage attempt was quarantined by a value-independent infrastructure health gate; zero samples from that attempt were published",
+      "campaign is qualified, not strictly accepted: java-spring/ping: average latency CV 15.58% exceeded 15%"
+    ],
+    "rawSummaryCount": 179,
+    "measuredSummaryCount": 87,
+    "preflightClusterStabilitySamples": 60,
+    "continuousClusterHealthSamples": 687,
+    "verifiedK6ExecutionCount": 179,
+    "verifiedK6PodCount": 3,
+    "baseMeasuredSummaryCount": 75,
+    "adaptiveMeasuredSummaryCount": 12,
+    "repeatabilityExtension": {
+      "policyVersion": 1,
+      "allBaseSamplesRetained": true,
+      "triggeredGroupCount": 3,
+      "batchesExecuted": [
+        1,
+        2
+      ],
+      "additionalMeasurementCount": 12
+    },
+    "nodeReadyTransitionTime": "2026-07-15T16:22:25Z",
+    "nodeReadyTransitionTimes": {
+      "homelab-01": "2026-07-15T16:22:25Z",
+      "homelab-02": "2026-07-15T16:11:56Z"
+    },
+    "maximumCoefficientOfVariationPercent": {
+      "throughput": 1.644,
+      "averageLatency": 15.579,
+      "p95Latency": 12.654
+    },
+    "thresholds": {
+      "throughputCoefficientOfVariationPercent": 5,
+      "averageLatencyCoefficientOfVariationPercent": 15,
+      "p95LatencyCoefficientOfVariationPercent": 20,
+      "maximumIdleNodeCpuPercent": 20,
+      "requiredHttpFailureRate": 0,
+      "requiredCheckRate": 1
+    }
+  },
+  "aggregates": [
+    {
+      "stack": "rust-nidus-v1-0-12",
+      "profile": "ping",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 156.348136,
+        "averageLatencyMs": 0.414794,
+        "p95LatencyMs": 0.684293,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.018,
+        "averageLatency": 0.714,
+        "p95Latency": 4.01
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:35:43.079Z",
+          "throughputRps": 156.32971,
+          "averageLatencyMs": 0.415576,
+          "p95LatencyMs": 0.684293,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:06:51.074Z",
+          "throughputRps": 156.348136,
+          "averageLatencyMs": 0.414794,
+          "p95LatencyMs": 0.657961,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:18:48.039Z",
+          "throughputRps": 156.38626,
+          "averageLatencyMs": 0.41012,
+          "p95LatencyMs": 0.712881,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        }
+      ]
+    },
+    {
+      "stack": "rust-nidus-v1-0-12",
+      "profile": "users",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 301.255696,
+        "averageLatencyMs": 1.173828,
+        "p95LatencyMs": 1.789084,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.189,
+        "averageLatency": 2.812,
+        "p95Latency": 0.885
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:36:20.988Z",
+          "throughputRps": 301.255696,
+          "averageLatencyMs": 1.156953,
+          "p95LatencyMs": 1.777852,
+          "requestCount": 6036,
+          "iterationCount": 3018
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:04:20.256Z",
+          "throughputRps": 301.317035,
+          "averageLatencyMs": 1.173828,
+          "p95LatencyMs": 1.789084,
+          "requestCount": 6036,
+          "iterationCount": 3018
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:19:25.728Z",
+          "throughputRps": 300.300669,
+          "averageLatencyMs": 1.22117,
+          "p95LatencyMs": 1.809158,
+          "requestCount": 6018,
+          "iterationCount": 3009
+        }
+      ]
+    },
+    {
+      "stack": "rust-nidus-v1-0-12",
+      "profile": "projects",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 443.338311,
+        "averageLatencyMs": 1.113614,
+        "p95LatencyMs": 1.672645,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.136,
+        "averageLatency": 2.569,
+        "p95Latency": 3.153
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:36:58.701Z",
+          "throughputRps": 442.349017,
+          "averageLatencyMs": 1.158936,
+          "p95LatencyMs": 1.758969,
+          "requestCount": 8856,
+          "iterationCount": 2952
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:04:58.107Z",
+          "throughputRps": 443.439681,
+          "averageLatencyMs": 1.105132,
+          "p95LatencyMs": 1.672645,
+          "requestCount": 8886,
+          "iterationCount": 2962
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:16:54.797Z",
+          "throughputRps": 443.338311,
+          "averageLatencyMs": 1.113614,
+          "p95LatencyMs": 1.661003,
+          "requestCount": 8886,
+          "iterationCount": 2962
+        }
+      ]
+    },
+    {
+      "stack": "rust-nidus-v1-0-12",
+      "profile": "events",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 300.574925,
+        "averageLatencyMs": 1.231594,
+        "p95LatencyMs": 1.781905,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.113,
+        "averageLatency": 1.971,
+        "p95Latency": 2.83
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:37:36.623Z",
+          "throughputRps": 300.574925,
+          "averageLatencyMs": 1.231594,
+          "p95LatencyMs": 1.834933,
+          "requestCount": 6016,
+          "iterationCount": 3008
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:05:35.700Z",
+          "throughputRps": 300.285371,
+          "averageLatencyMs": 1.240648,
+          "p95LatencyMs": 1.781905,
+          "requestCount": 6016,
+          "iterationCount": 3008
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:17:32.493Z",
+          "throughputRps": 300.964387,
+          "averageLatencyMs": 1.195123,
+          "p95LatencyMs": 1.734034,
+          "requestCount": 6034,
+          "iterationCount": 3017
+        }
+      ]
+    },
+    {
+      "stack": "rust-nidus-v1-0-12",
+      "profile": "mixed",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 231.550347,
+        "averageLatencyMs": 0.99129,
+        "p95LatencyMs": 1.714655,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.158,
+        "averageLatency": 6.469,
+        "p95Latency": 2.017
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:38:14.647Z",
+          "throughputRps": 231.550347,
+          "averageLatencyMs": 0.918911,
+          "p95LatencyMs": 1.664609,
+          "requestCount": 4674,
+          "iterationCount": 779
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:06:13.444Z",
+          "throughputRps": 232.002041,
+          "averageLatencyMs": 0.99129,
+          "p95LatencyMs": 1.714655,
+          "requestCount": 4668,
+          "iterationCount": 778
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:18:10.336Z",
+          "throughputRps": 231.278508,
+          "averageLatencyMs": 1.045987,
+          "p95LatencyMs": 1.730403,
+          "requestCount": 4668,
+          "iterationCount": 778
+        }
+      ]
+    },
+    {
+      "stack": "rust-nidus-v1-0-4",
+      "profile": "ping",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 156.307919,
+        "averageLatencyMs": 0.405139,
+        "p95LatencyMs": 0.645693,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.053,
+        "averageLatency": 1.61,
+        "p95Latency": 1.22
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:38:52.355Z",
+          "throughputRps": 156.307919,
+          "averageLatencyMs": 0.412507,
+          "p95LatencyMs": 0.653164,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:54:05.318Z",
+          "throughputRps": 156.28472,
+          "averageLatencyMs": 0.405139,
+          "p95LatencyMs": 0.645693,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:21:56.561Z",
+          "throughputRps": 156.437774,
+          "averageLatencyMs": 0.399482,
+          "p95LatencyMs": 0.637417,
+          "requestCount": 3136,
+          "iterationCount": 3136
+        }
+      ]
+    },
+    {
+      "stack": "rust-nidus-v1-0-4",
+      "profile": "users",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 300.758281,
+        "averageLatencyMs": 1.198545,
+        "p95LatencyMs": 1.772334,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.292,
+        "averageLatency": 5.773,
+        "p95Latency": 4.049
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:39:32.150Z",
+          "throughputRps": 300.587454,
+          "averageLatencyMs": 1.198545,
+          "p95LatencyMs": 1.772334,
+          "requestCount": 6016,
+          "iterationCount": 3008
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:51:34.709Z",
+          "throughputRps": 300.758281,
+          "averageLatencyMs": 1.205547,
+          "p95LatencyMs": 1.826919,
+          "requestCount": 6016,
+          "iterationCount": 3008
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:22:34.239Z",
+          "throughputRps": 302.190647,
+          "averageLatencyMs": 1.085878,
+          "p95LatencyMs": 1.685501,
+          "requestCount": 6056,
+          "iterationCount": 3028
+        }
+      ]
+    },
+    {
+      "stack": "rust-nidus-v1-0-4",
+      "profile": "projects",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 442.285221,
+        "averageLatencyMs": 1.164716,
+        "p95LatencyMs": 1.700861,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.271,
+        "averageLatency": 4.633,
+        "p95Latency": 0.666
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:40:10.718Z",
+          "throughputRps": 441.794222,
+          "averageLatencyMs": 1.164716,
+          "p95LatencyMs": 1.700861,
+          "requestCount": 8856,
+          "iterationCount": 2952
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:52:12.389Z",
+          "throughputRps": 442.285221,
+          "averageLatencyMs": 1.166128,
+          "p95LatencyMs": 1.71878,
+          "requestCount": 8856,
+          "iterationCount": 2952
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:20:03.435Z",
+          "throughputRps": 444.071875,
+          "averageLatencyMs": 1.07435,
+          "p95LatencyMs": 1.697732,
+          "requestCount": 8892,
+          "iterationCount": 2964
+        }
+      ]
+    },
+    {
+      "stack": "rust-nidus-v1-0-4",
+      "profile": "events",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 300.514814,
+        "averageLatencyMs": 1.226507,
+        "p95LatencyMs": 1.845683,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.094,
+        "averageLatency": 1.678,
+        "p95Latency": 1.462
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:40:48.653Z",
+          "throughputRps": 300.138836,
+          "averageLatencyMs": 1.258826,
+          "p95LatencyMs": 1.845683,
+          "requestCount": 6016,
+          "iterationCount": 3008
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:52:50.095Z",
+          "throughputRps": 300.694029,
+          "averageLatencyMs": 1.220183,
+          "p95LatencyMs": 1.800288,
+          "requestCount": 6016,
+          "iterationCount": 3008
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:20:41.112Z",
+          "throughputRps": 300.514814,
+          "averageLatencyMs": 1.226507,
+          "p95LatencyMs": 1.847604,
+          "requestCount": 6020,
+          "iterationCount": 3010
+        }
+      ]
+    },
+    {
+      "stack": "rust-nidus-v1-0-4",
+      "profile": "mixed",
+      "sampleCount": 6,
+      "median": {
+        "throughputRps": 230.634909,
+        "averageLatencyMs": 1.192795,
+        "p95LatencyMs": 1.881973,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.358,
+        "averageLatency": 13.591,
+        "p95Latency": 6.706
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:41:27.903Z",
+          "throughputRps": 231.175657,
+          "averageLatencyMs": 0.980345,
+          "p95LatencyMs": 1.752737,
+          "requestCount": 4662,
+          "iterationCount": 777
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:53:27.671Z",
+          "throughputRps": 229.333611,
+          "averageLatencyMs": 1.24718,
+          "p95LatencyMs": 1.984925,
+          "requestCount": 4614,
+          "iterationCount": 769
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:21:18.860Z",
+          "throughputRps": 231.716956,
+          "averageLatencyMs": 0.906219,
+          "p95LatencyMs": 1.64863,
+          "requestCount": 4674,
+          "iterationCount": 779
+        },
+        {
+          "repetition": 4,
+          "capturedAt": "2026-07-15T17:43:12.315Z",
+          "throughputRps": 230.651448,
+          "averageLatencyMs": 1.181995,
+          "p95LatencyMs": 1.925469,
+          "requestCount": 4656,
+          "iterationCount": 776
+        },
+        {
+          "repetition": 5,
+          "capturedAt": "2026-07-15T17:46:23.631Z",
+          "throughputRps": 230.618371,
+          "averageLatencyMs": 1.203596,
+          "p95LatencyMs": 1.862498,
+          "requestCount": 4656,
+          "iterationCount": 776
+        },
+        {
+          "repetition": 6,
+          "capturedAt": "2026-07-15T17:47:39.594Z",
+          "throughputRps": 230.12931,
+          "averageLatencyMs": 1.286957,
+          "p95LatencyMs": 1.901448,
+          "requestCount": 4608,
+          "iterationCount": 768
+        }
+      ]
+    },
+    {
+      "stack": "python-fastapi",
+      "profile": "ping",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 154.756711,
+        "averageLatencyMs": 1.272722,
+        "p95LatencyMs": 2.016702,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.096,
+        "averageLatency": 2.885,
+        "p95Latency": 2.211
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:42:05.466Z",
+          "throughputRps": 154.756711,
+          "averageLatencyMs": 1.272722,
+          "p95LatencyMs": 1.941017,
+          "requestCount": 3096,
+          "iterationCount": 3096
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:57:14.310Z",
+          "throughputRps": 154.943347,
+          "averageLatencyMs": 1.223298,
+          "p95LatencyMs": 2.016702,
+          "requestCount": 3104,
+          "iterationCount": 3104
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:09:22.108Z",
+          "throughputRps": 154.650789,
+          "averageLatencyMs": 1.294414,
+          "p95LatencyMs": 2.017854,
+          "requestCount": 3096,
+          "iterationCount": 3096
+        }
+      ]
+    },
+    {
+      "stack": "python-fastapi",
+      "profile": "users",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 279.40559,
+        "averageLatencyMs": 3.314662,
+        "p95LatencyMs": 4.784881,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 1.284,
+        "averageLatency": 11.617,
+        "p95Latency": 3.81
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:42:43.221Z",
+          "throughputRps": 275.617124,
+          "averageLatencyMs": 3.713605,
+          "p95LatencyMs": 4.972519,
+          "requestCount": 5520,
+          "iterationCount": 2760
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:54:43.001Z",
+          "throughputRps": 279.40559,
+          "averageLatencyMs": 3.314662,
+          "p95LatencyMs": 4.784881,
+          "requestCount": 5594,
+          "iterationCount": 2797
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:09:59.601Z",
+          "throughputRps": 282.783467,
+          "averageLatencyMs": 2.941597,
+          "p95LatencyMs": 4.607698,
+          "requestCount": 5664,
+          "iterationCount": 2832
+        }
+      ]
+    },
+    {
+      "stack": "python-fastapi",
+      "profile": "projects",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 381.150366,
+        "averageLatencyMs": 4.064885,
+        "p95LatencyMs": 5.592716,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 1.009,
+        "averageLatency": 5.219,
+        "p95Latency": 5.856
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:43:21.737Z",
+          "throughputRps": 381.150366,
+          "averageLatencyMs": 4.064885,
+          "p95LatencyMs": 6.126662,
+          "requestCount": 7632,
+          "iterationCount": 2544
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:55:20.787Z",
+          "throughputRps": 380.889736,
+          "averageLatencyMs": 4.084584,
+          "p95LatencyMs": 5.592716,
+          "requestCount": 7641,
+          "iterationCount": 2547
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:07:29.023Z",
+          "throughputRps": 387.714488,
+          "averageLatencyMs": 3.717559,
+          "p95LatencyMs": 5.505714,
+          "requestCount": 7764,
+          "iterationCount": 2588
+        }
+      ]
+    },
+    {
+      "stack": "python-fastapi",
+      "profile": "events",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 273.894835,
+        "averageLatencyMs": 3.863428,
+        "p95LatencyMs": 5.253719,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 1.644,
+        "averageLatency": 12.867,
+        "p95Latency": 5.824
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:43:59.504Z",
+          "throughputRps": 273.894835,
+          "averageLatencyMs": 3.863428,
+          "p95LatencyMs": 5.271335,
+          "requestCount": 5492,
+          "iterationCount": 2746
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:55:58.514Z",
+          "throughputRps": 273.572113,
+          "averageLatencyMs": 3.935311,
+          "p95LatencyMs": 5.253719,
+          "requestCount": 5476,
+          "iterationCount": 2738
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:08:06.620Z",
+          "throughputRps": 281.596642,
+          "averageLatencyMs": 3.092659,
+          "p95LatencyMs": 4.749142,
+          "requestCount": 5636,
+          "iterationCount": 2818
+        }
+      ]
+    },
+    {
+      "stack": "python-fastapi",
+      "profile": "mixed",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 215.624026,
+        "averageLatencyMs": 3.466079,
+        "p95LatencyMs": 5.13573,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.57,
+        "averageLatency": 6.645,
+        "p95Latency": 6.214
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:44:37.677Z",
+          "throughputRps": 215.624026,
+          "averageLatencyMs": 3.466079,
+          "p95LatencyMs": 5.13573,
+          "requestCount": 4356,
+          "iterationCount": 726
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:56:36.747Z",
+          "throughputRps": 214.208909,
+          "averageLatencyMs": 3.834944,
+          "p95LatencyMs": 5.640217,
+          "requestCount": 4332,
+          "iterationCount": 722
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:08:44.473Z",
+          "throughputRps": 216.654486,
+          "averageLatencyMs": 3.393057,
+          "p95LatencyMs": 5.026669,
+          "requestCount": 4344,
+          "iterationCount": 724
+        }
+      ]
+    },
+    {
+      "stack": "java-spring",
+      "profile": "ping",
+      "sampleCount": 9,
+      "median": {
+        "throughputRps": 156.349107,
+        "averageLatencyMs": 0.462305,
+        "p95LatencyMs": 0.744514,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.156,
+        "averageLatency": 15.579,
+        "p95Latency": 12.654
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:45:17.617Z",
+          "throughputRps": 155.626512,
+          "averageLatencyMs": 0.68916,
+          "p95LatencyMs": 1.043018,
+          "requestCount": 3120,
+          "iterationCount": 3120
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:00:23.121Z",
+          "throughputRps": 156.213093,
+          "averageLatencyMs": 0.498308,
+          "p95LatencyMs": 0.795413,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:12:30.725Z",
+          "throughputRps": 156.353511,
+          "averageLatencyMs": 0.459084,
+          "p95LatencyMs": 0.741275,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 4,
+          "capturedAt": "2026-07-15T17:43:50.265Z",
+          "throughputRps": 156.367505,
+          "averageLatencyMs": 0.454411,
+          "p95LatencyMs": 0.731925,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 5,
+          "capturedAt": "2026-07-15T17:45:07.321Z",
+          "throughputRps": 156.368699,
+          "averageLatencyMs": 0.462305,
+          "p95LatencyMs": 0.734558,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 6,
+          "capturedAt": "2026-07-15T17:48:17.265Z",
+          "throughputRps": 156.347786,
+          "averageLatencyMs": 0.462996,
+          "p95LatencyMs": 0.767508,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 7,
+          "capturedAt": "2026-07-15T17:54:01.283Z",
+          "throughputRps": 156.349107,
+          "averageLatencyMs": 0.457356,
+          "p95LatencyMs": 0.728629,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 8,
+          "capturedAt": "2026-07-15T17:54:38.705Z",
+          "throughputRps": 156.338932,
+          "averageLatencyMs": 0.469849,
+          "p95LatencyMs": 0.784066,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 9,
+          "capturedAt": "2026-07-15T17:55:16.350Z",
+          "throughputRps": 156.386117,
+          "averageLatencyMs": 0.450412,
+          "p95LatencyMs": 0.744514,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        }
+      ]
+    },
+    {
+      "stack": "java-spring",
+      "profile": "users",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 306.195099,
+        "averageLatencyMs": 0.66661,
+        "p95LatencyMs": 1.220578,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.242,
+        "averageLatency": 8.352,
+        "p95Latency": 8.72
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:45:55.308Z",
+          "throughputRps": 305.05011,
+          "averageLatencyMs": 0.767429,
+          "p95LatencyMs": 1.409061,
+          "requestCount": 6112,
+          "iterationCount": 3056
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:57:52.025Z",
+          "throughputRps": 306.43538,
+          "averageLatencyMs": 0.66661,
+          "p95LatencyMs": 1.211162,
+          "requestCount": 6144,
+          "iterationCount": 3072
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:13:08.438Z",
+          "throughputRps": 306.195099,
+          "averageLatencyMs": 0.665742,
+          "p95LatencyMs": 1.220578,
+          "requestCount": 6128,
+          "iterationCount": 3064
+        }
+      ]
+    },
+    {
+      "stack": "java-spring",
+      "profile": "projects",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 453.541663,
+        "averageLatencyMs": 0.648421,
+        "p95LatencyMs": 1.252969,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.108,
+        "averageLatency": 3.004,
+        "p95Latency": 4.067
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:46:33.029Z",
+          "throughputRps": 453.541663,
+          "averageLatencyMs": 0.648421,
+          "p95LatencyMs": 1.252969,
+          "requestCount": 9072,
+          "iterationCount": 3024
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:58:29.752Z",
+          "throughputRps": 452.891993,
+          "averageLatencyMs": 0.671428,
+          "p95LatencyMs": 1.325578,
+          "requestCount": 9072,
+          "iterationCount": 3024
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:10:37.288Z",
+          "throughputRps": 453.849495,
+          "averageLatencyMs": 0.632549,
+          "p95LatencyMs": 1.225831,
+          "requestCount": 9096,
+          "iterationCount": 3032
+        }
+      ]
+    },
+    {
+      "stack": "java-spring",
+      "profile": "events",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 305.384981,
+        "averageLatencyMs": 0.740539,
+        "p95LatencyMs": 1.303383,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.134,
+        "averageLatency": 5.149,
+        "p95Latency": 2.788
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:47:10.710Z",
+          "throughputRps": 304.835989,
+          "averageLatencyMs": 0.801574,
+          "p95LatencyMs": 1.351238,
+          "requestCount": 6112,
+          "iterationCount": 3056
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:59:07.578Z",
+          "throughputRps": 305.636374,
+          "averageLatencyMs": 0.729043,
+          "p95LatencyMs": 1.279425,
+          "requestCount": 6128,
+          "iterationCount": 3064
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:11:15.019Z",
+          "throughputRps": 305.384981,
+          "averageLatencyMs": 0.740539,
+          "p95LatencyMs": 1.303383,
+          "requestCount": 6112,
+          "iterationCount": 3056
+        }
+      ]
+    },
+    {
+      "stack": "java-spring",
+      "profile": "mixed",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 233.419372,
+        "averageLatencyMs": 0.774921,
+        "p95LatencyMs": 1.754227,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.032,
+        "averageLatency": 1.131,
+        "p95Latency": 1.627
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:47:48.917Z",
+          "throughputRps": 233.299988,
+          "averageLatencyMs": 0.78844,
+          "p95LatencyMs": 1.799639,
+          "requestCount": 4704,
+          "iterationCount": 784
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:59:45.546Z",
+          "throughputRps": 233.419372,
+          "averageLatencyMs": 0.774921,
+          "p95LatencyMs": 1.754227,
+          "requestCount": 4704,
+          "iterationCount": 784
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:11:52.897Z",
+          "throughputRps": 233.436519,
+          "averageLatencyMs": 0.77191,
+          "p95LatencyMs": 1.746406,
+          "requestCount": 4704,
+          "iterationCount": 784
+        }
+      ]
+    },
+    {
+      "stack": "node-express",
+      "profile": "ping",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 156.205104,
+        "averageLatencyMs": 0.920281,
+        "p95LatencyMs": 1.356268,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.079,
+        "averageLatency": 3.069,
+        "p95Latency": 4.663
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:48:26.473Z",
+          "throughputRps": 156.075894,
+          "averageLatencyMs": 0.953897,
+          "p95LatencyMs": 1.436314,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:03:42.498Z",
+          "throughputRps": 156.205104,
+          "averageLatencyMs": 0.920281,
+          "p95LatencyMs": 1.356268,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:15:39.216Z",
+          "throughputRps": 156.322979,
+          "averageLatencyMs": 0.897541,
+          "p95LatencyMs": 1.310292,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        }
+      ]
+    },
+    {
+      "stack": "node-express",
+      "profile": "users",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 298.422044,
+        "averageLatencyMs": 1.481985,
+        "p95LatencyMs": 2.645901,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.218,
+        "averageLatency": 3.314,
+        "p95Latency": 4.502
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:49:03.883Z",
+          "throughputRps": 298.191399,
+          "averageLatencyMs": 1.481985,
+          "p95LatencyMs": 2.657575,
+          "requestCount": 5970,
+          "iterationCount": 2985
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:01:11.521Z",
+          "throughputRps": 298.422044,
+          "averageLatencyMs": 1.485305,
+          "p95LatencyMs": 2.645901,
+          "requestCount": 5976,
+          "iterationCount": 2988
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:16:16.993Z",
+          "throughputRps": 299.418804,
+          "averageLatencyMs": 1.400123,
+          "p95LatencyMs": 2.450441,
+          "requestCount": 6002,
+          "iterationCount": 3001
+        }
+      ]
+    },
+    {
+      "stack": "node-express",
+      "profile": "projects",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 437.529648,
+        "averageLatencyMs": 1.368673,
+        "p95LatencyMs": 2.530409,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.357,
+        "averageLatency": 5.041,
+        "p95Latency": 10.273
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:49:41.623Z",
+          "throughputRps": 439.195771,
+          "averageLatencyMs": 1.301784,
+          "p95LatencyMs": 2.143639,
+          "requestCount": 8805,
+          "iterationCount": 2935
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:01:49.033Z",
+          "throughputRps": 437.529648,
+          "averageLatencyMs": 1.368673,
+          "p95LatencyMs": 2.530409,
+          "requestCount": 8760,
+          "iterationCount": 2920
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:13:46.084Z",
+          "throughputRps": 436.072524,
+          "averageLatencyMs": 1.439892,
+          "p95LatencyMs": 2.609862,
+          "requestCount": 8733,
+          "iterationCount": 2911
+        }
+      ]
+    },
+    {
+      "stack": "node-express",
+      "profile": "events",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 298.918963,
+        "averageLatencyMs": 1.43262,
+        "p95LatencyMs": 2.50341,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.077,
+        "averageLatency": 3.191,
+        "p95Latency": 3.466
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:50:19.084Z",
+          "throughputRps": 298.920094,
+          "averageLatencyMs": 1.419581,
+          "p95LatencyMs": 2.476098,
+          "requestCount": 5994,
+          "iterationCount": 2997
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:02:26.800Z",
+          "throughputRps": 298.52148,
+          "averageLatencyMs": 1.505599,
+          "p95LatencyMs": 2.640406,
+          "requestCount": 5986,
+          "iterationCount": 2993
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:14:23.669Z",
+          "throughputRps": 298.918963,
+          "averageLatencyMs": 1.43262,
+          "p95LatencyMs": 2.50341,
+          "requestCount": 5992,
+          "iterationCount": 2996
+        }
+      ]
+    },
+    {
+      "stack": "node-express",
+      "profile": "mixed",
+      "sampleCount": 6,
+      "median": {
+        "throughputRps": 228.536871,
+        "averageLatencyMs": 1.389523,
+        "p95LatencyMs": 2.513842,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.542,
+        "averageLatency": 11.305,
+        "p95Latency": 11.602
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:50:56.986Z",
+          "throughputRps": 227.968856,
+          "averageLatencyMs": 1.58191,
+          "p95LatencyMs": 2.686283,
+          "requestCount": 4590,
+          "iterationCount": 765
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:03:04.836Z",
+          "throughputRps": 230.50447,
+          "averageLatencyMs": 1.106012,
+          "p95LatencyMs": 2.075754,
+          "requestCount": 4656,
+          "iterationCount": 776
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:15:01.623Z",
+          "throughputRps": 227.145048,
+          "averageLatencyMs": 1.451825,
+          "p95LatencyMs": 2.466562,
+          "requestCount": 4590,
+          "iterationCount": 765
+        },
+        {
+          "repetition": 4,
+          "capturedAt": "2026-07-15T17:44:29.376Z",
+          "throughputRps": 227.758941,
+          "averageLatencyMs": 1.402109,
+          "p95LatencyMs": 2.561121,
+          "requestCount": 4602,
+          "iterationCount": 767
+        },
+        {
+          "repetition": 5,
+          "capturedAt": "2026-07-15T17:45:45.539Z",
+          "throughputRps": 229.104887,
+          "averageLatencyMs": 1.376936,
+          "p95LatencyMs": 2.819675,
+          "requestCount": 4626,
+          "iterationCount": 771
+        },
+        {
+          "repetition": 6,
+          "capturedAt": "2026-07-15T17:47:01.605Z",
+          "throughputRps": 229.369485,
+          "averageLatencyMs": 1.363636,
+          "p95LatencyMs": 2.192674,
+          "requestCount": 4608,
+          "iterationCount": 768
+        }
+      ]
+    }
+  ],
+  "crossFrameworkRows": [
+    {
+      "stack": "rust-nidus-v1-0-12",
+      "profile": "ping",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 156.348136,
+        "averageLatencyMs": 0.414794,
+        "p95LatencyMs": 0.684293,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.018,
+        "averageLatency": 0.714,
+        "p95Latency": 4.01
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:35:43.079Z",
+          "throughputRps": 156.32971,
+          "averageLatencyMs": 0.415576,
+          "p95LatencyMs": 0.684293,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:06:51.074Z",
+          "throughputRps": 156.348136,
+          "averageLatencyMs": 0.414794,
+          "p95LatencyMs": 0.657961,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:18:48.039Z",
+          "throughputRps": 156.38626,
+          "averageLatencyMs": 0.41012,
+          "p95LatencyMs": 0.712881,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        }
+      ]
+    },
+    {
+      "stack": "rust-nidus-v1-0-12",
+      "profile": "users",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 301.255696,
+        "averageLatencyMs": 1.173828,
+        "p95LatencyMs": 1.789084,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.189,
+        "averageLatency": 2.812,
+        "p95Latency": 0.885
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:36:20.988Z",
+          "throughputRps": 301.255696,
+          "averageLatencyMs": 1.156953,
+          "p95LatencyMs": 1.777852,
+          "requestCount": 6036,
+          "iterationCount": 3018
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:04:20.256Z",
+          "throughputRps": 301.317035,
+          "averageLatencyMs": 1.173828,
+          "p95LatencyMs": 1.789084,
+          "requestCount": 6036,
+          "iterationCount": 3018
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:19:25.728Z",
+          "throughputRps": 300.300669,
+          "averageLatencyMs": 1.22117,
+          "p95LatencyMs": 1.809158,
+          "requestCount": 6018,
+          "iterationCount": 3009
+        }
+      ]
+    },
+    {
+      "stack": "rust-nidus-v1-0-12",
+      "profile": "projects",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 443.338311,
+        "averageLatencyMs": 1.113614,
+        "p95LatencyMs": 1.672645,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.136,
+        "averageLatency": 2.569,
+        "p95Latency": 3.153
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:36:58.701Z",
+          "throughputRps": 442.349017,
+          "averageLatencyMs": 1.158936,
+          "p95LatencyMs": 1.758969,
+          "requestCount": 8856,
+          "iterationCount": 2952
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:04:58.107Z",
+          "throughputRps": 443.439681,
+          "averageLatencyMs": 1.105132,
+          "p95LatencyMs": 1.672645,
+          "requestCount": 8886,
+          "iterationCount": 2962
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:16:54.797Z",
+          "throughputRps": 443.338311,
+          "averageLatencyMs": 1.113614,
+          "p95LatencyMs": 1.661003,
+          "requestCount": 8886,
+          "iterationCount": 2962
+        }
+      ]
+    },
+    {
+      "stack": "rust-nidus-v1-0-12",
+      "profile": "events",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 300.574925,
+        "averageLatencyMs": 1.231594,
+        "p95LatencyMs": 1.781905,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.113,
+        "averageLatency": 1.971,
+        "p95Latency": 2.83
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:37:36.623Z",
+          "throughputRps": 300.574925,
+          "averageLatencyMs": 1.231594,
+          "p95LatencyMs": 1.834933,
+          "requestCount": 6016,
+          "iterationCount": 3008
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:05:35.700Z",
+          "throughputRps": 300.285371,
+          "averageLatencyMs": 1.240648,
+          "p95LatencyMs": 1.781905,
+          "requestCount": 6016,
+          "iterationCount": 3008
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:17:32.493Z",
+          "throughputRps": 300.964387,
+          "averageLatencyMs": 1.195123,
+          "p95LatencyMs": 1.734034,
+          "requestCount": 6034,
+          "iterationCount": 3017
+        }
+      ]
+    },
+    {
+      "stack": "rust-nidus-v1-0-12",
+      "profile": "mixed",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 231.550347,
+        "averageLatencyMs": 0.99129,
+        "p95LatencyMs": 1.714655,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.158,
+        "averageLatency": 6.469,
+        "p95Latency": 2.017
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:38:14.647Z",
+          "throughputRps": 231.550347,
+          "averageLatencyMs": 0.918911,
+          "p95LatencyMs": 1.664609,
+          "requestCount": 4674,
+          "iterationCount": 779
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:06:13.444Z",
+          "throughputRps": 232.002041,
+          "averageLatencyMs": 0.99129,
+          "p95LatencyMs": 1.714655,
+          "requestCount": 4668,
+          "iterationCount": 778
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:18:10.336Z",
+          "throughputRps": 231.278508,
+          "averageLatencyMs": 1.045987,
+          "p95LatencyMs": 1.730403,
+          "requestCount": 4668,
+          "iterationCount": 778
+        }
+      ]
+    },
+    {
+      "stack": "python-fastapi",
+      "profile": "ping",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 154.756711,
+        "averageLatencyMs": 1.272722,
+        "p95LatencyMs": 2.016702,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.096,
+        "averageLatency": 2.885,
+        "p95Latency": 2.211
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:42:05.466Z",
+          "throughputRps": 154.756711,
+          "averageLatencyMs": 1.272722,
+          "p95LatencyMs": 1.941017,
+          "requestCount": 3096,
+          "iterationCount": 3096
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:57:14.310Z",
+          "throughputRps": 154.943347,
+          "averageLatencyMs": 1.223298,
+          "p95LatencyMs": 2.016702,
+          "requestCount": 3104,
+          "iterationCount": 3104
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:09:22.108Z",
+          "throughputRps": 154.650789,
+          "averageLatencyMs": 1.294414,
+          "p95LatencyMs": 2.017854,
+          "requestCount": 3096,
+          "iterationCount": 3096
+        }
+      ]
+    },
+    {
+      "stack": "python-fastapi",
+      "profile": "users",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 279.40559,
+        "averageLatencyMs": 3.314662,
+        "p95LatencyMs": 4.784881,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 1.284,
+        "averageLatency": 11.617,
+        "p95Latency": 3.81
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:42:43.221Z",
+          "throughputRps": 275.617124,
+          "averageLatencyMs": 3.713605,
+          "p95LatencyMs": 4.972519,
+          "requestCount": 5520,
+          "iterationCount": 2760
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:54:43.001Z",
+          "throughputRps": 279.40559,
+          "averageLatencyMs": 3.314662,
+          "p95LatencyMs": 4.784881,
+          "requestCount": 5594,
+          "iterationCount": 2797
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:09:59.601Z",
+          "throughputRps": 282.783467,
+          "averageLatencyMs": 2.941597,
+          "p95LatencyMs": 4.607698,
+          "requestCount": 5664,
+          "iterationCount": 2832
+        }
+      ]
+    },
+    {
+      "stack": "python-fastapi",
+      "profile": "projects",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 381.150366,
+        "averageLatencyMs": 4.064885,
+        "p95LatencyMs": 5.592716,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 1.009,
+        "averageLatency": 5.219,
+        "p95Latency": 5.856
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:43:21.737Z",
+          "throughputRps": 381.150366,
+          "averageLatencyMs": 4.064885,
+          "p95LatencyMs": 6.126662,
+          "requestCount": 7632,
+          "iterationCount": 2544
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:55:20.787Z",
+          "throughputRps": 380.889736,
+          "averageLatencyMs": 4.084584,
+          "p95LatencyMs": 5.592716,
+          "requestCount": 7641,
+          "iterationCount": 2547
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:07:29.023Z",
+          "throughputRps": 387.714488,
+          "averageLatencyMs": 3.717559,
+          "p95LatencyMs": 5.505714,
+          "requestCount": 7764,
+          "iterationCount": 2588
+        }
+      ]
+    },
+    {
+      "stack": "python-fastapi",
+      "profile": "events",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 273.894835,
+        "averageLatencyMs": 3.863428,
+        "p95LatencyMs": 5.253719,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 1.644,
+        "averageLatency": 12.867,
+        "p95Latency": 5.824
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:43:59.504Z",
+          "throughputRps": 273.894835,
+          "averageLatencyMs": 3.863428,
+          "p95LatencyMs": 5.271335,
+          "requestCount": 5492,
+          "iterationCount": 2746
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:55:58.514Z",
+          "throughputRps": 273.572113,
+          "averageLatencyMs": 3.935311,
+          "p95LatencyMs": 5.253719,
+          "requestCount": 5476,
+          "iterationCount": 2738
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:08:06.620Z",
+          "throughputRps": 281.596642,
+          "averageLatencyMs": 3.092659,
+          "p95LatencyMs": 4.749142,
+          "requestCount": 5636,
+          "iterationCount": 2818
+        }
+      ]
+    },
+    {
+      "stack": "python-fastapi",
+      "profile": "mixed",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 215.624026,
+        "averageLatencyMs": 3.466079,
+        "p95LatencyMs": 5.13573,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.57,
+        "averageLatency": 6.645,
+        "p95Latency": 6.214
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:44:37.677Z",
+          "throughputRps": 215.624026,
+          "averageLatencyMs": 3.466079,
+          "p95LatencyMs": 5.13573,
+          "requestCount": 4356,
+          "iterationCount": 726
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:56:36.747Z",
+          "throughputRps": 214.208909,
+          "averageLatencyMs": 3.834944,
+          "p95LatencyMs": 5.640217,
+          "requestCount": 4332,
+          "iterationCount": 722
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:08:44.473Z",
+          "throughputRps": 216.654486,
+          "averageLatencyMs": 3.393057,
+          "p95LatencyMs": 5.026669,
+          "requestCount": 4344,
+          "iterationCount": 724
+        }
+      ]
+    },
+    {
+      "stack": "java-spring",
+      "profile": "ping",
+      "sampleCount": 9,
+      "median": {
+        "throughputRps": 156.349107,
+        "averageLatencyMs": 0.462305,
+        "p95LatencyMs": 0.744514,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.156,
+        "averageLatency": 15.579,
+        "p95Latency": 12.654
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:45:17.617Z",
+          "throughputRps": 155.626512,
+          "averageLatencyMs": 0.68916,
+          "p95LatencyMs": 1.043018,
+          "requestCount": 3120,
+          "iterationCount": 3120
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:00:23.121Z",
+          "throughputRps": 156.213093,
+          "averageLatencyMs": 0.498308,
+          "p95LatencyMs": 0.795413,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:12:30.725Z",
+          "throughputRps": 156.353511,
+          "averageLatencyMs": 0.459084,
+          "p95LatencyMs": 0.741275,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 4,
+          "capturedAt": "2026-07-15T17:43:50.265Z",
+          "throughputRps": 156.367505,
+          "averageLatencyMs": 0.454411,
+          "p95LatencyMs": 0.731925,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 5,
+          "capturedAt": "2026-07-15T17:45:07.321Z",
+          "throughputRps": 156.368699,
+          "averageLatencyMs": 0.462305,
+          "p95LatencyMs": 0.734558,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 6,
+          "capturedAt": "2026-07-15T17:48:17.265Z",
+          "throughputRps": 156.347786,
+          "averageLatencyMs": 0.462996,
+          "p95LatencyMs": 0.767508,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 7,
+          "capturedAt": "2026-07-15T17:54:01.283Z",
+          "throughputRps": 156.349107,
+          "averageLatencyMs": 0.457356,
+          "p95LatencyMs": 0.728629,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 8,
+          "capturedAt": "2026-07-15T17:54:38.705Z",
+          "throughputRps": 156.338932,
+          "averageLatencyMs": 0.469849,
+          "p95LatencyMs": 0.784066,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 9,
+          "capturedAt": "2026-07-15T17:55:16.350Z",
+          "throughputRps": 156.386117,
+          "averageLatencyMs": 0.450412,
+          "p95LatencyMs": 0.744514,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        }
+      ]
+    },
+    {
+      "stack": "java-spring",
+      "profile": "users",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 306.195099,
+        "averageLatencyMs": 0.66661,
+        "p95LatencyMs": 1.220578,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.242,
+        "averageLatency": 8.352,
+        "p95Latency": 8.72
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:45:55.308Z",
+          "throughputRps": 305.05011,
+          "averageLatencyMs": 0.767429,
+          "p95LatencyMs": 1.409061,
+          "requestCount": 6112,
+          "iterationCount": 3056
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:57:52.025Z",
+          "throughputRps": 306.43538,
+          "averageLatencyMs": 0.66661,
+          "p95LatencyMs": 1.211162,
+          "requestCount": 6144,
+          "iterationCount": 3072
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:13:08.438Z",
+          "throughputRps": 306.195099,
+          "averageLatencyMs": 0.665742,
+          "p95LatencyMs": 1.220578,
+          "requestCount": 6128,
+          "iterationCount": 3064
+        }
+      ]
+    },
+    {
+      "stack": "java-spring",
+      "profile": "projects",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 453.541663,
+        "averageLatencyMs": 0.648421,
+        "p95LatencyMs": 1.252969,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.108,
+        "averageLatency": 3.004,
+        "p95Latency": 4.067
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:46:33.029Z",
+          "throughputRps": 453.541663,
+          "averageLatencyMs": 0.648421,
+          "p95LatencyMs": 1.252969,
+          "requestCount": 9072,
+          "iterationCount": 3024
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:58:29.752Z",
+          "throughputRps": 452.891993,
+          "averageLatencyMs": 0.671428,
+          "p95LatencyMs": 1.325578,
+          "requestCount": 9072,
+          "iterationCount": 3024
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:10:37.288Z",
+          "throughputRps": 453.849495,
+          "averageLatencyMs": 0.632549,
+          "p95LatencyMs": 1.225831,
+          "requestCount": 9096,
+          "iterationCount": 3032
+        }
+      ]
+    },
+    {
+      "stack": "java-spring",
+      "profile": "events",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 305.384981,
+        "averageLatencyMs": 0.740539,
+        "p95LatencyMs": 1.303383,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.134,
+        "averageLatency": 5.149,
+        "p95Latency": 2.788
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:47:10.710Z",
+          "throughputRps": 304.835989,
+          "averageLatencyMs": 0.801574,
+          "p95LatencyMs": 1.351238,
+          "requestCount": 6112,
+          "iterationCount": 3056
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:59:07.578Z",
+          "throughputRps": 305.636374,
+          "averageLatencyMs": 0.729043,
+          "p95LatencyMs": 1.279425,
+          "requestCount": 6128,
+          "iterationCount": 3064
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:11:15.019Z",
+          "throughputRps": 305.384981,
+          "averageLatencyMs": 0.740539,
+          "p95LatencyMs": 1.303383,
+          "requestCount": 6112,
+          "iterationCount": 3056
+        }
+      ]
+    },
+    {
+      "stack": "java-spring",
+      "profile": "mixed",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 233.419372,
+        "averageLatencyMs": 0.774921,
+        "p95LatencyMs": 1.754227,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.032,
+        "averageLatency": 1.131,
+        "p95Latency": 1.627
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:47:48.917Z",
+          "throughputRps": 233.299988,
+          "averageLatencyMs": 0.78844,
+          "p95LatencyMs": 1.799639,
+          "requestCount": 4704,
+          "iterationCount": 784
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T16:59:45.546Z",
+          "throughputRps": 233.419372,
+          "averageLatencyMs": 0.774921,
+          "p95LatencyMs": 1.754227,
+          "requestCount": 4704,
+          "iterationCount": 784
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:11:52.897Z",
+          "throughputRps": 233.436519,
+          "averageLatencyMs": 0.77191,
+          "p95LatencyMs": 1.746406,
+          "requestCount": 4704,
+          "iterationCount": 784
+        }
+      ]
+    },
+    {
+      "stack": "node-express",
+      "profile": "ping",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 156.205104,
+        "averageLatencyMs": 0.920281,
+        "p95LatencyMs": 1.356268,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.079,
+        "averageLatency": 3.069,
+        "p95Latency": 4.663
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:48:26.473Z",
+          "throughputRps": 156.075894,
+          "averageLatencyMs": 0.953897,
+          "p95LatencyMs": 1.436314,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:03:42.498Z",
+          "throughputRps": 156.205104,
+          "averageLatencyMs": 0.920281,
+          "p95LatencyMs": 1.356268,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:15:39.216Z",
+          "throughputRps": 156.322979,
+          "averageLatencyMs": 0.897541,
+          "p95LatencyMs": 1.310292,
+          "requestCount": 3128,
+          "iterationCount": 3128
+        }
+      ]
+    },
+    {
+      "stack": "node-express",
+      "profile": "users",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 298.422044,
+        "averageLatencyMs": 1.481985,
+        "p95LatencyMs": 2.645901,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.218,
+        "averageLatency": 3.314,
+        "p95Latency": 4.502
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:49:03.883Z",
+          "throughputRps": 298.191399,
+          "averageLatencyMs": 1.481985,
+          "p95LatencyMs": 2.657575,
+          "requestCount": 5970,
+          "iterationCount": 2985
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:01:11.521Z",
+          "throughputRps": 298.422044,
+          "averageLatencyMs": 1.485305,
+          "p95LatencyMs": 2.645901,
+          "requestCount": 5976,
+          "iterationCount": 2988
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:16:16.993Z",
+          "throughputRps": 299.418804,
+          "averageLatencyMs": 1.400123,
+          "p95LatencyMs": 2.450441,
+          "requestCount": 6002,
+          "iterationCount": 3001
+        }
+      ]
+    },
+    {
+      "stack": "node-express",
+      "profile": "projects",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 437.529648,
+        "averageLatencyMs": 1.368673,
+        "p95LatencyMs": 2.530409,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.357,
+        "averageLatency": 5.041,
+        "p95Latency": 10.273
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:49:41.623Z",
+          "throughputRps": 439.195771,
+          "averageLatencyMs": 1.301784,
+          "p95LatencyMs": 2.143639,
+          "requestCount": 8805,
+          "iterationCount": 2935
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:01:49.033Z",
+          "throughputRps": 437.529648,
+          "averageLatencyMs": 1.368673,
+          "p95LatencyMs": 2.530409,
+          "requestCount": 8760,
+          "iterationCount": 2920
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:13:46.084Z",
+          "throughputRps": 436.072524,
+          "averageLatencyMs": 1.439892,
+          "p95LatencyMs": 2.609862,
+          "requestCount": 8733,
+          "iterationCount": 2911
+        }
+      ]
+    },
+    {
+      "stack": "node-express",
+      "profile": "events",
+      "sampleCount": 3,
+      "median": {
+        "throughputRps": 298.918963,
+        "averageLatencyMs": 1.43262,
+        "p95LatencyMs": 2.50341,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.077,
+        "averageLatency": 3.191,
+        "p95Latency": 3.466
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:50:19.084Z",
+          "throughputRps": 298.920094,
+          "averageLatencyMs": 1.419581,
+          "p95LatencyMs": 2.476098,
+          "requestCount": 5994,
+          "iterationCount": 2997
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:02:26.800Z",
+          "throughputRps": 298.52148,
+          "averageLatencyMs": 1.505599,
+          "p95LatencyMs": 2.640406,
+          "requestCount": 5986,
+          "iterationCount": 2993
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:14:23.669Z",
+          "throughputRps": 298.918963,
+          "averageLatencyMs": 1.43262,
+          "p95LatencyMs": 2.50341,
+          "requestCount": 5992,
+          "iterationCount": 2996
+        }
+      ]
+    },
+    {
+      "stack": "node-express",
+      "profile": "mixed",
+      "sampleCount": 6,
+      "median": {
+        "throughputRps": 228.536871,
+        "averageLatencyMs": 1.389523,
+        "p95LatencyMs": 2.513842,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "coefficientOfVariationPercent": {
+        "throughput": 0.542,
+        "averageLatency": 11.305,
+        "p95Latency": 11.602
+      },
+      "repetitions": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-07-15T16:50:56.986Z",
+          "throughputRps": 227.968856,
+          "averageLatencyMs": 1.58191,
+          "p95LatencyMs": 2.686283,
+          "requestCount": 4590,
+          "iterationCount": 765
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-07-15T17:03:04.836Z",
+          "throughputRps": 230.50447,
+          "averageLatencyMs": 1.106012,
+          "p95LatencyMs": 2.075754,
+          "requestCount": 4656,
+          "iterationCount": 776
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-07-15T17:15:01.623Z",
+          "throughputRps": 227.145048,
+          "averageLatencyMs": 1.451825,
+          "p95LatencyMs": 2.466562,
+          "requestCount": 4590,
+          "iterationCount": 765
+        },
+        {
+          "repetition": 4,
+          "capturedAt": "2026-07-15T17:44:29.376Z",
+          "throughputRps": 227.758941,
+          "averageLatencyMs": 1.402109,
+          "p95LatencyMs": 2.561121,
+          "requestCount": 4602,
+          "iterationCount": 767
+        },
+        {
+          "repetition": 5,
+          "capturedAt": "2026-07-15T17:45:45.539Z",
+          "throughputRps": 229.104887,
+          "averageLatencyMs": 1.376936,
+          "p95LatencyMs": 2.819675,
+          "requestCount": 4626,
+          "iterationCount": 771
+        },
+        {
+          "repetition": 6,
+          "capturedAt": "2026-07-15T17:47:01.605Z",
+          "throughputRps": 229.369485,
+          "averageLatencyMs": 1.363636,
+          "p95LatencyMs": 2.192674,
+          "requestCount": 4608,
+          "iterationCount": 768
+        }
+      ]
+    }
+  ],
+  "versionComparison": [
+    {
+      "profile": "ping",
+      "previousVersion": "1.0.4 control from v1.0.4 tag",
+      "currentVersion": "1.0.12 candidate",
+      "previousSampleCount": 3,
+      "currentSampleCount": 3,
+      "previous": {
+        "throughputRps": 156.307919,
+        "averageLatencyMs": 0.405139,
+        "p95LatencyMs": 0.645693,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "current": {
+        "throughputRps": 156.348136,
+        "averageLatencyMs": 0.414794,
+        "p95LatencyMs": 0.684293,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "changePercent": {
+        "throughput": 0.026,
+        "averageLatency": 2.383,
+        "p95Latency": 5.978
+      }
+    },
+    {
+      "profile": "users",
+      "previousVersion": "1.0.4 control from v1.0.4 tag",
+      "currentVersion": "1.0.12 candidate",
+      "previousSampleCount": 3,
+      "currentSampleCount": 3,
+      "previous": {
+        "throughputRps": 300.758281,
+        "averageLatencyMs": 1.198545,
+        "p95LatencyMs": 1.772334,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "current": {
+        "throughputRps": 301.255696,
+        "averageLatencyMs": 1.173828,
+        "p95LatencyMs": 1.789084,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "changePercent": {
+        "throughput": 0.165,
+        "averageLatency": -2.062,
+        "p95Latency": 0.945
+      }
+    },
+    {
+      "profile": "projects",
+      "previousVersion": "1.0.4 control from v1.0.4 tag",
+      "currentVersion": "1.0.12 candidate",
+      "previousSampleCount": 3,
+      "currentSampleCount": 3,
+      "previous": {
+        "throughputRps": 442.285221,
+        "averageLatencyMs": 1.164716,
+        "p95LatencyMs": 1.700861,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "current": {
+        "throughputRps": 443.338311,
+        "averageLatencyMs": 1.113614,
+        "p95LatencyMs": 1.672645,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "changePercent": {
+        "throughput": 0.238,
+        "averageLatency": -4.388,
+        "p95Latency": -1.659
+      }
+    },
+    {
+      "profile": "events",
+      "previousVersion": "1.0.4 control from v1.0.4 tag",
+      "currentVersion": "1.0.12 candidate",
+      "previousSampleCount": 3,
+      "currentSampleCount": 3,
+      "previous": {
+        "throughputRps": 300.514814,
+        "averageLatencyMs": 1.226507,
+        "p95LatencyMs": 1.845683,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "current": {
+        "throughputRps": 300.574925,
+        "averageLatencyMs": 1.231594,
+        "p95LatencyMs": 1.781905,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "changePercent": {
+        "throughput": 0.02,
+        "averageLatency": 0.415,
+        "p95Latency": -3.456
+      }
+    },
+    {
+      "profile": "mixed",
+      "previousVersion": "1.0.4 control from v1.0.4 tag",
+      "currentVersion": "1.0.12 candidate",
+      "previousSampleCount": 6,
+      "currentSampleCount": 3,
+      "previous": {
+        "throughputRps": 230.634909,
+        "averageLatencyMs": 1.192795,
+        "p95LatencyMs": 1.881973,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "current": {
+        "throughputRps": 231.550347,
+        "averageLatencyMs": 0.99129,
+        "p95LatencyMs": 1.714655,
+        "httpFailureRate": 0,
+        "checkRate": 1
+      },
+      "changePercent": {
+        "throughput": 0.397,
+        "averageLatency": -16.894,
+        "p95Latency": -8.891
+      }
+    }
+  ],
+  "publication": {
+    "sanitized": true,
+    "sourceRunId": "20260715T162751Z",
+    "manifest": "run/MANIFEST.sha256",
+    "included": [
+      "179 raw k6 summaries",
+      "execution order and database row-count integrity checks",
+      "cluster admission, continuous health, API gates, and idle CPU samples",
+      "candidate, control, peer, infrastructure, node, pod, and pinned k6 runner identities",
+      "base-analysis decision and both adaptive repeatability-extension completion records"
+    ],
+    "excluded": [
+      "benchmark harness and workload source",
+      "peer application source and SQL setup scripts",
+      "compiled binaries and container archives",
+      "application logs, unrelated homelab workload snapshots, and private network addresses"
+    ]
+  }
+}

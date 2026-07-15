@@ -27,6 +27,49 @@ cargo bench --bench integration_hot_paths -- --warm-up-time 0.1 --measurement-ti
 cargo bench -p nidus-cache --bench cache_hot_paths -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
 ```
 
+## Homelab End-to-End Campaign (2026-07-15)
+
+The versioned website benchmark now includes a fresh Kubernetes campaign for
+the 1.0.12 candidate at source commit `c0b6d82e9649`, paired in the same run
+with a control built from the exact `v1.0.4` tag at `ddbfd3e29bfd`. FastAPI,
+Spring Boot, and Express implemented the same PostgreSQL-backed contract. The
+original June 30, 2026 1.0.4 website snapshot is preserved as historical data,
+but it is not used for the deltas below because its raw repetition series was
+not retained.
+
+The base matrix covered five stacks and five profiles with three rotated
+repetitions: 8 VUs, a 5-second warmup, a 20-second measured window, 50 ms think
+time for focused profiles, and 200 ms for mixed. Apps used one replica, 1 CPU,
+and 512 MiB. PostgreSQL used 1 CPU and 1 GiB with its 512 MiB benchmark data
+volume memory-backed to keep application writes off the control-plane disk.
+The campaign retained 75 base measurements plus 12 adaptive repeatability
+measurements, for 87 measured cells and 179 raw k6 summaries. No benchmark
+source or harness code is stored in this repository.
+
+| Profile | Samples 1.0.4 / 1.0.12 | 1.0.4 req/s | 1.0.12 req/s | Req/s change | 1.0.4 average | 1.0.12 average | Average change | 1.0.4 p95 | 1.0.12 p95 | p95 change |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Ping | 3 / 3 | 156.31 | 156.35 | +0.03% | 405.14 us | 414.79 us | +2.38% | 645.69 us | 684.29 us | +5.98% |
+| Users | 3 / 3 | 300.76 | 301.26 | +0.17% | 1.20 ms | 1.17 ms | -2.06% | 1.77 ms | 1.79 ms | +0.95% |
+| Projects | 3 / 3 | 442.29 | 443.34 | +0.24% | 1.16 ms | 1.11 ms | -4.39% | 1.70 ms | 1.67 ms | -1.66% |
+| Events | 3 / 3 | 300.51 | 300.57 | +0.02% | 1.23 ms | 1.23 ms | +0.42% | 1.85 ms | 1.78 ms | -3.46% |
+| Mixed | 6 / 3 | 230.63 | 231.55 | +0.40% | 1.19 ms | 0.99 ms | -16.89% | 1.88 ms | 1.71 ms | -8.89% |
+
+Positive throughput change is better; negative latency change is better. All
+ten Nidus candidate/control groups passed the predeclared repeatability limits:
+5% throughput CV, 15% average-latency CV, and 20% p95 CV. The campaign is
+published as **qualified**, not strictly accepted, because Spring ping average
+latency ended at 15.58% CV against the 15% limit after the policy maximum of
+nine retained samples. No sample was discarded and no threshold changed. All
+stacks still completed with 0% HTTP failures and 100% checks.
+
+This is a paced end-to-end workload, not a maximum-throughput or capacity
+claim. The complete cross-framework tables, raw summaries, integrity checks,
+sanitized runtime identities, and evidence manifest are available on the
+[benchmark page](benchmarks/) and in the
+[machine-readable result set](benchmark-data/v1.0.12/summary.json). The
+1.0.12 name is the benchmark candidate label; public installation metadata
+remains at 1.0.11 until the release is cut.
+
 ## Coverage
 
 The current benchmark surface covers:

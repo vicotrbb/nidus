@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "controlVersion": "1.0.4",
+  "sourceTag": "v1.0.4",
+  "sourceCommit": "ddbfd3e29bfdce9612927e5ce4cccd98fe4c1c18",
+  "sourceContentSha256": "d3a27a15034e8e8de4254a1637c9824812b1f98ba10531839e19d037fdd9f6e4",
+  "cargoLockSha256": "eaa6981a4582a2c3cbb70ef3a5b6e8adbbcde59ac403ca6e94283fbef4c6d3fc",
+  "binarySha256": "e96c323ec56deb9353f6ab4056eb5c75e5911fba2fcd0efa6775a75d4726992e",
+  "binaryBytes": 8846960,
+  "target": "x86_64-unknown-linux-gnu",
+  "builderImage": "docker.io/library/rust@sha256:c993d32d95cc146bd12c84d66f0b924a6a96f3988325f39c144f2f9893dea120",
+  "builtAt": "2026-07-15T15:11:01.718Z"
+}

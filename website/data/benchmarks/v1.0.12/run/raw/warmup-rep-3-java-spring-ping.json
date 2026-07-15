@@ -1,0 +1,256 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-07-15T17:12:04.441Z",
+  "stack": "java-spring",
+  "profile": "ping",
+  "phase": "warmup",
+  "repetition": 3,
+  "configuration": {
+    "vus": 8,
+    "duration": "5s",
+    "thinkTimeSeconds": 0.05,
+    "baseUrl": "http://java-spring"
+  },
+  "k6": {
+    "options": {
+      "summaryTrendStats": [
+        "avg",
+        "min",
+        "med",
+        "max",
+        "p(90)",
+        "p(95)",
+        "p(99)",
+        "count"
+      ],
+      "summaryTimeUnit": "",
+      "noColor": false
+    },
+    "state": {
+      "isStdErrTTY": false,
+      "testRunDurationMs": 5018.953263,
+      "isStdOutTTY": false
+    },
+    "metrics": {
+      "vus_max": {
+        "type": "gauge",
+        "contains": "default",
+        "values": {
+          "value": 8,
+          "min": 8,
+          "max": 8
+        }
+      },
+      "http_req_blocked": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "count": 784,
+          "avg": 0.03326767857142849,
+          "min": 0.001383,
+          "med": 0.0031155,
+          "max": 4.020478,
+          "p(90)": 0.005611,
+          "p(95)": 0.00640549999999999,
+          "p(99)": 0.36215140999993095
+        }
+      },
+      "iterations": {
+        "contains": "default",
+        "values": {
+          "count": 784,
+          "rate": 156.20787023057002
+        },
+        "type": "counter"
+      },
+      "data_received": {
+        "type": "counter",
+        "contains": "data",
+        "values": {
+          "count": 112112,
+          "rate": 22337.725442971514
+        }
+      },
+      "http_reqs": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 784,
+          "rate": 156.20787023057002
+        }
+      },
+      "http_req_duration{expected_response:true}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "p(95)": 0.7727020999999996,
+          "p(99)": 0.9884907399999974,
+          "count": 784,
+          "avg": 0.47822815561224463,
+          "min": 0.166026,
+          "med": 0.4449955,
+          "max": 1.862919,
+          "p(90)": 0.6973597
+        }
+      },
+      "http_req_receiving": {
+        "values": {
+          "p(90)": 0.06982970000000001,
+          "p(95)": 0.08976084999999993,
+          "p(99)": 0.1444961,
+          "count": 784,
+          "avg": 0.034692774234693864,
+          "min": 0.008677,
+          "med": 0.024531499999999998,
+          "max": 0.288889
+        },
+        "type": "trend",
+        "contains": "time"
+      },
+      "http_req_failed": {
+        "thresholds": {
+          "rate==0": {
+            "ok": true
+          }
+        },
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 784
+        }
+      },
+      "http_req_waiting": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "p(99)": 0.9073647399999988,
+          "count": 784,
+          "avg": 0.42873095790816274,
+          "min": 0.121421,
+          "med": 0.4001,
+          "max": 1.82665,
+          "p(90)": 0.6571584,
+          "p(95)": 0.7173755
+        }
+      },
+      "data_sent": {
+        "type": "counter",
+        "contains": "data",
+        "values": {
+          "count": 73696,
+          "rate": 14683.539801673582
+        }
+      },
+      "http_req_duration": {
+        "contains": "time",
+        "values": {
+          "med": 0.4449955,
+          "max": 1.862919,
+          "p(90)": 0.6973597,
+          "p(95)": 0.7727020999999996,
+          "p(99)": 0.9884907399999974,
+          "count": 784,
+          "avg": 0.47822815561224463,
+          "min": 0.166026
+        },
+        "type": "trend"
+      },
+      "vus": {
+        "type": "gauge",
+        "contains": "default",
+        "values": {
+          "max": 8,
+          "value": 8,
+          "min": 8
+        }
+      },
+      "checks": {
+        "thresholds": {
+          "rate==1": {
+            "ok": true
+          }
+        },
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "rate": 1,
+          "passes": 784,
+          "fails": 0
+        }
+      },
+      "http_req_connecting": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "count": 784,
+          "avg": 0.005774808673469388,
+          "min": 0,
+          "med": 0,
+          "max": 0.958531,
+          "p(90)": 0,
+          "p(95)": 0,
+          "p(99)": 0.03808764999999083
+        }
+      },
+      "http_req_tls_handshaking": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "p(99)": 0,
+          "count": 784,
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "max": 0,
+          "p(90)": 0,
+          "p(95)": 0
+        }
+      },
+      "http_req_sending": {
+        "contains": "time",
+        "values": {
+          "p(99)": 0.1951368499999988,
+          "count": 784,
+          "avg": 0.014804423469387764,
+          "min": 0.003356,
+          "med": 0.007494,
+          "max": 0.346879,
+          "p(90)": 0.016729,
+          "p(95)": 0.021076499999999995
+        },
+        "type": "trend"
+      },
+      "iteration_duration": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "med": 51.152116500000005,
+          "max": 55.448549,
+          "p(90)": 51.5443964,
+          "p(95)": 51.66436385,
+          "p(99)": 52.23351175999996,
+          "count": 784,
+          "avg": 51.18810264285723,
+          "min": 50.326929
+        }
+      }
+    },
+    "root_group": {
+      "name": "",
+      "path": "",
+      "id": "d41d8cd98f00b204e9800998ecf8427e",
+      "groups": [],
+      "checks": [
+          {
+            "id": "b148c29a54fee57fcf05af48f134ecee",
+            "passes": 784,
+            "fails": 0,
+            "name": "ping is 200",
+            "path": "::ping is 200"
+          }
+        ]
+    }
+  }
+}

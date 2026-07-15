@@ -684,45 +684,109 @@ Use \`moka\` for the default async cache backend. Add \`health\` when readiness 
 Nidus does not decide cache keys, TTL policy, invalidation semantics, or data consistency guarantees. Those remain application architecture decisions.`;
 }
 
-const benchmarkProfiles = [
-  ['ping', 'rust-nidus', '156.890883/s', '423.72us', '659.57us'],
-  ['ping', 'python-fastapi', '148.264889/s', '3.35ms', '4.22ms'],
-  ['ping', 'java-spring', '154.820432/s', '1.13ms', '1.88ms'],
-  ['ping', 'node-express', '155.442129/s', '1.08ms', '1.78ms'],
-  ['users', 'rust-nidus', '297.482161/s', '1.59ms', '3.45ms'],
-  ['users', 'python-fastapi', '278.858057/s', '3.32ms', '6.01ms'],
-  ['users', 'java-spring', '292.89576/s', '1.97ms', '3.82ms'],
-  ['users', 'node-express', '291.549083/s', '2.11ms', '4.31ms'],
-  ['projects', 'rust-nidus', '423.939646/s', '1.95ms', '3.46ms'],
-  ['projects', 'python-fastapi', '380.644823/s', '4.03ms', '7.17ms'],
-  ['projects', 'java-spring', '417.118223/s', '2.26ms', '4.17ms'],
-  ['projects', 'node-express', '414.234335/s', '2.37ms', '4.24ms'],
-  ['events', 'rust-nidus', '282.357362/s', '2.97ms', '4.07ms'],
-  ['events', 'python-fastapi', '267.55211/s', '4.5ms', '6.86ms'],
-  ['events', 'java-spring', '281.790144/s', '3.03ms', '4.22ms'],
-  ['events', 'node-express', '279.668233/s', '3.23ms', '4.65ms'],
-  ['mixed', 'rust-nidus', '232.594368/s', '2.72ms', '7.05ms'],
-  ['mixed', 'python-fastapi', '223.820298/s', '4.01ms', '8.35ms'],
-  ['mixed', 'java-spring', '232.940412/s', '2.7ms', '6.84ms'],
-  ['mixed', 'node-express', '230.302808/s', '3.03ms', '7.3ms'],
-];
+const historicalBenchmark = JSON.parse(read('website/data/benchmarks/v1.0.4/summary.json'));
+const currentBenchmark = JSON.parse(read('website/data/benchmarks/v1.0.12/summary.json'));
 
-const benchmarkHighlights = [
-  ['Fastest ping latency', '423.72us', 'Rust/Nidus average on the read-only ping profile.'],
-  ['Zero failed requests', '0.00% failed', 'Every stack completed the k6 profiles without HTTP failures.'],
-  ['Best write-heavy profile', '423.94/s', 'Rust/Nidus on the projects flow under the paced workload.'],
-];
+if (!['accepted', 'qualified'].includes(currentBenchmark.status)
+  || currentBenchmark.quality?.publicationEligible !== true) {
+  throw new Error('refusing to publish an ineligible v1.0.12 benchmark campaign');
+}
+if (historicalBenchmark.comparability?.eligibleForVersionComparison !== false) {
+  throw new Error('historical v1.0.4 snapshot must remain excluded from paired version deltas');
+}
 
-function benchmarkRows() {
-  return benchmarkProfiles.map(([profile, stack, throughput, average, p95]) => `<tr>
-    <td>${profile}</td>
-    <td><code>${stack}</code></td>
-    <td>${throughput}</td>
-    <td>${average}</td>
-    <td>${p95}</td>
+const stackLabels = {
+  'rust-nidus-v1-0-12': 'rust-nidus 1.0.12',
+  'rust-nidus-v1-0-4': 'rust-nidus 1.0.4',
+  'rust-nidus': 'rust-nidus 1.0.4',
+  'python-fastapi': 'python-fastapi',
+  'java-spring': 'java-spring',
+  'node-express': 'node-express',
+};
+const benchmarkProfileOrder = ['ping', 'users', 'projects', 'events', 'mixed'];
+const benchmarkStackOrder = ['rust-nidus-v1-0-12', 'python-fastapi', 'java-spring', 'node-express'];
+const qualifiedBenchmarkRows = new Set((currentBenchmark.quality.qualification?.failures ?? [])
+  .map((failure) => `${failure.stack}/${failure.profile}`));
+
+function formatThroughput(value) {
+  return `${value.toFixed(2)}/s`;
+}
+
+function formatLatency(value) {
+  return value < 1 ? `${(value * 1000).toFixed(2)}us` : `${value.toFixed(2)}ms`;
+}
+
+function formatPercent(value, { signed = false } = {}) {
+  const prefix = signed && value > 0 ? '+' : '';
+  return `${prefix}${value.toFixed(2)}%`;
+}
+
+function deltaClass(value, lowerIsBetter = false) {
+  if (Math.abs(value) < 0.005) return 'benchmark-delta-neutral';
+  const improved = lowerIsBetter ? value < 0 : value > 0;
+  return improved ? 'benchmark-delta-good' : 'benchmark-delta-bad';
+}
+
+function currentBenchmarkRows() {
+  const rows = [...currentBenchmark.crossFrameworkRows].sort((left, right) => (
+    benchmarkProfileOrder.indexOf(left.profile) - benchmarkProfileOrder.indexOf(right.profile)
+    || benchmarkStackOrder.indexOf(left.stack) - benchmarkStackOrder.indexOf(right.stack)
+  ));
+  return rows.map((result) => {
+    const qualified = qualifiedBenchmarkRows.has(`${result.stack}/${result.profile}`);
+    return `<tr${qualified ? ' class="benchmark-row-qualified"' : ''}>
+    <td>${escapeHtml(result.profile)}</td>
+    <td><code>${escapeHtml(stackLabels[result.stack] ?? result.stack)}</code>${qualified ? '<span class="benchmark-row-note">repeatability note</span>' : ''}</td>
+    <td>${result.sampleCount}</td>
+    <td>${formatThroughput(result.median.throughputRps)}</td>
+    <td>${formatLatency(result.median.averageLatencyMs)}</td>
+    <td>${formatLatency(result.median.p95LatencyMs)}</td>
+    <td>${formatPercent(result.coefficientOfVariationPercent.throughput)}</td>
+    <td>${formatPercent(result.coefficientOfVariationPercent.averageLatency)}</td>
+    <td>${formatPercent(result.coefficientOfVariationPercent.p95Latency)}</td>
     <td>0.00%</td>
     <td>100.00%</td>
+  </tr>`;
+  }).join('');
+}
+
+function historicalBenchmarkRows() {
+  return historicalBenchmark.rows.map((result) => `<tr>
+    <td>${escapeHtml(result.profile)}</td>
+    <td><code>${escapeHtml(stackLabels[result.stack] ?? result.stack)}</code></td>
+    <td>${formatThroughput(result.throughputRps)}</td>
+    <td>${formatLatency(result.averageLatencyMs)}</td>
+    <td>${formatLatency(result.p95LatencyMs)}</td>
+    <td>${formatPercent(result.httpFailureRate * 100)}</td>
+    <td>${formatPercent(result.checkRate * 100)}</td>
   </tr>`).join('');
+}
+
+function versionComparisonRows() {
+  return currentBenchmark.versionComparison.map((result) => `<tr>
+    <td>${escapeHtml(result.profile)}</td>
+    <td>${result.previousSampleCount} / ${result.currentSampleCount}</td>
+    <td>${formatThroughput(result.previous.throughputRps)}</td>
+    <td>${formatThroughput(result.current.throughputRps)}</td>
+    <td><span class="benchmark-delta ${deltaClass(result.changePercent.throughput)}">${formatPercent(result.changePercent.throughput, { signed: true })}</span></td>
+    <td>${formatLatency(result.previous.averageLatencyMs)}</td>
+    <td>${formatLatency(result.current.averageLatencyMs)}</td>
+    <td><span class="benchmark-delta ${deltaClass(result.changePercent.averageLatency, true)}">${formatPercent(result.changePercent.averageLatency, { signed: true })}</span></td>
+    <td>${formatLatency(result.previous.p95LatencyMs)}</td>
+    <td>${formatLatency(result.current.p95LatencyMs)}</td>
+    <td><span class="benchmark-delta ${deltaClass(result.changePercent.p95Latency, true)}">${formatPercent(result.changePercent.p95Latency, { signed: true })}</span></td>
+  </tr>`).join('');
+}
+
+function benchmarkHighlights() {
+  const ping = currentBenchmark.crossFrameworkRows.find((result) => (
+    result.stack === 'rust-nidus-v1-0-12' && result.profile === 'ping'
+  ));
+  return [
+    ['1.0.12 ping latency', formatLatency(ping.median.averageLatencyMs), `Median average latency across ${ping.sampleCount} measured repetitions.`],
+    ['Measured cells', String(currentBenchmark.quality.measuredSummaryCount), `${currentBenchmark.quality.baseMeasuredSummaryCount}-cell base matrix plus ${currentBenchmark.quality.adaptiveMeasuredSummaryCount} retained adaptive cells.`],
+    ['Correctness gate', '0.00% failed', 'Every published k6 check passed across the complete campaign.'],
+  ];
 }
 
 function pageShell({ title, description, body, currentSlug, home = false, standalone = false, toc = [], noindex = false }) {
@@ -1043,11 +1107,11 @@ struct AppModule;</code></pre>
       <div class="benchmark-teaser-copy">
         <p class="eyebrow">Benchmark evidence</p>
         <h2 id="benchmark-title">Measured against production-shaped peers, with bounded claims.</h2>
-        <p>A homelab Kubernetes run compared Rust/Nidus, FastAPI, Spring Boot, and Express against the same PostgreSQL-backed endpoint contract. The run is intentionally conservative, but the latency story is clear.</p>
+        <p>The 1.0.12 candidate was measured against its exact 1.0.4 control plus FastAPI, Spring Boot, and Express on the same PostgreSQL-backed homelab contract. A three-repetition base matrix and declared repeatability extensions keep the comparison auditable without turning a paced workload into a capacity claim.</p>
         <a class="text-link" href="${href('benchmarks/')}">Read the full benchmark breakdown</a>
       </div>
       <div class="benchmark-ledger" aria-label="Benchmark highlights">
-        ${benchmarkHighlights.map(([label, value, detail]) => `<article>
+        ${benchmarkHighlights().map(([label, value, detail]) => `<article>
           <span>${label}</span>
           <strong>${value}</strong>
           <p>${detail}</p>
@@ -1079,20 +1143,27 @@ function benchmarksPage() {
     <section class="benchmark-hero" aria-labelledby="benchmark-page-title">
       <div>
         <p class="eyebrow">Benchmark evidence</p>
-        <h1 id="benchmark-page-title">Nidus Framework Benchmark</h1>
-        <p>Bounded homelab run comparing Rust/Nidus, FastAPI, Spring Boot, and Express with the same endpoint contract, PostgreSQL persistence, one replica, and a matched application deployment envelope.</p>
+        <h1 id="benchmark-page-title">Nidus benchmarks, version by version.</h1>
+        <p>The 1.0.12 candidate, its exact 1.0.4 control, and three production-shaped peers ran the same PostgreSQL-backed contract in Kubernetes. Results are medians of every retained repetition, with correctness, repeatability, and cluster-stability gates.</p>
       </div>
       <aside class="benchmark-run-card" aria-label="Run summary">
-        <span>Run timestamp</span>
-        <strong>20260630T001754Z</strong>
-        <p>k6 ran inside the benchmark namespace with 8 VUs and 20s per stack/profile. All checks passed, and every HTTP failure rate was 0.00%.</p>
+        <span>Qualified campaign</span>
+        <strong>${escapeHtml(currentBenchmark.run.id)}</strong>
+        <p>Candidate source <code>${escapeHtml(currentBenchmark.candidate.sourceCommit.slice(0, 12))}</code>. ${currentBenchmark.method.virtualUsers} VUs, ${currentBenchmark.method.measuredDurationSeconds}s measured windows, a ${currentBenchmark.method.repetitions}-repetition base, ${currentBenchmark.quality.adaptiveMeasuredSummaryCount} adaptive cells, and zero failed HTTP checks.</p>
       </aside>
     </section>
+
+    <nav class="benchmark-version-nav" aria-label="Benchmark versions and comparison">
+      <a href="#benchmark-v1-0-12"><span>Latest campaign</span><strong>1.0.12 candidate</strong></a>
+      <a href="#benchmark-version-comparison"><span>Paired rerun</span><strong>1.0.4 → 1.0.12</strong></a>
+      <a href="#benchmark-v1-0-4"><span>Historical publication</span><strong>1.0.4 original</strong></a>
+    </nav>
 
     <section class="benchmark-method" aria-labelledby="benchmark-method-title">
       <div>
         <p class="eyebrow">Method</p>
-        <h2 id="benchmark-method-title">Bounded homelab run, not a max-throughput or capacity ceiling.</h2>
+        <h2 id="benchmark-method-title">Credible comparison, deliberately bounded claim.</h2>
+        <p>This is an end-to-end, paced homelab workload—not a max-throughput or capacity ceiling.</p>
       </div>
       <div class="benchmark-method-grid">
         <article>
@@ -1101,25 +1172,104 @@ function benchmarksPage() {
         </article>
         <article>
           <h3>Same envelope</h3>
-          <p>Each app used one Kubernetes replica, ClusterIP service exposure, and the same application deployment shape.</p>
+          <p>Each app used one replica, 1 CPU, 512MiB, ClusterIP exposure, and identical database pool bounds. PostgreSQL used 1 CPU and 1GiB with a 512MiB memory-backed data volume. Three pinned k6 runners were used sequentially—one per retained stage, never one per cell—at 1 CPU and 512MiB.</p>
         </article>
         <article>
-          <h3>Paced profile</h3>
-          <p>The k6 harness used constant VUs and a short sleep per iteration to protect shared homelab workloads, so throughput is intentionally bounded.</p>
+          <h3>Repeated and gated</h3>
+          <p>Every cell had a 5s warmup and 20s measured window. The base used three rotated repetitions; CV-flagged groups received complete three-sample batches with every value retained, up to nine samples. CV and raw summaries remain available.</p>
         </article>
       </div>
     </section>
 
-    <section class="benchmark-results" aria-labelledby="benchmark-results-title">
+    <section class="benchmark-results" id="benchmark-v1-0-12" aria-labelledby="benchmark-results-title">
       <div class="benchmark-results-heading">
         <div>
-          <p class="eyebrow">Results</p>
-          <h2 id="benchmark-results-title">Latency stayed low across every application-shaped profile.</h2>
+          <p class="eyebrow">1.0.12 campaign</p>
+          <h2 id="benchmark-results-title">Current Nidus and the peer framework matrix.</h2>
         </div>
-        <p>Rust/Nidus was the latency leader or effectively tied across the run. The mixed profile is close enough to treat as a tie with Java rather than a broad superiority claim.</p>
+        <p>Each number is the median of all retained samples shown in the <em>n</em> column. CV is included because a fast result without repeatability is weak evidence; 0.00% failures and 100.00% checks were mandatory.</p>
+      </div>
+      <div class="benchmark-qualification" role="note" aria-label="Campaign qualification">
+        <strong>Qualified, not strictly accepted</strong>
+        <p>24 of 25 stack/profile groups met every repeatability limit. Spring ping average-latency CV finished at 15.58% against the 15% limit after the maximum nine retained samples. No sample was discarded and no threshold changed; every Nidus candidate/control group passed.</p>
       </div>
       <div class="benchmark-table-wrap">
         <table class="benchmark-table">
+          <caption>1.0.12 candidate cross-framework results</caption>
+          <thead>
+            <tr>
+              <th>Profile</th>
+              <th>Stack</th>
+              <th>n</th>
+              <th>median req/s</th>
+              <th>median avg</th>
+              <th>median p95</th>
+              <th>req/s CV</th>
+              <th>avg CV</th>
+              <th>p95 CV</th>
+              <th>failed</th>
+              <th>checks</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${currentBenchmarkRows()}
+          </tbody>
+        </table>
+      </div>
+      <div class="benchmark-evidence">
+        <p><strong>Publication status:</strong> qualified. ${currentBenchmark.quality.rawSummaryCount} raw summaries, ${currentBenchmark.quality.verifiedK6ExecutionCount} executions across ${currentBenchmark.quality.verifiedK6PodCount} stage-pinned k6 runners, ${currentBenchmark.quality.preflightClusterStabilitySamples} consecutive preflight stability samples, and ${currentBenchmark.quality.continuousClusterHealthSamples} continuous health samples.</p>
+        <span class="benchmark-evidence-links">
+          <a class="text-link" href="${href('benchmark-data/v1.0.12/summary.json')}">Open the machine-readable summary</a>
+          <a class="text-link" href="${href('benchmark-data/v1.0.12/run/MANIFEST.sha256')}">Verify the evidence manifest</a>
+        </span>
+      </div>
+    </section>
+
+    <section class="benchmark-results benchmark-comparison" id="benchmark-version-comparison" aria-labelledby="benchmark-comparison-title">
+      <div class="benchmark-results-heading">
+        <div>
+          <p class="eyebrow">Version comparison</p>
+          <h2 id="benchmark-comparison-title">Exact 1.0.4 control versus the 1.0.12 candidate.</h2>
+        </div>
+        <p>Both Nidus binaries ran inside this same campaign, on the same node and matrix. Positive throughput change is better; negative latency change is better. The original 1.0.4 publication is not used to calculate these deltas.</p>
+      </div>
+      <div class="benchmark-table-wrap">
+        <table class="benchmark-table benchmark-comparison-table">
+          <caption>Paired Nidus version-over-version results</caption>
+          <thead>
+            <tr>
+              <th>Profile</th>
+              <th>samples 1.0.4 / 1.0.12</th>
+              <th>1.0.4 req/s</th>
+              <th>1.0.12 req/s</th>
+              <th>req/s Δ</th>
+              <th>1.0.4 avg</th>
+              <th>1.0.12 avg</th>
+              <th>avg Δ</th>
+              <th>1.0.4 p95</th>
+              <th>1.0.12 p95</th>
+              <th>p95 Δ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${versionComparisonRows()}
+          </tbody>
+        </table>
+      </div>
+      <p class="benchmark-table-note">The control is built from the exact <code>v1.0.4</code> tag at <code>${escapeHtml(currentBenchmark.control.sourceCommit.slice(0, 12))}</code>; the candidate benchmark label is 1.0.12 at local source <code>${escapeHtml(currentBenchmark.candidate.sourceCommit.slice(0, 12))}</code>. Public install snippets remain on 1.0.11 until the release metadata changes.</p>
+    </section>
+
+    <section class="benchmark-results benchmark-historical" id="benchmark-v1-0-4" aria-labelledby="benchmark-historical-title">
+      <div class="benchmark-results-heading">
+        <div>
+          <p class="eyebrow">1.0.4 historical</p>
+          <h2 id="benchmark-historical-title">The original published homelab snapshot.</h2>
+        </div>
+        <p>This preserves the site’s June 30, 2026 results exactly. Its raw k6 summaries and repetition series were not retained, so it remains useful historical evidence but is excluded from version-delta calculations.</p>
+      </div>
+      <div class="benchmark-table-wrap">
+        <table class="benchmark-table">
+          <caption>Original published 1.0.4 single-run results</caption>
           <thead>
             <tr>
               <th>Profile</th>
@@ -1132,10 +1282,11 @@ function benchmarksPage() {
             </tr>
           </thead>
           <tbody>
-            ${benchmarkRows()}
+            ${historicalBenchmarkRows()}
           </tbody>
         </table>
       </div>
+      <p class="benchmark-table-note">Historical run label: <code>${escapeHtml(historicalBenchmark.runTimestampLabel)}</code>. One 20s measured window per stack/profile, 8 VUs, and the same paced profile shape.</p>
     </section>
 
     <section class="benchmark-interpretation" aria-labelledby="benchmark-interpretation-title">
@@ -1146,15 +1297,15 @@ function benchmarksPage() {
       <div class="benchmark-interpretation-list">
         <article>
           <h3>Supported claim</h3>
-          <p>Under this conservative Kubernetes workload, Nidus completed the shared contract with zero request failures and consistently low latency.</p>
+          <p>Under this conservative Kubernetes workload, the 1.0.12 candidate and every peer completed the shared contract with zero request failures. The Nidus version deltas are directly paired, and all ten Nidus groups met the repeatability policy.</p>
         </article>
         <article>
           <h3>Bounded claim</h3>
-          <p>The req/s values are end-to-end paced workload results. They should not be presented as absolute capacity numbers.</p>
+          <p>The req/s values are end-to-end paced workload results on a shared homelab. They describe this contract and envelope, not absolute production capacity.</p>
         </article>
         <article>
-          <h3>Next proof layer</h3>
-          <p>A capacity study would remove pacing, run longer windows, repeat samples, and isolate bottlenecks with continuous profiling.</p>
+          <h3>Evidence boundary</h3>
+          <p>The full qualified result set, repetition medians, CV, identities, row-count checks, and cluster-health evidence ship with the repository. The Spring qualification is preserved; benchmark source does not ship.</p>
         </article>
       </div>
     </section>
@@ -1162,7 +1313,7 @@ function benchmarksPage() {
 
   return pageShell({
     title: 'Benchmarks',
-    description: 'Nidus framework benchmark results from a bounded homelab Kubernetes run against FastAPI, Spring Boot, and Express.',
+    description: 'Versioned Nidus framework benchmark results from a repeated homelab Kubernetes campaign against an exact 1.0.4 control, FastAPI, Spring Boot, and Express.',
     body,
     currentSlug: 'benchmarks',
     standalone: true,
@@ -1254,6 +1405,7 @@ function main() {
   ]) copyAsset(assetName);
   fs.copyFileSync(path.join(SRC, 'styles.css'), path.join(DIST, 'styles.css'));
   fs.copyFileSync(path.join(SRC, 'app.js'), path.join(DIST, 'app.js'));
+  fs.cpSync(path.join(WEBSITE, 'data', 'benchmarks'), path.join(DIST, 'benchmark-data'), { recursive: true });
 
   fs.writeFileSync(path.join(DIST, 'index.html'), homePage());
   writeHtml('benchmarks', benchmarksPage());

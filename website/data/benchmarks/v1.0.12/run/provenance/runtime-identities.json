@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 2,
+  "artifactModel": "source-built controls for the repeated 1.0.12 campaign; the June 30 images remain historical-only",
+  "capturedAt": "2026-07-15",
+  "node": "homelab-01",
+  "peerSourceContentSha256": "5435c0a200207a4e4c2206879b47c76ce8e5a1e0e341d427ce3f0fa0a79ce340",
+  "peerImageArchiveSha256": "abee0c450a78377a78d1e6cf487c848c48006873e4268e42f3782df53fb267b6",
+  "stacks": [
+    {
+      "stack": "rust-nidus-v1-0-12",
+      "image": "docker.io/library/debian@sha256:63a496b5d3b99214b39f5ed70eb71a61e590a77979c79cbee4faf991f8c0783e",
+      "expectedImageId": "docker.io/library/debian@sha256:63a496b5d3b99214b39f5ed70eb71a61e590a77979c79cbee4faf991f8c0783e",
+      "runtime": "Nidus 1.0.12 candidate binary on pinned Debian runtime"
+    },
+    {
+      "stack": "rust-nidus-v1-0-4",
+      "image": "docker.io/library/debian@sha256:63a496b5d3b99214b39f5ed70eb71a61e590a77979c79cbee4faf991f8c0783e",
+      "expectedImageId": "docker.io/library/debian@sha256:63a496b5d3b99214b39f5ed70eb71a61e590a77979c79cbee4faf991f8c0783e",
+      "runtime": "Nidus 1.0.4 from tag ddbfd3e2, SQLx 0.8.6, pinned control lock"
+    },
+    {
+      "stack": "python-fastapi",
+      "image": "nidus-bench/python-fastapi:v1.0.12-campaign",
+      "expectedImageId": "sha256:6b3667905a69da3287658750f26688f13f787f98745cf66ca1ad1819796313b5",
+      "source": "stacks/python-fastapi",
+      "runtime": "Python 3.12.13, FastAPI 0.115.6, Uvicorn 0.34.0, asyncpg 0.30.0, one worker"
+    },
+    {
+      "stack": "java-spring",
+      "image": "nidus-bench/java-spring:v1.0.12-campaign",
+      "expectedImageId": "sha256:a9c196d7b189ef622af1d4990190367171c1a170bc096a91cb3dafae1567f583",
+      "source": "stacks/java-spring",
+      "runtime": "Java 21.0.11, Spring Boot 3.4.1, HikariCP 4-16 connections"
+    },
+    {
+      "stack": "node-express",
+      "image": "nidus-bench/node-express:v1.0.12-campaign",
+      "expectedImageId": "sha256:d8ac68706c4eada7335e663d4fd29e93e3dbe1ceacf2c7e705435b4563c2e182",
+      "source": "stacks/node-express",
+      "runtime": "Node.js 22.23.1, Express 4.22.2, node-postgres 8.13.1"
+    }
+  ],
+  "infrastructureImages": {
+    "postgres": "docker.io/library/postgres@sha256:20edbde7749f822887a1a022ad526fde0a47d6b2be9a8364433605cf65099416",
+    "k6": "docker.io/grafana/k6@sha256:44bd1d66c2b019327991b95459d78402b0a7a0a055ab52ee088deea1a044e8d5",
+    "candidateRuntime": "docker.io/library/debian@sha256:63a496b5d3b99214b39f5ed70eb71a61e590a77979c79cbee4faf991f8c0783e"
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "runId": "20260715T162751Z",
+  "startedAt": "2026-07-15T16:27:52.510Z",
+  "official": true,
+  "candidateVersion": "1.0.12",
+  "candidateSourceCommit": "c0b6d82e96494850a553a1fdc5589e26d71ca4f0",
+  "controlVersion": "1.0.4",
+  "controlSourceCommit": "ddbfd3e29bfdce9612927e5ce4cccd98fe4c1c18",
+  "namespace": "nidus-framework-bench-v1-0-12",
+  "node": "homelab-01",
+  "configuration": {
+    "repetitions": 3,
+    "virtualUsers": 8,
+    "preflightDurationSeconds": 10,
+    "warmupDurationSeconds": 5,
+    "measuredDurationSeconds": 20,
+    "thinkTimeSeconds": 0.05,
+    "mixedThinkTimeSeconds": 0.2,
+    "preflightStabilitySamples": 60,
+    "preflightStabilityIntervalSeconds": 5,
+    "clusterNodes": [
+      "homelab-01",
+      "homelab-02"
+    ],
+    "controlPlaneEndpoints": [
+      "homelab-01:6443",
+      "homelab-02:6443"
+    ],
+    "loadGenerator": "one pinned k6 pod reused across all phases to avoid control-plane lifecycle churn",
+    "transportStorage": "node-local hostPath; excluded from measured application data",
+    "databaseStorage": "memory-backed emptyDir with a 512Mi limit; isolates benchmark data from the etcd disk",
+    "stacks": [
+      "rust-nidus-v1-0-12",
+      "rust-nidus-v1-0-4",
+      "python-fastapi",
+      "java-spring",
+      "node-express"
+    ],
+    "profiles": [
+      "ping",
+      "users",
+      "projects",
+      "events",
+      "mixed"
+    ]
+  },
+  "acceptanceThresholds": {
+    "throughputCoefficientOfVariationPercent": 5,
+    "averageLatencyCoefficientOfVariationPercent": 15,
+    "p95LatencyCoefficientOfVariationPercent": 20,
+    "maximumIdleNodeCpuPercent": 20,
+    "requiredHttpFailureRate": 0,
+    "requiredCheckRate": 1
+  }
+}

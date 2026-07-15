@@ -746,6 +746,42 @@ h3 {
   margin: 0;
 }
 
+.benchmark-version-nav {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-bottom: 1px solid var(--line);
+}
+
+.benchmark-version-nav a {
+  display: grid;
+  gap: var(--space-xs);
+  padding: var(--space-xl) var(--space-lg);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.benchmark-version-nav a + a {
+  border-left: 1px solid var(--line);
+}
+
+.benchmark-version-nav a:hover,
+.benchmark-version-nav a:focus-visible {
+  background: color-mix(in oklch, var(--brand-tint), transparent 35%);
+}
+
+.benchmark-version-nav span {
+  color: var(--copper);
+  font-size: 0.8rem;
+  font-weight: 760;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.benchmark-version-nav strong {
+  font-family: "Bricolage Grotesque", "Afacad Flux", sans-serif;
+  font-size: 1.2rem;
+}
+
 .benchmark-method,
 .benchmark-results,
 .benchmark-interpretation {
@@ -784,6 +820,29 @@ h3 {
   margin-bottom: var(--space-lg);
 }
 
+.benchmark-qualification {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.28fr) minmax(0, 1fr);
+  gap: var(--space-lg);
+  align-items: start;
+  margin: calc(var(--space-lg) * -1) 0 var(--space-xl);
+  border: 1px solid color-mix(in oklch, var(--copper), var(--line) 52%);
+  border-radius: var(--radius);
+  background: color-mix(in oklch, var(--brand-tint), var(--panel) 66%);
+  padding: var(--space-lg);
+}
+
+.benchmark-qualification strong {
+  color: var(--copper);
+  font-family: "Bricolage Grotesque", "Afacad Flux", sans-serif;
+  font-size: 1.08rem;
+}
+
+.benchmark-qualification p {
+  margin: 0;
+  color: var(--muted);
+}
+
 .benchmark-table-wrap {
   overflow-x: auto;
   border: 1px solid var(--line);
@@ -795,6 +854,15 @@ h3 {
   width: 100%;
   min-width: 860px;
   border-collapse: collapse;
+}
+
+.benchmark-table caption {
+  padding: var(--space-md) var(--space-lg);
+  color: var(--muted);
+  background: color-mix(in oklch, var(--brand-tint), var(--panel) 72%);
+  font-size: 0.9rem;
+  font-weight: 650;
+  text-align: left;
 }
 
 .benchmark-table th,
@@ -831,6 +899,94 @@ h3 {
 
 .benchmark-table code {
   color: var(--ink);
+}
+
+.benchmark-table .benchmark-row-qualified {
+  box-shadow: inset 3px 0 0 var(--copper);
+}
+
+.benchmark-row-note {
+  display: block;
+  width: max-content;
+  margin-top: var(--space-xs);
+  border: 1px solid color-mix(in oklch, var(--copper), var(--line) 52%);
+  border-radius: 999px;
+  padding: 0.05rem 0.42rem;
+  color: var(--copper);
+  font-size: 0.7rem;
+  font-weight: 760;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.benchmark-comparison,
+.benchmark-historical {
+  border-top: 1px solid var(--line);
+}
+
+.benchmark-comparison-table {
+  min-width: 1180px;
+}
+
+.benchmark-delta {
+  display: inline-flex;
+  min-width: 4.9rem;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.1rem 0.48rem;
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+}
+
+.benchmark-delta-good {
+  border-color: oklch(66% 0.11 156);
+  background: oklch(94% 0.04 156);
+  color: oklch(36% 0.11 156);
+}
+
+.benchmark-delta-bad {
+  border-color: oklch(68% 0.12 30);
+  background: oklch(95% 0.035 30);
+  color: oklch(40% 0.12 30);
+}
+
+.benchmark-delta-neutral {
+  background: var(--panel-2);
+  color: var(--muted);
+}
+
+.benchmark-evidence {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-xl);
+  margin-top: var(--space-lg);
+  color: var(--muted);
+}
+
+.benchmark-evidence p,
+.benchmark-table-note {
+  margin: 0;
+  color: var(--muted);
+}
+
+.benchmark-evidence .text-link {
+  flex: none;
+  margin-top: 0;
+}
+
+.benchmark-evidence-links {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+}
+
+.benchmark-table-note {
+  margin-top: var(--space-lg);
 }
 
 .benchmark-interpretation {
@@ -1337,6 +1493,25 @@ a:focus-visible {
     display: none;
   }
 
+  .benchmark-version-nav {
+    grid-template-columns: 1fr;
+  }
+
+  .benchmark-version-nav a + a {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .benchmark-evidence {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .benchmark-qualification {
+    grid-template-columns: 1fr;
+  }
+
   h1 {
     max-width: none;
     font-size: 4.3rem;
@@ -1440,6 +1615,8 @@ a:focus-visible {
 
   .benchmark-hero h1 {
     max-width: none;
+    font-size: clamp(2.6rem, 13vw, 3.6rem);
+    overflow-wrap: normal;
   }
 
   .benchmark-results-heading {

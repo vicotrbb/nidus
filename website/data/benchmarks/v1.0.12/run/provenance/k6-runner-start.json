@@ -1,0 +1,14 @@
+{
+  "name": "k6-runner",
+  "uid": "fd91a261-2810-4751-856b-572da902bd92",
+  "node": "homelab-01",
+  "phase": "Running",
+  "containers": [
+    {
+      "name": "k6",
+      "imageID": "docker.io/grafana/k6@sha256:44bd1d66c2b019327991b95459d78402b0a7a0a055ab52ee088deea1a044e8d5",
+      "ready": true,
+      "restartCount": 0
+    }
+  ]
+}

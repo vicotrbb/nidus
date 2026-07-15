@@ -1,0 +1,263 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-07-15T16:51:08.402Z",
+  "stack": "rust-nidus-v1-0-4",
+  "profile": "users",
+  "phase": "warmup",
+  "repetition": 2,
+  "configuration": {
+    "vus": 8,
+    "duration": "5s",
+    "thinkTimeSeconds": 0.05,
+    "baseUrl": "http://rust-nidus-v1-0-4"
+  },
+  "k6": {
+    "options": {
+      "summaryTrendStats": [
+        "avg",
+        "min",
+        "med",
+        "max",
+        "p(90)",
+        "p(95)",
+        "p(99)",
+        "count"
+      ],
+      "summaryTimeUnit": "",
+      "noColor": false
+    },
+    "state": {
+      "isStdOutTTY": false,
+      "isStdErrTTY": false,
+      "testRunDurationMs": 5052.473697
+    },
+    "metrics": {
+      "http_req_duration": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "p(99)": 2.4398763699999964,
+          "count": 1520,
+          "avg": 1.183343465789472,
+          "min": 0.251828,
+          "med": 1.135352,
+          "max": 3.535207,
+          "p(90)": 1.6020283000000002,
+          "p(95)": 1.7520216499999997
+        }
+      },
+      "vus": {
+        "type": "gauge",
+        "contains": "default",
+        "values": {
+          "min": 8,
+          "max": 8,
+          "value": 8
+        }
+      },
+      "checks": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "rate": 1,
+          "passes": 1520,
+          "fails": 0
+        },
+        "thresholds": {
+          "rate==1": {
+            "ok": true
+          }
+        }
+      },
+      "vus_max": {
+        "type": "gauge",
+        "contains": "default",
+        "values": {
+          "value": 8,
+          "min": 8,
+          "max": 8
+        }
+      },
+      "http_req_duration{expected_response:true}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "min": 0.251828,
+          "med": 1.135352,
+          "max": 3.535207,
+          "p(90)": 1.6020283000000002,
+          "p(95)": 1.7520216499999997,
+          "p(99)": 2.4398763699999964,
+          "count": 1520,
+          "avg": 1.183343465789472
+        }
+      },
+      "http_req_receiving": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "max": 0.250316,
+          "p(90)": 0.032948000000000005,
+          "p(95)": 0.044316999999999995,
+          "p(99)": 0.1449047299999999,
+          "count": 1520,
+          "avg": 0.025232657894736835,
+          "min": 0.008396,
+          "med": 0.0197475
+        }
+      },
+      "data_sent": {
+        "values": {
+          "count": 264972,
+          "rate": 52444.01374268055
+        },
+        "type": "counter",
+        "contains": "data"
+      },
+      "iterations": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 760,
+          "rate": 150.42136695362987
+        }
+      },
+      "http_reqs": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "rate": 300.84273390725974,
+          "count": 1520
+        }
+      },
+      "http_req_blocked": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "max": 3.03681,
+          "p(90)": 0.005020900000000002,
+          "p(95)": 0.006103049999999998,
+          "p(99)": 0.013668309999999987,
+          "count": 1520,
+          "avg": 0.01566447434210524,
+          "min": 0.001052,
+          "med": 0.002274
+        }
+      },
+      "http_req_tls_handshaking": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "med": 0,
+          "max": 0,
+          "p(90)": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "count": 1520,
+          "avg": 0,
+          "min": 0
+        }
+      },
+      "http_req_connecting": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "med": 0,
+          "max": 1.617062,
+          "p(90)": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "count": 1520,
+          "avg": 0.004866160526315789,
+          "min": 0
+        }
+      },
+      "http_req_sending": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "count": 1520,
+          "avg": 0.0152927059210526,
+          "min": 0.003126,
+          "med": 0.006362,
+          "max": 0.655696,
+          "p(90)": 0.020361,
+          "p(95)": 0.024911549999999994,
+          "p(99)": 0.24399157999999863
+        }
+      },
+      "data_received": {
+        "values": {
+          "count": 527664,
+          "rate": 104436.76338450021
+        },
+        "type": "counter",
+        "contains": "data"
+      },
+      "http_req_failed": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 1520
+        },
+        "thresholds": {
+          "rate==0": {
+            "ok": true
+          }
+        }
+      },
+      "http_req_waiting": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "med": 1.10259,
+          "max": 3.474632,
+          "p(90)": 1.5542921,
+          "p(95)": 1.6870611999999992,
+          "p(99)": 2.2227682499999983,
+          "count": 1520,
+          "avg": 1.1428181019736834,
+          "min": 0.232903
+        }
+      },
+      "iteration_duration": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "count": 760,
+          "avg": 53.16066496973682,
+          "min": 51.234138,
+          "med": 53.1691645,
+          "max": 57.920472,
+          "p(90)": 53.7347346,
+          "p(95)": 53.9113394,
+          "p(99)": 56.377358849999986
+        }
+      }
+    },
+    "root_group": {
+      "id": "d41d8cd98f00b204e9800998ecf8427e",
+      "groups": [],
+      "checks": [
+          {
+            "path": "::create user is 201",
+            "id": "626f2de024d20dfb7b77c1a1472b761d",
+            "passes": 760,
+            "fails": 0,
+            "name": "create user is 201"
+          },
+          {
+            "name": "get user is 200",
+            "path": "::get user is 200",
+            "id": "285cf72c57cc58702b21d35709489fd8",
+            "passes": 760,
+            "fails": 0
+          }
+        ],
+      "name": "",
+      "path": ""
+    }
+  }
+}
