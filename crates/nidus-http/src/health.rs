@@ -1,11 +1,15 @@
 //! Health and readiness registry helpers.
 
-use std::{collections::BTreeMap, future::Future, pin::Pin, sync::Arc, time::Duration};
+use std::{
+    collections::BTreeMap, future::Future, panic::AssertUnwindSafe, pin::Pin, sync::Arc,
+    time::Duration,
+};
 
 use axum::{Json, Router, response::IntoResponse, routing::get};
+use futures_util::{FutureExt, future::join_all};
 use http::StatusCode;
 use serde::Serialize;
-use tokio::{task::JoinHandle, time::timeout};
+use tokio::time::timeout;
 
 type HealthFuture = Pin<Box<dyn Future<Output = HealthStatus> + Send>>;
 type HealthCheck = Arc<dyn Fn() -> HealthFuture + Send + Sync>;
@@ -65,8 +69,10 @@ pub enum HealthState {
 /// `{ "status": "up", "checks": {} }`. When any check returns down or times
 /// out, the route returns `503 Service Unavailable`.
 ///
-/// Checks are in-process async closures; this helper does not provide service
-/// discovery or external health storage.
+/// Checks are in-process async closures and are polled concurrently as part of
+/// the request future; this helper does not provide service discovery or
+/// external health storage. Synchronous checks should be quick. Use an async
+/// API or an explicit `spawn_blocking` boundary for blocking work.
 ///
 /// ```
 /// use std::time::Duration;
@@ -225,30 +231,19 @@ impl HealthRoute {
             );
         }
 
-        let mut tasks = HealthTasks::with_capacity(checks.len());
-        for check in checks.iter() {
+        let statuses = join_all(checks.iter().map(|check| {
             let check = Arc::clone(&check.check);
-            let handle = tokio::spawn(async move {
-                timeout(timeout_duration, check())
-                    .await
-                    .unwrap_or_else(|_| HealthStatus::down("check timed out"))
-            });
-            tasks.push(handle);
-        }
+            AssertUnwindSafe(async move { timeout(timeout_duration, check()).await }).catch_unwind()
+        }))
+        .await;
 
         let mut body_checks = BTreeMap::new();
         let mut all_up = true;
-        for (check, handle) in checks.iter().zip(tasks.iter_mut()) {
-            let status = match handle.await {
-                Ok(status) => status,
-                Err(error) => {
-                    let message = if error.is_panic() {
-                        "check panicked"
-                    } else {
-                        "check join failed"
-                    };
-                    HealthStatus::down(message)
-                }
+        for (check, result) in checks.iter().zip(statuses) {
+            let status = match result {
+                Ok(Ok(status)) => status,
+                Ok(Err(_)) => HealthStatus::down("check timed out"),
+                Err(_) => HealthStatus::down("check panicked"),
             };
             all_up &= status.is_up();
             body_checks.insert(
@@ -276,35 +271,6 @@ impl HealthRoute {
                 checks: body_checks,
             }),
         )
-    }
-}
-
-/// Aborts unfinished checks when a cancelled request drops its handler future.
-struct HealthTasks {
-    handles: Vec<JoinHandle<HealthStatus>>,
-}
-
-impl HealthTasks {
-    fn with_capacity(capacity: usize) -> Self {
-        Self {
-            handles: Vec::with_capacity(capacity),
-        }
-    }
-
-    fn push(&mut self, handle: JoinHandle<HealthStatus>) {
-        self.handles.push(handle);
-    }
-
-    fn iter_mut(&mut self) -> impl Iterator<Item = &mut JoinHandle<HealthStatus>> {
-        self.handles.iter_mut()
-    }
-}
-
-impl Drop for HealthTasks {
-    fn drop(&mut self) {
-        for handle in &self.handles {
-            handle.abort();
-        }
     }
 }
 

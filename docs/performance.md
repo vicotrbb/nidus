@@ -117,6 +117,37 @@ for specific framework behavior and should be compared to their own history.
 
 ## Local Results
 
+### Health-check task-elision pass (2026-07-16)
+
+`HealthRoute::run_checks` previously created one Tokio task and `JoinHandle`
+for every registered check, then retained a custom drop guard to abort those
+tasks when the request was cancelled. That added task scheduling, handle
+allocation, and cancellation bookkeeping to a route whose checks are already
+async. The implementation now polls the checks concurrently with
+`futures-util::join_all`, catches both synchronous and asynchronous panics, and
+lets cancellation drop the in-process futures directly. Check order, per-check
+timeouts, panic-to-down responses, response ordering, and cancellation are
+covered by `crates/nidus-http/tests/production_api.rs`.
+
+The focused request-lifecycle benchmark was run from one isolated target
+directory. The first command saved the pre-change source baseline; the second
+ran the current source against that baseline:
+
+```bash
+CARGO_TARGET_DIR=/tmp/nidus-health-before cargo bench --bench request_lifecycle --all-features -- 'nidus health readiness with 8 checks' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --save-baseline before-health
+CARGO_TARGET_DIR=/tmp/nidus-health-before cargo bench --bench request_lifecycle --all-features -- 'nidus health readiness with 8 checks' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --baseline before-health
+```
+
+| Benchmark | Before | After | Criterion change |
+| --- | ---: | ---: | ---: |
+| Health readiness with 8 checks | 11.461-12.290 us | 1.5258-1.5482 us | 88.144%-89.760% faster |
+
+Criterion classified the comparison as an improvement (`p = 0.00`). This is
+an isolated in-process route-latency measurement, not a server-throughput
+claim. The change deliberately does not alter the public health API. Blocking
+synchronous checks remain an application responsibility and should use
+`spawn_blocking` or an async client.
+
 ### Middleware configuration borrowing pass (2026-07-16)
 
 `RateLimitService::call` previously cloned a complete `RateLimitConfig` before

@@ -552,6 +552,7 @@ async fn health_registry_cancels_checks_when_request_is_cancelled() {
 async fn health_registry_reports_panicking_checks_as_down() {
     let registry = HealthRegistry::new()
         .ready_check_sync("cache", || panic!("cache client panicked"))
+        .ready_check("queue", || async { panic!("queue client panicked") })
         .timeout(Duration::from_secs(1));
     let app = Router::new().merge(registry.routes());
 
@@ -571,6 +572,8 @@ async fn health_registry_reports_panicking_checks_as_down() {
     assert_eq!(body["status"], "down");
     assert_eq!(body["checks"]["cache"]["status"], "down");
     assert_eq!(body["checks"]["cache"]["message"], "check panicked");
+    assert_eq!(body["checks"]["queue"]["status"], "down");
+    assert_eq!(body["checks"]["queue"]["message"], "check panicked");
 }
 
 #[tokio::test]
