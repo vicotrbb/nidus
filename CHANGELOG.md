@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Avoided cloning complete request-ID and rate-limit configurations on every
+  middleware invocation. Middleware now borrows configuration for synchronous policy
+  work and retains only the response header name that crosses the inner future,
+  removing three unnecessary `Arc` clone/drop pairs while
+  preserving custom headers and fail-open/fail-closed behavior.
+- Made `cargo nidus routes` and `cargo nidus openapi` associate a controller
+  definition with a uniquely named `#[routes]` implementation in another Rust
+  source file. File-local controllers still take precedence, and ambiguous
+  cross-file short names now produce an actionable error instead of incomplete
+  route output.
+- Added focused regressions for custom request-ID headers, rate-limit store
+  failure policies, split-file route discovery, and ambiguous controller errors.
+
 ## 1.0.12 - 2026-07-15
 
 - Avoided allocating a temporary Moka cache key for unnamespaced reads and

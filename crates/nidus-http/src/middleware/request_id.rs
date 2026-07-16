@@ -284,7 +284,7 @@ where
     }
 
     fn call(&mut self, request: Request<Body>) -> Self::Future {
-        let config = self.config.clone();
+        let config = &self.config;
         let (mut parts, body) = request.into_parts();
 
         enum Inbound {
@@ -308,7 +308,7 @@ where
         let (request_id, header_value) = match inbound {
             Inbound::Valid(request_id, header_value) => (request_id, header_value),
             Inbound::Invalid if config.validation_mode() == RequestIdMode::Strict => {
-                let (request_id, header_value) = match generated_request_id_header(&config) {
+                let (request_id, header_value) = match generated_request_id_header(config) {
                     Some(generated) => generated,
                     None => {
                         return Box::pin(async move {
@@ -322,7 +322,7 @@ where
                     .insert(config.header().clone(), header_value);
                 return Box::pin(async move { Ok(response) });
             }
-            Inbound::Invalid | Inbound::Missing => match generated_request_id_header(&config) {
+            Inbound::Invalid | Inbound::Missing => match generated_request_id_header(config) {
                 Some(generated) => generated,
                 None => {
                     return Box::pin(async move {
@@ -332,9 +332,10 @@ where
             },
         };
 
+        let response_header = config.header().clone();
         parts
             .headers
-            .insert(config.header().clone(), header_value.clone());
+            .insert(response_header.clone(), header_value.clone());
         let context = RequestContext::from_parts(&parts, request_id);
         parts.extensions.insert(context);
         let future = self.inner.call(Request::from_parts(parts, body));
@@ -343,7 +344,7 @@ where
             let mut response = future.await?;
             response
                 .headers_mut()
-                .entry(config.header().clone())
+                .entry(response_header)
                 .or_insert(header_value);
             Ok(response)
         })
@@ -417,4 +418,33 @@ struct RequestIdErrorDetails {
     path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     request_id: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{convert::Infallible, sync::Arc};
+
+    use tower::{Service, service_fn};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn service_does_not_retain_an_extra_generator_owner_across_the_inner_future() {
+        let config = RequestIdConfig::production();
+        let generator = Arc::clone(&config.generator);
+        let mut service = ValidatedRequestIdService {
+            inner: service_fn(|_request: Request<Body>| async {
+                Ok::<_, Infallible>(Response::new(Body::empty()))
+            }),
+            config,
+        };
+        assert_eq!(Arc::strong_count(&generator), 2);
+
+        let future = service.call(Request::new(Body::empty()));
+        assert_eq!(Arc::strong_count(&generator), 2);
+        let response = future.await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(Arc::strong_count(&generator), 2);
+    }
 }

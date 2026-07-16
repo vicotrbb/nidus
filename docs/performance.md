@@ -117,6 +117,40 @@ for specific framework behavior and should be compared to their own history.
 
 ## Local Results
 
+### Middleware configuration borrowing pass (2026-07-16)
+
+`RateLimitService::call` previously cloned a complete `RateLimitConfig` before
+performing synchronous identity and store checks. That cloned both the store
+and identity `Arc`s, then dropped them before returning the response future.
+`ValidatedRequestIdService::call` likewise cloned its complete config, retaining
+an extra generator `Arc` and header-name clone across the inner future. Both
+services now borrow their config during synchronous work; request-ID middleware
+moves only the response header name across the future boundary. Public config,
+layer, service, error-policy, and header behavior are unchanged.
+
+Two unit tests make the ownership change deterministic: the rate-limit store
+observes exactly one strong owner during its check, and the request-ID generator
+has no additional owner across the inner response future. Separately compiled
+release benchmark artifacts showed smaller `Service::call` symbol spans for the
+measured monomorphs: 1,284 to 988 bytes for rate limiting (296 bytes) and 2,844
+to 2,688 bytes for validated request IDs (156 bytes). These are observations
+from these artifacts, not universal code-size or latency guarantees.
+
+The relevant Criterion rows were also run from independently compiled baseline
+and current targets, alternating the order:
+
+```bash
+CARGO_TARGET_DIR=/tmp/nidus-pre-config-borrow-target cargo bench --bench request_lifecycle --all-features -- 'nidus middleware (validated request id|rate limit) request' --warm-up-time 3 --measurement-time 6 --sample-size 150 --noplot
+CARGO_TARGET_DIR=/tmp/nidus-quality-20260716-target cargo bench --bench request_lifecycle --all-features -- 'nidus middleware (validated request id|rate limit) request' --warm-up-time 3 --measurement-time 6 --sample-size 150 --noplot
+```
+
+The first baseline/current pair moved both rows roughly 7% slower in the
+current run, while the reverse pair moved validated request IDs faster and rate
+limiting slower. Concurrent system compilation and macOS executable scanning
+were active, so the comparisons did not meet the repository's evidence bar. No
+end-to-end latency percentage is recorded for this pass; the accepted evidence
+is the ownership tests plus the observed release-artifact symbol reduction.
+
 ### Moka cache key allocation pass (2026-07-14)
 
 `MokaCacheProvider::get` and `invalidate` previously constructed an owned

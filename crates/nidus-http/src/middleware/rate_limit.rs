@@ -242,7 +242,7 @@ where
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        let config = self.config.clone();
+        let config = &self.config;
         let (parts, body) = request.into_parts();
         let identity =
             (config.identity)(&parts).unwrap_or_else(|| RequestIdentity::new("anonymous"));
@@ -287,4 +287,73 @@ fn insert_rate_limit_headers(headers: &mut http::HeaderMap, decision: &RateLimit
         "ratelimit-reset",
         HeaderValue::from(decision.reset_after.as_secs().max(1)),
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        convert::Infallible,
+        sync::{
+            Weak,
+            atomic::{AtomicUsize, Ordering},
+        },
+    };
+
+    use tower::{ServiceExt, service_fn};
+
+    use super::*;
+
+    struct StoreCloneProbe {
+        observed_strong_count: Arc<AtomicUsize>,
+        owner: Mutex<Option<Weak<dyn RateLimitStore>>>,
+    }
+
+    impl RateLimitStore for StoreCloneProbe {
+        fn check(
+            &self,
+            _identity: &RequestIdentity,
+            limit: u64,
+            window: Duration,
+        ) -> Result<RateLimitDecision, RateLimitError> {
+            let owner = self.owner.lock().unwrap();
+            self.observed_strong_count
+                .store(owner.as_ref().unwrap().strong_count(), Ordering::SeqCst);
+            Ok(RateLimitDecision {
+                allowed: true,
+                limit,
+                remaining: limit.saturating_sub(1),
+                reset_after: window,
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn service_borrows_the_config_store_during_synchronous_policy_work() {
+        let observed_strong_count = Arc::new(AtomicUsize::new(0));
+        let probe = Arc::new(StoreCloneProbe {
+            observed_strong_count: Arc::clone(&observed_strong_count),
+            owner: Mutex::new(None),
+        });
+        let store: Arc<dyn RateLimitStore> = probe.clone();
+        *probe.owner.lock().unwrap() = Some(Arc::downgrade(&store));
+        drop(probe);
+
+        let service = RateLimitService {
+            inner: service_fn(|_request: Request| async {
+                Ok::<_, Infallible>(Response::new(Body::empty()))
+            }),
+            config: RateLimitConfig {
+                limit: 10,
+                window: Duration::from_secs(60),
+                store,
+                identity: Arc::new(|_parts| Some(RequestIdentity::new("test"))),
+                fail_open: true,
+            },
+        };
+
+        let response = service.oneshot(Request::new(Body::empty())).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(observed_strong_count.load(Ordering::SeqCst), 1);
+    }
 }

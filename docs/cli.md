@@ -23,5 +23,9 @@ cargo nidus expand --dry-run
 The CLI is source-driven. It recursively inspects Rust files under `src` and
 macro metadata rather than depending on hidden runtime registration, so both
 generated `src/controllers` projects and feature-oriented layouts such as
-`src/users/controller.rs` are supported. Use it before commits when route
-shape, module graph shape, or OpenAPI output matters.
+`src/users/controller.rs` are supported. A controller definition and its
+`#[routes]` implementation may also live in separate source files when the
+controller's short type name is unique; file-local definitions take precedence
+and ambiguous cross-file short names produce an actionable error instead of an
+incomplete route list. Use the CLI before commits when route shape, module graph
+shape, or OpenAPI output matters.

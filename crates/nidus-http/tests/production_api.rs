@@ -14,14 +14,15 @@ use axum::{
     extract::{ConnectInfo, MatchedPath},
     routing::{get, post},
 };
-use http::{HeaderValue, Method, Request, Response, StatusCode};
+use http::{HeaderValue, Method, Request, Response, StatusCode, header::HeaderName};
 use nidus_http::{
     error::{ErrorEnvelopeLayer, HttpError},
     health::{HealthRegistry, HealthStatus},
     middleware::{
         ApiDefaults, HttpMetricsHook, InMemoryRateLimitStore, PrometheusMetrics, RateLimitConfig,
-        RequestContext, RequestIdConfig, RequestIdMode, client_ip_identity, request_context_layer,
-        trusted_proxy_client_ip_identity, validated_request_id_layer,
+        RateLimitDecision, RateLimitError, RateLimitStore, RequestContext, RequestIdConfig,
+        RequestIdMode, client_ip_identity, request_context_layer, trusted_proxy_client_ip_identity,
+        validated_request_id_layer,
     },
 };
 use serde_json::json;
@@ -33,6 +34,20 @@ struct NotifyOnDrop(Arc<Notify>);
 impl Drop for NotifyOnDrop {
     fn drop(&mut self) {
         self.0.notify_one();
+    }
+}
+
+#[derive(Clone, Copy)]
+struct FailingRateLimitStore;
+
+impl RateLimitStore for FailingRateLimitStore {
+    fn check(
+        &self,
+        _identity: &nidus_http::context::RequestIdentity,
+        _limit: u64,
+        _window: Duration,
+    ) -> Result<RateLimitDecision, RateLimitError> {
+        Err(RateLimitError::new("rate limit backend unavailable"))
     }
 }
 
@@ -80,6 +95,38 @@ async fn validated_request_id_accepts_valid_ids_and_inserts_context() {
     assert_eq!(body["route"], "/context");
     assert_eq!(body["path"], "/context");
     assert_eq!(body["clientKind"], "api_key");
+}
+
+#[tokio::test]
+async fn validated_request_id_preserves_a_custom_header_name() {
+    let header_name = HeaderName::from_static("x-nidus-request-id");
+    let app = Router::new()
+        .route(
+            "/context",
+            get(|context: RequestContext| async move { context.request_id().to_owned() }),
+        )
+        .layer(validated_request_id_layer(
+            RequestIdConfig::production().header_name(header_name.clone()),
+        ));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/context")
+                .header(header_name.clone(), "018f4ad7-56ce-4f6a-a759-29f4438d8d78")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        response.headers().get(&header_name).unwrap(),
+        "018f4ad7-56ce-4f6a-a759-29f4438d8d78"
+    );
+    assert!(!response.headers().contains_key("x-request-id"));
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(body.as_ref(), b"018f4ad7-56ce-4f6a-a759-29f4438d8d78");
 }
 
 #[tokio::test]
@@ -823,6 +870,28 @@ async fn production_api_defaults_composes_routes_layers_and_overrides() {
         .unwrap();
     assert_eq!(second.status(), StatusCode::TOO_MANY_REQUESTS);
     assert!(second.headers().contains_key("retry-after"));
+}
+
+#[tokio::test]
+async fn rate_limit_store_errors_preserve_fail_open_and_fail_closed_policies() {
+    let router = || Router::new().route("/", get(|| async { "ok" }));
+    let config = || RateLimitConfig::new(10, Duration::from_secs(60), FailingRateLimitStore);
+
+    let fail_open = router()
+        .layer(config().fail_open().layer())
+        .oneshot(Request::new(Body::empty()))
+        .await
+        .unwrap();
+    let fail_closed = router()
+        .layer(config().fail_closed().layer())
+        .oneshot(Request::new(Body::empty()))
+        .await
+        .unwrap();
+
+    assert_eq!(fail_open.status(), StatusCode::OK);
+    assert_eq!(fail_open.headers()["ratelimit-limit"], "10");
+    assert_eq!(fail_closed.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert!(fail_closed.headers().contains_key("retry-after"));
 }
 
 #[tokio::test]

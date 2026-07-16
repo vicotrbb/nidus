@@ -12,6 +12,8 @@ use crate::route_path::join_route;
 use crate::source_files::rust_source_files;
 use crate::source_openapi::parse_openapi_args;
 
+const ROUTE_METHODS: [&str; 5] = ["get", "post", "put", "patch", "delete"];
+
 pub(crate) fn inspect_routes(root: &Path) -> Result<()> {
     for route in discover_routes(root)? {
         let method = route.method.to_uppercase();
@@ -53,7 +55,13 @@ pub(crate) struct DiscoveredRoute {
 }
 
 pub(crate) fn discover_routes(root: &Path) -> Result<Vec<DiscoveredRoute>> {
-    let mut routes = Vec::new();
+    let mut files = Vec::new();
+    let mut global_prefixes = HashMap::<String, Option<String>>::new();
+
+    // Parse every source file before discovering routes so a controller and its
+    // `#[routes]` impl may live in different files. Short names that occur more
+    // than once are deliberately excluded from the cross-file fallback; the
+    // file-local controller remains authoritative in that case.
     for path in rust_source_files(&root.join("src"))? {
         let contents =
             fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
@@ -64,7 +72,27 @@ pub(crate) fn discover_routes(root: &Path) -> Result<Vec<DiscoveredRoute>> {
                 anyhow::Error::new(error).context(format!("parsing {}", path.display()))
             }
         })?;
-        routes.extend(discover_controller_routes(&file)?);
+        let local_prefixes = controller_prefixes(&file)?;
+        for (name, prefix) in &local_prefixes {
+            match global_prefixes.entry(name.clone()) {
+                std::collections::hash_map::Entry::Vacant(entry) => {
+                    entry.insert(Some(prefix.clone()));
+                }
+                std::collections::hash_map::Entry::Occupied(mut entry) => {
+                    entry.insert(None);
+                }
+            }
+        }
+        files.push((file, local_prefixes));
+    }
+
+    let mut routes = Vec::new();
+    for (file, local_prefixes) in &files {
+        routes.extend(discover_controller_routes_with_prefixes(
+            file,
+            local_prefixes,
+            &global_prefixes,
+        )?);
     }
     sort_discovered_routes(&mut routes);
     reject_duplicate_routes(&routes)?;
@@ -85,8 +113,17 @@ fn reject_duplicate_routes(routes: &[DiscoveredRoute]) -> Result<()> {
     Ok(())
 }
 
+#[cfg(test)]
 fn discover_controller_routes(file: &syn::File) -> Result<Vec<DiscoveredRoute>> {
     let controller_prefixes = controller_prefixes(file)?;
+    discover_controller_routes_with_prefixes(file, &controller_prefixes, &HashMap::new())
+}
+
+fn discover_controller_routes_with_prefixes(
+    file: &syn::File,
+    local_prefixes: &HashMap<String, String>,
+    global_prefixes: &HashMap<String, Option<String>>,
+) -> Result<Vec<DiscoveredRoute>> {
     let mut routes = Vec::new();
 
     for item in &file.items {
@@ -96,7 +133,26 @@ fn discover_controller_routes(file: &syn::File) -> Result<Vec<DiscoveredRoute>> 
         let Some(controller_name) = impl_self_type_name(implementation) else {
             continue;
         };
-        let Some(prefix) = controller_prefixes.get(&controller_name) else {
+        let prefix = local_prefixes.get(&controller_name).or_else(|| {
+            global_prefixes
+                .get(&controller_name)
+                .and_then(Option::as_ref)
+        });
+        let Some(prefix) = prefix else {
+            if matches!(global_prefixes.get(&controller_name), Some(None))
+                && implementation.items.iter().any(|item| {
+                    let ImplItem::Fn(function) = item else {
+                        return false;
+                    };
+                    ROUTE_METHODS
+                        .iter()
+                        .any(|method| route_method_attr(&function.attrs, method).is_some())
+                })
+            {
+                bail!(
+                    "ambiguous cross-file controller `{controller_name}`; keep its #[controller] definition in the same file as the #[routes] impl or use a unique controller type name"
+                );
+            }
             continue;
         };
 
@@ -172,7 +228,7 @@ fn controller_prefix(item: &ItemStruct) -> Result<Option<String>> {
 }
 
 fn route_attr(attrs: &[Attribute]) -> Result<Option<(String, String)>> {
-    let route_attrs = ["get", "post", "put", "patch", "delete"]
+    let route_attrs = ROUTE_METHODS
         .into_iter()
         .filter_map(|method| route_method_attr(attrs, method).map(|attr| (method, attr)))
         .collect::<Vec<_>>();
