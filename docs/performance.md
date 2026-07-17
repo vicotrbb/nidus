@@ -75,6 +75,7 @@ release metadata changed after the measured source commit.
 The current benchmark surface covers:
 
 - singleton dependency resolution
+- module-graph validation with 128 feature modules and visible providers
 - raw Axum route composition
 - Nidus controller route composition
 - multi-route Nidus controller construction
@@ -116,6 +117,40 @@ composition baselines where they are meaningful. Other rows are microbenchmarks
 for specific framework behavior and should be compared to their own history.
 
 ## Local Results
+
+### Module-graph allocation pass (2026-07-16)
+
+Successful `ModuleGraph::from_modules` validation previously cloned every
+module name twice while building the graph index, copied graph-owned names into
+the cycle-detection sets and stack, and allocated a `Vec` for every visible
+provider even when only one import exported it. The implementation now uses the
+`BTreeMap` entry API to move the index key once, borrows graph-owned names during
+depth-first traversal, and promotes a visible provider from one borrowed import
+to an owned ambiguity list only when a second exporter appears.
+
+The public graph, builder, and error APIs are unchanged. Focused tests assert
+the exact duplicate-module name, ordered cycle path, and ordered ambiguous
+import list so the success-path ownership changes cannot weaken diagnostics.
+
+The consuming benchmark uses Criterion `iter_batched`: constructing 128 feature
+modules plus the root definition happens in the untimed setup routine, while
+the measured routine owns and validates those definitions. Both source versions
+used the same fresh target directory, 150 samples, a two-second warm-up, and a
+five-second measurement window. The current source was measured twice against
+the saved pre-change baseline:
+
+```bash
+CARGO_TARGET_DIR=/tmp/nidus-module-graph-20260716 cargo bench --bench dependency_resolution -- 'nidus 128-module graph validation' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --save-baseline before-module-graph-20260716
+CARGO_TARGET_DIR=/tmp/nidus-module-graph-20260716 cargo bench --bench dependency_resolution -- 'nidus 128-module graph validation' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --baseline before-module-graph-20260716
+```
+
+| Benchmark | Before | First current-source run | Repeated current-source run |
+| --- | ---: | ---: | ---: |
+| 128 feature imports plus root validation | 93.387-95.887 us | 66.904-68.444 us (25.42%-28.70% faster) | 67.110-69.084 us (27.48%-30.54% faster) |
+
+Criterion classified both comparisons as improvements (`p = 0.00`). This is an
+isolated in-process startup validation benchmark, not a request-latency,
+throughput, or application-startup claim.
 
 ### Health-check task-elision pass (2026-07-16)
 

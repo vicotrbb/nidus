@@ -28,7 +28,10 @@ fn module_graph_detects_circular_imports() {
 
     let error = ModuleGraph::from_modules([users, billing]).unwrap_err();
 
-    assert!(matches!(error, NidusError::CircularModuleImport { .. }));
+    let NidusError::CircularModuleImport { cycle } = error else {
+        panic!("expected circular module import error");
+    };
+    assert_eq!(cycle, ["BillingModule", "UsersModule", "BillingModule"]);
 }
 
 #[test]
@@ -42,8 +45,10 @@ fn module_graph_rejects_duplicate_module_names() {
 
     let error = ModuleGraph::from_modules([first, second]).unwrap_err();
 
-    assert!(matches!(error, NidusError::DuplicateModule { .. }));
-    assert!(error.to_string().contains("UsersModule"));
+    let NidusError::DuplicateModule { module } = error else {
+        panic!("expected duplicate module error");
+    };
+    assert_eq!(module, "UsersModule");
 }
 
 #[test]
@@ -212,6 +217,15 @@ fn module_graph_rejects_ambiguous_visible_providers() {
 
     let error = ModuleGraph::from_modules([database_a, database_b, users]).unwrap_err();
 
-    assert!(matches!(error, NidusError::AmbiguousProvider { .. }));
-    assert!(error.to_string().contains("DatabasePool"));
+    let NidusError::AmbiguousProvider {
+        module,
+        provider,
+        imports,
+    } = error
+    else {
+        panic!("expected ambiguous provider error");
+    };
+    assert_eq!(module, "UsersModule");
+    assert_eq!(provider, "DatabasePool");
+    assert_eq!(imports, ["PrimaryDatabaseModule", "ReplicaDatabaseModule"]);
 }

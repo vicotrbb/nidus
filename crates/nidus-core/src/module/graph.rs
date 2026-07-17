@@ -1,8 +1,13 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, btree_map::Entry};
 
 use crate::{Module, NidusError, Result};
 
 use super::ModuleDefinition;
+
+enum VisibleProvider<'a> {
+    Unique(&'a str),
+    Ambiguous(Vec<&'a str>),
+}
 
 /// Validated graph of module definitions.
 #[derive(Debug)]
@@ -37,8 +42,15 @@ impl ModuleGraph {
         let mut registered = BTreeMap::new();
         for module in modules {
             let name = module.name.clone();
-            if registered.insert(name.clone(), module).is_some() {
-                return Err(NidusError::DuplicateModule { module: name });
+            match registered.entry(name) {
+                Entry::Vacant(entry) => {
+                    entry.insert(module);
+                }
+                Entry::Occupied(entry) => {
+                    return Err(NidusError::DuplicateModule {
+                        module: entry.key().clone(),
+                    });
+                }
             }
         }
         let graph = Self {
@@ -218,19 +230,30 @@ impl ModuleGraph {
 
     fn validate_visible_providers_unambiguous(&self) -> Result<()> {
         for module in self.modules.values() {
-            let mut visible_exports = BTreeMap::<&str, Vec<&str>>::new();
+            let mut visible_exports = BTreeMap::<&str, VisibleProvider<'_>>::new();
             for import in &module.imports {
                 let imported = self.modules.get(import).expect("imports were validated");
                 for export in &imported.exports {
-                    visible_exports
-                        .entry(export.as_str())
-                        .or_default()
-                        .push(import.as_str());
+                    match visible_exports.entry(export.as_str()) {
+                        Entry::Vacant(entry) => {
+                            entry.insert(VisibleProvider::Unique(import));
+                        }
+                        Entry::Occupied(mut entry) => {
+                            let visible_provider = entry.get_mut();
+                            match visible_provider {
+                                VisibleProvider::Unique(first_import) => {
+                                    *visible_provider =
+                                        VisibleProvider::Ambiguous(vec![*first_import, import]);
+                                }
+                                VisibleProvider::Ambiguous(imports) => imports.push(import),
+                            }
+                        }
+                    }
                 }
             }
 
-            for (provider, imports) in visible_exports {
-                if imports.len() > 1 {
+            for (provider, visibility) in visible_exports {
+                if let VisibleProvider::Ambiguous(imports) = visibility {
                     return Err(NidusError::AmbiguousProvider {
                         module: module.name.clone(),
                         provider: provider.to_owned(),
@@ -242,26 +265,29 @@ impl ModuleGraph {
         Ok(())
     }
 
-    fn visit(
-        &self,
-        name: &str,
-        visiting: &mut BTreeSet<String>,
-        visited: &mut BTreeSet<String>,
-        stack: &mut Vec<String>,
+    fn visit<'a>(
+        &'a self,
+        name: &'a str,
+        visiting: &mut BTreeSet<&'a str>,
+        visited: &mut BTreeSet<&'a str>,
+        stack: &mut Vec<&'a str>,
     ) -> Result<()> {
         if visited.contains(name) {
             return Ok(());
         }
 
         if visiting.contains(name) {
-            let cycle_start = stack.iter().position(|item| item == name).unwrap_or(0);
-            let mut cycle = stack[cycle_start..].to_vec();
+            let cycle_start = stack.iter().position(|item| *item == name).unwrap_or(0);
+            let mut cycle = stack[cycle_start..]
+                .iter()
+                .map(|name| (*name).to_owned())
+                .collect::<Vec<_>>();
             cycle.push(name.to_owned());
             return Err(NidusError::CircularModuleImport { cycle });
         }
 
-        visiting.insert(name.to_owned());
-        stack.push(name.to_owned());
+        visiting.insert(name);
+        stack.push(name);
         if let Some(module) = self.modules.get(name) {
             for import in &module.imports {
                 self.visit(import, visiting, visited, stack)?;
@@ -269,7 +295,7 @@ impl ModuleGraph {
         }
         stack.pop();
         visiting.remove(name);
-        visited.insert(name.to_owned());
+        visited.insert(name);
         Ok(())
     }
 }

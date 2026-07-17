@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Reduced successful module-graph validation allocations by moving each cloned
+  module name into the graph index instead of cloning it again, borrowing names
+  during cycle detection, and allocating import lists only for genuinely
+  ambiguous providers. Two 150-sample comparisons classified a 128-import
+  validation workload as
+  25.42%-30.54% faster while exact error-payload tests preserve duplicate,
+  cycle, and ambiguity diagnostics.
 - Avoided cloning complete request-ID and rate-limit configurations on every
   middleware invocation. Middleware now borrows configuration for synchronous policy
   work and retains only the response header name that crosses the inner future,
