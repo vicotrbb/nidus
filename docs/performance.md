@@ -118,6 +118,62 @@ for specific framework behavior and should be compared to their own history.
 
 ## Local Results
 
+### Module validation small-collection pass (2026-07-17)
+
+Module validation previously constructed `BTreeSet` indexes for every non-empty
+imports, providers, controllers, and exports list, plus additional provider
+membership indexes even when a module had only one provider or no relevant
+controllers/imports. The common feature-module shape therefore paid several
+small heap allocations to validate metadata whose uniqueness or membership is
+trivial. Validation now skips uniqueness indexes for zero or one name and uses
+an allocation-free empty/single-name lookup while retaining `BTreeSet` for
+larger collections. Validation pass order, deterministic graph order, error
+variants, and error payload order are unchanged.
+
+The existing Criterion rows were present before the implementation. The
+128-module benchmark constructs 128 feature modules with one provider/export
+each plus a root importing all features in untimed `iter_batched` setup. The
+first-singleton row likewise constructs and registers the container during
+untimed setup and serves as a negative control because this pass does not change
+provider resolution.
+
+The initially saved same-target baseline became invalid after the host's timing
+shifted enough to move the unchanged control by double digits. Final evidence
+therefore used a detached baseline worktree at `e745f70`, separately compiled
+target directories, adjacent measurements in both execution orders, and copied
+only Criterion's saved statistics between targets. Every run used 150 samples,
+a two-second warm-up, and a five-second measurement window:
+
+```bash
+git worktree add --detach /tmp/nidus-baseline-paired-20260717 e745f70
+CARGO_TARGET_DIR=/tmp/nidus-core-paired-baseline-target-20260717 cargo bench --bench dependency_resolution --no-run  # baseline e745f70
+CARGO_TARGET_DIR=/tmp/nidus-core-paired-current-target-20260717 cargo bench --bench dependency_resolution --no-run  # current source
+
+# Pair 1: current source, then baseline e745f70
+CARGO_TARGET_DIR=/tmp/nidus-core-paired-current-target-20260717 cargo bench --bench dependency_resolution -- 'nidus (singleton first resolution|128-module graph validation)' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --save-baseline paired-correct-current-1
+rsync -a /tmp/nidus-core-paired-current-target-20260717/criterion/ /tmp/nidus-core-paired-baseline-target-20260717/criterion/
+CARGO_TARGET_DIR=/tmp/nidus-core-paired-baseline-target-20260717 cargo bench --bench dependency_resolution -- 'nidus (singleton first resolution|128-module graph validation)' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --baseline paired-correct-current-1
+
+# Pair 2: baseline e745f70, then current source
+CARGO_TARGET_DIR=/tmp/nidus-core-paired-baseline-target-20260717 cargo bench --bench dependency_resolution -- 'nidus (singleton first resolution|128-module graph validation)' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --save-baseline paired-correct-old-2
+rsync -a /tmp/nidus-core-paired-baseline-target-20260717/criterion/ /tmp/nidus-core-paired-current-target-20260717/criterion/
+CARGO_TARGET_DIR=/tmp/nidus-core-paired-current-target-20260717 cargo bench --bench dependency_resolution -- 'nidus (singleton first resolution|128-module graph validation)' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --baseline paired-correct-old-2
+```
+
+| Order | Baseline `e745f70` | Current source | Current-source change |
+| --- | ---: | ---: | ---: |
+| Current, then baseline | 59.929-60.507 us | 39.789-40.160 us | 32.99%-34.24% faster |
+| Baseline, then current | 59.268-59.562 us | 41.313-41.683 us | 29.57%-30.66% faster |
+
+Criterion found a graph-validation difference in both orders (`p = 0.00`). The
+unchanged singleton control moved by 1.16%-4.99% in the order-correlated
+direction, materially less than the 29.57%-34.24% graph separation. An attempted
+resolution-stack fast path was restored to its original implementation after
+its broader benchmark result failed to reproduce; focused tests were retained
+for normal nested and defensive out-of-order teardown. The graph result is an
+isolated validation microbenchmark and does not establish request latency,
+application startup time, or throughput.
+
 ### Event fan-out allocation pass (2026-07-17)
 
 `EventBus::publish` previously collected every live subscriber into a fresh

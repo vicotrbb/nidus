@@ -38,3 +38,40 @@ impl Drop for ResolutionGuard {
         });
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::any::TypeId;
+
+    use super::{enter, is_active};
+
+    #[test]
+    fn nested_resolution_guards_restore_the_stack() {
+        let outer_type = TypeId::of::<u32>();
+        let inner_type = TypeId::of::<u64>();
+        let outer = enter(outer_type, "u32").unwrap();
+        let inner = enter(inner_type, "u64").unwrap();
+
+        assert!(is_active(outer_type));
+        assert!(is_active(inner_type));
+        drop(inner);
+        assert!(is_active(outer_type));
+        assert!(!is_active(inner_type));
+        drop(outer);
+        assert!(!is_active(outer_type));
+    }
+
+    #[test]
+    fn out_of_order_guard_drop_keeps_other_entries_active() {
+        let first_type = TypeId::of::<u32>();
+        let second_type = TypeId::of::<u64>();
+        let first = enter(first_type, "u32").unwrap();
+        let second = enter(second_type, "u64").unwrap();
+
+        drop(first);
+        assert!(!is_active(first_type));
+        assert!(is_active(second_type));
+        drop(second);
+        assert!(!is_active(second_type));
+    }
+}

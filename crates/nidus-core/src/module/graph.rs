@@ -9,6 +9,30 @@ enum VisibleProvider<'a> {
     Ambiguous(Vec<&'a str>),
 }
 
+enum NameLookup<'a> {
+    Empty,
+    One(&'a str),
+    Many(BTreeSet<&'a str>),
+}
+
+impl<'a> NameLookup<'a> {
+    fn new(names: &'a [String]) -> Self {
+        match names {
+            [] => Self::Empty,
+            [name] => Self::One(name),
+            names => Self::Many(names.iter().map(String::as_str).collect()),
+        }
+    }
+
+    fn contains(&self, name: &str) -> bool {
+        match self {
+            Self::Empty => false,
+            Self::One(only) => *only == name,
+            Self::Many(names) => names.contains(name),
+        }
+    }
+}
+
 /// Validated graph of module definitions.
 #[derive(Debug)]
 pub struct ModuleGraph {
@@ -96,14 +120,11 @@ impl ModuleGraph {
 
     fn validate_local_imports_unique(&self) -> Result<()> {
         for module in self.modules.values() {
-            let mut seen = BTreeSet::new();
-            for import in &module.imports {
-                if !seen.insert(import) {
-                    return Err(NidusError::DuplicateModuleImport {
-                        module: module.name.clone(),
-                        import: import.clone(),
-                    });
-                }
+            if let Some(import) = first_duplicate(&module.imports) {
+                return Err(NidusError::DuplicateModuleImport {
+                    module: module.name.clone(),
+                    import: import.to_owned(),
+                });
             }
         }
         Ok(())
@@ -136,14 +157,11 @@ impl ModuleGraph {
 
     fn validate_local_providers_unique(&self) -> Result<()> {
         for module in self.modules.values() {
-            let mut seen = BTreeSet::new();
-            for provider in &module.providers {
-                if !seen.insert(provider) {
-                    return Err(NidusError::DuplicateModuleProvider {
-                        module: module.name.clone(),
-                        provider: provider.clone(),
-                    });
-                }
+            if let Some(provider) = first_duplicate(&module.providers) {
+                return Err(NidusError::DuplicateModuleProvider {
+                    module: module.name.clone(),
+                    provider: provider.to_owned(),
+                });
             }
         }
         Ok(())
@@ -151,14 +169,11 @@ impl ModuleGraph {
 
     fn validate_local_controllers_unique(&self) -> Result<()> {
         for module in self.modules.values() {
-            let mut seen = BTreeSet::new();
-            for controller in &module.controllers {
-                if !seen.insert(controller) {
-                    return Err(NidusError::DuplicateModuleController {
-                        module: module.name.clone(),
-                        controller: controller.clone(),
-                    });
-                }
+            if let Some(controller) = first_duplicate(&module.controllers) {
+                return Err(NidusError::DuplicateModuleController {
+                    module: module.name.clone(),
+                    controller: controller.to_owned(),
+                });
             }
         }
         Ok(())
@@ -166,7 +181,10 @@ impl ModuleGraph {
 
     fn validate_providers_and_controllers_disjoint(&self) -> Result<()> {
         for module in self.modules.values() {
-            let providers = module.providers.iter().collect::<BTreeSet<_>>();
+            if module.controllers.is_empty() {
+                continue;
+            }
+            let providers = NameLookup::new(&module.providers);
             for controller in &module.controllers {
                 if providers.contains(controller) {
                     return Err(NidusError::ModuleProviderControllerConflict {
@@ -181,14 +199,11 @@ impl ModuleGraph {
 
     fn validate_exports_unique(&self) -> Result<()> {
         for module in self.modules.values() {
-            let mut seen = BTreeSet::new();
-            for export in &module.exports {
-                if !seen.insert(export) {
-                    return Err(NidusError::DuplicateModuleExport {
-                        module: module.name.clone(),
-                        provider: export.clone(),
-                    });
-                }
+            if let Some(export) = first_duplicate(&module.exports) {
+                return Err(NidusError::DuplicateModuleExport {
+                    module: module.name.clone(),
+                    provider: export.to_owned(),
+                });
             }
         }
         Ok(())
@@ -196,7 +211,10 @@ impl ModuleGraph {
 
     fn validate_exports_are_local(&self) -> Result<()> {
         for module in self.modules.values() {
-            let providers = module.providers.iter().collect::<BTreeSet<_>>();
+            if module.exports.is_empty() {
+                continue;
+            }
+            let providers = NameLookup::new(&module.providers);
             for export in &module.exports {
                 if !providers.contains(export) {
                     return Err(NidusError::MissingProviderExport {
@@ -211,7 +229,10 @@ impl ModuleGraph {
 
     fn validate_local_providers_do_not_conflict_with_imports(&self) -> Result<()> {
         for module in self.modules.values() {
-            let local_providers = module.providers.iter().collect::<BTreeSet<_>>();
+            if module.imports.is_empty() {
+                continue;
+            }
+            let local_providers = NameLookup::new(&module.providers);
             for import in &module.imports {
                 let imported = self.modules.get(import).expect("imports were validated");
                 for export in &imported.exports {
@@ -298,6 +319,18 @@ impl ModuleGraph {
         visited.insert(name);
         Ok(())
     }
+}
+
+fn first_duplicate(names: &[String]) -> Option<&str> {
+    if names.len() < 2 {
+        return None;
+    }
+
+    let mut seen = BTreeSet::new();
+    names
+        .iter()
+        .find(|name| !seen.insert(name.as_str()))
+        .map(String::as_str)
 }
 
 fn collect_recursive(

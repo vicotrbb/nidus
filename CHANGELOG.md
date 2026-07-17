@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Specialized module validation for empty and single-name metadata, avoiding
+  ordered-set construction on the common small-module path while retaining the
+  existing set-based behavior for larger modules. Repeated 150-sample
+  paired comparisons classified 128-module validation as 29.57%-34.24% faster.
+- Added focused provider-resolution stack tests covering normal nested teardown
+  and the defensive out-of-order cleanup path.
 - Shared immutable observed-event and observed-job attributes across repeated
   dispatches, with copy-on-write enrichment preserving existing context
   behavior. In 150-sample benchmarks with 16 configured attributes and
