@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Removed the event bus's temporary live-subscriber `Vec` from the common zero-
+  and one-subscriber publish paths, eliminating its heap allocation for one
+  active subscriber. A published value now moves into the final subscriber
+  queue and is cloned only for additional subscribers; focused clone-count and
+  delivery tests preserve fan-out semantics. The 150-sample one-subscriber
+  benchmark improved by
+  59.71%-60.80%, while the four-subscriber control showed no statistically
+  significant change.
+- Pruned and counted live event subscribers in place so `subscriber_count` no
+  longer allocates a temporary vector of upgraded subscriber queues.
 - Removed the redundant strong `Arc` retained by each initialized singleton's
   synchronization state. `OnceLock` remains the authoritative lock-free cache,
   while focused state-machine coverage preserves reuse, retry, panic recovery,

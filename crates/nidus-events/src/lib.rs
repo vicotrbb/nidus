@@ -70,12 +70,37 @@ type SubscriberQueue<T> = Arc<Mutex<SubscriberBuffer<T>>>;
 type SubscriberHandle<T> = Weak<Mutex<SubscriberBuffer<T>>>;
 type SubscriberList<T> = Arc<Mutex<Vec<SubscriberHandle<T>>>>;
 
+struct LiveSubscribers<T> {
+    first: Option<SubscriberQueue<T>>,
+    additional: Vec<SubscriberQueue<T>>,
+}
+
+impl<T> LiveSubscribers<T> {
+    fn new() -> Self {
+        Self {
+            first: None,
+            additional: Vec::new(),
+        }
+    }
+
+    fn push(&mut self, subscriber: SubscriberQueue<T>) {
+        if self.first.is_none() {
+            self.first = Some(subscriber);
+        } else {
+            // Keep live-subscriber collection allocation-free for the common
+            // zero/one-subscriber case. This vector allocates only when fan-out
+            // actually has a second target.
+            self.additional.push(subscriber);
+        }
+    }
+}
+
 /// In-process typed event bus.
 ///
 /// Subscribers receive events published after they subscribe. Events are cloned
-/// into each active subscriber queue and remain there until that subscriber
-/// calls [`EventSubscriber::drain`]. Dropped subscribers are pruned on the next
-/// publish or subscriber-count check.
+/// for every active subscriber except the final one, which receives the original
+/// value, and remain queued until that subscriber calls [`EventSubscriber::drain`].
+/// Dropped subscribers are pruned on the next publish or subscriber-count check.
 ///
 /// ```
 /// use nidus_events::EventBus;
@@ -338,12 +363,28 @@ where
 
     /// Publishes an event to current subscribers.
     ///
-    /// The event is cloned once per active subscriber (bounded subscribers may
-    /// evict the oldest event to honor their capacity).
+    /// The event is cloned for every active subscriber except the final one,
+    /// which receives the original value. Bounded subscribers may evict the
+    /// oldest event to honor their capacity.
     pub fn publish(&self, event: T) {
-        for subscriber in self.live_subscribers() {
+        let LiveSubscribers {
+            first,
+            mut additional,
+        } = self.live_subscribers();
+        let Some(first) = first else {
+            return;
+        };
+
+        let Some(last) = additional.pop() else {
+            lock_unpoisoned(&first).push(event);
+            return;
+        };
+
+        lock_unpoisoned(&first).push(event.clone());
+        for subscriber in additional {
             lock_unpoisoned(&subscriber).push(event.clone());
         }
+        lock_unpoisoned(&last).push(event);
     }
 
     /// Wraps this bus with an observer.
@@ -357,12 +398,14 @@ where
 
     /// Returns the number of active subscribers.
     pub fn subscriber_count(&self) -> usize {
-        self.live_subscribers().len()
+        let mut subscribers = lock_unpoisoned(&self.subscribers);
+        subscribers.retain(|subscriber| subscriber.upgrade().is_some());
+        subscribers.len()
     }
 
-    fn live_subscribers(&self) -> Vec<SubscriberQueue<T>> {
+    fn live_subscribers(&self) -> LiveSubscribers<T> {
         let mut subscribers = lock_unpoisoned(&self.subscribers);
-        let mut live = Vec::new();
+        let mut live = LiveSubscribers::new();
         subscribers.retain(|subscriber| {
             if let Some(queue) = subscriber.upgrade() {
                 live.push(queue);

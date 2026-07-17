@@ -72,7 +72,7 @@ fn event_bus_prunes_dropped_subscribers() {
 }
 
 #[test]
-fn event_bus_clones_once_per_active_subscriber() {
+fn event_bus_moves_to_one_subscriber_and_clones_only_for_additional_subscribers() {
     let bus = EventBus::<CloneCountedEvent>::new();
 
     let no_subscriber_clones = Arc::new(AtomicUsize::new(0));
@@ -82,12 +82,12 @@ fn event_bus_clones_once_per_active_subscriber() {
     let first = bus.subscribe();
     let one_subscriber_clones = Arc::new(AtomicUsize::new(0));
     bus.publish(CloneCountedEvent::new(1, &one_subscriber_clones));
-    assert_eq!(one_subscriber_clones.load(Ordering::Relaxed), 1);
+    assert_eq!(one_subscriber_clones.load(Ordering::Relaxed), 0);
 
     let second = bus.subscribe();
     let two_subscriber_clones = Arc::new(AtomicUsize::new(0));
     bus.publish(CloneCountedEvent::new(2, &two_subscriber_clones));
-    assert_eq!(two_subscriber_clones.load(Ordering::Relaxed), 2);
+    assert_eq!(two_subscriber_clones.load(Ordering::Relaxed), 1);
 
     assert_eq!(
         first

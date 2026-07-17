@@ -118,6 +118,39 @@ for specific framework behavior and should be compared to their own history.
 
 ## Local Results
 
+### Event fan-out allocation pass (2026-07-17)
+
+`EventBus::publish` previously collected every live subscriber into a fresh
+`Vec`, including the common one-subscriber case, and cloned the event once for
+every target. Publication now keeps the first live queue inline, allocates an
+additional-target vector only when fan-out requires it, clones for all but the
+final target, and moves the original event into that final queue. The related
+`subscriber_count` path now prunes weak handles in place instead of building a
+temporary vector of strong handles just to obtain its length.
+
+The public event, subscriber, queue-capacity, ordering, and overflow-policy APIs
+are unchanged. A clone-count regression proves that publication performs zero
+event clones for one subscriber and one clone for two subscribers, while the
+existing delivery assertions cover both queues. The existing Criterion
+one-subscriber and four-subscriber controls were measured with 150 samples, a
+two-second warm-up, and a five-second measurement window:
+
+```bash
+cargo bench --bench event_bus -- 'nidus (single-subscriber bounded event publish|four-subscriber bounded event publish)' --warm-up-time 2 --measurement-time 5 --sample-size 150 --save-baseline pre_event_fanout_20260717
+cargo bench --bench event_bus -- 'nidus (single-subscriber bounded event publish|four-subscriber bounded event publish)' --warm-up-time 2 --measurement-time 5 --sample-size 150 --baseline pre_event_fanout_20260717
+cargo bench --bench event_bus -- 'nidus four-subscriber bounded event publish' --warm-up-time 2 --measurement-time 5 --sample-size 150 --baseline pre_event_fanout_20260717
+```
+
+| Benchmark | Before | Current source | Criterion change |
+| --- | ---: | ---: | ---: |
+| One-subscriber bounded publish | 29.852-30.628 ns | 11.682-11.832 ns | 59.71%-60.80% faster (`p = 0.00`) |
+| Four-subscriber bounded publish | 47.332-48.761 ns | 45.774-46.444 ns | no statistically significant change (`p = 0.75`) |
+
+This is an isolated in-process publication microbenchmark. It does not establish
+application throughput or contended multi-producer behavior, and the
+four-subscriber result is deliberately reported as unchanged rather than as an
+improvement.
+
 ### Singleton state ownership pass (2026-07-17)
 
 The singleton state machine previously kept the resolved `Arc` both in its
