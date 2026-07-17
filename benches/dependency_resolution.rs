@@ -34,6 +34,18 @@ fn dependency_resolution(c: &mut Criterion) {
         b.iter(|| container.resolve::<DatabasePool>().unwrap());
     });
 
+    c.bench_function("nidus singleton first resolution", |b| {
+        b.iter_batched(
+            || {
+                let mut container = Container::new();
+                container.register_singleton(DatabasePool).unwrap();
+                container
+            },
+            |container| black_box(container.resolve::<DatabasePool>().unwrap()),
+            BatchSize::SmallInput,
+        );
+    });
+
     c.bench_function("nidus 128-module graph validation", |b| {
         b.iter_batched(
             module_definitions,

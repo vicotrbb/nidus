@@ -5,7 +5,7 @@ use std::sync::{
 
 use axum::{Router, body::Body, body::to_bytes, routing::get};
 use http::{Method, Request, StatusCode};
-use nidus_core::{Container, Inject};
+use nidus_core::{Container, Inject, NidusError};
 use nidus_http::{RequestScoped, middleware::request_scope_layer};
 use serde_json::Value;
 use tower::ServiceExt;
@@ -75,7 +75,7 @@ async fn request_scoped_extractor_rejects_when_scope_layer_is_missing() {
 }
 
 #[tokio::test]
-async fn request_scoped_extractor_rejects_when_provider_is_missing() {
+async fn request_scoped_extractor_does_not_expose_missing_provider_type() {
     async fn handler(_request_id: RequestScoped<RequestId>) -> &'static str {
         "unreachable"
     }
@@ -89,12 +89,41 @@ async fn request_scoped_extractor_rejects_when_provider_is_missing() {
     assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
     let body = response_json(response).await;
     assert_eq!(body["error"]["code"], "request_scope_resolution_failed");
-    assert!(
-        body["error"]["message"]
-            .as_str()
-            .unwrap()
-            .contains("RequestId")
+    assert_eq!(
+        body["error"]["message"],
+        "request-scoped provider resolution failed"
     );
+    assert!(!body.to_string().contains("RequestId"));
+}
+
+#[tokio::test]
+async fn request_scoped_extractor_does_not_expose_provider_factory_error() {
+    async fn handler(_request_id: RequestScoped<RequestId>) -> &'static str {
+        "unreachable"
+    }
+
+    let mut container = Container::new();
+    container
+        .register_request::<RequestId, _>(|_container| {
+            Err(NidusError::MissingProvider {
+                type_name: "private database connection details",
+            })
+        })
+        .unwrap();
+    let app = Router::new()
+        .route("/scope", get(handler))
+        .layer(request_scope_layer(Arc::new(container)));
+
+    let response = app.oneshot(get_request("/scope")).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    let body = response_json(response).await;
+    assert_eq!(body["error"]["code"], "request_scope_resolution_failed");
+    assert_eq!(
+        body["error"]["message"],
+        "request-scoped provider resolution failed"
+    );
+    assert!(!body.to_string().contains("private database"));
 }
 
 fn get_request(path: &'static str) -> Request<Body> {

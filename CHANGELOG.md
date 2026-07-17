@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Removed the redundant strong `Arc` retained by each initialized singleton's
+  synchronization state. `OnceLock` remains the authoritative lock-free cache,
+  while focused state-machine coverage preserves reuse, retry, panic recovery,
+  and concurrent initialization behavior. Two 150-sample comparisons classified
+  first singleton resolution as 5.57%-16.19% faster in this local benchmark.
+- Sanitized request-scope extraction failures so raw Axum routers no longer
+  expose provider type names or factory error details in `500` responses.
+  Full diagnostics are logged server-side, and regression tests cover missing
+  providers and sensitive factory failures.
 - Reduced successful module-graph validation allocations by moving each cloned
   module name into the graph index instead of cloning it again, borrowing names
   during cycle detection, and allocating import lists only for genuinely

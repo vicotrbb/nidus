@@ -74,7 +74,7 @@ release metadata changed after the measured source commit.
 
 The current benchmark surface covers:
 
-- singleton dependency resolution
+- singleton dependency resolution, including first construction
 - module-graph validation with 128 feature modules and visible providers
 - raw Axum route composition
 - Nidus controller route composition
@@ -117,6 +117,44 @@ composition baselines where they are meaningful. Other rows are microbenchmarks
 for specific framework behavior and should be compared to their own history.
 
 ## Local Results
+
+### Singleton state ownership pass (2026-07-17)
+
+The singleton state machine previously kept the resolved `Arc` both in its
+lock-protected `Ready` variant and in the authoritative `OnceLock` fast-path
+cache. Every initialized singleton therefore retained an unnecessary strong
+reference, and the payload made every `ProviderEntry` larger, including entries
+whose lifetime never uses singleton storage. `Ready` is now a unit state; waiters
+read the already-published value from `OnceLock` after observing that state.
+
+The public container, provider, and lifetime APIs are unchanged. The existing
+retry, poisoned-lock, panic-recovery, circular-resolution, and concurrent
+singleton tests remain in place. A focused ownership assertion proves that the
+cache plus two callers are the only strong references held by a directly
+constructed provider entry. On this `aarch64-apple-darwin` build,
+`size_of::<ProviderEntry>()` moved from 152 to 128 bytes, and the first returned
+registered singleton had three strong references instead of four. Those layout
+figures are build observations, not a stable ABI guarantee.
+
+The new first-resolution row uses `iter_batched`: container creation and
+registration happen in untimed setup, while the measured routine performs the
+first singleton resolution. The benchmark definition was present on both sides
+of the comparison. All runs used one isolated target directory, 150 samples, a
+two-second warm-up, and a five-second measurement window:
+
+```bash
+CARGO_TARGET_DIR=/tmp/nidus-singleton-pass-20260717 cargo bench --bench dependency_resolution -- 'nidus singleton first resolution' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --save-baseline before-singleton-state-20260717
+CARGO_TARGET_DIR=/tmp/nidus-singleton-pass-20260717 cargo bench --bench dependency_resolution -- 'nidus singleton first resolution' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --baseline before-singleton-state-20260717
+```
+
+| Benchmark | Before | First current-source run | Repeated current-source run |
+| --- | ---: | ---: | ---: |
+| First singleton resolution | 125.10-129.98 ns | 106.71-112.09 ns (11.59%-16.19% faster) | 118.18-124.99 ns (5.57%-10.59% faster) |
+
+Criterion classified both comparisons as improvements (`p = 0.00`). This is an
+isolated first-resolution microbenchmark, not an application-startup,
+steady-state request-latency, or throughput claim. The existing lock-free
+steady-state resolution path is intentionally unchanged.
 
 ### Module-graph allocation pass (2026-07-16)
 

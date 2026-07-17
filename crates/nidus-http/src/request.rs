@@ -16,7 +16,8 @@ use serde::Serialize;
 ///
 /// Missing middleware rejects with `500 Internal Server Error` and
 /// `request_scope_unavailable`. A provider resolution failure also returns
-/// `500`, with `request_scope_resolution_failed`.
+/// `500`, with `request_scope_resolution_failed`. Resolution details are logged
+/// server-side and omitted from the client response.
 ///
 /// `RequestScoped<T>` dereferences to `T` for handler reads. Use
 /// [`Self::into_inner`] when you need the shared [`Arc<T>`], or
@@ -69,7 +70,7 @@ where
         self.0
     }
 
-    /// Returns a cloned shared pointer to the resolved dependency.
+    /// Returns the shared pointer to the resolved dependency.
     ///
     /// This is useful when spawning work that must own the provider beyond the
     /// handler's borrow.
@@ -127,13 +128,15 @@ impl IntoResponse for RequestScopeRejection {
         let (code, message) = match self {
             Self::MissingScope => (
                 "request_scope_unavailable",
-                "request scope is not available; attach request_scope_layer to the router"
-                    .to_owned(),
+                "request scope is not available; attach request_scope_layer to the router",
             ),
-            Self::ResolutionFailed(error) => (
-                "request_scope_resolution_failed",
-                format!("request-scoped provider resolution failed: {error}"),
-            ),
+            Self::ResolutionFailed(error) => {
+                tracing::error!(error = %error, "request-scoped provider resolution failed");
+                (
+                    "request_scope_resolution_failed",
+                    "request-scoped provider resolution failed",
+                )
+            }
         };
         (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -153,5 +156,5 @@ struct ErrorBody {
 #[derive(Debug, Serialize)]
 struct ErrorDetails {
     code: &'static str,
-    message: String,
+    message: &'static str,
 }

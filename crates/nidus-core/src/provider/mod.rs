@@ -47,7 +47,7 @@ pub struct ProviderEntry {
 enum SingletonState {
     Empty,
     Initializing,
-    Ready(Arc<ErasedProvider>),
+    Ready,
 }
 
 impl ProviderEntry {
@@ -134,7 +134,13 @@ impl ProviderEntry {
         loop {
             let mut singleton = lock_unpoisoned(&self.singleton);
             match &*singleton {
-                SingletonState::Ready(instance) => return Ok(Arc::clone(instance)),
+                SingletonState::Ready => {
+                    let instance = self
+                        .singleton_cache
+                        .get()
+                        .expect("ready singleton must be present in the cache");
+                    return Ok(Arc::clone(instance));
+                }
                 SingletonState::Initializing => {
                     if resolution::is_active(self.type_id) {
                         return Err(NidusError::CircularProviderResolution {
@@ -162,8 +168,8 @@ impl ProviderEntry {
                     let mut singleton = lock_unpoisoned(&self.singleton);
                     match instance {
                         Ok(instance) => {
-                            *singleton = SingletonState::Ready(Arc::clone(&instance));
-                            let _ = self.singleton_cache.set(Arc::clone(&instance));
+                            self.singleton_cache.get_or_init(|| Arc::clone(&instance));
+                            *singleton = SingletonState::Ready;
                             self.singleton_ready.notify_all();
                             return Ok(instance);
                         }
@@ -226,6 +232,11 @@ mod tests {
         let first = provider.resolve_erased(&container).unwrap();
         let second = provider.resolve_erased(&container).unwrap();
         assert!(Arc::ptr_eq(&first, &second));
+        assert_eq!(
+            Arc::strong_count(&first),
+            3,
+            "the cache and two callers should be the only strong references"
+        );
     }
 
     #[test]
