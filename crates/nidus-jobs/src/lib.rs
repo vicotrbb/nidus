@@ -63,11 +63,14 @@ pub enum JobResultStatus {
 }
 
 /// Context carried through observed job execution.
+///
+/// Cloned contexts share their immutable attributes until
+/// [`Self::with_attribute`] enriches one of them.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ObservedJobContext {
     run_id: String,
     job_name: &'static str,
-    attributes: BTreeMap<String, String>,
+    attributes: Arc<BTreeMap<String, String>>,
     duration: Option<Duration>,
 }
 
@@ -77,14 +80,14 @@ impl ObservedJobContext {
         Self {
             run_id: run_id.into(),
             job_name,
-            attributes: BTreeMap::new(),
+            attributes: Arc::new(BTreeMap::new()),
             duration: None,
         }
     }
 
     /// Adds an attribute to the job context.
     pub fn with_attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
-        self.attributes.insert(key.into(), value.into());
+        Arc::make_mut(&mut self.attributes).insert(key.into(), value.into());
         self
     }
 
@@ -227,7 +230,7 @@ pub fn job_observer_channel() -> (JobObserverChannel, mpsc::Receiver<ObservedJob
 #[derive(Clone)]
 pub struct ObservedJobRunner<O = ()> {
     observer: O,
-    attributes: BTreeMap<String, String>,
+    attributes: Arc<BTreeMap<String, String>>,
     run_id_generator: Arc<dyn Fn() -> String + Send + Sync>,
 }
 
@@ -239,14 +242,16 @@ where
     pub fn new(observer: O) -> Self {
         Self {
             observer,
-            attributes: BTreeMap::new(),
+            attributes: Arc::new(BTreeMap::new()),
             run_id_generator: Arc::new(|| uuid::Uuid::new_v4().to_string()),
         }
     }
 
     /// Adds a context attribute propagated to every observed job.
     pub fn context(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
-        self.attributes.insert(key.into(), value.into());
+        // Cloned runners retain value semantics while sharing read-mostly
+        // configuration until one clone is enriched.
+        Arc::make_mut(&mut self.attributes).insert(key.into(), value.into());
         self
     }
 
@@ -317,11 +322,14 @@ where
     }
 
     fn context_for(&self, job_name: &'static str) -> ObservedJobContext {
-        let mut context = ObservedJobContext::new((self.run_id_generator)(), job_name);
-        for (key, value) in &self.attributes {
-            context = context.with_attribute(key.clone(), value.clone());
+        ObservedJobContext {
+            run_id: (self.run_id_generator)(),
+            job_name,
+            // Attributes are runner configuration: each run shares the
+            // snapshot until a context is explicitly enriched.
+            attributes: Arc::clone(&self.attributes),
+            duration: None,
         }
-        context
     }
 }
 
@@ -605,5 +613,37 @@ impl JobFailure {
     /// Returns the job error.
     pub fn error(&self) -> &JobError {
         &self.error
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn observed_context_shares_configured_attributes_until_enriched() {
+        let runner = ObservedJobRunner::new(())
+            .run_id_generator(|| "job-run".to_owned())
+            .context("service", "users-api");
+
+        let enriched_runner = runner.clone().context("region", "sa-east-1");
+        assert!(!Arc::ptr_eq(
+            &enriched_runner.attributes,
+            &runner.attributes
+        ));
+        assert!(!runner.attributes.contains_key("region"));
+        assert_eq!(
+            enriched_runner.attributes.get("region").unwrap(),
+            "sa-east-1"
+        );
+
+        let context = runner.context_for("test_job");
+        assert!(Arc::ptr_eq(&context.attributes, &runner.attributes));
+
+        let enriched = context.clone().with_attribute("attempt", "2");
+        assert!(!Arc::ptr_eq(&enriched.attributes, &context.attributes));
+        assert_eq!(context.attributes().get("service").unwrap(), "users-api");
+        assert!(!context.attributes().contains_key("attempt"));
+        assert_eq!(enriched.attributes().get("attempt").unwrap(), "2");
     }
 }

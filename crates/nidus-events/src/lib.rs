@@ -123,12 +123,13 @@ pub struct EventBus<T> {
 ///
 /// Observed publications receive a generated operation ID, a stable event name
 /// supplied by the caller, and any attributes configured on the
-/// [`ObservedEventBus`].
+/// [`ObservedEventBus`]. Cloned contexts share their immutable attributes until
+/// [`Self::with_attribute`] enriches one of them.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ObservedEventContext {
     operation_id: String,
     event_name: String,
-    attributes: BTreeMap<String, String>,
+    attributes: Arc<BTreeMap<String, String>>,
 }
 
 impl ObservedEventContext {
@@ -137,13 +138,13 @@ impl ObservedEventContext {
         Self {
             operation_id: operation_id.into(),
             event_name: event_name.into(),
-            attributes: BTreeMap::new(),
+            attributes: Arc::new(BTreeMap::new()),
         }
     }
 
     /// Adds a context attribute.
     pub fn with_attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
-        self.attributes.insert(key.into(), value.into());
+        Arc::make_mut(&mut self.attributes).insert(key.into(), value.into());
         self
     }
 
@@ -257,7 +258,7 @@ where
 {
     bus: EventBus<T>,
     observer: O,
-    attributes: BTreeMap<String, String>,
+    attributes: Arc<BTreeMap<String, String>>,
     operation_id_generator: Arc<dyn Fn() -> String + Send + Sync>,
 }
 
@@ -271,14 +272,16 @@ where
         Self {
             bus,
             observer,
-            attributes: BTreeMap::new(),
+            attributes: Arc::new(BTreeMap::new()),
             operation_id_generator: Arc::new(|| uuid::Uuid::new_v4().to_string()),
         }
     }
 
     /// Adds a context attribute propagated to future observed publications.
     pub fn context(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
-        self.attributes.insert(key.into(), value.into());
+        // Cloned wrappers retain value semantics while sharing read-mostly
+        // configuration until one clone is enriched.
+        Arc::make_mut(&mut self.attributes).insert(key.into(), value.into());
         self
     }
 
@@ -297,10 +300,7 @@ where
     /// called with the generated [`ObservedEventContext`].
     pub fn publish_named(&self, event_name: impl Into<String>, event: T) {
         let event_name = event_name.into();
-        let mut context = ObservedEventContext::new((self.operation_id_generator)(), &event_name);
-        for (key, value) in &self.attributes {
-            context = context.with_attribute(key.clone(), value.clone());
-        }
+        let context = self.context_for(event_name);
         let span = tracing::info_span!(
             "event.publish",
             event.name = %context.event_name(),
@@ -314,6 +314,16 @@ where
     /// Returns the wrapped event bus.
     pub fn bus(&self) -> &EventBus<T> {
         &self.bus
+    }
+
+    fn context_for(&self, event_name: String) -> ObservedEventContext {
+        ObservedEventContext {
+            operation_id: (self.operation_id_generator)(),
+            event_name,
+            // Attributes are configuration: publication only needs a shared
+            // snapshot, while later enrichment remains copy-on-write.
+            attributes: Arc::clone(&self.attributes),
+        }
     }
 }
 
@@ -616,5 +626,36 @@ mod tests {
             .map(|event| event.0)
             .collect();
         assert_eq!(drained, (1..=50).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn observed_context_shares_configured_attributes_until_enriched() {
+        let observed = EventBus::<UserCreated>::new()
+            .observed(())
+            .operation_id_generator(|| "event-run".to_owned())
+            .context("service", "users-api");
+
+        let enriched_observed = observed.clone().context("region", "sa-east-1");
+        assert!(!Arc::ptr_eq(
+            &enriched_observed.attributes,
+            &observed.attributes
+        ));
+        assert!(!observed.attributes.contains_key("region"));
+        assert_eq!(
+            enriched_observed.attributes.get("region").unwrap(),
+            "sa-east-1"
+        );
+
+        let context = observed.context_for("user.created".to_owned());
+        assert!(Arc::ptr_eq(&context.attributes, &observed.attributes));
+
+        let enriched = context.clone().with_attribute("request_id", "request-42");
+        assert!(!Arc::ptr_eq(&enriched.attributes, &context.attributes));
+        assert_eq!(context.attributes().get("service").unwrap(), "users-api");
+        assert!(!context.attributes().contains_key("request_id"));
+        assert_eq!(
+            enriched.attributes().get("request_id").unwrap(),
+            "request-42"
+        );
     }
 }

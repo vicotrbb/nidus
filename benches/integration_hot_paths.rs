@@ -1,11 +1,56 @@
 use std::{hint::black_box, time::Duration};
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use nidus_events::{EventObserver, ObservedEventContext};
+use nidus_events::{EventBus, EventObserver, ObservedEventContext};
 use nidus_integrations::{EnvelopeMetadata, MessageEnvelope};
-use nidus_jobs::{JobRetryPolicy, NewJob};
+use nidus_jobs::{
+    Job, JobObserver, JobResultStatus, JobRetryPolicy, NewJob, ObservedJobContext,
+    ObservedJobRunner,
+};
 use nidus_observability::{Observability, OperationStatus};
 use serde_json::{Value, json};
+
+struct BenchmarkJob;
+
+impl Job for BenchmarkJob {
+    fn name(&self) -> &'static str {
+        "benchmark_job"
+    }
+
+    fn run(&self) -> nidus_jobs::Result<()> {
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy)]
+struct BenchmarkEventObserver;
+
+impl EventObserver<u64> for BenchmarkEventObserver {
+    fn on_event_published(&self, context: &ObservedEventContext) {
+        black_box(context.operation_id());
+        black_box(context.event_name());
+        black_box(context.attributes());
+    }
+}
+
+#[derive(Clone, Copy)]
+struct BenchmarkJobObserver;
+
+impl JobObserver for BenchmarkJobObserver {
+    fn on_job_started(&self, context: &ObservedJobContext) {
+        black_box(context.run_id());
+        black_box(context.job_name());
+        black_box(context.attributes());
+    }
+
+    fn on_job_finished(&self, context: &ObservedJobContext, status: JobResultStatus) {
+        black_box(context.run_id());
+        black_box(context.job_name());
+        black_box(context.attributes());
+        black_box(context.duration());
+        black_box(status);
+    }
+}
 
 fn integration_hot_paths(c: &mut Criterion) {
     let payload = json!({
@@ -72,6 +117,42 @@ fn integration_hot_paths(c: &mut Criterion) {
                 black_box(&event_context),
             );
         });
+    });
+
+    let unconfigured_events = EventBus::<u64>::new()
+        .observed(BenchmarkEventObserver)
+        .operation_id_generator(|| "benchmark-event".to_owned());
+    c.bench_function("observed event publish with 0 attributes", |b| {
+        b.iter(|| {
+            unconfigured_events.publish_named(black_box("benchmark.event"), black_box(42));
+        });
+    });
+
+    let observed_events = (0..16).fold(
+        EventBus::<u64>::new()
+            .observed(BenchmarkEventObserver)
+            .operation_id_generator(|| "benchmark-event".to_owned()),
+        |events, index| events.context(format!("attribute-{index}"), format!("value-{index}")),
+    );
+    c.bench_function("observed event publish with 16 attributes", |b| {
+        b.iter(|| {
+            observed_events.publish_named(black_box("benchmark.event"), black_box(42));
+        });
+    });
+
+    let unconfigured_jobs = ObservedJobRunner::new(BenchmarkJobObserver)
+        .run_id_generator(|| "benchmark-job".to_owned());
+    c.bench_function("observed job run with 0 attributes", |b| {
+        b.iter(|| unconfigured_jobs.run(black_box(&BenchmarkJob)).unwrap());
+    });
+
+    let observed_jobs = (0..16).fold(
+        ObservedJobRunner::new(BenchmarkJobObserver)
+            .run_id_generator(|| "benchmark-job".to_owned()),
+        |jobs, index| jobs.context(format!("attribute-{index}"), format!("value-{index}")),
+    );
+    c.bench_function("observed job run with 16 attributes", |b| {
+        b.iter(|| observed_jobs.run(black_box(&BenchmarkJob)).unwrap());
     });
 }
 

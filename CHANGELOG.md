@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Shared immutable observed-event and observed-job attributes across repeated
+  dispatches, with copy-on-write enrichment preserving existing context
+  behavior. In 150-sample benchmarks with 16 configured attributes and
+  observers consuming the complete public context, event publication improved
+  by 95.42%-95.54% and job execution by 94.25%-94.31%. Zero-attribute controls
+  also improved by 26.33%-31.11% and 5.48%-6.45%, respectively.
+- Aligned integration-envelope `traceparent` validation with W3C versioning:
+  version `00` remains exact, valid future versions may carry additive fields,
+  and malformed IDs, control bytes, and prohibitively large values remain
+  rejected through focused boundary coverage.
 - Removed the event bus's temporary live-subscriber `Vec` from the common zero-
   and one-subscriber publish paths, eliminating its heap allocation for one
   active subscriber. A published value now moves into the final subscriber

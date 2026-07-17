@@ -59,6 +59,43 @@ fn envelope_rejects_invalid_trace_context_headers_and_oversized_payloads() {
 }
 
 #[test]
+fn traceparent_validation_honors_versioning_and_security_boundaries() {
+    let current = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+    let future = "01-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+    let future_extended = format!("{future}-future-data");
+
+    for traceparent in [current, future, future_extended.as_str()] {
+        assert!(
+            EnvelopeMetadata::new().traceparent(traceparent).is_ok(),
+            "{traceparent}"
+        );
+    }
+
+    for traceparent in [
+        "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01-extra",
+        "ff-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+        "00-4BF92F3577B34DA6A3CE929D0E0E4736-00f067aa0ba902b7-01",
+        "00-00000000000000000000000000000000-00f067aa0ba902b7-01",
+        "00-4bf92f3577b34da6a3ce929d0e0e4736-0000000000000000-01",
+        "01-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01\n",
+    ] {
+        assert!(
+            matches!(
+                EnvelopeMetadata::new().traceparent(traceparent),
+                Err(IntegrationError::InvalidTraceparent)
+            ),
+            "{traceparent:?}"
+        );
+    }
+
+    let oversized = format!("{future}-{}", "x".repeat(4_096));
+    assert!(matches!(
+        EnvelopeMetadata::new().traceparent(oversized),
+        Err(IntegrationError::InvalidTraceparent)
+    ));
+}
+
+#[test]
 fn explicit_envelope_limit_preserves_exact_boundary_behavior() {
     let envelope = MessageEnvelope::new(
         "small",

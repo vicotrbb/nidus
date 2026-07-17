@@ -557,25 +557,39 @@ fn validate_header_value(value: &str) -> Result<()> {
 }
 
 fn valid_traceparent(value: &str) -> bool {
-    let mut parts = value.split('-');
-    let (Some(version), Some(trace_id), Some(parent_id), Some(flags)) =
-        (parts.next(), parts.next(), parts.next(), parts.next())
-    else {
-        return false;
-    };
-    if parts.next().is_some() || version == "ff" || version.len() != 2 {
+    let bytes = value.as_bytes();
+    if bytes.len() < 55
+        || bytes.len() > MAX_HEADER_VALUE_BYTES
+        || bytes.iter().any(|byte| !(0x21..=0x7e).contains(byte))
+        || bytes[2] != b'-'
+        || bytes[35] != b'-'
+        || bytes[52] != b'-'
+    {
         return false;
     }
-    let valid_lower_hex = |part: &str, length: usize| {
-        part.len() == length
-            && part
-                .bytes()
-                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+
+    let version = &bytes[..2];
+    let trace_id = &bytes[3..35];
+    let parent_id = &bytes[36..52];
+    let flags = &bytes[53..55];
+    let valid_lower_hex = |part: &[u8]| {
+        part.iter()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(byte))
     };
-    valid_lower_hex(version, 2)
-        && valid_lower_hex(trace_id, 32)
-        && trace_id.bytes().any(|byte| byte != b'0')
-        && valid_lower_hex(parent_id, 16)
-        && parent_id.bytes().any(|byte| byte != b'0')
-        && valid_lower_hex(flags, 2)
+    if !valid_lower_hex(version)
+        || version == b"ff"
+        || !valid_lower_hex(trace_id)
+        || trace_id.iter().all(|byte| *byte == b'0')
+        || !valid_lower_hex(parent_id)
+        || parent_id.iter().all(|byte| *byte == b'0')
+        || !valid_lower_hex(flags)
+    {
+        return false;
+    }
+
+    if version == b"00" {
+        bytes.len() == 55
+    } else {
+        bytes.len() == 55 || bytes[55] == b'-'
+    }
 }
