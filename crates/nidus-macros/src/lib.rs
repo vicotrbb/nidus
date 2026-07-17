@@ -42,11 +42,13 @@ use proc_macro::TokenStream;
 /// }
 /// ```
 ///
-/// The annotated function must be async, must be named `main`, and must not
-/// already be wrapped in another runtime macro such as `#[tokio::main]`.
-/// Returning `Result` is idiomatic because bootstrap, router construction, and
-/// server startup can all fail. Common errors are using the macro on a non-async
-/// function or applying it to helper functions instead of the binary entrypoint.
+/// The annotated function must be async and must not already be wrapped in
+/// another runtime macro such as `#[tokio::main]`. Although the macro is
+/// intended for binary entrypoints, it also accepts async functions with other
+/// names and arguments. Each invocation constructs a runtime, so such functions
+/// must not be called from inside an active Tokio runtime. Returning `Result` is
+/// idiomatic because bootstrap, router construction, and server startup can all
+/// fail. A common error is using the macro on a non-async function.
 #[proc_macro_attribute]
 pub fn main(attr: TokenStream, item: TokenStream) -> TokenStream {
     entrypoint::expand(attr.into(), item.into()).into()

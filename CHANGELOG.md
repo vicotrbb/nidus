@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Removed request-time allocation from case-insensitive logging-redaction
+  lookups by keeping the private normalized policy names sorted and comparing
+  input bytes during binary search. Focused behavior tests preserve policy
+  ordering, deduplication, and ASCII case handling; two repeated 200-sample
+  comparisons classified lowercase lookup as 39.09%-45.76% faster and
+  mixed-case lookup as 42.82%-50.29% faster.
+- Corrected `#[nidus::main]` documentation to match its supported expansion for
+  named async functions with arguments, documented the nested-runtime boundary,
+  and added compile-time coverage for that existing behavior.
 - Specialized module validation for empty and single-name metadata, avoiding
   ordered-set construction on the common small-module path while retaining the
   existing set-based behavior for larger modules. Repeated 150-sample

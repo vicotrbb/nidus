@@ -277,6 +277,9 @@ fn request_lifecycle_setup(c: &mut Criterion) {
         ));
     let mut structured_make_span =
         StructuredMakeSpan::new(LoggingConfig::production("bench-api")).route("/users/{id}");
+    let logging_redaction = LoggingConfig::production("bench-api")
+        .redact_header("authorization")
+        .redact_header("x-api-key");
     let structured_logging_request = Request::builder()
         .uri("/users/42")
         .header("x-request-id", "018f4ad7-56ce-4f6a-a759-29f4438d8d78")
@@ -594,6 +597,14 @@ fn request_lifecycle_setup(c: &mut Criterion) {
         b.iter(|| {
             black_box(structured_make_span.make_span(&structured_logging_request));
         });
+    });
+
+    c.bench_function("nidus logging redaction lowercase lookup", |b| {
+        b.iter(|| black_box(logging_redaction.redacts_header(black_box("authorization"))));
+    });
+
+    c.bench_function("nidus logging redaction mixed-case lookup", |b| {
+        b.iter(|| black_box(logging_redaction.redacts_header(black_box("Authorization"))));
     });
 
     c.bench_function("nidus request context clone", |b| {

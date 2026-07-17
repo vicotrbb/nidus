@@ -40,6 +40,8 @@ fn logging_config_builds_production_json_subscriber_with_redaction_metadata() {
     let logs = writer.contents();
     assert_eq!(config.format(), LoggingFormat::Json);
     assert!(config.redacts_header("x-api-key"));
+    assert!(config.redacts_header("X-API-Key"));
+    assert!(!config.redacts_header("x-session-id"));
     assert!(logs.contains(r#""message":"request completed""#), "{logs}");
     assert!(logs.contains(r#""service.name":"users-api""#), "{logs}");
     assert!(logs.contains(r#""service.version":"1.2.3""#), "{logs}");
@@ -48,6 +50,32 @@ fn logging_config_builds_production_json_subscriber_with_redaction_metadata() {
         "{logs}"
     );
     assert!(logs.contains(r#""request.id":"req-1""#), "{logs}");
+}
+
+#[test]
+fn logging_redaction_lookup_is_ascii_case_insensitive_and_order_independent() {
+    let config = LoggingConfig::production("users-api")
+        .redact_header("x-zeta")
+        .redact_header("Authorization")
+        .redact_header("x-alpha")
+        .redact_header("authorization")
+        .redact_header("x-Ä");
+
+    for header in [
+        "x-alpha",
+        "X-ALPHA",
+        "authorization",
+        "AUTHORIZATION",
+        "x-zeta",
+    ] {
+        assert!(
+            config.redacts_header(header),
+            "expected {header} to be redacted"
+        );
+    }
+    assert!(config.redacts_header("X-Ä"));
+    assert!(!config.redacts_header("x-ä"));
+    assert!(!config.redacts_header("x-session-id"));
 }
 
 #[test]

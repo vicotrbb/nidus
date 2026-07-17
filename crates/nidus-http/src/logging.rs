@@ -1,6 +1,6 @@
 //! Structured logging helpers built on `tracing` and `tracing-subscriber`.
 
-use std::{borrow::Cow, collections::BTreeSet};
+use std::borrow::Cow;
 
 use http::Request;
 use tower_http::trace::MakeSpan;
@@ -52,7 +52,9 @@ pub struct LoggingConfig {
     environment: Option<String>,
     format: LoggingFormat,
     level_filter: String,
-    redacted_headers: BTreeSet<String>,
+    // Kept sorted after ASCII normalization so request-time lookups can use
+    // binary search without allocating a lowercase `String`.
+    redacted_headers: Vec<String>,
 }
 
 impl LoggingConfig {
@@ -66,7 +68,7 @@ impl LoggingConfig {
             environment: None,
             format: LoggingFormat::Json,
             level_filter: "info".to_owned(),
-            redacted_headers: BTreeSet::new(),
+            redacted_headers: Vec::new(),
         }
     }
 
@@ -119,15 +121,23 @@ impl LoggingConfig {
     /// The built-in [`StructuredMakeSpan`] does not log arbitrary request
     /// headers, so there is no automatic header scrubber to install.
     pub fn redact_header(mut self, header: impl AsRef<str>) -> Self {
-        self.redacted_headers
-            .insert(header.as_ref().to_ascii_lowercase());
+        let header = header.as_ref().to_ascii_lowercase();
+        if let Err(index) = self.redacted_headers.binary_search(&header) {
+            self.redacted_headers.insert(index, header);
+        }
         self
     }
 
     /// Returns whether the config redacts a header name.
     pub fn redacts_header(&self, header: impl AsRef<str>) -> bool {
+        let header = header.as_ref();
         self.redacted_headers
-            .contains(&header.as_ref().to_ascii_lowercase())
+            .binary_search_by(|configured| {
+                configured
+                    .bytes()
+                    .cmp(header.bytes().map(|byte| byte.to_ascii_lowercase()))
+            })
+            .is_ok()
     }
 
     /// Returns the configured output format.

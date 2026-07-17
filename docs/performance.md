@@ -93,6 +93,7 @@ The current benchmark surface covers:
 - rate limit store check with 10,000 tracked identities
 - trusted-proxy identity extraction and extractor cloning
 - structured logging span creation with request and trace headers
+- case-insensitive structured-logging header-redaction lookup
 - bounded event publication at a full 10,000-event subscriber capacity, plus
   one- and four-subscriber fan-out controls
 - production default stack with and without in-process metrics
@@ -117,6 +118,41 @@ composition baselines where they are meaningful. Other rows are microbenchmarks
 for specific framework behavior and should be compared to their own history.
 
 ## Local Results
+
+### Logging redaction lookup pass (2026-07-17)
+
+`LoggingConfig::redacts_header` previously allocated an ASCII-lowercase
+`String` for every lookup before searching its redaction set. The configuration
+now normalizes only when a policy is added, keeps the private names in sorted
+order, and compares ASCII-normalized byte iterators with binary search. Lookup
+remains case-insensitive and logarithmic in the number of configured names, but
+no longer allocates. Construction still deduplicates normalized names; focused
+tests cover insertion order, duplicates, lowercase and mixed-case hits, misses,
+and the existing ASCII-only normalization behavior.
+
+The two benchmark rows were added before the implementation and measured in one
+isolated target directory. Both sides used 200 samples, a two-second warm-up,
+and a five-second measurement window. The implementation comparison was then
+repeated without changing the source:
+
+```bash
+CARGO_TARGET_DIR=/tmp/nidus-logging-redaction-20260717 cargo bench --bench request_lifecycle -- 'nidus logging redaction (lowercase|mixed-case) lookup' --warm-up-time 2 --measurement-time 5 --sample-size 200 --noplot --save-baseline before-logging-redaction-20260717
+CARGO_TARGET_DIR=/tmp/nidus-logging-redaction-20260717 cargo bench --bench request_lifecycle -- 'nidus logging redaction (lowercase|mixed-case) lookup' --warm-up-time 2 --measurement-time 5 --sample-size 200 --noplot --baseline before-logging-redaction-20260717
+CARGO_TARGET_DIR=/tmp/nidus-logging-redaction-20260717 cargo bench --bench request_lifecycle -- 'nidus logging redaction (lowercase|mixed-case) lookup' --warm-up-time 2 --measurement-time 5 --sample-size 200 --noplot --baseline before-logging-redaction-20260717
+```
+
+| Benchmark | Before | First implementation run | Repeated implementation run |
+| --- | ---: | ---: | ---: |
+| Lowercase hit | 18.861-19.022 ns | 10.427-11.045 ns (43.52%-45.76% faster) | 11.433-11.960 ns (39.09%-41.73% faster) |
+| Mixed-case hit | 19.790-20.122 ns | 9.8489-10.231 ns (48.76%-50.29% faster) | 10.213-10.619 ns (42.82%-45.79% faster) |
+
+Criterion classified all four comparisons as improvements (`p = 0.00`). These
+are isolated lookup microbenchmarks, not request-latency or application-
+throughput claims. An earlier exact-match fast path improved lowercase input but
+regressed mixed-case input by 5.00%-6.81%, so it was rejected. A separate
+request-scope extractor experiment improved its first comparison by
+2.36%-5.17% but was statistically unchanged when repeated (`p = 0.81`); it too
+was reverted.
 
 ### Module validation small-collection pass (2026-07-17)
 
