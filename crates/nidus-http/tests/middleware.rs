@@ -301,6 +301,25 @@ fn in_memory_rate_limit_store_preserves_active_identity_windows() {
     assert_eq!(store.len(), 2);
 }
 
+#[test]
+fn in_memory_rate_limit_store_reuses_existing_window_decisions() {
+    let store = InMemoryRateLimitStore::new();
+    let identity = RequestIdentity::new("client-a");
+    let window = Duration::from_secs(60);
+
+    let first = store.check(&identity, 2, window).unwrap();
+    let second = store.check(&identity, 2, window).unwrap();
+    let limited = store.check(&identity, 2, window).unwrap();
+
+    assert!(first.allowed);
+    assert_eq!(first.remaining, 1);
+    assert!(second.allowed);
+    assert_eq!(second.remaining, 0);
+    assert!(!limited.allowed);
+    assert_eq!(limited.remaining, 0);
+    assert_eq!(store.len(), 1);
+}
+
 #[tokio::test]
 async fn cors_layer_allows_preflight_requests() {
     let app = Router::new()

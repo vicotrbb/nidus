@@ -200,6 +200,19 @@ fn guard_context_header_helpers_return_utf8_values_and_missing_headers() {
 }
 
 #[test]
+fn guard_context_bearer_token_accepts_case_insensitive_scheme() {
+    for scheme in ["Bearer", "bearer", "BEARER", "BeArEr"] {
+        let value = format!("{scheme} secret-token");
+        let context = GuardContext::new((), "admin:index").with_headers(headers([(
+            "authorization",
+            HeaderValue::from_str(&value).unwrap(),
+        )]));
+
+        assert_eq!(context.bearer_token().unwrap(), Some("secret-token"));
+    }
+}
+
+#[test]
 fn guard_context_header_helpers_reject_malformed_values() {
     let mut malformed_headers = HeaderMap::new();
     malformed_headers.insert(
@@ -283,6 +296,19 @@ async fn bearer_token_guard_handles_valid_missing_malformed_and_unauthorized_hea
         .await
         .unwrap();
     assert_eq!(allowed.status(), StatusCode::OK);
+
+    let lowercase_scheme = app
+        .clone()
+        .oneshot(
+            http::Request::builder()
+                .uri("/me")
+                .header("authorization", "bearer secret-token")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(lowercase_scheme.status(), StatusCode::OK);
 
     let missing = app
         .clone()

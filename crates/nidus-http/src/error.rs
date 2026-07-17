@@ -308,6 +308,12 @@ async fn envelope_response(
         },
     };
     let body = serde_json::to_vec(&envelope).expect("error envelope should serialize");
+    // The inner representation has been replaced. Preserve unrelated response
+    // metadata (for example, cookies and rate-limit headers), but never forward
+    // representation headers that describe bytes which are no longer present.
+    parts.headers.remove(http::header::CONTENT_LENGTH);
+    parts.headers.remove(http::header::CONTENT_ENCODING);
+    parts.headers.remove(http::header::CONTENT_RANGE);
     parts.headers.insert(
         http::header::CONTENT_TYPE,
         http::HeaderValue::from_static("application/json"),

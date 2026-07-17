@@ -124,30 +124,19 @@ impl RateLimitStore for InMemoryRateLimitStore {
                 .retain(|_, window_state| now.duration_since(window_state.started_at) < window);
             state.last_prune = Some(now);
         }
-        let window_state = state
-            .windows
-            .entry(identity.as_str().to_owned())
-            .or_insert_with(|| WindowState {
-                started_at: now,
-                count: 0,
-            });
-        if now.duration_since(window_state.started_at) >= window {
-            window_state.started_at = now;
-            window_state.count = 0;
+        if let Some(window_state) = state.windows.get_mut(identity.as_str()) {
+            return Ok(window_state.check(now, limit, window));
         }
 
-        let allowed = window_state.count < limit;
-        if allowed {
-            window_state.count += 1;
-        }
-        let remaining = limit.saturating_sub(window_state.count);
-        let reset_after = window.saturating_sub(now.duration_since(window_state.started_at));
-        Ok(RateLimitDecision {
-            allowed,
-            limit,
-            remaining,
-            reset_after,
-        })
+        let mut window_state = WindowState {
+            started_at: now,
+            count: 0,
+        };
+        let decision = window_state.check(now, limit, window);
+        state
+            .windows
+            .insert(identity.as_str().to_owned(), window_state);
+        Ok(decision)
     }
 }
 
@@ -155,6 +144,28 @@ impl RateLimitStore for InMemoryRateLimitStore {
 struct WindowState {
     started_at: Instant,
     count: u64,
+}
+
+impl WindowState {
+    fn check(&mut self, now: Instant, limit: u64, window: Duration) -> RateLimitDecision {
+        if now.duration_since(self.started_at) >= window {
+            self.started_at = now;
+            self.count = 0;
+        }
+
+        let allowed = self.count < limit;
+        if allowed {
+            self.count += 1;
+        }
+        let remaining = limit.saturating_sub(self.count);
+        let reset_after = window.saturating_sub(now.duration_since(self.started_at));
+        RateLimitDecision {
+            allowed,
+            limit,
+            remaining,
+            reset_after,
+        }
+    }
 }
 
 /// Typed config for production-shaped rate limiting.

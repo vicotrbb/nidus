@@ -322,6 +322,41 @@ async fn error_envelope_preserves_legacy_json_error_details() {
 }
 
 #[tokio::test]
+async fn error_envelope_removes_headers_for_the_replaced_representation() {
+    let service = ServiceBuilder::new()
+        .layer(ErrorEnvelopeLayer::new())
+        .service(service_fn(|_request: Request<Body>| async move {
+            Ok::<_, Infallible>(
+                Response::builder()
+                    .status(StatusCode::NOT_FOUND)
+                    .header("content-length", "3")
+                    .header("content-encoding", "gzip")
+                    .header("content-range", "bytes 0-2/3")
+                    .header("x-upstream-error", "preserved")
+                    .body(Body::from("old"))
+                    .unwrap(),
+            )
+        }));
+
+    let response = service
+        .oneshot(
+            Request::builder()
+                .uri("/stale-headers")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert!(!response.headers().contains_key("content-length"));
+    assert!(!response.headers().contains_key("content-encoding"));
+    assert!(!response.headers().contains_key("content-range"));
+    assert_eq!(response.headers()["x-upstream-error"], "preserved");
+    let body = response_json(response).await;
+    assert_eq!(body["error"]["path"], "/stale-headers");
+}
+
+#[tokio::test]
 async fn error_envelope_wraps_non_json_error_bodies() {
     let service = ServiceBuilder::new()
         .layer(ErrorEnvelopeLayer::new())
@@ -1115,6 +1150,52 @@ async fn streaming_body_limit_caps_bodies_without_content_length() {
         response.status(),
         StatusCode::PAYLOAD_TOO_LARGE,
         "streaming_body_limit must cap a headerless body as it is read"
+    );
+}
+
+#[tokio::test]
+async fn without_body_limit_disables_declared_and_streaming_limits() {
+    let app = ApiDefaults::production("users-api")
+        .body_limit(4)
+        .streaming_body_limit(4)
+        .without_body_limit()
+        .apply(Router::new().route(
+            "/echo",
+            post(|bytes: Bytes| async move { bytes.len().to_string() }),
+        ));
+
+    let declared = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/echo")
+                .header("content-length", "5")
+                .body(Body::from("12345"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(declared.status(), StatusCode::OK);
+    assert_eq!(
+        &*to_bytes(declared.into_body(), usize::MAX).await.unwrap(),
+        b"5"
+    );
+
+    let streamed = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/echo")
+                .body(Body::from("12345"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(streamed.status(), StatusCode::OK);
+    assert_eq!(
+        &*to_bytes(streamed.into_body(), usize::MAX).await.unwrap(),
+        b"5"
     );
 }
 

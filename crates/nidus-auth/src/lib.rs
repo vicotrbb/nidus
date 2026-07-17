@@ -176,17 +176,21 @@ impl<S> GuardContext<S> {
     ///
     /// A missing authorization header returns `Ok(None)`. A present header with
     /// another scheme, missing token, or whitespace inside the token returns
-    /// `401 Unauthorized`.
+    /// `401 Unauthorized`. The authentication scheme is matched
+    /// case-insensitively, as required by HTTP semantics.
     pub fn bearer_token(&self) -> Result<Option<&str>> {
         let Some(header) = self.header_str(AUTHORIZATION)? else {
             return Ok(None);
         };
-        let Some(token) = header.strip_prefix("Bearer ") else {
+        let Some((scheme, token)) = header.split_once(' ') else {
             return Err(GuardError::unauthorized(
                 "authorization header must use `Bearer <token>`",
             ));
         };
-        if token.is_empty() || token.chars().any(char::is_whitespace) {
+        if !scheme.eq_ignore_ascii_case("Bearer")
+            || token.is_empty()
+            || token.chars().any(char::is_whitespace)
+        {
             return Err(GuardError::unauthorized(
                 "authorization header must use `Bearer <token>`",
             ));

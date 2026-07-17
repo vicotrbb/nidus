@@ -235,6 +235,7 @@ impl ApiDefaults {
     /// Disables request body size limiting.
     pub fn without_body_limit(mut self) -> Self {
         self.body_limit = None;
+        self.streaming_body_limit = None;
         self
     }
 
