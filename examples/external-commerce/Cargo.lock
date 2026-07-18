@@ -866,9 +866,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-cache"
-version = "1.0.12"
+version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cda89a45411aad585faf4af937209ce400483e6a6aa5722dd77868a4daeac06f"
+checksum = "936f662586b87888733974f86960c6568b18f1ecb71a814a2d24722cd53833b4"
 dependencies = [
  "moka",
  "nidus-core",
@@ -879,9 +879,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-config"
-version = "1.0.12"
+version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec5b21d98f7b83ae3576c6d74c136ff0c2b208e2fd5c1780dadfe8a92e0b3696"
+checksum = "bf9aebcda6957404b9342d4ee1bb97e385867f73ac1727fb61c202bc24cce399"
 dependencies = [
  "serde",
  "serde_json",
@@ -890,9 +890,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-core"
-version = "1.0.12"
+version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e81c251facdc8a4a3dadb09c078f7737391dd574c804a9393107af3b3997ee58"
+checksum = "97d399d31c413ba51e7adbbcfd774a64d12630af81e88f5761d502872af43aa1"
 dependencies = [
  "async-trait",
  "thiserror",
@@ -902,9 +902,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-events"
-version = "1.0.12"
+version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3771a6cde857126a17e9bc93f56cc7f408c615809a9450f9d7759ff51d6752d"
+checksum = "647022f34baf2fff9258e3d496c69138ef9f13072be31ab2306d6f38fad6cac4"
 dependencies = [
  "tracing",
  "uuid",
@@ -926,9 +926,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-http"
-version = "1.0.12"
+version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c27a517edbdaac961cdb15a9ffa0d14113c7def3d1a652d2561a1b45c7035f28"
+checksum = "c60585b2c63b3d074b314e0e914c033160ac2e97e0233222cc7b5307d7de92b3"
 dependencies = [
  "axum",
  "futures-util",
@@ -948,9 +948,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-integrations"
-version = "1.0.12"
+version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "489945a60691e64bc854413394bca74e30e03b8c79898cfbfd43caddd02b1eae"
+checksum = "d11201519cfcb5935f24717f93ef3c7a3147c5a3ea8c88a1b5b73ae74f1336c0"
 dependencies = [
  "async-trait",
  "futures-util",
@@ -965,9 +965,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-jobs"
-version = "1.0.12"
+version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26003965e3e893e2ba9d85d96ad2fcb843c2ef6e306cdaa99f2c3288d275ddb3"
+checksum = "c5ad377f254cd03a7fa00609bc468a4fee70e01e11eb3eb00e61665be02f559e"
 dependencies = [
  "async-trait",
  "fastrand",
@@ -983,9 +983,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-macros"
-version = "1.0.12"
+version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b635a4b46bf762c28c097a2e8e9d2661e79c11045f05dc31bce2784981b513a0"
+checksum = "856e3c47f5bb5da1c8de39074d32f54d3c14d5bd08bbfc9ae424fed4c576aab9"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -994,9 +994,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-observability"
-version = "1.0.12"
+version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3c11328fde1db6f4e43c9a486149af1cfbb4994cb385de1546335db379ca58f"
+checksum = "2e0aa20c178e02d6ff56c17ae77bc0e3c4722571dc23bb9368b9d133456b366b"
 dependencies = [
  "axum",
  "http",
@@ -1009,9 +1009,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-rs"
-version = "1.0.12"
+version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f89f7ece7a791f415d42abdf2cd8f6489cc6d40b1b724805bcbeb24952ac026"
+checksum = "d5ad80d2078a2757edec688fc520444ddc6e8edcaca3cba2847999c0f365869b"
 dependencies = [
  "nidus-config",
  "nidus-core",
@@ -1026,9 +1026,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-sqlx"
-version = "1.0.12"
+version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "849fb2b130756e24cbbaa9570243610226dace5c0d34b759c543fde5ebd86e28"
+checksum = "c6073b9cdc15aac407aa64d896c122dc463685392c4a39cf01acacaedbff9418"
 dependencies = [
  "async-trait",
  "fastrand",
@@ -1044,9 +1044,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-testing"
-version = "1.0.12"
+version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86462cf0dd47801176e09cba6693200ede38f85b747cdbb1ad4c2fc6be4c7a2e"
+checksum = "cbdadb699e6f08eb9d7d1c95b676447f2eb29254f259c20447112f721a5d7c8f"
 dependencies = [
  "axum",
  "http",
@@ -1348,9 +1348,9 @@ dependencies = [
 
 [[package]]
 name = "spin"
-version = "0.9.8"
+version = "0.9.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
+checksum = "3763264f6b73151db08c50ff20d7d8a0b8796e021cdea7ceedad07b80155fa0e"
 dependencies = [
  "lock_api",
 ]
