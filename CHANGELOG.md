@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 1.0.13 - 2026-07-18
+
+- Replaced one spawned Tokio task per readiness check with direct concurrent
+  polling, preserving timeouts, panic isolation, cancellation, and deterministic
+  response order. The eight-check microbenchmark improved by 88.14%-89.76%.
+- Hardened HTTP semantics: Bearer schemes are matched case-insensitively,
+  `without_body_limit` disables both declared and streaming limits, rewritten
+  error bodies discard stale representation headers, and existing rate-limit
+  identities no longer allocate a temporary owned key.
 - Removed request-time allocation from case-insensitive logging-redaction
   lookups by keeping the private normalized policy names sorted and comparing
   input bytes during binary search. Focused behavior tests preserve policy

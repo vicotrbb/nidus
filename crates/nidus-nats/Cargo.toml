@@ -23,7 +23,7 @@ async-nats.workspace = true
 async-trait.workspace = true
 bytes.workspace = true
 nidus-core.workspace = true
-nidus-http = { path = "../nidus-http", version = "1.0.12", optional = true }
+nidus-http = { path = "../nidus-http", version = "1.0.13", optional = true }
 nidus-integrations.workspace = true
 serde.workspace = true
 thiserror.workspace = true
