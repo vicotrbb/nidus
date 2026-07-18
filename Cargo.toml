@@ -121,7 +121,7 @@ aws-sdk-sqs = { version = "1.103", default-features = false, features = ["defaul
 axum = "0.8"
 bytes = "1"
 clap = { version = "4", features = ["derive"] }
-criterion = "0.7"
+criterion = "0.8"
 futures-util = "0.3"
 fastrand = "2"
 http = "1"
@@ -140,14 +140,14 @@ sentry = { version = "0.48.4", default-features = false, features = ["backtrace"
 sentry-tower = { version = "0.48.4", default-features = false, features = ["http", "axum-matched-path"] }
 sentry-tracing = { version = "0.48.4", default-features = false, features = ["backtrace"] }
 serde_urlencoded = "0.7"
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite"] }
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite"] }
 syn = { version = "2", features = ["full"] }
 thiserror = "2"
 time = { version = "0.3", features = ["formatting"] }
 tokio = { version = "1", features = ["macros", "net", "rt-multi-thread"] }
 tokio-stream = "0.1"
 tower = { version = "0.5", features = ["limit", "timeout", "util"] }
-tower-http = { version = "0.6", features = ["compression-gzip", "cors", "limit", "trace"] }
+tower-http = { version = "0.7", features = ["compression-gzip", "cors", "limit", "trace"] }
 tracing = "0.1"
 tracing-opentelemetry = { version = "0.33", default-features = false }
 tracing-core = "0.1"
