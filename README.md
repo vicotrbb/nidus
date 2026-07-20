@@ -24,31 +24,31 @@ Application dependencies stay explicit:
 
 ```toml
 [dependencies]
-nidus = { package = "nidus-rs", version = "1.0.13", features = ["http", "config", "openapi", "validation"] }
+nidus = { package = "nidus-rs", version = "1.0.14", features = ["http", "config", "openapi", "validation"] }
 ```
 
 For production observability through the facade:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.13", features = ["observability", "events", "jobs", "otel"] }
+nidus = { package = "nidus-rs", version = "1.0.14", features = ["observability", "events", "jobs", "otel"] }
 ```
 
 For embedded dashboard introspection:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.13", features = ["dashboard"] }
+nidus = { package = "nidus-rs", version = "1.0.14", features = ["dashboard"] }
 ```
 
 Official integrations are separate crates:
 
 ```toml
-nidus-sqlx = { version = "1.0.13", features = ["sqlite"] }
-nidus-cache = { version = "1.0.13", features = ["moka"] }
-nidus-redis = { version = "1.0.13", features = ["health"] }
-nidus-kafka = { version = "1.0.13", features = ["health"] }
-nidus-jobs-sqlx = { version = "1.0.13", features = ["postgres"] }
-nidus-opentelemetry = "1.0.13"
-nidus-sentry = "1.0.13"
+nidus-sqlx = { version = "1.0.14", features = ["sqlite"] }
+nidus-cache = { version = "1.0.14", features = ["moka"] }
+nidus-redis = { version = "1.0.14", features = ["health"] }
+nidus-kafka = { version = "1.0.14", features = ["health"] }
+nidus-jobs-sqlx = { version = "1.0.14", features = ["postgres"] }
+nidus-opentelemetry = "1.0.14"
+nidus-sentry = "1.0.14"
 ```
 
 ## Which Crate Do I Install?
@@ -231,9 +231,9 @@ npm run verify
 ## Release Status
 
 Nidus 1.0.0 established the public crate set. The current release track is
-1.0.13, reducing DI, health-check, event/job, middleware, and logging hot-path
-work while tightening HTTP semantics, request-scope error disclosure, and CLI
-source discovery without changing the established 1.x public APIs.
+1.0.14, reducing typed-configuration deserialization and lifecycle-startup
+bookkeeping while preserving the established 1.x public APIs and exact error
+and rollback behavior.
 
 ## Fuzzing
 

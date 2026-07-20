@@ -22,16 +22,16 @@ It is additive. The lower-level APIs remain available:
 Enable the facade feature when using `nidus::prelude::*`:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.13", features = ["observability", "events", "jobs", "otel"] }
+nidus = { package = "nidus-rs", version = "1.0.14", features = ["observability", "events", "jobs", "otel"] }
 ```
 
 Official adapters expose observability hooks behind their own feature flags:
 
 ```toml
-nidus-sqlx = { version = "1.0.13", features = ["sqlite", "health", "observability"] }
-nidus-cache = { version = "1.0.13", features = ["health", "observability"] }
-nidus-opentelemetry = { version = "1.0.13", features = ["health", "dashboard"] }
-nidus-sentry = { version = "1.0.13", features = ["health", "dashboard"] }
+nidus-sqlx = { version = "1.0.14", features = ["sqlite", "health", "observability"] }
+nidus-cache = { version = "1.0.14", features = ["health", "observability"] }
+nidus-opentelemetry = { version = "1.0.14", features = ["health", "dashboard"] }
+nidus-sentry = { version = "1.0.14", features = ["health", "dashboard"] }
 ```
 
 ## Common Imports And Extension Traits

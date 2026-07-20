@@ -5,7 +5,7 @@ providers. It owns configuration, DI, readiness, and adapter telemetry; SQL,
 migrations, schema design, and backend-specific operations remain normal SQLx.
 
 ```toml
-nidus-sqlx = { version = "1.0.13", features = ["mysql", "cockroach", "health", "observability"] }
+nidus-sqlx = { version = "1.0.14", features = ["mysql", "cockroach", "health", "observability"] }
 ```
 
 Features are independent: `sqlite`, `postgres`, `mysql`, `cockroach`,

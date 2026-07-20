@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.0.14 - 2026-07-20
+
 - Deserialized typed configuration directly from borrowed JSON values instead
   of cloning complete values before conversion. Two paired 150-sample
   comparisons in opposite execution orders classified a 128-service

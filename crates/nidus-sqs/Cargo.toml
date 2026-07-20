@@ -23,7 +23,7 @@ async-trait.workspace = true
 aws-config.workspace = true
 aws-sdk-sqs.workspace = true
 nidus-core.workspace = true
-nidus-http = { path = "../nidus-http", version = "1.0.13", optional = true }
+nidus-http = { path = "../nidus-http", version = "1.0.14", optional = true }
 nidus-integrations.workspace = true
 serde.workspace = true
 thiserror.workspace = true
