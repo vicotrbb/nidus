@@ -80,6 +80,21 @@ fn config_deserializes_typed_settings_from_json_object() {
 }
 
 #[test]
+fn config_supports_repeated_typed_deserialization_without_consuming_values() {
+    let config = Config::from_pairs([("name", "nidus"), ("port", "3000"), ("debug", "true")]);
+
+    let first = config.deserialize::<AppConfig>().unwrap();
+    let second = config.deserialize::<AppConfig>().unwrap();
+
+    assert_eq!(first, second);
+    assert_eq!(config.get_typed::<u16>("port").unwrap(), Some(3000));
+    assert_eq!(
+        config.get("name").and_then(serde_json::Value::as_str),
+        Some("nidus")
+    );
+}
+
+#[test]
 fn config_deserializes_typed_settings_from_json_file() {
     let path = write_temp_config(
         "valid",

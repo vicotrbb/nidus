@@ -3509,6 +3509,7 @@ dependencies = [
  "criterion",
  "garde",
  "nidus-auth",
+ "nidus-config",
  "nidus-core",
  "nidus-events",
  "nidus-http",

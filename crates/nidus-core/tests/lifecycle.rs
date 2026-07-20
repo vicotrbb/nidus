@@ -367,6 +367,10 @@ async fn lifecycle_runner_rolls_back_started_hooks_when_startup_fails() {
             name: "database",
             events: Arc::clone(&events),
         })
+        .hook(RecordingHook {
+            name: "cache",
+            events: Arc::clone(&events),
+        })
         .hook(FailingStartupHook {
             name: "server",
             events: Arc::clone(&events),
@@ -385,7 +389,13 @@ async fn lifecycle_runner_rolls_back_started_hooks_when_startup_fails() {
     assert!(rollback_errors.is_empty());
     assert_eq!(
         *events.lock().unwrap(),
-        ["database:startup", "server:startup", "database:shutdown"]
+        [
+            "database:startup",
+            "cache:startup",
+            "server:startup",
+            "cache:shutdown",
+            "database:shutdown"
+        ]
     );
 }
 

@@ -1,10 +1,18 @@
 use std::hint::black_box;
 
+use async_trait::async_trait;
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
-use nidus_core::{Container, ModuleBuilder, ModuleDefinition, ModuleGraph};
+use nidus_core::{
+    Container, LifecycleHook, LifecycleRunner, ModuleBuilder, ModuleDefinition, ModuleGraph,
+};
 
 #[derive(Clone)]
 struct DatabasePool;
+
+struct NoopLifecycleHook;
+
+#[async_trait]
+impl LifecycleHook for NoopLifecycleHook {}
 
 fn module_definitions() -> Vec<ModuleDefinition> {
     const FEATURE_MODULES: usize = 128;
@@ -52,6 +60,17 @@ fn dependency_resolution(c: &mut Criterion) {
             |modules| black_box(ModuleGraph::from_modules(modules).unwrap()),
             BatchSize::SmallInput,
         );
+    });
+
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let lifecycle = (0..32).fold(LifecycleRunner::new(), |runner, _| {
+        runner.hook(NoopLifecycleHook)
+    });
+    c.bench_function("nidus lifecycle startup with 32 hooks", |b| {
+        b.iter(|| runtime.block_on(lifecycle.startup()).unwrap());
     });
 }
 

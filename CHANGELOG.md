@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Deserialized typed configuration directly from borrowed JSON values instead
+  of cloning complete values before conversion. Two paired 150-sample
+  comparisons in opposite execution orders classified a 128-service
+  configuration workload as 86.04%-86.74% faster while preserving repeated
+  reads and error behavior.
+- Removed lifecycle startup's successful-hook index vector. Because hooks run
+  sequentially, the failing index identifies the exact contiguous rollback
+  range; expanded regression coverage preserves reverse-order rollback. Two
+  paired 150-sample comparisons in opposite execution orders classified
+  32-hook startup as 18.48%-21.65% faster.
+
 ## 1.0.13 - 2026-07-18
 
 - Replaced one spawned Tokio task per readiness check with direct concurrent

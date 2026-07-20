@@ -9,6 +9,7 @@ Run the full local benchmark surface with:
 
 ```bash
 cargo bench --bench dependency_resolution
+cargo bench --bench configuration
 cargo bench --bench routing
 cargo bench --bench request_lifecycle
 cargo bench --bench event_bus
@@ -20,6 +21,7 @@ For a quick smoke run with reduced Criterion sampling:
 
 ```bash
 cargo bench --bench dependency_resolution -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
+cargo bench --bench configuration -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
 cargo bench --bench routing -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
 cargo bench --bench request_lifecycle -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
 cargo bench --bench event_bus -- --warm-up-time 0.1 --measurement-time 0.2 --sample-size 10
@@ -75,7 +77,9 @@ release metadata changed after the measured source commit.
 The current benchmark surface covers:
 
 - singleton dependency resolution, including first construction
+- typed configuration deserialization with 128 service entries
 - module-graph validation with 128 feature modules and visible providers
+- ordered lifecycle startup with 32 hooks
 - raw Axum route composition
 - Nidus controller route composition
 - multi-route Nidus controller construction
@@ -118,6 +122,63 @@ composition baselines where they are meaningful. Other rows are microbenchmarks
 for specific framework behavior and should be compared to their own history.
 
 ## Local Results
+
+### Borrowed configuration and lifecycle rollback pass (2026-07-20)
+
+`Config` previously cloned a complete `serde_json::Value` before every typed
+top-level, nested, and document deserialization. The typed APIs still require
+`DeserializeOwned`, but now deserialize directly from the stored value through
+serde_json's borrowed-value deserializer. Required nested lookup also resolves
+the path once instead of rebuilding the same owned path inside
+`get_path_typed`. Public method signatures, owned result types, and error
+variants are unchanged; focused coverage proves that repeated typed reads do
+not consume or mutate the stored document.
+
+`LifecycleRunner::startup` previously allocated and grew a vector containing
+every successful hook index solely for failure rollback. Startup is strictly
+sequential, so a failure at index `n` means exactly `0..n` completed. Rollback
+now traverses that range in reverse without bookkeeping allocation. Expanded
+coverage uses two successful hooks followed by a failing hook and asserts the
+same reverse-order shutdown sequence.
+
+Both benchmark rows were added before either runtime implementation changed.
+Final evidence paired the current source with a detached worktree at the exact
+pre-change commit `198ac74`, using separate target directories and running the
+pair in both execution orders. Only the identical benchmark harness was copied
+into the baseline worktree. Every run used 150 samples, a two-second warm-up,
+and a five-second measurement window:
+
+```bash
+git worktree add --detach /tmp/nidus-baseline-paired-20260720 198ac74
+git diff 198ac74 -- Cargo.toml benches/configuration.rs benches/dependency_resolution.rs | git -C /tmp/nidus-baseline-paired-20260720 apply
+CARGO_TARGET_DIR=/tmp/nidus-paired-baseline-target-20260720 cargo bench --bench dependency_resolution --bench configuration --no-run
+
+# Pair 1: current source, then baseline 198ac74
+CARGO_TARGET_DIR=/tmp/nidus-quality-20260720-target cargo bench --bench configuration -- 'nidus config deserialize 128 services' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --save-baseline paired-current-first-20260720
+CARGO_TARGET_DIR=/tmp/nidus-quality-20260720-target cargo bench --bench dependency_resolution -- 'nidus lifecycle startup with 32 hooks' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --save-baseline paired-current-first-20260720
+rsync -a /tmp/nidus-quality-20260720-target/criterion/ /tmp/nidus-paired-baseline-target-20260720/criterion/
+CARGO_TARGET_DIR=/tmp/nidus-paired-baseline-target-20260720 cargo bench --bench configuration -- 'nidus config deserialize 128 services' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --baseline paired-current-first-20260720
+CARGO_TARGET_DIR=/tmp/nidus-paired-baseline-target-20260720 cargo bench --bench dependency_resolution -- 'nidus lifecycle startup with 32 hooks' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --baseline paired-current-first-20260720
+
+# Pair 2: baseline 198ac74, then current source
+CARGO_TARGET_DIR=/tmp/nidus-paired-baseline-target-20260720 cargo bench --bench configuration -- 'nidus config deserialize 128 services' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --save-baseline paired-baseline-first-20260720
+CARGO_TARGET_DIR=/tmp/nidus-paired-baseline-target-20260720 cargo bench --bench dependency_resolution -- 'nidus lifecycle startup with 32 hooks' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --save-baseline paired-baseline-first-20260720
+rsync -a /tmp/nidus-paired-baseline-target-20260720/criterion/ /tmp/nidus-quality-20260720-target/criterion/
+CARGO_TARGET_DIR=/tmp/nidus-quality-20260720-target cargo bench --bench configuration -- 'nidus config deserialize 128 services' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --baseline paired-baseline-first-20260720
+CARGO_TARGET_DIR=/tmp/nidus-quality-20260720-target cargo bench --bench dependency_resolution -- 'nidus lifecycle startup with 32 hooks' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --baseline paired-baseline-first-20260720
+```
+
+| Execution order | Benchmark | Baseline `198ac74` | Current source | Current-source change |
+| --- | --- | ---: | ---: | ---: |
+| Current, then baseline | Deserialize 128 services | 24.437-24.595 us | 3.2267-3.2387 us | 86.64%-86.74% faster |
+| Baseline, then current | Deserialize 128 services | 24.225-24.305 us | 3.3784-3.4801 us | 86.04%-86.38% faster |
+| Current, then baseline | Start 32 lifecycle hooks | 725.31-732.57 ns | 575.49-581.08 ns | 20.23%-20.94% faster |
+| Baseline, then current | Start 32 lifecycle hooks | 767.84-793.84 ns | 613.58-628.86 ns | 18.48%-21.65% faster |
+
+Criterion classified all four comparisons as improvements (`p = 0.00`). These
+are isolated in-memory configuration and lifecycle microbenchmarks. They do not
+establish request latency, server throughput, or startup performance for hooks
+that perform substantial application work.
 
 ### Logging redaction lookup pass (2026-07-17)
 

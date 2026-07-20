@@ -64,9 +64,9 @@ pub enum ConfigError {
     },
 }
 
-pub(crate) fn deserialize_value<T>(path: String, value: Value) -> Result<T>
+pub(crate) fn deserialize_value<T>(path: String, value: &Value) -> Result<T>
 where
     T: DeserializeOwned,
 {
-    serde_json::from_value(value).map_err(|source| ConfigError::ValueDeserialize { path, source })
+    T::deserialize(value).map_err(|source| ConfigError::ValueDeserialize { path, source })
 }

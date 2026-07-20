@@ -45,8 +45,6 @@ impl LifecycleRunner {
         fields(hook_count = self.hooks.len())
     )]
     pub async fn startup(&self) -> Result<()> {
-        let mut started: Vec<usize> = Vec::new();
-
         tracing::debug!(hook_count = self.hooks.len(), "lifecycle startup begin");
         for (index, hook) in self.hooks.iter().enumerate() {
             tracing::debug!(hook_index = index, "lifecycle startup hook begin");
@@ -57,7 +55,8 @@ impl LifecycleRunner {
                     "lifecycle startup hook failed"
                 );
                 let mut rollback_errors = Vec::new();
-                for started_index in started.into_iter().rev() {
+                // Startup is sequential, so every earlier index completed successfully.
+                for started_index in (0..index).rev() {
                     tracing::debug!(
                         hook_index = started_index,
                         "lifecycle startup rollback hook begin"
@@ -83,7 +82,6 @@ impl LifecycleRunner {
                 });
             }
             tracing::debug!(hook_index = index, "lifecycle startup hook complete");
-            started.push(index);
         }
         tracing::debug!(hook_count = self.hooks.len(), "lifecycle startup complete");
         Ok(())

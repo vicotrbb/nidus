@@ -169,7 +169,6 @@ impl Config {
         T: DeserializeOwned,
     {
         self.get(key)
-            .cloned()
             .map(|value| deserialize_value(key.to_owned(), value))
             .transpose()
     }
@@ -223,7 +222,6 @@ impl Config {
             .collect::<Vec<_>>();
         let label = path.join(".");
         self.get_path(path.iter().map(String::as_str))
-            .cloned()
             .map(|value| deserialize_value(label, value))
             .transpose()
     }
@@ -240,8 +238,10 @@ impl Config {
             .map(|segment| segment.as_ref().to_owned())
             .collect::<Vec<_>>();
         let label = path.join(".");
-        self.get_path_typed(path.iter().map(String::as_str))?
-            .ok_or(ConfigError::MissingValue { path: label })
+        match self.get_path(path.iter().map(String::as_str)) {
+            Some(value) => deserialize_value(label, value),
+            None => Err(ConfigError::MissingValue { path: label }),
+        }
     }
 
     /// Merges another configuration source into this one.
@@ -264,6 +264,6 @@ impl Config {
     where
         T: DeserializeOwned,
     {
-        serde_json::from_value(Value::Object(self.values.clone())).map_err(ConfigError::Deserialize)
+        T::deserialize(&self.values).map_err(ConfigError::Deserialize)
     }
 }
