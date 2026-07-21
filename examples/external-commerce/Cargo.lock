@@ -54,7 +54,7 @@ checksum = "9035ad2d096bed7955a320ee7e2230574d28fd3c3a0f186cbea1ff3c7eed5dbb"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -305,7 +305,7 @@ checksum = "1ac70aa55017e108007fbaf5aa0f54b021c98f92ff8af59d42eda9da96e3dd4f"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -450,7 +450,7 @@ checksum = "e835b70203e41293343137df5c0664546da5745f82ec9b84d40be8336958447b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -866,9 +866,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-cache"
-version = "1.0.14"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9e71cc78048e5da2f59e1b3677929bfde0e9bd5812917c929a51da323a872ac"
+checksum = "230350a3cf66532c22f0fb2ee27615ee9535c598a932647f46e2532af0ff7841"
 dependencies = [
  "moka",
  "nidus-core",
@@ -879,9 +879,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-config"
-version = "1.0.14"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "532deab540d66462497e35aeed5113fea9dd2bfd30d731bd54c10b8beede99e3"
+checksum = "2e51f511649eeaf0f3613e4833992d5423fa01d6cefd9d295c065000ed75c3ef"
 dependencies = [
  "serde",
  "serde_json",
@@ -890,9 +890,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-core"
-version = "1.0.14"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7b289935e3e3999211ae7b41d9f3fe17dbf1aa4958decbe1f2ba3fd0ae03031"
+checksum = "054d0dc49a01bfda90d4dda77663cd19ca59274e8560d57db1fc4aeca660a388"
 dependencies = [
  "async-trait",
  "thiserror",
@@ -902,9 +902,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-events"
-version = "1.0.14"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26f0be0fc6786ffa87f038559719b44f6dc8ac31b79cf9122e6172ebb6a93ce6"
+checksum = "9148c69c7d03e4efda6426ba937b86eb8823a7365f7546621b6cc6a648901981"
 dependencies = [
  "tracing",
  "uuid",
@@ -926,9 +926,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-http"
-version = "1.0.14"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d61e4ab008bf13628546177c0db668300361a98d915f085f897923c94bf4bece"
+checksum = "cfcbe471ba6d55671ec65eeccafeb66215b8107d12226e9a8e61979929474b55"
 dependencies = [
  "axum",
  "futures-util",
@@ -948,9 +948,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-integrations"
-version = "1.0.14"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8e4c670588bab0c5591382c6ed9b5204578eab136b33976e9862520a5583b1b"
+checksum = "fd9123bc80142cf44152559395318bf2d77b748fcc1116681f62e7964d770a25"
 dependencies = [
  "async-trait",
  "futures-util",
@@ -965,9 +965,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-jobs"
-version = "1.0.14"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aaba54ad152b1e7b046a8554291daccc5f8e2887137923920d58230c63558e40"
+checksum = "decee91cce0d27dde71285815e3ea98cc2cf5be0d9613aba6f03ea1b7ed12ec6"
 dependencies = [
  "async-trait",
  "fastrand",
@@ -983,20 +983,20 @@ dependencies = [
 
 [[package]]
 name = "nidus-macros"
-version = "1.0.14"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db1105e33e93b1c766d3bb2f1771d9c4ad39ce2de7109ae705fdae479a9c4f17"
+checksum = "db1a7816473cdcc733db85f9a14eec04ac359a1811e223da0274abfe79017ac5"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 3.0.2",
 ]
 
 [[package]]
 name = "nidus-observability"
-version = "1.0.14"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8daee07000d690ced772bf17a0324d59b331db96bc2c6b02f08e2a6082deddad"
+checksum = "759ebed427a6de1abc9004519e3b3353d1894531ea1c46907f4f96af494f78ed"
 dependencies = [
  "axum",
  "http",
@@ -1009,9 +1009,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-rs"
-version = "1.0.14"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "195ccdba6ba2e7b933e6ab8a1cca5e2e24bf01bf02fb475ebda3935932b53619"
+checksum = "6fdd86bb82c5d1b5c978011b0105b5a546928fb5e5477b801b9dc02d9094df43"
 dependencies = [
  "nidus-config",
  "nidus-core",
@@ -1026,9 +1026,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-sqlx"
-version = "1.0.14"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ccef5aade06b2868398affd5b972ff9da1dd7ffe03f9f41e66fe4b3682a12670"
+checksum = "83738d5f9d70d18a9264792f8ac5c25e18347ee46f4834db563eec22e6894277"
 dependencies = [
  "async-trait",
  "fastrand",
@@ -1044,9 +1044,9 @@ dependencies = [
 
 [[package]]
 name = "nidus-testing"
-version = "1.0.14"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b91bd6f45a05e65c0930d95846fd9b746f3728723b049cda02e32eaea3947260"
+checksum = "30b0a7082cda50a86efaf0ca70366f2fd092ea1fe9ca00c2b917b577e51e03c8"
 dependencies = [
  "axum",
  "http",
@@ -1253,7 +1253,7 @@ checksum = "d540f220d3187173da220f885ab66608367b6574e925011a9353e4badda91d79"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -1409,7 +1409,7 @@ dependencies = [
  "quote",
  "sqlx-core",
  "sqlx-macros-core",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -1430,7 +1430,7 @@ dependencies = [
  "sha2",
  "sqlx-core",
  "sqlx-sqlite",
- "syn",
+ "syn 2.0.118",
  "tokio",
  "url",
 ]
@@ -1477,6 +1477,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "syn"
+version = "3.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a207d6d6a2b7fc470b80443726053f18a2481b7e1eee970597051596567987a3"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-ident",
+]
+
+[[package]]
 name = "sync_wrapper"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1490,7 +1501,7 @@ checksum = "728a70f3dbaf5bab7f0c4b1ac8d7ae5ea60a4b5549c8a5914361c99147a709d2"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -1516,7 +1527,7 @@ checksum = "ebc4ee7f67670e9b64d05fa4253e753e016c6c95ff35b89b7941d6b856dec1d5"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -1591,7 +1602,7 @@ checksum = "385a6cb71ab9ab790c5fe8d67f1645e6c450a7ce006a33de03daa956cf70a496"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -1689,7 +1700,7 @@ checksum = "7490cfa5ec963746568740651ac6781f701c9c5ea257c58e057f3ba8cf69e8da"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -1794,7 +1805,7 @@ checksum = "6ba0b99ee52df3028635d93840c797102da61f8a7bb3cf751032455895b52ef8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -1864,7 +1875,7 @@ dependencies = [
  "bumpalo",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
  "wasm-bindgen-shared",
 ]
 
@@ -1917,7 +1928,7 @@ checksum = "de844c262c8848816172cef550288e7dc6c7b7814b4ee56b3e1553f275f1858e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
  "synstructure",
 ]
 
@@ -1938,7 +1949,7 @@ checksum = "11532158c46691caf0f2593ea8358fed6bbf68a0315e80aae9bd41fbade684a1"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
  "synstructure",
 ]
 
@@ -1972,7 +1983,7 @@ checksum = "625dc425cab0dca6dc3c3319506e6593dcb08a9f387ea3b284dbd52a92c40555"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
