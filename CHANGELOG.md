@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Updated compatible Rust dependencies and pinned GitHub Actions, including an
+  internal Syn 3 migration with receiver-shape regression coverage, a refreshed
+  fuzz lockfile, and removal of an unused durable-jobs dependency.
+- Documented the reviewed SQLx MySQL RSA advisory non-applicability for OSV,
+  added an expiring scanner exception, and kept Dependabot from proposing
+  public foreign-type upgrades that require a Nidus major release.
+
 ## 1.0.14 - 2026-07-20
 
 - Deserialized typed configuration directly from borrowed JSON values instead

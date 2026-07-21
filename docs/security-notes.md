@@ -71,5 +71,16 @@ updates the dependency, or immediately re-review it if another dependency path
 appears. Nidus also requires MySQL `ssl-mode=VERIFY_IDENTITY` in production,
 which keeps authentication inside a hostname-verified TLS connection.
 
+The root `osv-scanner.toml` mirrors this reviewed non-applicability for OpenSSF
+Scorecard's OSV scan and expires on 2027-01-31 so the exception cannot remain
+indefinitely without another review. The RustSec gate above remains independent
+and continues to fail if the reverse dependency path changes.
+
+Dependabot accepts compatible updates on the current release line. Automated
+minor updates are deferred for SQLx, async-nats, and tower-http because Nidus
+1.0 publicly exposes their pool, client, and middleware types. Changing those
+foreign type identities requires a Nidus major release; patch and security
+updates remain enabled.
+
 Primary evidence: [RustSec RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071)
 and SQLx 0.8.6 `sqlx-mysql/src/connection/auth.rs` (`RsaPublicKey::encrypt`).

@@ -1,5 +1,5 @@
 use quote::format_ident;
-use syn::{FnArg, Ident, ImplItem, ImplItemFn, LitStr, Path, Type};
+use syn::{FnArg, Ident, ImplItem, ImplItemFn, LitStr, Path, ReceiverKind, Type};
 
 use crate::routes_openapi::openapi_metadata;
 use crate::utils::validate_route_path;
@@ -122,7 +122,7 @@ fn validate_route_receiver(function: &ImplItemFn) -> syn::Result<()> {
         ));
     };
 
-    if receiver.reference.is_none() || receiver.mutability.is_some() {
+    if !matches!(&receiver.kind, ReceiverKind::Reference(_, _, None)) {
         return Err(syn::Error::new_spanned(
             receiver,
             "route methods must take &self; use interior shared state for mutation",
@@ -159,4 +159,37 @@ fn type_attributes(function: &ImplItemFn, name: &str) -> Vec<Path> {
         .filter(|attr| attr.path().is_ident(name))
         .filter_map(|attr| attr.parse_args::<Path>().ok())
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use syn::parse_quote;
+
+    use super::validate_route_receiver;
+
+    #[test]
+    fn route_receiver_accepts_only_a_shared_reference() {
+        let shared = parse_quote!(
+            fn route(&self) {}
+        );
+        assert!(validate_route_receiver(&shared).is_ok());
+
+        for invalid in [
+            parse_quote!(
+                fn by_value(self) {}
+            ),
+            parse_quote!(
+                fn mutable(&mut self) {}
+            ),
+            parse_quote!(
+                fn typed(self: Box<Self>) {}
+            ),
+        ] {
+            let error = validate_route_receiver(&invalid).unwrap_err();
+            assert_eq!(
+                error.to_string(),
+                "route methods must take &self; use interior shared state for mutation"
+            );
+        }
+    }
 }

@@ -1,0 +1,4 @@
+[[IgnoredVulns]]
+id = "RUSTSEC-2023-0071"
+ignoreUntil = 2027-01-31
+reason = "SQLx 0.8.6 uses rsa only for randomized MySQL public-key password encryption; Nidus never holds or operates on an RSA private key. scripts/audit-dependencies.sh verifies the reverse path before accepting the matching RustSec exception."

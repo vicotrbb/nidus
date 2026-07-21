@@ -8,6 +8,22 @@ updates:
       rust-dependencies:
         patterns:
           - "*"
+    # These pre-1.0 dependencies appear in Nidus's public API. Their minor
+    # releases change foreign type identities and require a Nidus major release.
+    # Patch and security updates remain enabled.
+    ignore:
+      - dependency-name: async-nats
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
+      - dependency-name: sqlx
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
+      - dependency-name: tower-http
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
     open-pull-requests-limit: 5
     labels:
       - dependencies

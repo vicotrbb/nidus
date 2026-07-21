@@ -127,7 +127,7 @@ aws-sdk-sqs = { version = "1.103", default-features = false, features = ["defaul
 axum = "0.8"
 bytes = "1"
 clap = { version = "4", features = ["derive"] }
-criterion = "0.7"
+criterion = "0.8"
 futures-util = "0.3"
 fastrand = "2"
 http = "1"
@@ -147,7 +147,7 @@ sentry-tower = { version = "0.48.4", default-features = false, features = ["http
 sentry-tracing = { version = "0.48.4", default-features = false, features = ["backtrace"] }
 serde_urlencoded = "0.7"
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite"] }
-syn = { version = "2", features = ["full"] }
+syn = { version = "3", features = ["full"] }
 thiserror = "2"
 time = { version = "0.3", features = ["formatting"] }
 tokio = { version = "1", features = ["macros", "net", "rt-multi-thread"] }
