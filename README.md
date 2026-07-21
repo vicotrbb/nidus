@@ -24,31 +24,31 @@ Application dependencies stay explicit:
 
 ```toml
 [dependencies]
-nidus = { package = "nidus-rs", version = "1.0.14", features = ["http", "config", "openapi", "validation"] }
+nidus = { package = "nidus-rs", version = "1.0.15", features = ["http", "config", "openapi", "validation"] }
 ```
 
 For production observability through the facade:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.14", features = ["observability", "events", "jobs", "otel"] }
+nidus = { package = "nidus-rs", version = "1.0.15", features = ["observability", "events", "jobs", "otel"] }
 ```
 
 For embedded dashboard introspection:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.14", features = ["dashboard"] }
+nidus = { package = "nidus-rs", version = "1.0.15", features = ["dashboard"] }
 ```
 
 Official integrations are separate crates:
 
 ```toml
-nidus-sqlx = { version = "1.0.14", features = ["sqlite"] }
-nidus-cache = { version = "1.0.14", features = ["moka"] }
-nidus-redis = { version = "1.0.14", features = ["health"] }
-nidus-kafka = { version = "1.0.14", features = ["health"] }
-nidus-jobs-sqlx = { version = "1.0.14", features = ["postgres"] }
-nidus-opentelemetry = "1.0.14"
-nidus-sentry = "1.0.14"
+nidus-sqlx = { version = "1.0.15", features = ["sqlite"] }
+nidus-cache = { version = "1.0.15", features = ["moka"] }
+nidus-redis = { version = "1.0.15", features = ["health"] }
+nidus-kafka = { version = "1.0.15", features = ["health"] }
+nidus-jobs-sqlx = { version = "1.0.15", features = ["postgres"] }
+nidus-opentelemetry = "1.0.15"
+nidus-sentry = "1.0.15"
 ```
 
 ## Which Crate Do I Install?
@@ -231,9 +231,9 @@ npm run verify
 ## Release Status
 
 Nidus 1.0.0 established the public crate set. The current release track is
-1.0.14, reducing typed-configuration deserialization and lifecycle-startup
-bookkeeping while preserving the established 1.x public APIs and exact error
-and rollback behavior.
+1.0.15, refreshing compatible dependencies and pinned CI actions, migrating
+internal macro parsing to Syn 3, and tightening dependency-scanner policy while
+preserving the established 1.x public APIs.
 
 ## Fuzzing
 

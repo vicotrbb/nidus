@@ -48,10 +48,10 @@ let telemetry = nidus_integrations::IntegrationTelemetry::new()
 Install only the adapters in use:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.14", features = ["http", "config"] }
-nidus-integrations = "1.0.14"
-nidus-redis = { version = "1.0.14", features = ["health", "observability"] }
-nidus-kafka = { version = "1.0.14", features = ["health", "observability"] }
+nidus = { package = "nidus-rs", version = "1.0.15", features = ["http", "config"] }
+nidus-integrations = "1.0.15"
+nidus-redis = { version = "1.0.15", features = ["health", "observability"] }
+nidus-kafka = { version = "1.0.15", features = ["health", "observability"] }
 ```
 
 `nidus-kafka` compiles librdkafka from source. Linux build images must provide

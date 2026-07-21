@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.0.15 - 2026-07-21
+
 - Updated compatible Rust dependencies and pinned GitHub Actions, including an
   internal Syn 3 migration with receiver-shape regression coverage, a refreshed
   fuzz lockfile, and removal of an unused durable-jobs dependency.

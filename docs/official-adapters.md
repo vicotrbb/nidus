@@ -16,10 +16,10 @@ health/readiness, observability, and dashboard events, and expose their native
 clients. There is no lowest-common-denominator message queue API.
 
 ```toml
-nidus-redis = { version = "1.0.14", features = ["health", "observability"] }
-nidus-jobs-sqlx = { version = "1.0.14", features = ["postgres", "observability"] }
-nidus-opentelemetry = "1.0.14"
-nidus-sentry = "1.0.14"
+nidus-redis = { version = "1.0.15", features = ["health", "observability"] }
+nidus-jobs-sqlx = { version = "1.0.15", features = ["postgres", "observability"] }
+nidus-opentelemetry = "1.0.15"
+nidus-sentry = "1.0.15"
 ```
 
 See [first-party integrations](integrations.md), [SQLx](sqlx.md),

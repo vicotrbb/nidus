@@ -40,7 +40,7 @@ After the crates are published, verify the external package surface before
 announcing the release:
 
 ```bash
-bash scripts/verify-published-release.sh 1.0.14
+bash scripts/verify-published-release.sh 1.0.15
 ```
 
 The verifier checks crates.io, docs.rs, and the standalone external examples.
@@ -195,7 +195,7 @@ W3C `traceparent` extraction/injection, observed span helpers, exception
 recording, and shutdown hooks.
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.14", features = ["otel"] }
+nidus = { package = "nidus-rs", version = "1.0.15", features = ["otel"] }
 ```
 
 ```rust

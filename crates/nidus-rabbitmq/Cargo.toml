@@ -22,7 +22,7 @@ dashboard = ["nidus-integrations/dashboard"]
 async-trait.workspace = true
 lapin.workspace = true
 nidus-core.workspace = true
-nidus-http = { path = "../nidus-http", version = "1.0.14", optional = true }
+nidus-http = { path = "../nidus-http", version = "1.0.15", optional = true }
 nidus-integrations.workspace = true
 serde.workspace = true
 thiserror.workspace = true
