@@ -41,19 +41,26 @@ impl<T> Default for SubscriberBuffer<T> {
 }
 
 impl<T> SubscriberBuffer<T> {
-    fn push(&mut self, event: T) {
+    #[must_use]
+    fn push(&mut self, event: T) -> Option<T> {
         match &mut self.events {
-            SubscriberEvents::Unbounded(events) => events.push(event),
+            SubscriberEvents::Unbounded(events) => {
+                events.push(event);
+                None
+            }
             SubscriberEvents::Bounded { events, capacity } => {
                 if *capacity == 0 {
                     // A zero-capacity subscriber keeps nothing.
-                    return;
+                    return Some(event);
                 }
-                if events.len() == *capacity {
+                let evicted = if events.len() == *capacity {
                     // VecDeque makes oldest-event eviction constant-time.
-                    events.pop_front();
-                }
+                    events.pop_front()
+                } else {
+                    None
+                };
                 events.push_back(event);
+                evicted
             }
         }
     }
@@ -386,15 +393,31 @@ where
         };
 
         let Some(last) = additional.pop() else {
-            lock_unpoisoned(&first).push(event);
+            let evicted = {
+                let mut queue = lock_unpoisoned(&first);
+                queue.push(event)
+            };
+            drop(evicted);
             return;
         };
 
-        lock_unpoisoned(&first).push(event.clone());
+        let evicted = {
+            let mut queue = lock_unpoisoned(&first);
+            queue.push(event.clone())
+        };
+        drop(evicted);
         for subscriber in additional {
-            lock_unpoisoned(&subscriber).push(event.clone());
+            let evicted = {
+                let mut queue = lock_unpoisoned(&subscriber);
+                queue.push(event.clone())
+            };
+            drop(evicted);
         }
-        lock_unpoisoned(&last).push(event);
+        let evicted = {
+            let mut queue = lock_unpoisoned(&last);
+            queue.push(event)
+        };
+        drop(evicted);
     }
 
     /// Wraps this bus with an observer.
@@ -459,7 +482,15 @@ fn lock_unpoisoned<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 
 #[cfg(test)]
 mod tests {
-    use std::{sync::Arc, thread};
+    use std::{
+        sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+            mpsc,
+        },
+        thread,
+        time::Duration,
+    };
 
     use super::*;
     use tracing::Level;
@@ -507,6 +538,57 @@ mod tests {
 
     #[derive(Clone, Debug, PartialEq, Eq)]
     struct UserCreated(u64);
+
+    #[derive(Clone)]
+    struct DropActionEvent {
+        id: u64,
+        action: Option<Arc<dyn Fn() + Send + Sync>>,
+    }
+
+    impl DropActionEvent {
+        fn plain(id: u64) -> Self {
+            Self { id, action: None }
+        }
+
+        fn with_action(id: u64, action: impl Fn() + Send + Sync + 'static) -> Self {
+            Self {
+                id,
+                action: Some(Arc::new(action)),
+            }
+        }
+    }
+
+    impl Drop for DropActionEvent {
+        fn drop(&mut self) {
+            if let Some(action) = self.action.take() {
+                action();
+            }
+        }
+    }
+
+    struct PanicCloneEvent {
+        id: u64,
+        clone_calls: Arc<AtomicUsize>,
+        panic_on_call: usize,
+    }
+
+    impl PanicCloneEvent {
+        fn new(id: u64, clone_calls: Arc<AtomicUsize>, panic_on_call: usize) -> Self {
+            Self {
+                id,
+                clone_calls,
+                panic_on_call,
+            }
+        }
+    }
+
+    impl Clone for PanicCloneEvent {
+        fn clone(&self) -> Self {
+            let call = self.clone_calls.fetch_add(1, Ordering::Relaxed) + 1;
+            assert_ne!(call, self.panic_on_call, "injected clone panic");
+            Self::new(self.id, Arc::clone(&self.clone_calls), self.panic_on_call)
+        }
+    }
 
     #[test]
     fn event_bus_recovers_from_poisoned_subscriber_list() {
@@ -581,6 +663,54 @@ mod tests {
     }
 
     #[test]
+    fn first_clone_panic_poisoning_and_recovery_match_existing_contract() {
+        let bus = EventBus::<PanicCloneEvent>::new();
+        let first = bus.subscribe();
+        let last = bus.subscribe();
+        let clone_calls = Arc::new(AtomicUsize::new(0));
+
+        let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            bus.publish(PanicCloneEvent::new(1, Arc::clone(&clone_calls), 1));
+        }));
+
+        assert!(panic.is_err());
+        assert!(first.queue.lock().is_err());
+        assert!(last.queue.lock().is_ok());
+        assert!(first.drain().is_empty());
+        assert!(last.drain().is_empty());
+
+        bus.publish(PanicCloneEvent::new(2, Arc::clone(&clone_calls), 1));
+        assert_eq!(first.drain().pop().unwrap().id, 2);
+        assert_eq!(last.drain().pop().unwrap().id, 2);
+    }
+
+    #[test]
+    fn later_clone_panic_preserves_partial_delivery_and_recovers() {
+        let bus = EventBus::<PanicCloneEvent>::new();
+        let first = bus.subscribe();
+        let middle = bus.subscribe();
+        let last = bus.subscribe();
+        let clone_calls = Arc::new(AtomicUsize::new(0));
+
+        let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            bus.publish(PanicCloneEvent::new(1, Arc::clone(&clone_calls), 2));
+        }));
+
+        assert!(panic.is_err());
+        assert!(first.queue.lock().is_ok());
+        assert!(middle.queue.lock().is_err());
+        assert!(last.queue.lock().is_ok());
+        assert_eq!(first.drain().pop().unwrap().id, 1);
+        assert!(middle.drain().is_empty());
+        assert!(last.drain().is_empty());
+
+        bus.publish(PanicCloneEvent::new(2, Arc::clone(&clone_calls), 2));
+        assert_eq!(first.drain().pop().unwrap().id, 2);
+        assert_eq!(middle.drain().pop().unwrap().id, 2);
+        assert_eq!(last.drain().pop().unwrap().id, 2);
+    }
+
+    #[test]
     fn bounded_subscriber_drops_oldest_events_beyond_capacity() {
         let bus = EventBus::<UserCreated>::new();
         let bounded = bus.subscribe_with_capacity(2);
@@ -598,6 +728,119 @@ mod tests {
         bus.publish(UserCreated(5));
         bus.publish(UserCreated(6));
         assert_eq!(bounded.drain(), vec![UserCreated(5), UserCreated(6)]);
+    }
+
+    #[test]
+    fn bounded_eviction_drops_reentrant_payload_after_unlocking_queue() {
+        let bus = EventBus::<DropActionEvent>::new();
+        let subscriber = bus.subscribe_with_capacity(1);
+        let reentrant_bus = bus.clone();
+        let reentrant_subscriber = subscriber.clone();
+        let (result_tx, result_rx) = mpsc::channel();
+
+        bus.publish(DropActionEvent::with_action(1, move || {
+            reentrant_bus.publish(DropActionEvent::plain(3));
+            let ids = reentrant_subscriber
+                .drain()
+                .into_iter()
+                .map(|event| event.id)
+                .collect::<Vec<_>>();
+            result_tx.send(ids).unwrap();
+        }));
+        bus.publish(DropActionEvent::plain(2));
+
+        assert_eq!(
+            result_rx.recv_timeout(Duration::from_secs(1)).unwrap(),
+            vec![3]
+        );
+        assert!(subscriber.drain().is_empty());
+    }
+
+    #[test]
+    fn zero_capacity_rejection_drops_reentrant_payload_after_unlocking_queue() {
+        let bus = EventBus::<DropActionEvent>::new();
+        let subscriber = bus.subscribe_with_capacity(0);
+        let reentrant_bus = bus.clone();
+        let (dropped_tx, dropped_rx) = mpsc::channel();
+
+        bus.publish(DropActionEvent::with_action(1, move || {
+            reentrant_bus.publish(DropActionEvent::plain(2));
+            dropped_tx.send(()).unwrap();
+        }));
+
+        dropped_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        assert!(subscriber.drain().is_empty());
+    }
+
+    #[test]
+    fn bounded_eviction_drop_panic_does_not_poison_queue() {
+        let bus = EventBus::<DropActionEvent>::new();
+        let subscriber = bus.subscribe_with_capacity(1);
+        bus.publish(DropActionEvent::with_action(1, || {
+            panic!("panic from evicted payload destructor");
+        }));
+
+        let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            bus.publish(DropActionEvent::plain(2));
+        }));
+
+        assert!(panic.is_err());
+        assert!(subscriber.queue.lock().is_ok());
+        assert_eq!(
+            subscriber
+                .drain()
+                .into_iter()
+                .map(|event| event.id)
+                .collect::<Vec<_>>(),
+            vec![2]
+        );
+    }
+
+    #[test]
+    fn bounded_eviction_slow_drop_does_not_hold_queue_lock() {
+        let bus = EventBus::<DropActionEvent>::new();
+        let subscriber = bus.subscribe_with_capacity(1);
+        let (drop_started_tx, drop_started_rx) = mpsc::channel();
+        let (release_drop_tx, release_drop_rx) = mpsc::channel();
+        let release_drop_rx = Arc::new(Mutex::new(release_drop_rx));
+
+        bus.publish(DropActionEvent::with_action(1, move || {
+            drop_started_tx.send(()).unwrap();
+            release_drop_rx
+                .lock()
+                .unwrap()
+                .recv_timeout(Duration::from_secs(1))
+                .unwrap();
+        }));
+
+        let publisher = {
+            let bus = bus.clone();
+            thread::spawn(move || bus.publish(DropActionEvent::plain(2)))
+        };
+        drop_started_rx
+            .recv_timeout(Duration::from_secs(1))
+            .unwrap();
+
+        let (drained_tx, drained_rx) = mpsc::channel();
+        let drainer = {
+            let subscriber = subscriber.clone();
+            thread::spawn(move || {
+                let ids = subscriber
+                    .drain()
+                    .into_iter()
+                    .map(|event| event.id)
+                    .collect::<Vec<_>>();
+                drained_tx.send(ids).unwrap();
+            })
+        };
+
+        assert_eq!(
+            drained_rx.recv_timeout(Duration::from_millis(250)).unwrap(),
+            vec![2]
+        );
+        release_drop_tx.send(()).unwrap();
+        publisher.join().unwrap();
+        drainer.join().unwrap();
     }
 
     #[test]

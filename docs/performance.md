@@ -123,6 +123,33 @@ for specific framework behavior and should be compared to their own history.
 
 ## Local Results
 
+### Bounded Event Eviction Lock Scope (2026-07-22)
+
+When a bounded event subscriber reaches capacity, publication now removes the
+oldest value, installs the new value, and releases the subscriber queue mutex
+before destroying the evicted value. Zero-capacity subscribers follow the same
+rule: the rejected value is returned from the guarded queue operation and
+destroyed only after the guard is released.
+
+Previously, discarding the value returned by `VecDeque::pop_front` could run an
+arbitrary `T::drop` implementation while the subscriber queue remained locked.
+A slow destructor could unnecessarily extend the critical section, a reentrant
+destructor could deadlock while publishing or draining through the same queue,
+and a panicking destructor could poison the queue mutex. Queue mutation and
+payload destruction are now separate phases.
+
+The change preserves public signatures, FIFO order, drop-oldest capacity
+behavior, zero-capacity behavior, subscriber registration order, event clone
+counts, partial-delivery boundaries, observer ordering, and the owned
+`drain() -> Vec<T>` contract. Unbounded publication and bounded publication
+that does not evict an event retain their existing behavior.
+
+Focused regression coverage exercises reentrant destruction at capacities one
+and zero, blocked and panicking destructors, queue poison recovery, exact FIFO
+eviction, clone-panic partial delivery, concurrent publishers, and generated
+publish/drain schedules. The change is correctness and tail-latency isolation
+hardening rather than a general publication-throughput optimization.
+
 ### Borrowed configuration and lifecycle rollback pass (2026-07-20)
 
 `Config` previously cloned a complete `serde_json::Value` before every typed

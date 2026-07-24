@@ -20,6 +20,12 @@ If a subscriber list or queue mutex is poisoned by a panic, the bus logs a
 warning and recovers the inner state so later subscribers and publishes can
 continue.
 
+When a full bounded queue evicts its oldest event, Nidus finishes the queue
+mutation and releases the queue mutex before destroying the evicted value. A
+slow, panicking, or reentrant event destructor therefore cannot run while that
+queue is locked. The drop-oldest policy, FIFO order, and owned drain contract
+are unchanged.
+
 ## Observed Events
 
 `ObservedEventBus` wraps an existing `EventBus` and records publication context
