@@ -71,6 +71,22 @@ messages are capped and must already be stripped of secrets and PII. Retryable
 failures are scheduled with bounded exponential full jitter. Exhausted,
 permanent, panicking, and missing-handler executions move to `dead_lettered`.
 
+### Handler identity and deployments
+
+The stable handler name is part of each persisted record and of the
+`(name, idempotency_key)` uniqueness contract. Workers resolve that string
+through their immutable `DurableJobRegistry`; local queues and typed event
+buses do not use this registry. Nidus does not persist process-local handler
+indexes or derive durable identity from registration order.
+
+Enqueue validates the name's syntax, not whether every active worker supports
+it. A worker that leases an unknown name records a permanent missing-handler
+failure and dead-letters the record. During mixed-version deployments, start
+all workers that support a new name before producers enqueue it, and retain old
+handlers until scheduled, retrying, and dead-letter retention windows have
+closed. Nidus does not currently provide aliases, capability-aware leasing, or
+first-party redrive.
+
 ## Delivery guarantee and idempotency
 
 Durable jobs are at-least-once, never exactly-once. A process can perform a
@@ -92,8 +108,9 @@ tasks abandoned after the deadline.
 The worker runs migrations and expired-lease recovery before polling. It also
 repeats recovery while running, so multiple workers can safely compete for the
 same database. The live suite proves concurrent lease exclusion on MySQL 8.4
-and CockroachDB v26.2.0; SQLite deterministic tests cover retries, DLQs,
-recovery, cancellation, panic/failure paths, and file cleanup.
+and CockroachDB v26.2.0. SQLite deterministic tests cover retries, DLQs,
+attempt-fenced recovery, cancellation, worker acknowledgement and graceful
+drain, pre-migration failure, and file cleanup.
 
 See the runnable `durable-jobs` binary in
 `examples/integrations-production` and run all real-service checks with
