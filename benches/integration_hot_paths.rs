@@ -1,6 +1,6 @@
 use std::{hint::black_box, time::Duration};
 
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use nidus_events::{EventBus, EventObserver, ObservedEventContext};
 use nidus_integrations::{EnvelopeMetadata, MessageEnvelope};
 use nidus_jobs::{
@@ -118,6 +118,33 @@ fn integration_hot_paths(c: &mut Criterion) {
             );
         });
     });
+
+    let mut render_group = c.benchmark_group("observability prometheus render");
+    for series_count in [1_usize, 10, 100] {
+        let render_observability = Observability::production("benchmark")
+            .prometheus()
+            .without_http_metrics()
+            .max_series(series_count);
+        for index in 0..series_count {
+            // Lifecycle labels are a `&'static str` API contract. These bounded
+            // setup-only labels intentionally live for the benchmark process.
+            let operation: &'static str =
+                Box::leak(format!("lifecycle.operation.{index}").into_boxed_str());
+            render_observability.record_lifecycle_operation(
+                operation,
+                OperationStatus::Success,
+                Duration::from_millis(1),
+            );
+        }
+        render_group.bench_with_input(
+            BenchmarkId::from_parameter(series_count),
+            &render_observability,
+            |b, observability| {
+                b.iter(|| black_box(observability.render_prometheus()));
+            },
+        );
+    }
+    render_group.finish();
 
     let unconfigured_events = EventBus::<u64>::new()
         .observed(BenchmarkEventObserver)

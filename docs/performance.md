@@ -123,6 +123,83 @@ for specific framework behavior and should be compared to their own history.
 
 ## Local Results
 
+### Observability exposition and health response allocation pass (2026-07-26)
+
+The observability Prometheus renderer previously allocated a formatted
+`String` for nearly every output line, rebuilt a `Vec<String>` plus joined label
+string for every histogram bucket/count/sum line, and performed three chained
+`String::replace` passes for every escaped label. It now writes directly into
+the final output with `std::fmt::Write`, streams label escaping, uses fixed-size
+label arrays, and reuses one rendered-label scratch buffer per histogram
+family. A conservative capacity estimate also reduces final output-buffer
+growth. Public methods, metric ordering, names, escaping, bucket boundaries,
+and numeric formatting are unchanged.
+
+The retained exact-output test covers backslash, quote, and newline escaping,
+all finite duration buckets, `+Inf`, count, sum, and the three-label adapter
+shape. Existing event, job, lifecycle, adapter, cardinality, disabled-surface,
+HTTP-composition, and concurrent-render tests also remain green. The new
+Criterion group measures exposition with 1, 10, and 100 admitted lifecycle
+series.
+
+The untouched baseline was saved with:
+
+```bash
+CARGO_TARGET_DIR=/tmp/nidus-observability-render-20260726 cargo bench --locked --bench integration_hot_paths -- 'observability prometheus render' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --save-baseline before-observability-render-20260726
+```
+
+The candidate was compared twice with the identical harness and
+`--baseline before-observability-render-20260726`:
+
+| Series | Baseline | Candidate A | Change A | Candidate B | Change B |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 7.8491-7.9036 us | 1.3748-1.3833 us | -82.596% to -82.426% | 1.3544-1.3644 us | -82.958% to -82.787% |
+| 10 | 69.329-69.774 us | 9.2984-9.3600 us | -86.637% to -86.508% | 9.4027-9.5405 us | -86.444% to -86.280% |
+| 100 | 688.28-692.29 us | 90.551-91.178 us | -87.002% to -86.868% | 91.616-92.405 us | -86.804% to -86.640% |
+
+All six comparisons reported `p = 0.00`. These are focused in-process scrape
+results, not an end-to-end server throughput or tail-latency claim.
+
+The health registry also cloned every registered check's `Arc` before polling
+and cloned every check name into the response map. The route future now borrows
+both values from its owned check slice until Axum serializes the JSON response.
+The synchronous check factory invocation remains inside the unwind-catching
+future, so panic, timeout, cancellation, ordering, detail-hiding, and status
+semantics are preserved.
+
+The eight-check readiness row used:
+
+```bash
+CARGO_TARGET_DIR=/tmp/nidus-health-response-20260726 cargo bench --locked --bench request_lifecycle -- 'nidus health readiness with 8 checks' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --save-baseline before-health-response-borrow-20260726
+CARGO_TARGET_DIR=/tmp/nidus-health-response-20260726 cargo bench --locked --bench request_lifecycle -- 'nidus health readiness with 8 checks' --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot --baseline before-health-response-borrow-20260726
+```
+
+The untouched baseline was 1.6975-1.7198 us. Candidate runs measured
+1.4897-1.4952 us (`-13.606%` to `-12.325%`, `p = 0.00`),
+1.4398-1.4578 us, and 1.3956-1.4114 us (`-19.122%` to `-17.423%`,
+`p = 0.00`). The middle run's median remained 14.45% lower, but 13.33% high
+outliers widened Criterion's mean change interval to `-8.0281%` to `-0.0284%`;
+Criterion classified that comparison as within the configured 5% noise
+threshold. The source-level allocation removal and behavior tests are
+deterministic, but the exact latency improvement is therefore qualified rather
+than presented as a stable percentage.
+
+### Edition 2024 resolver alignment (2026-07-26)
+
+The virtual workspace explicitly selected Cargo resolver 2 despite using Rust
+edition 2024 and MSRV 1.96. It now selects resolver 3, enabling Cargo's
+Rust-version-aware fallback for future dependency selection. This is dependency
+policy and reliability hardening, not a compile-time or runtime performance
+claim.
+
+The committed lockfile did not change. Before and after the manifest edit,
+`cargo metadata --locked --format-version 1 | shasum -a 256` produced
+`c5e0b1cbf3e842d7489d38a06fdad963cd101c8b9984730976d9fe05501cd9b9`,
+and `cargo tree --locked --workspace -e features | shasum -a 256` produced
+`f24b5449ea71791200b2952bd5945bafe9ac6a4970bbd76b6071d615410072eb`.
+The full locked all-features test, Clippy, rustdoc, cargo-deny, and RustSec audit
+gates passed under resolver 3.
+
 ### Bounded Event Eviction Lock Scope (2026-07-22)
 
 When a bounded event subscriber reaches capacity, publication now removes the

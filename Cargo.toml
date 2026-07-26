@@ -40,7 +40,7 @@ members = [
   "examples/integrations-production",
   "examples/launchpad-api",
 ]
-resolver = "2"
+resolver = "3"
 
 [package]
 name = "nidus-workspace"

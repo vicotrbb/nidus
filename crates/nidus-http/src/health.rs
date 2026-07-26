@@ -212,10 +212,6 @@ impl HealthRoute {
     }
 
     async fn run(self) -> axum::response::Response {
-        self.run_checks().await.into_response()
-    }
-
-    async fn run_checks(self) -> (StatusCode, Json<HealthBody>) {
         let Self {
             checks,
             timeout: timeout_duration,
@@ -228,12 +224,15 @@ impl HealthRoute {
                     status: HealthState::Up,
                     checks: BTreeMap::new(),
                 }),
-            );
+            )
+                .into_response();
         }
 
         let statuses = join_all(checks.iter().map(|check| {
-            let check = Arc::clone(&check.check);
-            AssertUnwindSafe(async move { timeout(timeout_duration, check()).await }).catch_unwind()
+            AssertUnwindSafe(
+                async move { timeout(timeout_duration, (check.check.as_ref())()).await },
+            )
+            .catch_unwind()
         }))
         .await;
 
@@ -247,7 +246,7 @@ impl HealthRoute {
             };
             all_up &= status.is_up();
             body_checks.insert(
-                check.name.clone(),
+                check.name.as_str(),
                 HealthCheckBody {
                     status: status.status,
                     message: if expose_details { status.message } else { None },
@@ -271,6 +270,7 @@ impl HealthRoute {
                 checks: body_checks,
             }),
         )
+            .into_response()
     }
 }
 
@@ -294,9 +294,9 @@ impl NamedHealthCheck {
 }
 
 #[derive(Debug, Serialize)]
-struct HealthBody {
+struct HealthBody<'a> {
     status: HealthState,
-    checks: BTreeMap<String, HealthCheckBody>,
+    checks: BTreeMap<&'a str, HealthCheckBody>,
 }
 
 #[derive(Debug, Serialize)]

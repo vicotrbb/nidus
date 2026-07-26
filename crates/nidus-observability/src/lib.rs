@@ -9,6 +9,7 @@
 use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet},
+    fmt::Write as _,
     future::Future,
     sync::{Arc, LazyLock, Mutex},
     time::{Duration, Instant},
@@ -323,7 +324,8 @@ impl Observability {
             output.push_str(&self.http_metrics.render());
         }
         let state = lock_state(&self.state).clone();
-        output.push_str(&render_observability_metrics(&state));
+        output.reserve(observability_metrics_capacity(&state));
+        render_observability_metrics(&mut output, &state);
         output
     }
 
@@ -724,136 +726,168 @@ const DURATION_BUCKETS: [f64; 11] = [
     0.005, 0.010, 0.025, 0.050, 0.100, 0.250, 0.500, 1.000, 2.500, 5.000, 10.000,
 ];
 
-fn render_observability_metrics(state: &ObservabilityState) -> String {
-    let mut output = String::new();
+fn render_observability_metrics(output: &mut String, state: &ObservabilityState) {
     output.push_str("# TYPE nidus_events_published_total counter\n");
     for (event, count) in &state.events_published {
-        output.push_str(&format!(
-            "nidus_events_published_total{{event=\"{}\"}} {}\n",
-            escape_label(event),
-            count
-        ));
+        output.push_str("nidus_events_published_total{event=\"");
+        write_escaped_label(output, event);
+        writeln!(output, "\"}} {count}").expect("writing to a String cannot fail");
     }
     output.push_str("# TYPE nidus_jobs_started_total counter\n");
     for (job, count) in &state.jobs_started {
-        output.push_str(&format!(
-            "nidus_jobs_started_total{{job=\"{}\"}} {}\n",
-            escape_label(job),
-            count
-        ));
+        output.push_str("nidus_jobs_started_total{job=\"");
+        write_escaped_label(output, job);
+        writeln!(output, "\"}} {count}").expect("writing to a String cannot fail");
     }
     output.push_str("# TYPE nidus_jobs_finished_total counter\n");
     for ((job, status), count) in &state.jobs_finished {
-        output.push_str(&format!(
-            "nidus_jobs_finished_total{{job=\"{}\",status=\"{}\"}} {}\n",
-            escape_label(job),
-            escape_label(status),
-            count
-        ));
+        output.push_str("nidus_jobs_finished_total{job=\"");
+        write_escaped_label(output, job);
+        output.push_str("\",status=\"");
+        write_escaped_label(output, status);
+        writeln!(output, "\"}} {count}").expect("writing to a String cannot fail");
     }
     render_histogram(
-        &mut output,
+        output,
         "nidus_job_duration_seconds",
-        &["job", "status"],
-        state
-            .job_duration
-            .iter()
-            .map(|((job, status), histogram)| (vec![job.as_ref(), *status], histogram)),
+        state.job_duration.iter().map(|((job, status), histogram)| {
+            ([("job", job.as_ref()), ("status", *status)], histogram)
+        }),
     );
     output.push_str("# TYPE nidus_lifecycle_total counter\n");
     for ((operation, status), count) in &state.lifecycle_total {
-        output.push_str(&format!(
-            "nidus_lifecycle_total{{operation=\"{}\",status=\"{}\"}} {}\n",
-            escape_label(operation),
-            escape_label(status),
-            count
-        ));
+        output.push_str("nidus_lifecycle_total{operation=\"");
+        write_escaped_label(output, operation);
+        output.push_str("\",status=\"");
+        write_escaped_label(output, status);
+        writeln!(output, "\"}} {count}").expect("writing to a String cannot fail");
     }
     render_histogram(
-        &mut output,
+        output,
         "nidus_lifecycle_duration_seconds",
-        &["operation", "status"],
         state
             .lifecycle_duration
             .iter()
-            .map(|((operation, status), histogram)| (vec![operation.as_ref(), *status], histogram)),
+            .map(|((operation, status), histogram)| {
+                (
+                    [("operation", operation.as_ref()), ("status", *status)],
+                    histogram,
+                )
+            }),
     );
     output.push_str("# TYPE nidus_adapter_operations_total counter\n");
     for ((series, status), count) in &state.adapter_operations {
-        output.push_str(&format!(
-            "nidus_adapter_operations_total{{adapter=\"{}\",operation=\"{}\",status=\"{}\"}} {}\n",
-            escape_label(series.adapter),
-            escape_label(series.operation),
-            escape_label(status),
-            count
-        ));
+        output.push_str("nidus_adapter_operations_total{adapter=\"");
+        write_escaped_label(output, series.adapter);
+        output.push_str("\",operation=\"");
+        write_escaped_label(output, series.operation);
+        output.push_str("\",status=\"");
+        write_escaped_label(output, status);
+        writeln!(output, "\"}} {count}").expect("writing to a String cannot fail");
     }
     render_histogram(
-        &mut output,
+        output,
         "nidus_adapter_operation_duration_seconds",
-        &["adapter", "operation", "status"],
         state
             .adapter_duration
             .iter()
             .map(|((series, status), histogram)| {
-                (vec![series.adapter, series.operation, *status], histogram)
+                (
+                    [
+                        ("adapter", series.adapter),
+                        ("operation", series.operation),
+                        ("status", *status),
+                    ],
+                    histogram,
+                )
             }),
     );
-    output
 }
 
-fn render_histogram<'a>(
+fn observability_metrics_capacity(state: &ObservabilityState) -> usize {
+    let counter_series = state
+        .events_published
+        .len()
+        .saturating_add(state.jobs_started.len())
+        .saturating_add(state.jobs_finished.len())
+        .saturating_add(state.lifecycle_total.len())
+        .saturating_add(state.adapter_operations.len());
+    let histogram_series = state
+        .job_duration
+        .len()
+        .saturating_add(state.lifecycle_duration.len())
+        .saturating_add(state.adapter_duration.len());
+
+    384_usize
+        .saturating_add(counter_series.saturating_mul(128))
+        .saturating_add(histogram_series.saturating_mul(1_536))
+}
+
+fn render_histogram<'a, const N: usize>(
     output: &mut String,
     name: &str,
-    label_names: &[&str],
-    histograms: impl Iterator<Item = (Vec<&'a str>, &'a DurationHistogram)>,
+    histograms: impl Iterator<Item = ([(&'static str, &'a str); N], &'a DurationHistogram)>,
 ) {
-    output.push_str(&format!("# TYPE {name} histogram\n"));
-    for (label_values, histogram) in histograms {
+    writeln!(output, "# TYPE {name} histogram").expect("writing to a String cannot fail");
+    let mut rendered_labels = String::new();
+    for (labels, histogram) in histograms {
+        rendered_labels.clear();
+        render_labels(&mut rendered_labels, &labels);
         for (bucket, count) in DURATION_BUCKETS.iter().zip(histogram.bucket_counts.iter()) {
-            output.push_str(&format!(
-                "{name}_bucket{{{},le=\"{}\"}} {}\n",
-                render_labels(label_names, &label_values),
-                format_bucket(*bucket),
-                count
-            ));
+            writeln!(
+                output,
+                "{name}_bucket{{{rendered_labels},le=\"{bucket:.3}\"}} {count}"
+            )
+            .expect("writing to a String cannot fail");
         }
-        output.push_str(&format!(
-            "{name}_bucket{{{},le=\"+Inf\"}} {}\n",
-            render_labels(label_names, &label_values),
+        writeln!(
+            output,
+            "{name}_bucket{{{rendered_labels},le=\"+Inf\"}} {}",
             histogram.count
-        ));
-        output.push_str(&format!(
-            "{name}_count{{{}}} {}\n",
-            render_labels(label_names, &label_values),
+        )
+        .expect("writing to a String cannot fail");
+        writeln!(
+            output,
+            "{name}_count{{{rendered_labels}}} {}",
             histogram.count
-        ));
-        output.push_str(&format!(
-            "{name}_sum{{{}}} {:.6}\n",
-            render_labels(label_names, &label_values),
+        )
+        .expect("writing to a String cannot fail");
+        writeln!(
+            output,
+            "{name}_sum{{{rendered_labels}}} {:.6}",
             histogram.sum
-        ));
+        )
+        .expect("writing to a String cannot fail");
     }
 }
 
-fn render_labels(names: &[&str], values: &[&str]) -> String {
-    names
-        .iter()
-        .zip(values.iter())
-        .map(|(name, value)| format!("{name}=\"{}\"", escape_label(value)))
-        .collect::<Vec<_>>()
-        .join(",")
+fn render_labels<const N: usize>(output: &mut String, labels: &[(&str, &str); N]) {
+    for (index, (name, value)) in labels.iter().enumerate() {
+        if index > 0 {
+            output.push(',');
+        }
+        write!(output, "{name}=\"").expect("writing to a String cannot fail");
+        write_escaped_label(output, value);
+        output.push('"');
+    }
 }
 
-fn format_bucket(bucket: f64) -> String {
-    format!("{bucket:.3}")
-}
-
-fn escape_label(value: &str) -> String {
-    value
-        .replace('\\', r"\\")
-        .replace('\n', r"\n")
-        .replace('"', r#"\""#)
+fn write_escaped_label(output: &mut String, value: &str) {
+    let mut segment_start = 0;
+    for (index, character) in value.char_indices() {
+        let replacement = match character {
+            '\\' => Some(r"\\"),
+            '\n' => Some(r"\n"),
+            '"' => Some(r#"\""#),
+            _ => None,
+        };
+        if let Some(replacement) = replacement {
+            output.push_str(&value[segment_start..index]);
+            output.push_str(replacement);
+            segment_start = index + character.len_utf8();
+        }
+    }
+    output.push_str(&value[segment_start..]);
 }
 
 fn lock_state(state: &Mutex<ObservabilityState>) -> std::sync::MutexGuard<'_, ObservabilityState> {
@@ -864,9 +898,11 @@ fn lock_state(state: &Mutex<ObservabilityState>) -> std::sync::MutexGuard<'_, Ob
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::{sync::Arc, time::Duration};
 
-    use super::{AdapterSeries, ObservabilityState};
+    use super::{
+        AdapterSeries, DurationHistogram, ObservabilityState, render_observability_metrics,
+    };
 
     #[test]
     fn state_reuses_interned_and_overflow_labels() {
@@ -894,5 +930,55 @@ mod tests {
 
         let overflow = state.adapter_series("adapter", "set", Some(2));
         assert_eq!(overflow, AdapterSeries::OVERFLOW);
+    }
+
+    #[test]
+    fn prometheus_renderer_preserves_exact_histogram_and_escape_bytes() {
+        let mut state = ObservabilityState::default();
+        let series = AdapterSeries {
+            adapter: "adapter\\primary",
+            operation: "get\"\nline",
+        };
+        state.adapter_operations.insert((series, "failure"), 7);
+        let mut histogram = DurationHistogram::default();
+        histogram.observe(Duration::from_millis(12));
+        state
+            .adapter_duration
+            .insert((series, "failure"), histogram);
+
+        let mut rendered = String::new();
+        render_observability_metrics(&mut rendered, &state);
+
+        let labels = r#"adapter="adapter\\primary",operation="get\"\nline",status="failure""#;
+        let expected = format!(
+            concat!(
+                "# TYPE nidus_events_published_total counter\n",
+                "# TYPE nidus_jobs_started_total counter\n",
+                "# TYPE nidus_jobs_finished_total counter\n",
+                "# TYPE nidus_job_duration_seconds histogram\n",
+                "# TYPE nidus_lifecycle_total counter\n",
+                "# TYPE nidus_lifecycle_duration_seconds histogram\n",
+                "# TYPE nidus_adapter_operations_total counter\n",
+                "nidus_adapter_operations_total{{{labels}}} 7\n",
+                "# TYPE nidus_adapter_operation_duration_seconds histogram\n",
+                "nidus_adapter_operation_duration_seconds_bucket{{{labels},le=\"0.005\"}} 0\n",
+                "nidus_adapter_operation_duration_seconds_bucket{{{labels},le=\"0.010\"}} 0\n",
+                "nidus_adapter_operation_duration_seconds_bucket{{{labels},le=\"0.025\"}} 1\n",
+                "nidus_adapter_operation_duration_seconds_bucket{{{labels},le=\"0.050\"}} 1\n",
+                "nidus_adapter_operation_duration_seconds_bucket{{{labels},le=\"0.100\"}} 1\n",
+                "nidus_adapter_operation_duration_seconds_bucket{{{labels},le=\"0.250\"}} 1\n",
+                "nidus_adapter_operation_duration_seconds_bucket{{{labels},le=\"0.500\"}} 1\n",
+                "nidus_adapter_operation_duration_seconds_bucket{{{labels},le=\"1.000\"}} 1\n",
+                "nidus_adapter_operation_duration_seconds_bucket{{{labels},le=\"2.500\"}} 1\n",
+                "nidus_adapter_operation_duration_seconds_bucket{{{labels},le=\"5.000\"}} 1\n",
+                "nidus_adapter_operation_duration_seconds_bucket{{{labels},le=\"10.000\"}} 1\n",
+                "nidus_adapter_operation_duration_seconds_bucket{{{labels},le=\"+Inf\"}} 1\n",
+                "nidus_adapter_operation_duration_seconds_count{{{labels}}} 1\n",
+                "nidus_adapter_operation_duration_seconds_sum{{{labels}}} 0.012000\n",
+            ),
+            labels = labels,
+        );
+
+        assert_eq!(rendered, expected);
     }
 }
