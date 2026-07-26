@@ -44,7 +44,15 @@ pub use security::{
     streaming_body_limit_layer, timeout_response_layer, webhook_body_limit_layer,
 };
 
-/// Creates a Tower timeout layer.
+/// Creates Tower's error-producing timeout layer.
+///
+/// When the deadline elapses, this layer returns a service error rather than an
+/// HTTP response. Axum applications must map that middleware error into a
+/// response (for example with `axum::error_handling::HandleErrorLayer`);
+/// otherwise Axum can close the connection without sending a response.
+///
+/// Prefer [`timeout_response_layer`] when an elapsed request should become an
+/// HTTP `408 Request Timeout` response.
 pub fn timeout_layer(timeout: Duration) -> TimeoutLayer {
     TimeoutLayer::new(timeout)
 }

@@ -36,6 +36,8 @@ Primary references:
 - [Tower Service readiness contract](https://docs.rs/tower-service/0.3.3/tower_service/trait.Service.html#backpressure)
 - [Tower 0.5.3 concurrency limiting](https://docs.rs/tower/0.5.3/tower/limit/concurrency/struct.ConcurrencyLimitLayer.html)
 - [Tower 0.5.3 load shedding](https://docs.rs/tower/0.5.3/tower/load_shed/index.html)
+- [Tower 0.5.3 timeout errors](https://docs.rs/tower/0.5.3/tower/timeout/index.html)
+- [Axum 0.8.9 middleware error handling](https://docs.rs/axum/0.8.9/axum/middleware/index.html#error-handling-for-middleware)
 - [Tokio 1.53.1 timeout and cancellation](https://docs.rs/tokio/1.53.1/tokio/time/fn.timeout.html)
 - [Tokio 1.53.1 mutex selection](https://docs.rs/tokio/1.53.1/tokio/sync/struct.Mutex.html#which-kind-of-mutex-should-you-use)
 - [Tokio 1.53.1 blocking work](https://docs.rs/tokio/1.53.1/tokio/task/fn.spawn_blocking.html)
@@ -252,6 +254,44 @@ the repository already records an error-envelope concrete-future experiment
 that regressed by 7.67%-9.62% (`docs/performance.md:655-659`). One local source
 shape is not evidence for a blanket rule.
 
+## Candidate 5: document the raw Tower timeout error boundary
+
+### Current safety risk
+
+The public `timeout_layer` helper returns Tower's error-producing
+`TimeoutLayer`, but its rustdoc says only that it creates a timeout layer
+(`crates/nidus-http/src/middleware.rs:47-50`). The focused test correctly expects
+an elapsed service error (`crates/nidus-http/tests/middleware.rs:215-227`).
+Axum documents that middleware services whose errors reach Axum can terminate
+the connection without sending a response; such errors must be converted to
+responses with error-handling middleware.
+
+Nidus already provides the safer HTTP-specific
+`timeout_response_layer`, which preserves the inner error type and converts only
+elapsed work to `408 Request Timeout`
+(`crates/nidus-http/src/middleware/security.rs:202-272`).
+`docs/interceptors.md:141-143` distinguishes the response helper from Tower's
+raw timeout error, but the public helper's own documentation does not state the
+Axum composition requirement.
+
+### Proposed change and proof
+
+Strengthen only the `timeout_layer` rustdoc: state that it returns Tower's raw
+timeout error, show that Axum users must map that error into a response, and
+direct HTTP users to `timeout_response_layer` when a `408` response is desired.
+Preserve the helper and its return type for public-API compatibility.
+
+Validate the documentation with:
+
+```bash
+cargo test -p nidus-http --doc
+RUSTDOCFLAGS="-D warnings" cargo doc -p nidus-http --all-features --no-deps
+```
+
+Assessment: **documentation/code-quality hardening**. This is not a performance
+change or performance claim; it makes an existing public error boundary harder
+to misuse.
+
 ## Safety practices to retain
 
 - Keep Tower readiness exact. `Service::call` may panic if readiness was not
@@ -337,8 +377,9 @@ forbids extrapolating a microbenchmark to server throughput
 1. Add the observability-render fixture and benchmark, then attempt only the
    private allocation reduction.
 2. Change resolver 2 to resolver 3 and run the locked full-workspace gates.
-3. Evaluate the streaming production cap separately as a reliability campaign.
-4. Attempt the rate-limit concrete future only if the first three leave budget
+3. Clarify the raw Tower timeout helper's Axum error-mapping requirement.
+4. Evaluate the streaming production cap separately as a reliability campaign.
+5. Attempt the rate-limit concrete future only if the first four leave budget
    and a byte-identical, allocation-aware A/B harness is available.
 
 Stop and revert any performance candidate that does not reproduce outside the

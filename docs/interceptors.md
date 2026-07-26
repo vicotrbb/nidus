@@ -140,7 +140,10 @@ let app = router
 
 Use `timeout_response_layer(duration)` when the application wants elapsed work
 mapped to an HTTP `408 Request Timeout` response instead of Tower's raw timeout
-error.
+error. The lower-level `timeout_layer(duration)` preserves Tower's fallible
+service model. When using it with Axum, map its error into a response with
+`axum::error_handling::HandleErrorLayer`; an unhandled middleware error can
+otherwise close the connection without sending a response.
 
 `cors_layer()` remains a permissive development helper. Use
 `cors_origin_layer(origin)` when an API should allow one explicit origin while
