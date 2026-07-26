@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
 //! Core application, module, provider, and dependency injection primitives.

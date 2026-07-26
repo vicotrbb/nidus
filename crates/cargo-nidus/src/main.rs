@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Command-line tooling for generating and inspecting Nidus projects.
 
 use std::{

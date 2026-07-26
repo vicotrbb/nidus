@@ -160,6 +160,12 @@ The candidate was compared twice with the identical harness and
 All six comparisons reported `p = 0.00`. These are focused in-process scrape
 results, not an end-to-end server throughput or tail-latency claim.
 
+A post-review confirmation run against the same untouched saved baseline
+measured 1.3126-1.3194 us for one series, 9.0429-9.1012 us for ten series, and
+88.738-89.296 us for 100 series. The corresponding improvements were
+83.290%-83.443%, 86.933%-87.046%, and 87.156%-87.275%; all three comparisons
+reported `p = 0.00`.
+
 The health registry also cloned every registered check's `Arc` before polling
 and cloned every check name into the response map. The route future now borrows
 both values from its owned check slice until Axum serializes the JSON response.
@@ -184,6 +190,10 @@ threshold. The source-level allocation removal and behavior tests are
 deterministic, but the exact latency improvement is therefore qualified rather
 than presented as a stable percentage.
 
+A post-review confirmation run measured 1.4254-1.4361 us, a
+15.839%-17.218% improvement over the same saved untouched baseline
+(`p = 0.00`).
+
 ### Edition 2024 resolver alignment (2026-07-26)
 
 The virtual workspace explicitly selected Cargo resolver 2 despite using Rust
@@ -199,6 +209,19 @@ and `cargo tree --locked --workspace -e features | shasum -a 256` produced
 `f24b5449ea71791200b2952bd5945bafe9ac6a4970bbd76b6071d615410072eb`.
 The full locked all-features test, Clippy, rustdoc, cargo-deny, and RustSec audit
 gates passed under resolver 3.
+
+### Compiler-enforced safe-only framework roots (2026-07-26)
+
+All 26 framework, workspace-harness, and `cargo-nidus` crate roots now use
+`#![forbid(unsafe_code)]`. A source audit found no existing unsafe Rust syntax;
+the stronger `forbid` level prevents nested modules from locally weakening the
+policy. This adds no runtime code and makes the framework's existing safe-only
+implementation a compile-time invariant. Example binaries remain consumers of
+the framework rather than part of this crate-root policy.
+
+The policy was checked with the locked all-features workspace test suite,
+warnings-denied Clippy, warnings-denied rustdoc, and the repository's dependency
+audit script. This is reliability hardening, not a performance claim.
 
 ### Bounded Event Eviction Lock Scope (2026-07-22)
 

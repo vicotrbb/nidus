@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
 //! Official SQLx adapter for Nidus applications.

@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
 //! First-party SQLx persistence for [`nidus_jobs`] durable workers.

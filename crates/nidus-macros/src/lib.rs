@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
 //! Procedural macros for Nidus modules, providers, controllers, and routes.

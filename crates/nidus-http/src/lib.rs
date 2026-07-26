@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
 //! HTTP routing, controllers, middleware, request, and response helpers.

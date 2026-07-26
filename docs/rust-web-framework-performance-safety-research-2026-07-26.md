@@ -27,6 +27,11 @@ Primary references:
 
 - [Cargo resolver versions](https://doc.rust-lang.org/cargo/reference/resolver.html#resolver-versions)
 - [Rust 2024 resolver migration](https://doc.rust-lang.org/stable/edition-guide/rust-2024/cargo-resolver.html)
+- [Cargo workspace lint inheritance](https://doc.rust-lang.org/cargo/reference/workspaces.html#the-lints-table)
+- [Cargo SemVer guidance for new lints](https://doc.rust-lang.org/cargo/reference/semver.html#tooling-and-environment-compatibility)
+- [Rust `unsafe_code` lint](https://doc.rust-lang.org/stable/nightly-rustc/rustc_lint/builtin/static.UNSAFE_CODE.html)
+- [Rust `must_use` attribute](https://doc.rust-lang.org/reference/attributes/diagnostics.html#the-must_use-attribute)
+- [Clippy `return_self_not_must_use`](https://rust-lang.github.io/rust-clippy/stable/index.html#return_self_not_must_use)
 - [Rust `std::fmt::Write`](https://doc.rust-lang.org/std/fmt/trait.Write.html)
 - [Rust `Box` and heap allocation](https://doc.rust-lang.org/std/boxed/)
 - [Axum 0.8.9 body limits](https://docs.rs/axum/0.8.9/axum/extract/struct.DefaultBodyLimit.html)
@@ -180,7 +185,60 @@ Assessment: **best immediate code-quality candidate**. It is deterministic,
 public-API-compatible, aligned with the declared edition/MSRV, and easy to
 rollback.
 
-## Candidate 3: qualify a hard streaming cap for production defaults
+## Candidate 3: make the framework's safe-only implementation explicit
+
+### Current risk
+
+The workspace-level benchmark crate, all 24 library crate roots, and the
+`cargo-nidus` binary deny missing public documentation where applicable, but
+none forbids unsafe Rust (`src/lib.rs:1`; `crates/nidus-core/src/lib.rs:1`;
+`crates/nidus-http/src/lib.rs:1`; the other `crates/*/src/lib.rs` roots; and
+`crates/cargo-nidus/src/main.rs:1`). A whole-repository source scan found no
+unsafe blocks, unsafe functions, or unsafe symbol/linkage attributes in Nidus
+production Rust. That is a useful current property, but it is convention rather
+than a compiler-enforced project policy.
+
+Rust documents that the `unsafe_code` lint catches unsafe code and other
+potentially unsound constructs including `no_mangle`, `export_name`, and
+`link_section`. The `forbid` level is stronger than `deny`: a nested module
+cannot lower it locally. Cargo also supports centrally inherited workspace
+lints, although each member must opt in with `[lints] workspace = true`.
+
+### Proposed change
+
+Add `#![forbid(unsafe_code)]` beside `#![deny(missing_docs)]` in the root
+benchmark crate, each library crate root, and the `cargo-nidus` binary root.
+Crate-root attributes are the smaller change for the current workspace because
+they cover the 26 framework and tooling targets without adding lint-inheritance
+stanzas to every example manifest.
+
+This adds no executable code, dependency, feature, public item, ABI change, or
+runtime branch. It makes a property the repository already satisfies fail at
+compile time if it regresses. If a future adapter genuinely needs unsafe Rust,
+that should require an explicit policy change and a separately reviewed safety
+contract rather than a local `allow`.
+
+### Proof required
+
+```bash
+rg --files-without-match '^#!\[forbid\(unsafe_code\)\]' src/lib.rs crates/*/src/lib.rs crates/cargo-nidus/src/main.rs
+rg -n '\bunsafe\b|no_mangle|export_name|link_section' --glob '*.rs' --glob '!target/**' --glob '!fuzz/**' .
+cargo fmt --all --check
+cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+cargo test --locked --workspace --all-features
+RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --all-features --no-deps
+```
+
+The first command must print nothing after the change. Review every hit from the
+second command; current hits are documentation prose, not unsafe Rust syntax.
+No performance claim or benchmark is appropriate because this is a
+compile-time safety policy.
+
+Assessment: **best remaining deterministic code-quality candidate**. It is
+public-API-neutral and has no downstream warning effect because the lint applies
+while compiling Nidus itself, not to callers.
+
+## Candidate 4: qualify a hard streaming cap for production defaults
 
 ### Current risk
 
@@ -226,7 +284,7 @@ candidate rather than a mechanically safe performance patch.
 Assessment: **conditional**. Do not enable by default from a microbenchmark
 alone; require application and connection-recovery evidence.
 
-## Candidate 4: one allocation-free middleware future experiment only
+## Candidate 5: one allocation-free middleware future experiment only
 
 ### Current bottleneck
 
@@ -254,7 +312,7 @@ the repository already records an error-envelope concrete-future experiment
 that regressed by 7.67%-9.62% (`docs/performance.md:655-659`). One local source
 shape is not evidence for a blanket rule.
 
-## Candidate 5: document the raw Tower timeout error boundary
+## Candidate 6: document the raw Tower timeout error boundary
 
 ### Current safety risk
 
@@ -372,14 +430,44 @@ benchmark policy correctly requires comparison at the changed boundary and
 forbids extrapolating a microbenchmark to server throughput
 (`docs/performance.md:67-71,106-115,958-967`).
 
+### Blanket `must_use` annotations
+
+A targeted read-only Clippy run on the current tree used:
+
+```bash
+cargo clippy --locked -p nidus-http -p nidus-core -p nidus-rs -p nidus-observability --all-targets --all-features -- -W clippy::return_self_not_must_use
+```
+
+It reported 117 `return_self_not_must_use` warnings across 25 source files.
+Representative public consuming-builder surfaces include
+`NidusApplicationBuilder` (`crates/nidus/src/app.rs:95-148`), `ApiDefaults`
+(`crates/nidus-http/src/middleware/api_defaults.rs:121-293`), `ModuleBuilder`
+(`crates/nidus-core/src/module/mod.rs:203-285`), and `Observability`
+(`crates/nidus-observability/src/lib.rs:65-159`).
+
+Rust's `must_use` attribute is appropriate when silently discarding a returned
+value is likely to be a mistake, and Clippy specifically recommends it for
+methods returning `Self`. However, Cargo's SemVer guide classifies introducing
+new lints as a minor change and names `unused_must_use` as a warning that can
+break downstream projects which deny warnings. A framework-wide annotation
+sweep is therefore not a zero-impact code-quality cleanup for this patch.
+
+Defer it to a documented minor-release campaign. Scope it first to true
+consuming builders whose ignored result discards configuration, add downstream
+compile fixtures for the intended warnings, run SemVer checks, and avoid marking
+ordinary value-enrichment helpers merely to make the optional Clippy lint
+silent. This is reliability/API ergonomics work, not a runtime optimization.
+
 ## Recommended implementation order
 
 1. Add the observability-render fixture and benchmark, then attempt only the
    private allocation reduction.
 2. Change resolver 2 to resolver 3 and run the locked full-workspace gates.
 3. Clarify the raw Tower timeout helper's Axum error-mapping requirement.
-4. Evaluate the streaming production cap separately as a reliability campaign.
-5. Attempt the rate-limit concrete future only if the first four leave budget
+4. Enforce the current safe-only implementation with crate-root
+   `forbid(unsafe_code)` attributes.
+5. Evaluate the streaming production cap separately as a reliability campaign.
+6. Attempt the rate-limit concrete future only if the first five leave budget
    and a byte-identical, allocation-aware A/B harness is available.
 
 Stop and revert any performance candidate that does not reproduce outside the
