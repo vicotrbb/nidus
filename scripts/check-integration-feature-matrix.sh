@@ -6,8 +6,8 @@ cd "${repo_root}"
 export RUSTFLAGS="${RUSTFLAGS:+${RUSTFLAGS} }-Dwarnings"
 
 check() {
-  echo "[feature-matrix] cargo check $*"
-  cargo check "$@"
+  echo "[feature-matrix] cargo check --locked $*"
+  cargo check --locked "$@"
 }
 
 assert_dependency_absent() {

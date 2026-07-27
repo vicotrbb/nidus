@@ -222,6 +222,7 @@ fn request_lifecycle_setup(c: &mut Criterion) {
             })
         })
         .unwrap();
+    let request_container = Arc::new(request_container);
     let request_scope_router = Router::new()
         .route(
             "/scope",
@@ -233,7 +234,18 @@ fn request_lifecycle_setup(c: &mut Criterion) {
                 },
             ),
         )
-        .layer(request_scope_layer(Arc::new(request_container)));
+        .layer(request_scope_layer(Arc::clone(&request_container)));
+    let request_scope_extractor_router = Router::new()
+        .route(
+            "/scope",
+            get(
+                |context: nidus_http::RequestScoped<RequestContext>| async move {
+                    black_box(context.request_id.0);
+                    "scoped"
+                },
+            ),
+        )
+        .layer(request_scope_layer(request_container));
     let health_router = (0..8)
         .fold(HealthRegistry::new(), |registry, index| {
             registry.ready_check_sync(format!("dependency-{index}"), HealthStatus::up)
@@ -463,6 +475,19 @@ fn request_lifecycle_setup(c: &mut Criterion) {
         b.iter(|| {
             let response = runtime
                 .block_on(request_scope_router.clone().oneshot(get_request("/scope")))
+                .unwrap();
+            black_box(response.status());
+        });
+    });
+
+    c.bench_function("nidus request-scoped extractor route", |b| {
+        b.iter(|| {
+            let response = runtime
+                .block_on(
+                    request_scope_extractor_router
+                        .clone()
+                        .oneshot(get_request("/scope")),
+                )
                 .unwrap();
             black_box(response.status());
         });

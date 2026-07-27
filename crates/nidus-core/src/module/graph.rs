@@ -61,9 +61,10 @@ impl ModuleGraph {
         I: IntoIterator<Item = ModuleDefinition>,
     {
         let mut definitions = Vec::new();
-        collect_recursive(M::definition(), &mut definitions, &mut BTreeSet::new());
+        let mut seen = BTreeSet::new();
+        collect_recursive(M::definition(), &mut definitions, &mut seen);
         for module in modules {
-            collect_recursive(module, &mut definitions, &mut BTreeSet::new());
+            collect_explicit(module, &mut definitions, &mut seen);
         }
         Self::from_modules(definitions)
     }
@@ -392,6 +393,28 @@ fn collect_recursive(
         return;
     }
 
+    collect_new(module, definitions, seen);
+}
+
+fn collect_explicit(
+    module: ModuleDefinition,
+    definitions: &mut Vec<ModuleDefinition>,
+    seen: &mut BTreeSet<String>,
+) {
+    if seen.insert(module.name().to_owned()) {
+        collect_new(module, definitions, seen);
+    } else {
+        // Keep explicit duplicates visible to `from_modules`, while allowing
+        // separate typed subgraphs to share recursively discovered dependencies.
+        definitions.push(module);
+    }
+}
+
+fn collect_new(
+    module: ModuleDefinition,
+    definitions: &mut Vec<ModuleDefinition>,
+    seen: &mut BTreeSet<String>,
+) {
     for import in module.import_factories() {
         collect_recursive(import(), definitions, seen);
     }

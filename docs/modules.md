@@ -51,6 +51,12 @@ let app = Nidus::bootstrap_with_modules::<AppModule, _>([
 ])?;
 ```
 
+Typed imports on explicit definitions are followed recursively too. If two
+explicit feature modules share the same typed dependency, Nidus collects that
+dependency once. Supplying the same explicit definition twice—or explicitly
+supplying a module already reached from the root's typed imports—still fails
+with `DuplicateModule`.
+
 When startup hooks are needed, validate the same explicit graph before running
 the lifecycle runner:
 

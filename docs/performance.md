@@ -90,7 +90,8 @@ The current benchmark surface covers:
 - controller setup
 - guard middleware
 - validation extraction
-- request-scoped dependency resolution through HTTP
+- request-scoped dependency resolution through HTTP, including the public
+  `RequestScoped<T>` extractor
 - request context cloning
 - per-layer middleware: security headers, body limit, legacy request ID,
   validated request ID, request context, error envelope, panic catching,
@@ -123,6 +124,80 @@ composition baselines where they are meaningful. Other rows are microbenchmarks
 for specific framework behavior and should be compared to their own history.
 
 ## Local Results
+
+### Shared typed subgraphs and reproducible feature checks (2026-07-27)
+
+`ModuleGraph::from_root_and_modules` previously created a fresh typed-discovery
+set for the root and for every explicit definition. Two explicit feature
+modules that imported the same typed dependency therefore emitted that
+dependency twice and failed with `DuplicateModule`. Discovery now shares one
+set across the whole graph while still forwarding caller-supplied top-level
+duplicates to the existing validator.
+
+The focused test was added before the implementation. On the untouched source,
+this command passed four controls and failed the shared-diamond case with
+`DuplicateModule { module: "SharedExplicitDependencyModule" }`:
+
+```bash
+cargo test --locked -p nidus-core --test app bootstrap_with_modules
+```
+
+After the fix, all five focused cases pass. They prove that the shared module is
+present once, its provider registrar and async initializer each run once, the
+initializer runs before both importers, duplicate explicit definitions still
+fail, and an explicit definition already reached through the typed root still
+fails. The existing startup-only graph control was:
+
+```bash
+CARGO_TARGET_DIR=/tmp/nidus-shared-subgraph-candidate \
+  cargo bench --locked --bench dependency_resolution -- \
+  'nidus 128-module graph validation' \
+  --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot
+```
+
+It measured `43.366-43.770 us`, within 5% of the earlier
+`42.078-42.424 us` result. The successful shared graph has no equivalent
+baseline because the baseline rejects it, so this is reliability hardening, not
+a graph-construction speedup claim.
+
+The integration feature matrix now runs every `cargo check` with `--locked`,
+matching its existing locked dependency-tree assertions. The complete matrix
+passed, and the `Cargo.lock` SHA-256 remained
+`9be4f2c0258fefc18bad229b660de25eea393e40f6774a7f675bfe5d66eb033b`:
+
+```bash
+bash scripts/check-integration-feature-matrix.sh
+git diff --exit-code -- Cargo.lock
+```
+
+This is deterministic CI hardening; it is not a compile-time improvement.
+
+An extractor-specific request benchmark was also added before considering an
+`Arc` clone removal:
+
+```bash
+CARGO_TARGET_DIR=/tmp/nidus-request-scoped-extractor-20260727 \
+  cargo bench --locked --bench request_lifecycle -- \
+  'nidus request-scoped (extractor )?route' \
+  --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot \
+  --save-baseline before-request-scope-ready-20260727
+CARGO_TARGET_DIR=/tmp/nidus-request-scoped-extractor-20260727 \
+  cargo bench --locked --bench request_lifecycle -- \
+  'nidus request-scoped (extractor )?route' \
+  --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot \
+  --baseline before-request-scope-ready-20260727
+```
+
+No runtime source changed between those two runs, yet the direct-resolution
+control moved from `838.38-864.13 ns` to `782.29-797.03 ns` and the real
+extractor moved from `841.66-863.98 ns` to `796.13-803.54 ns`. Criterion
+reported approximately 8.6% common-mode improvement for unchanged code. A
+`std::future::ready` rewrite was therefore rejected: the current RPIT future is
+already unboxed, eager resolution would change factory side-effect timing, and
+the measured environment cannot resolve the smaller refcount hypothesis.
+
+The complete primary-source review and candidate rejection matrix are in
+[the 2026-07-27 follow-up](rust-framework-performance-safety-research-2026-07-27-follow-up.md).
 
 ### Typed config path, static request identity, and module-order pass (2026-07-27)
 

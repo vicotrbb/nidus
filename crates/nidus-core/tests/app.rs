@@ -1,4 +1,11 @@
-use std::{future::Future, pin::Pin};
+use std::{
+    future::Future,
+    pin::Pin,
+    sync::{
+        Mutex,
+        atomic::{AtomicUsize, Ordering},
+    },
+};
 
 use nidus_core::{
     Container, LifecycleRunner, Module, ModuleBuilder, Nidus, NidusError, ProviderRegistrant,
@@ -60,6 +67,157 @@ fn bootstrap_with_modules_rejects_missing_explicit_imports() {
 
     assert!(matches!(error, NidusError::MissingModuleImport { .. }));
     assert!(error.to_string().contains("UsersModule"));
+}
+
+struct SharedExplicitDependencyModule;
+
+impl Module for SharedExplicitDependencyModule {
+    fn definition() -> nidus_core::ModuleDefinition {
+        ModuleBuilder::new("SharedExplicitDependencyModule")
+            .provider_typed::<SharedExplicitProvider>()
+            .async_initializer(initialize_shared_explicit_dependency)
+            .build()
+    }
+}
+
+#[derive(Debug)]
+struct SharedExplicitProvider;
+
+static SHARED_EXPLICIT_PROVIDER_REGISTRATIONS: AtomicUsize = AtomicUsize::new(0);
+
+impl ProviderRegistrant for SharedExplicitProvider {
+    fn register_provider(container: &mut Container) -> Result<()> {
+        SHARED_EXPLICIT_PROVIDER_REGISTRATIONS.fetch_add(1, Ordering::SeqCst);
+        container.register_singleton(SharedExplicitProvider)
+    }
+}
+
+#[derive(Debug)]
+struct SharedExplicitAsyncReady;
+
+static EXPLICIT_INITIALIZATION_ORDER: Mutex<Vec<&'static str>> = Mutex::new(Vec::new());
+
+fn initialize_shared_explicit_dependency(
+    container: &mut Container,
+) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+    Box::pin(async move {
+        EXPLICIT_INITIALIZATION_ORDER.lock().unwrap().push("shared");
+        container.register_singleton(SharedExplicitAsyncReady)
+    })
+}
+
+struct FirstExplicitFeatureModule;
+
+impl Module for FirstExplicitFeatureModule {
+    fn definition() -> nidus_core::ModuleDefinition {
+        ModuleBuilder::new("FirstExplicitFeatureModule")
+            .import_typed::<SharedExplicitDependencyModule>()
+            .async_initializer(initialize_first_explicit_feature)
+            .build()
+    }
+}
+
+fn initialize_first_explicit_feature(
+    container: &mut Container,
+) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+    Box::pin(async move {
+        container.resolve::<SharedExplicitAsyncReady>()?;
+        EXPLICIT_INITIALIZATION_ORDER.lock().unwrap().push("first");
+        Ok(())
+    })
+}
+
+struct SecondExplicitFeatureModule;
+
+impl Module for SecondExplicitFeatureModule {
+    fn definition() -> nidus_core::ModuleDefinition {
+        ModuleBuilder::new("SecondExplicitFeatureModule")
+            .import_typed::<SharedExplicitDependencyModule>()
+            .async_initializer(initialize_second_explicit_feature)
+            .build()
+    }
+}
+
+fn initialize_second_explicit_feature(
+    container: &mut Container,
+) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+    Box::pin(async move {
+        container.resolve::<SharedExplicitAsyncReady>()?;
+        EXPLICIT_INITIALIZATION_ORDER.lock().unwrap().push("second");
+        Ok(())
+    })
+}
+
+struct ExplicitDiamondAppModule;
+
+impl Module for ExplicitDiamondAppModule {
+    fn definition() -> nidus_core::ModuleDefinition {
+        ModuleBuilder::new("ExplicitDiamondAppModule")
+            .import("FirstExplicitFeatureModule")
+            .import("SecondExplicitFeatureModule")
+            .build()
+    }
+}
+
+#[tokio::test]
+async fn bootstrap_with_modules_follows_shared_typed_dependencies_once() {
+    SHARED_EXPLICIT_PROVIDER_REGISTRATIONS.store(0, Ordering::SeqCst);
+    EXPLICIT_INITIALIZATION_ORDER.lock().unwrap().clear();
+
+    let app = Nidus::bootstrap_with_modules_and_lifecycle::<ExplicitDiamondAppModule, _>(
+        [
+            FirstExplicitFeatureModule::definition(),
+            SecondExplicitFeatureModule::definition(),
+        ],
+        LifecycleRunner::new(),
+    )
+    .await
+    .unwrap();
+
+    assert!(
+        app.modules()
+            .get("SharedExplicitDependencyModule")
+            .is_some()
+    );
+    assert_eq!(app.modules().modules().count(), 4);
+    assert_eq!(
+        SHARED_EXPLICIT_PROVIDER_REGISTRATIONS.load(Ordering::SeqCst),
+        1
+    );
+    assert_eq!(
+        *EXPLICIT_INITIALIZATION_ORDER.lock().unwrap(),
+        ["shared", "first", "second"]
+    );
+}
+
+#[test]
+fn bootstrap_with_modules_still_rejects_duplicate_explicit_definitions() {
+    let error = match Nidus::bootstrap_with_modules::<AppModule, _>([
+        UsersModule::definition(),
+        UsersModule::definition(),
+    ]) {
+        Ok(_) => panic!("duplicate explicit modules should fail"),
+        Err(error) => error,
+    };
+
+    assert!(matches!(
+        error,
+        NidusError::DuplicateModule { ref module } if module == "UsersModule"
+    ));
+}
+
+#[test]
+fn bootstrap_with_modules_rejects_explicit_definition_already_followed_from_root() {
+    let error =
+        match Nidus::bootstrap_with_modules::<TypedAppModule, _>([UsersModule::definition()]) {
+            Ok(_) => panic!("typed and explicit duplicate modules should fail"),
+            Err(error) => error,
+        };
+
+    assert!(matches!(
+        error,
+        NidusError::DuplicateModule { ref module } if module == "UsersModule"
+    ));
 }
 
 #[derive(Debug)]
