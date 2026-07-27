@@ -185,7 +185,7 @@ impl RateLimitConfig {
             limit,
             window,
             store: Arc::new(store),
-            identity: Arc::new(|_parts| Some(RequestIdentity::new("anonymous"))),
+            identity: Arc::new(|_parts| Some(RequestIdentity::from_static("anonymous"))),
             fail_open: true,
         }
     }
@@ -256,7 +256,7 @@ where
         let config = &self.config;
         let (parts, body) = request.into_parts();
         let identity =
-            (config.identity)(&parts).unwrap_or_else(|| RequestIdentity::new("anonymous"));
+            (config.identity)(&parts).unwrap_or_else(|| RequestIdentity::from_static("anonymous"));
         let decision = config
             .store
             .check(&identity, config.limit, config.window)
@@ -310,13 +310,80 @@ mod tests {
         },
     };
 
-    use tower::{ServiceExt, service_fn};
+    use tower::{Layer as _, ServiceExt, service_fn};
 
     use super::*;
 
     struct StoreCloneProbe {
         observed_strong_count: Arc<AtomicUsize>,
         owner: Mutex<Option<Weak<dyn RateLimitStore>>>,
+    }
+
+    #[derive(Clone)]
+    struct IdentityProbe {
+        observed: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl RateLimitStore for IdentityProbe {
+        fn check(
+            &self,
+            identity: &RequestIdentity,
+            limit: u64,
+            window: Duration,
+        ) -> Result<RateLimitDecision, RateLimitError> {
+            self.observed
+                .lock()
+                .unwrap()
+                .push(identity.as_str().to_owned());
+            Ok(RateLimitDecision {
+                allowed: true,
+                limit,
+                remaining: limit.saturating_sub(1),
+                reset_after: window,
+            })
+        }
+    }
+
+    #[test]
+    fn borrowed_and_owned_identities_share_the_same_rate_limit_window() {
+        let store = InMemoryRateLimitStore::new();
+        let window = Duration::from_secs(60);
+
+        let first = store
+            .check(&RequestIdentity::from_static("anonymous"), 1, window)
+            .unwrap();
+        let second = store
+            .check(&RequestIdentity::new("anonymous"), 1, window)
+            .unwrap();
+
+        assert!(first.allowed);
+        assert!(!second.allowed);
+        assert_eq!(store.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn default_and_missing_extractor_identities_remain_anonymous() {
+        let observed = Arc::new(Mutex::new(Vec::new()));
+        let probe = IdentityProbe {
+            observed: Arc::clone(&observed),
+        };
+        let inner = || {
+            service_fn(|_request: Request| async {
+                Ok::<_, Infallible>(Response::new(Body::empty()))
+            })
+        };
+        let default = RateLimitConfig::new(10, Duration::from_secs(60), probe.clone())
+            .layer()
+            .layer(inner());
+        let missing = RateLimitConfig::new(10, Duration::from_secs(60), probe)
+            .identity(|_parts: &http::request::Parts| None)
+            .layer()
+            .layer(inner());
+
+        default.oneshot(Request::new(Body::empty())).await.unwrap();
+        missing.oneshot(Request::new(Body::empty())).await.unwrap();
+
+        assert_eq!(*observed.lock().unwrap(), ["anonymous", "anonymous"]);
     }
 
     impl RateLimitStore for StoreCloneProbe {

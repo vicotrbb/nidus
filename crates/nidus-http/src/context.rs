@@ -1,6 +1,7 @@
 //! Request context primitives shared by middleware, handlers, and observers.
 
 use std::{
+    borrow::Cow,
     future::Future,
     net::{IpAddr, SocketAddr},
     sync::Arc,
@@ -277,17 +278,21 @@ where
 
 /// Request identity used by rate limiters and observers.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct RequestIdentity(String);
+pub struct RequestIdentity(Cow<'static, str>);
 
 impl RequestIdentity {
     /// Creates a request identity from a stable label.
     pub fn new(value: impl Into<String>) -> Self {
-        Self(value.into())
+        Self(Cow::Owned(value.into()))
+    }
+
+    pub(crate) const fn from_static(value: &'static str) -> Self {
+        Self(Cow::Borrowed(value))
     }
 
     /// Returns the identity label.
     pub fn as_str(&self) -> &str {
-        &self.0
+        self.0.as_ref()
     }
 }
 
@@ -333,7 +338,7 @@ pub fn client_ip_identity() -> impl IdentityExtractor {
     |parts: &Parts| {
         peer_ip(parts)
             .map(|ip| RequestIdentity::new(ip.to_string()))
-            .or_else(|| Some(RequestIdentity::new("anonymous")))
+            .or_else(|| Some(RequestIdentity::from_static("anonymous")))
     }
 }
 
@@ -360,7 +365,7 @@ pub fn trusted_proxy_client_ip_identity(
                     trusted_forwarded_client_ip(&parts.headers, peer, trusted_proxies.as_ref());
                 RequestIdentity::new(client_ip.to_string())
             })
-            .or_else(|| Some(RequestIdentity::new("anonymous")))
+            .or_else(|| Some(RequestIdentity::from_static("anonymous")))
     }
 }
 
@@ -464,6 +469,30 @@ fn infer_client_kind(headers: &HeaderMap) -> ClientKind {
 mod tests {
     use super::*;
     use http::Request;
+    use std::{
+        collections::hash_map::DefaultHasher,
+        hash::{Hash, Hasher},
+    };
+
+    #[test]
+    fn static_and_owned_request_identities_preserve_content_semantics() {
+        let owned = RequestIdentity::new(String::from("anonymous"));
+        let borrowed = RequestIdentity::from_static("anonymous");
+        let borrowed_clone = borrowed.clone();
+
+        assert!(matches!(&owned.0, Cow::Owned(_)));
+        assert!(matches!(&borrowed.0, Cow::Borrowed("anonymous")));
+        assert!(matches!(&borrowed_clone.0, Cow::Borrowed("anonymous")));
+        assert_eq!(owned.as_str(), borrowed.as_str());
+        assert_eq!(owned, borrowed);
+
+        let hash = |identity: &RequestIdentity| {
+            let mut hasher = DefaultHasher::new();
+            identity.hash(&mut hasher);
+            hasher.finish()
+        };
+        assert_eq!(hash(&owned), hash(&borrowed));
+    }
 
     #[test]
     fn request_context_can_consume_request_id() {

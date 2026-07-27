@@ -199,12 +199,7 @@ impl Config {
         let mut value = self.values.get(first.as_ref())?;
 
         for segment in path {
-            let segment = segment.as_ref();
-            value = match value {
-                Value::Object(object) => object.get(segment)?,
-                Value::Array(array) => array.get(segment.parse::<usize>().ok()?)?,
-                _ => return None,
-            };
+            value = child_value(value, segment.as_ref())?;
         }
 
         Some(value)
@@ -217,12 +212,8 @@ impl Config {
         S: AsRef<str>,
         T: DeserializeOwned,
     {
-        let path = path
-            .into_iter()
-            .map(|segment| segment.as_ref().to_owned())
-            .collect::<Vec<_>>();
-        let label = path.join(".");
-        self.get_path(path.iter().map(String::as_str))
+        let (value, label) = self.get_path_with_label(path);
+        value
             .map(|value| deserialize_value(label, value))
             .transpose()
     }
@@ -234,15 +225,35 @@ impl Config {
         S: AsRef<str>,
         T: DeserializeOwned,
     {
-        let path = path
-            .into_iter()
-            .map(|segment| segment.as_ref().to_owned())
-            .collect::<Vec<_>>();
-        let label = path.join(".");
-        match self.get_path(path.iter().map(String::as_str)) {
+        let (value, label) = self.get_path_with_label(path);
+        match value {
             Some(value) => deserialize_value(label, value),
             None => Err(ConfigError::MissingValue { path: label }),
         }
+    }
+
+    fn get_path_with_label<I, S>(&self, path: I) -> (Option<&Value>, String)
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let mut value = None;
+        let mut label = String::new();
+        let mut first = true;
+
+        for segment in path {
+            let segment = segment.as_ref();
+            if first {
+                value = self.values.get(segment);
+                first = false;
+            } else {
+                label.push('.');
+                value = value.and_then(|value| child_value(value, segment));
+            }
+            label.push_str(segment);
+        }
+
+        (value, label)
     }
 
     /// Merges another configuration source into this one.
@@ -266,5 +277,13 @@ impl Config {
         T: DeserializeOwned,
     {
         T::deserialize(&self.values).map_err(ConfigError::Deserialize)
+    }
+}
+
+fn child_value<'a>(value: &'a Value, segment: &str) -> Option<&'a Value> {
+    match value {
+        Value::Object(object) => object.get(segment),
+        Value::Array(array) => array.get(segment.parse::<usize>().ok()?),
+        _ => None,
     }
 }

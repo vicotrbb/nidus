@@ -178,17 +178,8 @@ where
         }
         let graph = graph_result?;
 
-        for module in graph.modules() {
-            for registrar in module.provider_registrars() {
-                registrar(&mut self.container)?;
-            }
-        }
-
-        for module in graph.modules() {
-            for initializer in module.async_initializers() {
-                initializer(&mut self.container).await?;
-            }
-        }
+        graph.register_providers(&mut self.container)?;
+        graph.initialize_providers(&mut self.container).await?;
 
         let router = self.build_router(&graph)?;
         #[cfg(feature = "dashboard")]

@@ -65,7 +65,7 @@ impl Nidus {
     pub fn bootstrap<M: Module>() -> Result<Application> {
         let graph = ModuleGraph::from_root::<M>()?;
         let mut container = Container::new();
-        register_module_providers(&mut container, &graph)?;
+        graph.register_providers(&mut container)?;
         Ok(Application::new(container, graph))
     }
 
@@ -81,7 +81,7 @@ impl Nidus {
     {
         let graph = ModuleGraph::from_root_and_modules::<M, I>(modules)?;
         let mut container = Container::new();
-        register_module_providers(&mut container, &graph)?;
+        graph.register_providers(&mut container)?;
         Ok(Application::new(container, graph))
     }
 
@@ -94,8 +94,8 @@ impl Nidus {
     ) -> Result<Application> {
         let graph = ModuleGraph::from_root::<M>()?;
         let mut container = Container::new();
-        register_module_providers(&mut container, &graph)?;
-        initialize_module_providers(&mut container, &graph).await?;
+        graph.register_providers(&mut container)?;
+        graph.initialize_providers(&mut container).await?;
         lifecycle.startup().await?;
         Ok(Application::with_lifecycle(container, graph, lifecycle))
     }
@@ -114,27 +114,9 @@ impl Nidus {
     {
         let graph = ModuleGraph::from_root_and_modules::<M, I>(modules)?;
         let mut container = Container::new();
-        register_module_providers(&mut container, &graph)?;
-        initialize_module_providers(&mut container, &graph).await?;
+        graph.register_providers(&mut container)?;
+        graph.initialize_providers(&mut container).await?;
         lifecycle.startup().await?;
         Ok(Application::with_lifecycle(container, graph, lifecycle))
     }
-}
-
-fn register_module_providers(container: &mut Container, graph: &ModuleGraph) -> Result<()> {
-    for module in graph.modules() {
-        for registrar in module.provider_registrars() {
-            registrar(container)?;
-        }
-    }
-    Ok(())
-}
-
-async fn initialize_module_providers(container: &mut Container, graph: &ModuleGraph) -> Result<()> {
-    for module in graph.modules() {
-        for initializer in module.async_initializers() {
-            initializer(container).await?;
-        }
-    }
-    Ok(())
 }

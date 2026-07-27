@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet, btree_map::Entry};
 
-use crate::{Module, NidusError, Result};
+use crate::{Container, Module, NidusError, Result};
 
 use super::ModuleDefinition;
 
@@ -34,9 +34,18 @@ impl<'a> NameLookup<'a> {
 }
 
 /// Validated graph of module definitions.
-#[derive(Debug)]
 pub struct ModuleGraph {
     modules: BTreeMap<String, ModuleDefinition>,
+    dependency_order: Vec<String>,
+}
+
+impl std::fmt::Debug for ModuleGraph {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ModuleGraph")
+            .field("modules", &self.modules)
+            .finish()
+    }
 }
 
 impl ModuleGraph {
@@ -77,8 +86,9 @@ impl ModuleGraph {
                 }
             }
         }
-        let graph = Self {
+        let mut graph = Self {
             modules: registered,
+            dependency_order: Vec::new(),
         };
         tracing::debug!(
             module_count = graph.modules.len(),
@@ -96,7 +106,7 @@ impl ModuleGraph {
         }
         graph.validate_local_imports_unique()?;
         graph.validate_imports_exist()?;
-        graph.validate_acyclic()?;
+        graph.dependency_order = graph.validate_acyclic()?;
         graph.validate_local_providers_unique()?;
         graph.validate_local_controllers_unique()?;
         graph.validate_providers_and_controllers_disjoint()?;
@@ -116,6 +126,43 @@ impl ModuleGraph {
     /// Returns validated module definitions in deterministic name order.
     pub fn modules(&self) -> impl Iterator<Item = &ModuleDefinition> {
         self.modules.values()
+    }
+
+    /// Registers every typed provider in deterministic dependency order.
+    ///
+    /// Imported modules are registered before their importers. Every
+    /// synchronous registrar completes before callers run
+    /// [`Self::initialize_providers`].
+    pub fn register_providers(&self, container: &mut Container) -> Result<()> {
+        for module in self.modules_in_dependency_order() {
+            for registrar in module.provider_registrars() {
+                registrar(container)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Runs every async provider initializer in deterministic dependency order.
+    ///
+    /// Imported modules initialize before their importers, allowing an importer
+    /// initializer to resolve resources created by an imported initializer.
+    /// Initializers remain sequential because each receives exclusive access to
+    /// the dependency container.
+    pub async fn initialize_providers(&self, container: &mut Container) -> Result<()> {
+        for module in self.modules_in_dependency_order() {
+            for initializer in module.async_initializers() {
+                initializer(container).await?;
+            }
+        }
+        Ok(())
+    }
+
+    fn modules_in_dependency_order(&self) -> impl Iterator<Item = &ModuleDefinition> {
+        self.dependency_order.iter().map(|name| {
+            self.modules
+                .get(name)
+                .expect("dependency order only contains validated modules")
+        })
     }
 
     fn validate_local_imports_unique(&self) -> Result<()> {
@@ -144,15 +191,16 @@ impl ModuleGraph {
         Ok(())
     }
 
-    fn validate_acyclic(&self) -> Result<()> {
+    fn validate_acyclic(&self) -> Result<Vec<String>> {
         let mut visiting = BTreeSet::new();
         let mut visited = BTreeSet::new();
         let mut stack = Vec::new();
+        let mut order = Vec::with_capacity(self.modules.len());
 
         for name in self.modules.keys() {
-            self.visit(name, &mut visiting, &mut visited, &mut stack)?;
+            self.visit(name, &mut visiting, &mut visited, &mut stack, &mut order)?;
         }
-        Ok(())
+        Ok(order)
     }
 
     fn validate_local_providers_unique(&self) -> Result<()> {
@@ -292,6 +340,7 @@ impl ModuleGraph {
         visiting: &mut BTreeSet<&'a str>,
         visited: &mut BTreeSet<&'a str>,
         stack: &mut Vec<&'a str>,
+        order: &mut Vec<String>,
     ) -> Result<()> {
         if visited.contains(name) {
             return Ok(());
@@ -311,12 +360,13 @@ impl ModuleGraph {
         stack.push(name);
         if let Some(module) = self.modules.get(name) {
             for import in &module.imports {
-                self.visit(import, visiting, visited, stack)?;
+                self.visit(import, visiting, visited, stack, order)?;
             }
         }
         stack.pop();
         visiting.remove(name);
         visited.insert(name);
+        order.push(name.to_owned());
         Ok(())
     }
 }
@@ -347,4 +397,39 @@ fn collect_recursive(
     }
 
     definitions.push(module);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ModuleBuilder;
+
+    #[test]
+    fn dependency_order_is_stable_for_transitive_and_diamond_imports() {
+        let core = ModuleBuilder::new("CoreModule").build();
+        let left = ModuleBuilder::new("LeftModule")
+            .import("CoreModule")
+            .build();
+        let right = ModuleBuilder::new("RightModule")
+            .import("CoreModule")
+            .build();
+        let root = ModuleBuilder::new("RootModule")
+            .import("RightModule")
+            .import("LeftModule")
+            .build();
+        let independent = ModuleBuilder::new("ZIndependentModule").build();
+
+        let graph = ModuleGraph::from_modules([root, right, independent, left, core]).unwrap();
+
+        assert_eq!(
+            graph.dependency_order,
+            [
+                "CoreModule",
+                "LeftModule",
+                "RightModule",
+                "RootModule",
+                "ZIndependentModule",
+            ]
+        );
+    }
 }

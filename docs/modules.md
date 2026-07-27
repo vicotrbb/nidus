@@ -40,8 +40,10 @@ imports, circular imports, invalid exports, local providers that conflict with
 imported exports, and ambiguous imported providers before an application is
 considered bootstrapped.
 
-Applications with imports bootstrap by passing the root module type plus the
-explicit imported module definitions:
+Typed imports produced by `#[module]` or `ModuleBuilder::import_typed` are
+followed recursively from the root module. String-only imports created with
+`ModuleBuilder::import` have no Rust factory to follow, so pass those explicit
+definitions at bootstrap:
 
 ```rust
 let app = Nidus::bootstrap_with_modules::<AppModule, _>([
@@ -59,6 +61,14 @@ let app = Nidus::bootstrap_with_modules_and_lifecycle::<AppModule, _>(
 )
 .await?;
 ```
+
+Provider bootstrap has two phases. Nidus first runs every synchronous provider
+registrar, then runs async provider initializers when using a lifecycle-aware or
+facade builder entrypoint. Imported modules run before their importers in both
+phases, so an importer callback can resolve a resource installed by an imported
+module. Async initializers remain sequential and the first error stops
+bootstrap. `ModuleGraph::modules()` is still name-ordered for inspection; that
+iterator is not provider execution order.
 
 Lifecycle startup runs hooks in registration order. If a startup hook fails,
 Nidus shuts down already-started hooks in reverse order before returning a

@@ -78,6 +78,7 @@ The current benchmark surface covers:
 
 - singleton dependency resolution, including first construction
 - typed configuration deserialization with 128 service entries
+- required typed configuration lookup across a six-segment path
 - module-graph validation with 128 feature modules and visible providers
 - ordered lifecycle startup with 32 hooks
 - raw Axum route composition
@@ -93,7 +94,7 @@ The current benchmark surface covers:
 - request context cloning
 - per-layer middleware: security headers, body limit, legacy request ID,
   validated request ID, request context, error envelope, panic catching,
-  timeout response, and rate limit
+  timeout response, and allowed/rejected/store-error rate limit paths
 - rate limit store check with 10,000 tracked identities
 - trusted-proxy identity extraction and extractor cloning
 - structured logging span creation with request and trace headers
@@ -122,6 +123,112 @@ composition baselines where they are meaningful. Other rows are microbenchmarks
 for specific framework behavior and should be compared to their own history.
 
 ## Local Results
+
+### Typed config path, static request identity, and module-order pass (2026-07-27)
+
+Typed nested configuration reads previously cloned every path segment into a
+`String`, collected those strings into a `Vec`, joined them into an error label,
+and then traversed the collected path. The typed methods now traverse the
+stored JSON value while building the same full label in one pass. Traversal
+continues consuming label segments after a lookup miss, preserving exact
+missing-value and deserialization paths. Object, array, empty-path,
+empty-segment, scalar, invalid-index, and one-shot-iterator tests cover that
+contract. The raw `get_path` method and public typed method signatures are
+unchanged.
+
+Framework-owned `"anonymous"` rate-limit identities also created a temporary
+owned `String` per request. `RequestIdentity` now keeps its private value as
+`Cow<'static, str>`: the public `new(impl Into<String>)` constructor remains
+exactly the same and still creates an owned identity, while private framework
+fallbacks borrow the static label. Tests inspect owned and borrowed variants,
+clone behavior, equality, hashing, exact fallback text, and shared
+in-memory-rate-limit windows. Dynamic header, context, and IP identities remain
+owned.
+
+The initial benchmark harness was added before either implementation and run
+against the untouched `ab1c89d66e61a4a1a58d116290ca878fbcca72d9`
+baseline. Both sides used `rustc 1.96.0` on `aarch64-apple-darwin`, 150
+samples, a two-second warm-up, and a five-second measurement:
+
+```bash
+CARGO_TARGET_DIR=/tmp/nidus-20260727-bench-target \
+  cargo bench --locked --bench configuration -- \
+  'nidus config required typed path 6 segments' \
+  --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot \
+  --save-baseline pre-config
+CARGO_TARGET_DIR=/tmp/nidus-20260727-bench-target \
+  cargo bench --locked --bench request_lifecycle -- \
+  'nidus middleware rate limit' \
+  --warm-up-time 2 --measurement-time 5 --sample-size 150 --noplot \
+  --save-baseline pre-rate
+
+# Repeat from the candidate checkout with --baseline pre-config/pre-rate.
+```
+
+The baseline-first Criterion comparison produced:
+
+| Benchmark | Baseline | Candidate | Criterion change |
+| --- | ---: | ---: | ---: |
+| Required typed path, 6 segments | 178.41-180.10 ns | 112.90-114.38 ns | -37.606% to -36.729% |
+| Rate limit, allowed | 867.29-873.52 ns | 794.32-799.62 ns | -9.0902% to -7.8581% |
+| Rate limit, rejected | 845.27-850.83 ns | 776.61-781.36 ns | -8.4633% to -7.5913% |
+| Rate-limit store error | 886.45-895.02 ns | 808.39-814.82 ns | -9.4789% to -8.5118% |
+
+All four comparisons reported `p = 0.00`. A reverse-order run compiled the
+candidate and detached baseline into independent target directories. A
+shared-target attempt was discarded because Cargo reused the candidate
+benchmark binary across worktree roots without rebuilding it.
+
+| Benchmark | Candidate first | Baseline second | Point-estimate change |
+| --- | ---: | ---: | ---: |
+| Required typed path, 6 segments | 116.26 ns | 168.90 ns | -31.17% |
+| Rate limit, allowed | 807.47 ns | 834.50 ns | -3.24% |
+| Rate limit, rejected | 779.79 ns | 800.77 ns | -2.62% |
+| Rate-limit store error | 813.16 ns | 833.39 ns | -2.43% |
+
+The config improvement clears the repository's 5% threshold in both execution
+orders and is retained as a focused typed-read latency and intermediate
+allocation improvement. The rate-limit latency result does not: its reverse
+order moved only 2.43%-3.24%. The retained rate-limit claim is therefore
+limited to the deterministic removal of the framework-owned temporary
+`String`; no stable request-latency, throughput, RSS, or p99 percentage is
+claimed.
+
+Module startup previously ran provider callbacks in module-name order, even
+when an importer sorted before its imported dependency. A reproducing test
+failed with `MissingProvider` before the fix. `ModuleGraph` now derives a
+dependency-first order during its existing cycle-detection traversal, owns the
+shared provider registration/initialization seam used by both core and facade
+bootstrap, and retains the documented name order of `modules()`. Synchronous
+registrars and sequential async initializers both run imported modules before
+importers; initializer failures still stop bootstrap with the original error.
+Transitive, diamond, independent, core-bootstrap, and facade-builder tests cover
+the order. This is reliability hardening, not a request-path optimization.
+
+The 128-module validation control moved from `40.968-41.332 us` at the detached
+baseline to `42.078-42.424 us` for the final implementation. The point estimate
+increased from `41.142 us` to `42.245 us` (+2.68%, +1.103 us), inside the 5%
+noise threshold and confined to application startup. A second topological-map
+implementation measured `62.942-63.555 us` and was rejected before finalizing
+the change.
+
+The focused behavior commands were:
+
+```bash
+cargo test --locked -p nidus-config
+cargo test --locked -p nidus-http --all-features
+cargo test --locked -p nidus-core
+cargo test --locked -p nidus-rs --all-features
+```
+
+The public rate-limit service future remains boxed. Replacing its nameable
+Tower associated type would be SemVer-sensitive, a private future enum is
+rejected by E0446, safe projection over arbitrary inner futures is not
+available without another public helper or a stronger `Unpin` bound, and the
+repository's prior concrete error-envelope future regressed. Default global
+concurrency limits, async-mutex swaps, eager singleton resolution, unsafe pin
+projection, and broad `Cow` migrations also remain rejected without
+workload-specific evidence.
 
 ### Feature-isolated compile-surface pass (2026-07-26)
 

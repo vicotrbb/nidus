@@ -8,6 +8,7 @@ use nidus::prelude::*;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "openapi")]
 use serde_json::Value;
+use std::{future::Future, pin::Pin};
 use tower::ServiceExt;
 
 #[injectable]
@@ -97,6 +98,52 @@ struct AppModule {
 #[module]
 struct MissingProviderModule {
     controllers: [GreetingController],
+}
+
+#[derive(Debug)]
+struct ImportedInitializerReady;
+
+#[derive(Debug)]
+struct ImporterInitializerReady;
+
+fn initialize_imported_module(
+    container: &mut Container,
+) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+    Box::pin(async move {
+        container.register_singleton(ImportedInitializerReady)?;
+        Ok(())
+    })
+}
+
+fn initialize_importer_module(
+    container: &mut Container,
+) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+    Box::pin(async move {
+        container.resolve::<ImportedInitializerReady>()?;
+        container.register_singleton(ImporterInitializerReady)?;
+        Ok(())
+    })
+}
+
+struct ZFacadeImportedModule;
+
+impl Module for ZFacadeImportedModule {
+    fn definition() -> ModuleDefinition {
+        ModuleBuilder::new("ZFacadeImportedModule")
+            .async_initializer(initialize_imported_module)
+            .build()
+    }
+}
+
+struct AFacadeImporterModule;
+
+impl Module for AFacadeImporterModule {
+    fn definition() -> ModuleDefinition {
+        ModuleBuilder::new("AFacadeImporterModule")
+            .import_typed::<ZFacadeImportedModule>()
+            .async_initializer(initialize_importer_module)
+            .build()
+    }
 }
 
 #[cfg(feature = "auth")]
@@ -217,6 +264,19 @@ async fn controller_dependency_errors_surface_during_build() {
 
     assert!(matches!(error, NidusError::MissingProvider { .. }));
     assert!(error.to_string().contains("GreetingService"));
+}
+
+#[tokio::test]
+async fn builder_initializes_imported_modules_before_importers() {
+    let app = Nidus::create::<AFacadeImporterModule>()
+        .build()
+        .await
+        .unwrap();
+
+    app.application()
+        .container()
+        .resolve::<ImporterInitializerReady>()
+        .unwrap();
 }
 
 #[cfg(feature = "auth")]

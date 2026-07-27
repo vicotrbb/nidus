@@ -61,14 +61,48 @@ fn config_fixture() -> Config {
     Config::from_value(serde_json::json!({ "services": services })).unwrap()
 }
 
+fn nested_config_fixture() -> Config {
+    Config::from_value(serde_json::json!({
+        "services": {
+            "primary": {
+                "database": {
+                    "pool": {
+                        "limits": {
+                            "max_connections": 64
+                        }
+                    }
+                }
+            }
+        }
+    }))
+    .unwrap()
+}
+
 fn configuration(c: &mut Criterion) {
     let config = config_fixture();
+    let nested_config = nested_config_fixture();
 
     c.bench_function("nidus config deserialize 128 services", |b| {
         b.iter(|| {
             let settings = config.deserialize::<BenchmarkConfig>().unwrap();
             black_box(settings.checksum());
             black_box(settings)
+        });
+    });
+
+    c.bench_function("nidus config required typed path 6 segments", |b| {
+        b.iter(|| {
+            let value: u64 = nested_config
+                .get_required_path_typed([
+                    "services",
+                    "primary",
+                    "database",
+                    "pool",
+                    "limits",
+                    "max_connections",
+                ])
+                .unwrap();
+            black_box(value)
         });
     });
 }

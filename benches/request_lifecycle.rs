@@ -20,9 +20,10 @@ use nidus_http::{
     logging::{LoggingConfig, StructuredMakeSpan},
     middleware::{
         ApiDefaults, HttpMetricsHook, InMemoryRateLimitStore, PrometheusMetrics, RateLimitConfig,
-        RateLimitStore as _, RequestIdConfig, RequestIdentity, body_limit_layer, catch_panic_layer,
-        request_context_layer, request_id_layer, request_scope_layer, security_headers_layer,
-        timeout_response_layer, validated_request_id_layer,
+        RateLimitDecision, RateLimitError, RateLimitStore, RequestIdConfig, RequestIdentity,
+        body_limit_layer, catch_panic_layer, request_context_layer, request_id_layer,
+        request_scope_layer, security_headers_layer, timeout_response_layer,
+        validated_request_id_layer,
     },
     router::{RouteDefinition, RouteMetadata},
 };
@@ -96,6 +97,20 @@ struct RequestId(usize);
 
 struct RequestContext {
     request_id: Inject<RequestId>,
+}
+
+#[derive(Clone, Copy)]
+struct FailingRateLimitStore;
+
+impl RateLimitStore for FailingRateLimitStore {
+    fn check(
+        &self,
+        _identity: &RequestIdentity,
+        _limit: u64,
+        _window: Duration,
+    ) -> Result<RateLimitDecision, RateLimitError> {
+        Err(RateLimitError::new("benchmark store failure"))
+    }
 }
 
 #[derive(Deserialize, Validate)]
@@ -252,6 +267,14 @@ fn request_lifecycle_setup(c: &mut Criterion) {
             InMemoryRateLimitStore::new(),
         )
         .layer(),
+    );
+    let rejected_rate_limit_router = middleware_base_router.clone().layer(
+        RateLimitConfig::new(0, Duration::from_secs(60), InMemoryRateLimitStore::new()).layer(),
+    );
+    let store_error_rate_limit_router = middleware_base_router.clone().layer(
+        RateLimitConfig::new(10, Duration::from_secs(60), FailingRateLimitStore)
+            .fail_open()
+            .layer(),
     );
     let production_defaults_router =
         ApiDefaults::production("bench-api").apply(Router::new().route(
@@ -563,6 +586,32 @@ fn request_lifecycle_setup(c: &mut Criterion) {
             let response = runtime
                 .block_on(
                     rate_limit_router
+                        .clone()
+                        .oneshot(get_request("/middleware")),
+                )
+                .unwrap();
+            black_box(response.status());
+        });
+    });
+
+    c.bench_function("nidus middleware rate limit rejected request", |b| {
+        b.iter(|| {
+            let response = runtime
+                .block_on(
+                    rejected_rate_limit_router
+                        .clone()
+                        .oneshot(get_request("/middleware")),
+                )
+                .unwrap();
+            black_box(response.status());
+        });
+    });
+
+    c.bench_function("nidus middleware rate limit store error request", |b| {
+        b.iter(|| {
+            let response = runtime
+                .block_on(
+                    store_error_rate_limit_router
                         .clone()
                         .oneshot(get_request("/middleware")),
                 )

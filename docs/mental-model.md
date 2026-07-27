@@ -26,6 +26,14 @@ module definitions when imports are needed. The module graph validates duplicate
 modules, missing imports, invalid exports, ambiguous imported providers, and
 circular imports before the app is considered bootstrapped.
 
+After validation, synchronous provider registrars run for every module before
+async provider initialization begins. Both phases are dependency-first:
+imported modules run before their importers, and async initializers remain
+sequential because each receives exclusive access to the container. Lifecycle
+startup hooks run only after provider initialization succeeds. The public
+module iterator remains name-ordered for deterministic inspection; request
+handling does not use either startup order.
+
 The container owns typed provider registrations. It resolves providers by Rust
 type, not runtime reflection or string lookup. Singleton providers are reused,
 transient providers are recreated, and request providers require an explicit

@@ -216,6 +216,78 @@ fn config_reports_typed_path_deserialization_path() {
 }
 
 #[test]
+fn typed_paths_preserve_complete_labels_after_lookup_failure() {
+    let config = Config::from_json_str(
+        r#"{
+            "services": { "primary": { "port": 3000 } },
+            "servers": [{ "name": "primary" }],
+            "port": 3000
+        }"#,
+    )
+    .unwrap();
+
+    for path in [
+        vec!["missing", "nested", "value"],
+        vec!["services", "missing", "value"],
+        vec!["services", "primary", "missing"],
+        vec!["servers", "not-an-index", "name"],
+        vec!["port", "nested", "value"],
+    ] {
+        let expected = path.join(".");
+        let error = config
+            .get_required_path_typed::<_, _, String>(path)
+            .unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            format!("missing required configuration value `{expected}`")
+        );
+    }
+}
+
+#[test]
+fn typed_paths_preserve_empty_and_single_segment_semantics() {
+    let config = Config::from_value(serde_json::json!({
+        "port": 3000,
+        "": { "value": 7 }
+    }))
+    .unwrap();
+
+    assert_eq!(
+        config
+            .get_required_path_typed::<_, _, u16>(["port"])
+            .unwrap(),
+        3000
+    );
+    assert_eq!(
+        config
+            .get_required_path_typed::<_, _, u16>(["", "value"])
+            .unwrap(),
+        7
+    );
+
+    let error = config
+        .get_required_path_typed::<_, _, String>(std::iter::empty::<&str>())
+        .unwrap_err();
+    assert_eq!(error.to_string(), "missing required configuration value ``");
+}
+
+#[test]
+fn typed_paths_accept_one_shot_iterators() {
+    let config = Config::from_value(serde_json::json!({
+        "services": { "primary": { "port": 3000 } }
+    }))
+    .unwrap();
+    let mut segments = ["services", "primary", "port"].into_iter();
+    let path = std::iter::from_fn(|| segments.next());
+
+    assert_eq!(
+        config.get_required_path_typed::<_, _, u16>(path).unwrap(),
+        3000
+    );
+}
+
+#[test]
 fn config_merges_sources_with_later_values_taking_precedence() {
     let mut defaults =
         Config::from_pairs([("name", "nidus"), ("port", "3000"), ("debug", "false")]);
