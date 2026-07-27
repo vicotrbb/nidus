@@ -515,7 +515,7 @@ checksum = "ae36dc4177970ef04fde5178d3e2429882def40e57a451f919c098f72baa6cec"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.2",
+ "syn 3.0.3",
 ]
 
 [[package]]
@@ -1165,7 +1165,7 @@ dependencies = [
  "anyhow",
  "clap",
  "serde_json",
- "syn 3.0.2",
+ "syn 3.0.3",
 ]
 
 [[package]]
@@ -1272,9 +1272,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.6.3"
+version = "4.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fb99565819980999fb7b4a1796046a5c949e6d4ff132cf5fadf5a641e20d776"
+checksum = "d91e0c145792ef73a6ad36d27c75ac09f1832222a3c209689d90f534685ee5b7"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1294,14 +1294,14 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.6.3"
+version = "4.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32f2392eae7f16557a3d727ef3a12e57b2b2ca6f98566a5f4fb41ffe305df077"
+checksum = "d012d2b9d65aca7f18f4d9878a045bc17899bba951561ba5ec3c2ba1eed9a061"
 dependencies = [
  "heck",
  "proc-macro2",
  "quote",
- "syn 2.0.119",
+ "syn 3.0.3",
 ]
 
 [[package]]
@@ -1810,7 +1810,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3285,7 +3285,7 @@ dependencies = [
  "insta",
  "proc-macro2",
  "quote",
- "syn 3.0.2",
+ "syn 3.0.3",
 ]
 
 [[package]]
@@ -4350,7 +4350,7 @@ dependencies = [
  "once_cell",
  "socket2 0.5.10",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4723,7 +4723,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4797,7 +4797,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4818,7 +4818,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5544,9 +5544,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "3.0.2"
+version = "3.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a207d6d6a2b7fc470b80443726053f18a2481b7e1eee970597051596567987a3"
+checksum = "53e9bae58849f64dfa4f5d5ae372c8341f7305f82a3868709269343628b659a3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5629,7 +5629,7 @@ dependencies = [
  "getrandom 0.3.4",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5678,7 +5678,7 @@ checksum = "43cbfe0cf76104d42a574802844187e84a305e531ed54455f11fbde0f10541cd"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.2",
+ "syn 3.0.3",
 ]
 
 [[package]]
@@ -5795,9 +5795,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-stream"
-version = "0.1.18"
+version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32da49809aab5c3bc678af03902d4ccddea2a87d028d86392a4b1560c6906c70"
+checksum = "a3d06f0b082ba57c26b79407372e57cf2a1e28124f78e9479fe80322cf53420b"
 dependencies = [
  "futures-core",
  "pin-project-lite",
