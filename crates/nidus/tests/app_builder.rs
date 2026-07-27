@@ -4,7 +4,9 @@ use axum::{
     routing::get,
 };
 use nidus::prelude::*;
+#[cfg(feature = "openapi")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "openapi")]
 use serde_json::Value;
 use tower::ServiceExt;
 
@@ -17,20 +19,24 @@ impl GreetingService {
     }
 }
 
+#[cfg(feature = "openapi")]
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 struct UserDto {
     id: i64,
     email: String,
 }
 
+#[cfg(feature = "openapi")]
 #[derive(Debug, Deserialize, Serialize, utoipa::ToSchema)]
 struct CreateUserDto {
     email: String,
 }
 
+#[cfg(feature = "openapi")]
 #[controller("/users")]
 struct ApiUsersController;
 
+#[cfg(feature = "openapi")]
 #[routes]
 impl ApiUsersController {
     #[post("/")]
@@ -52,11 +58,13 @@ impl ApiUsersController {
     }
 }
 
+#[cfg(feature = "openapi")]
 #[module]
 struct ApiUsersModule {
     controllers: [ApiUsersController],
 }
 
+#[cfg(feature = "openapi")]
 #[module]
 struct ApiModule {
     imports: [ApiUsersModule],

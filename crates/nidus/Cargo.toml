@@ -16,11 +16,39 @@ categories.workspace = true
 name = "nidus"
 path = "src/lib.rs"
 
+[[test]]
+name = "app_builder"
+required-features = ["http"]
+
+[[test]]
+name = "controller_routes"
+required-features = ["http"]
+
+[[test]]
+name = "dashboard_features"
+required-features = ["dashboard"]
+
+[[test]]
+name = "facade_features"
+required-features = [
+    "auth",
+    "config",
+    "events",
+    "jobs",
+    "observability",
+    "openapi",
+    "validation",
+]
+
+[[test]]
+name = "macro_ui"
+required-features = ["auth", "http", "openapi", "validation"]
+
 [features]
 default = ["http", "config", "tracing"]
 http = ["dep:nidus-http"]
 otel = ["http", "nidus-http/otel"]
-observability = ["dep:nidus-observability", "http"]
+observability = ["dep:nidus-observability", "dep:tower-http", "http"]
 dashboard = ["dep:nidus-dashboard", "http"]
 config = ["dep:nidus-config"]
 openapi = ["dep:nidus-openapi"]
@@ -45,7 +73,7 @@ nidus-events = { path = "../nidus-events", version = "1.0.15", optional = true }
 nidus-jobs = { path = "../nidus-jobs", version = "1.0.15", optional = true }
 nidus-testing = { path = "../nidus-testing", version = "1.0.15", optional = true }
 tokio.workspace = true
-tower-http.workspace = true
+tower-http = { workspace = true, optional = true }
 serde_json.workspace = true
 utoipa.workspace = true
 

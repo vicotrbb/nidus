@@ -13,7 +13,7 @@ categories.workspace = true
 
 [features]
 default = ["sqlite", "embedded-assets"]
-sqlite = ["dep:sqlx"]
+sqlite = ["dep:sqlx", "sqlx/sqlite"]
 embedded-assets = []
 
 [dependencies]

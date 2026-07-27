@@ -123,6 +123,70 @@ for specific framework behavior and should be compared to their own history.
 
 ## Local Results
 
+### Feature-isolated compile-surface pass (2026-07-26)
+
+The workspace SQLx declaration previously enabled SQLite for every member that
+inherited it. As a result, an isolated PostgreSQL-only `nidus-sqlx` build still
+selected `sqlx-sqlite` and `libsqlite3-sys`. SQLite selection now belongs to the
+public `sqlite` feature of each owning crate; `nidus-dashboard` explicitly
+forwards that feature to SQLx. The PostgreSQL-only normal dependency graph drops
+from 149 to 142 unique packages, and `sqlx-sqlite` is absent. Explicit SQLite
+and combined-backend builds retain it.
+
+The facade also declared `tower-http` unconditionally even though its only
+direct use is behind `observability`. The dependency is now optional and owned
+by that feature. A core-only `nidus-rs --no-default-features` graph drops from
+53 to 33 unique packages and no longer includes `tower-http`,
+`async-compression`, `compression-codecs`, or `compression-core`.
+Observability builds retain `tower-http`. Minimal facade imports are now gated
+with the same features, so this configuration also passes with warnings denied.
+
+The package counts use normal dependencies and deduplicate Cargo's repeated
+tree entries:
+
+```bash
+cargo tree --locked -p nidus-rs --no-default-features \
+  -e normal --prefix none --format '{p}' |
+  sed 's/ (\*)$//' | sort -u | wc -l
+cargo tree --locked -p nidus-sqlx --no-default-features --features postgres \
+  -e normal --prefix none --format '{p}' |
+  sed 's/ (\*)$//' | sort -u | wc -l
+bash scripts/check-integration-feature-matrix.sh
+```
+
+The feature-matrix script checks the facade's default, minimal, HTTP,
+observability, and all-feature configurations with warnings denied. It also
+checks every SQLx adapter backend independently, asserts that non-SQLite graphs
+exclude `sqlx-sqlite`, and asserts that explicit SQLite configurations for both
+adapters and the dashboard include it.
+
+Clean `cargo check` wall times were compared with separate target directories
+against a detached worktree at the exact pre-change commit `a8f2476`, once in
+each execution order:
+
+| Execution order | Target | Baseline | Candidate |
+| --- | --- | ---: | ---: |
+| Candidate, then baseline | Core-only facade | 5.80 s | 7.38 s |
+| Candidate, then baseline | PostgreSQL-only SQLx adapter | 8.77 s | 10.42 s |
+| Baseline, then candidate | Core-only facade | 7.91 s | 6.95 s |
+| Baseline, then candidate | PostgreSQL-only SQLx adapter | 9.14 s | 10.21 s |
+
+The timing does not establish a compile-time improvement: the facade result
+changed direction with execution order, and the SQLx candidate was slower in
+both samples. The retained claim is therefore limited to the deterministic
+dependency and compile surface reduction. No runtime latency, throughput,
+binary-size, or compile-time percentage is inferred from package removal.
+
+As a separate code-quality cleanup, controller and injectable macro expansion
+now share one private parser for `Inject<T>` and `Optional<T>` fields instead of
+maintaining duplicate implementations. Macro unit tests and the complete
+trybuild pass/fail UI suite prove that accepted expansions and diagnostics
+remain unchanged. Facade integration targets now declare the features their
+fixtures actually require, and OpenAPI-only fixtures are compiled only with
+OpenAPI, so warnings-denied minimal and observability-only test runs are clean.
+These test-harness and macro changes are not presented as runtime
+optimizations.
+
 ### Observability exposition and health response allocation pass (2026-07-26)
 
 The observability Prometheus renderer previously allocated a formatted

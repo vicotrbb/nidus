@@ -1,5 +1,32 @@
 use proc_macro2::TokenStream;
-use syn::{ImplItemFn, LitStr, parse2, spanned::Spanned};
+use syn::{GenericArgument, ImplItemFn, LitStr, PathArguments, Type, parse2, spanned::Spanned};
+
+pub(crate) enum DependencyWrapper {
+    Inject,
+    Optional,
+}
+
+pub(crate) fn dependency_wrapper(ty: &Type) -> Option<DependencyWrapper> {
+    let Type::Path(type_path) = ty else {
+        return None;
+    };
+    let segment = type_path.path.segments.last()?;
+    let PathArguments::AngleBracketed(arguments) = &segment.arguments else {
+        return None;
+    };
+    let has_type_argument = arguments
+        .args
+        .iter()
+        .any(|argument| matches!(argument, GenericArgument::Type(_)));
+    if !has_type_argument {
+        return None;
+    }
+    match segment.ident.to_string().as_str() {
+        "Inject" => Some(DependencyWrapper::Inject),
+        "Optional" => Some(DependencyWrapper::Optional),
+        _ => None,
+    }
+}
 
 pub(crate) fn require_empty_attr(attr: TokenStream, macro_name: &str) -> Result<(), TokenStream> {
     if attr.is_empty() {

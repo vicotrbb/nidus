@@ -146,7 +146,7 @@ sentry = { version = "0.48.4", default-features = false, features = ["backtrace"
 sentry-tower = { version = "0.48.4", default-features = false, features = ["http", "axum-matched-path"] }
 sentry-tracing = { version = "0.48.4", default-features = false, features = ["backtrace"] }
 serde_urlencoded = "0.7"
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio"] }
 syn = { version = "3", features = ["full"] }
 thiserror = "2"
 time = { version = "0.3", features = ["formatting"] }

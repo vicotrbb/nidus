@@ -2,9 +2,12 @@
 
 #[cfg(feature = "dashboard")]
 use std::collections::BTreeMap;
+#[cfg(feature = "http")]
 use std::collections::BTreeSet;
 
-use nidus_core::{Application, Container, Module, ModuleGraph, Nidus, NidusError, Result};
+#[cfg(feature = "http")]
+use nidus_core::{Application, ModuleGraph, NidusError};
+use nidus_core::{Container, Module, Nidus, Result};
 
 #[cfg(feature = "dashboard")]
 use nidus_dashboard::{

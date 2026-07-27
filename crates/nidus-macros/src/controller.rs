@@ -1,10 +1,8 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{
-    Fields, GenericArgument, Ident, ItemStruct, PathArguments, Type, parse2, spanned::Spanned,
-};
+use syn::{Fields, Ident, ItemStruct, parse2, spanned::Spanned};
 
-use crate::utils::{require_path_attr, validate_route_path};
+use crate::utils::{DependencyWrapper, dependency_wrapper, require_path_attr, validate_route_path};
 
 pub(crate) fn expand(attr: TokenStream, item: TokenStream) -> TokenStream {
     let prefix = match require_path_attr(attr, "controller") {
@@ -113,31 +111,4 @@ fn field_initializers(
             }
         })
         .collect()
-}
-
-enum DependencyWrapper {
-    Inject,
-    Optional,
-}
-
-fn dependency_wrapper(ty: &Type) -> Option<DependencyWrapper> {
-    let Type::Path(type_path) = ty else {
-        return None;
-    };
-    let segment = type_path.path.segments.last()?;
-    let PathArguments::AngleBracketed(arguments) = &segment.arguments else {
-        return None;
-    };
-    let has_type_argument = arguments
-        .args
-        .iter()
-        .any(|argument| matches!(argument, GenericArgument::Type(_)));
-    if !has_type_argument {
-        return None;
-    }
-    match segment.ident.to_string().as_str() {
-        "Inject" => Some(DependencyWrapper::Inject),
-        "Optional" => Some(DependencyWrapper::Optional),
-        _ => None,
-    }
 }

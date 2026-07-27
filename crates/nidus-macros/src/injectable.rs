@@ -1,8 +1,8 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{
-    Fields, GenericArgument, Ident, ItemStruct, PathArguments, Type, parse2, spanned::Spanned,
-};
+use syn::{Fields, Ident, ItemStruct, parse2, spanned::Spanned};
+
+use crate::utils::{DependencyWrapper, dependency_wrapper};
 
 pub(crate) fn expand(attr: TokenStream, item: TokenStream) -> TokenStream {
     let lifetime = match injectable_lifetime(attr) {
@@ -185,32 +185,5 @@ fn injectable_lifetime(attr: TokenStream) -> Result<InjectableLifetime, &'static
         "transient" => Ok(InjectableLifetime::Transient),
         "request" => Ok(InjectableLifetime::Request),
         _ => Err("#[injectable] supports no arguments, singleton, transient, or request"),
-    }
-}
-
-enum DependencyWrapper {
-    Inject,
-    Optional,
-}
-
-fn dependency_wrapper(ty: &Type) -> Option<DependencyWrapper> {
-    let Type::Path(type_path) = ty else {
-        return None;
-    };
-    let segment = type_path.path.segments.last()?;
-    let PathArguments::AngleBracketed(arguments) = &segment.arguments else {
-        return None;
-    };
-    let has_type_argument = arguments
-        .args
-        .iter()
-        .any(|argument| matches!(argument, GenericArgument::Type(_)));
-    if !has_type_argument {
-        return None;
-    }
-    match segment.ident.to_string().as_str() {
-        "Inject" => Some(DependencyWrapper::Inject),
-        "Optional" => Some(DependencyWrapper::Optional),
-        _ => None,
     }
 }
