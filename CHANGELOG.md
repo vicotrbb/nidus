@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+## 1.0.16 - 2026-07-27
+
+- Moved destruction of bounded-event payloads outside subscriber queue locks,
+  preventing slow, reentrant, or panicking destructors from extending or
+  poisoning the mutation critical section while preserving FIFO and
+  drop-oldest behavior.
+- Reworked Prometheus exposition to write directly into one output buffer,
+  stream escaping, and reuse histogram labels. Focused 1/10/100-series
+  benchmarks improved by 83.29%-87.28%; these are in-process rendering results,
+  not end-to-end throughput claims.
+- Borrowed health-check names and callbacks through response serialization
+  instead of cloning them per readiness request. The final eight-check
+  confirmation improved by 15.84%-17.22%, with an earlier noisy repeat retained
+  in the documented qualification.
+- Traversed typed configuration paths while constructing their diagnostic label
+  once. Paired opposite-order comparisons improved the six-segment typed lookup
+  by 31.17%-37.61% while preserving exact missing-value and deserialization
+  paths.
+- Made provider registration and async initialization dependency-first, and
+  fixed explicit module diamonds so a shared recursively typed dependency is
+  collected and initialized once. Explicit duplicate definitions continue to
+  fail.
+- Removed optional SQLite and observability dependencies from feature-isolated
+  builds that do not request them. The core-only facade graph dropped from 53
+  to 33 packages and PostgreSQL-only SQLx from 149 to 142 packages; variable
+  clean-build timings did not justify a compile-time speed claim.
+- Adopted Cargo resolver 3, forbade unsafe Rust in every framework and tooling
+  crate root, locked the feature-matrix checks, and consolidated duplicated
+  macro field parsing without changing generated APIs or diagnostics.
+- Clarified native Tower timeout error handling, expanded observed async-job
+  documentation, and added focused benchmark and regression coverage for
+  request-scoped extraction, configuration paths, startup ordering, shared
+  module subgraphs, and feature isolation.
+
 ## 1.0.15 - 2026-07-21
 
 - Updated compatible Rust dependencies and pinned GitHub Actions, including an

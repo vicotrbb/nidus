@@ -11,7 +11,7 @@ const DIST = path.join(WEBSITE, 'dist');
 const BASE = normalizeBase(process.env.NIDUS_SITE_BASE ?? '/');
 const SITE_DOMAIN = (process.env.NIDUS_SITE_DOMAIN ?? '').trim();
 const SITE_ORIGIN = SITE_DOMAIN ? `https://${SITE_DOMAIN}` : '';
-const RELEASE_VERSION = '1.0.15';
+const RELEASE_VERSION = '1.0.16';
 const SITE_DESCRIPTION = 'Nidus is a modular Rust backend framework for explicit services, typed dependency injection, Axum routes, Tower middleware, OpenAPI, observability, testing, and installable adapters.';
 
 const docs = [
@@ -74,6 +74,27 @@ const docs = [
     group: 'Reference',
     source: 'docs/api-reference.md',
     summary: 'Crate map and generated Rust API reference entry points.',
+  },
+  {
+    title: 'Rust Performance and Safety Research (2026-07-27)',
+    slug: 'docs/rust-framework-performance-safety-research-2026-07-27',
+    group: 'Reference',
+    source: 'docs/rust-framework-performance-safety-research-2026-07-27.md',
+    summary: 'Primary-source review and evidence-gated performance and reliability candidates.',
+  },
+  {
+    title: 'Rust Performance and Safety Follow-up (2026-07-27)',
+    slug: 'docs/rust-framework-performance-safety-research-2026-07-27-follow-up',
+    group: 'Reference',
+    source: 'docs/rust-framework-performance-safety-research-2026-07-27-follow-up.md',
+    summary: 'Follow-up decisions for module discovery, request extraction, bounded serialization, and build policy.',
+  },
+  {
+    title: 'Release 1.0.16',
+    slug: 'docs/release-1-0-16',
+    group: 'Reference',
+    source: 'docs/release-1-0-16.md',
+    summary: 'Nidus 1.0.16 event, module, observability, configuration, feature, and safety hardening.',
   },
   {
     title: 'Release 1.0.15',
