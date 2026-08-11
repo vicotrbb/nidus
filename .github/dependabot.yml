@@ -5,9 +5,16 @@ updates:
     schedule:
       interval: weekly
     groups:
+      sentry-dependencies:
+        patterns:
+          - "sentry"
+          - "sentry-*"
       rust-dependencies:
         patterns:
           - "*"
+        exclude-patterns:
+          - "sentry"
+          - "sentry-*"
     # These pre-1.0 dependencies appear in Nidus's public API. Their minor
     # releases change foreign type identities and require a Nidus major release.
     # Patch and security updates remain enabled.

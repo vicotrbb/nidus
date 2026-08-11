@@ -24,31 +24,31 @@ Application dependencies stay explicit:
 
 ```toml
 [dependencies]
-nidus = { package = "nidus-rs", version = "1.0.16", features = ["http", "config", "openapi", "validation"] }
+nidus = { package = "nidus-rs", version = "1.0.17", features = ["http", "config", "openapi", "validation"] }
 ```
 
 For production observability through the facade:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.16", features = ["observability", "events", "jobs", "otel"] }
+nidus = { package = "nidus-rs", version = "1.0.17", features = ["observability", "events", "jobs", "otel"] }
 ```
 
 For embedded dashboard introspection:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.16", features = ["dashboard"] }
+nidus = { package = "nidus-rs", version = "1.0.17", features = ["dashboard"] }
 ```
 
 Official integrations are separate crates:
 
 ```toml
-nidus-sqlx = { version = "1.0.16", features = ["sqlite"] }
-nidus-cache = { version = "1.0.16", features = ["moka"] }
-nidus-redis = { version = "1.0.16", features = ["health"] }
-nidus-kafka = { version = "1.0.16", features = ["health"] }
-nidus-jobs-sqlx = { version = "1.0.16", features = ["postgres"] }
-nidus-opentelemetry = "1.0.16"
-nidus-sentry = "1.0.16"
+nidus-sqlx = { version = "1.0.17", features = ["sqlite"] }
+nidus-cache = { version = "1.0.17", features = ["moka"] }
+nidus-redis = { version = "1.0.17", features = ["health"] }
+nidus-kafka = { version = "1.0.17", features = ["health"] }
+nidus-jobs-sqlx = { version = "1.0.17", features = ["postgres"] }
+nidus-opentelemetry = "1.0.17"
+nidus-sentry = "1.0.17"
 ```
 
 ## Which Crate Do I Install?
@@ -121,9 +121,7 @@ struct AppModule {
 
 #[nidus::main]
 async fn main() -> nidus::Result<()> {
-    let app = Nidus::create::<AppModule>()
-        .build_with_router(UsersController.into_router())
-        .await?;
+    let app = Nidus::create::<AppModule>().build().await?;
 
     app.listen("127.0.0.1:3000").await?;
     Ok(())
@@ -231,9 +229,9 @@ npm run verify
 ## Release Status
 
 Nidus 1.0.0 established the public crate set. The current release track is
-1.0.16, hardening event and module lifecycles, reducing focused observability
-and configuration-path work, and tightening feature and safe-code boundaries
-while preserving the established 1.x public APIs.
+1.0.17, correcting the documented application bootstrap, making CLI module
+discovery precise and fail-closed, and restoring dependency-policy health while
+preserving the established 1.x public APIs.
 
 ## Fuzzing
 

@@ -100,6 +100,22 @@ struct MissingProviderModule {
     controllers: [GreetingController],
 }
 
+#[controller("/users")]
+struct ReadmeUsersController;
+
+#[routes]
+impl ReadmeUsersController {
+    #[get("/:id")]
+    async fn find_one(&self, Path(id): Path<i64>) -> String {
+        format!("user {id}")
+    }
+}
+
+#[module]
+struct ReadmeAppModule {
+    controllers: (ReadmeUsersController,),
+}
+
 #[derive(Debug)]
 struct ImportedInitializerReady;
 
@@ -216,6 +232,32 @@ async fn root_module_builds_provider_backed_controller_routes() {
     assert_eq!(response.status(), StatusCode::OK);
     let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     assert_eq!(&body[..], b"hello from module DI");
+}
+
+#[tokio::test]
+async fn readme_quickstart_builds_and_serves_module_owned_controller() {
+    let readme = include_str!("../../../README.md");
+    assert!(
+        readme.contains("Nidus::create::<AppModule>().build().await?;"),
+        "README quickstart must build its module-owned controller exactly once"
+    );
+    assert!(!readme.contains("build_with_router(UsersController.into_router())"));
+
+    let app = Nidus::create::<ReadmeAppModule>().build().await.unwrap();
+    let response = app
+        .into_router()
+        .oneshot(
+            Request::builder()
+                .uri("/users/42")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(&body[..], b"user 42");
 }
 
 #[tokio::test]

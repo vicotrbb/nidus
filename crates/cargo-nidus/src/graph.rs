@@ -1,11 +1,9 @@
 use std::{fs, path::Path};
 
 use anyhow::{Context, Result};
-use syn::{Expr, Item, Lit, Stmt};
+use syn::{Expr, GenericArgument, Item, Lit, Stmt, Type};
 
-use crate::graph_metadata::{
-    DiscoveredModule, discover_module_macro_metadata, extract_struct_names,
-};
+use crate::graph_metadata::{DiscoveredModule, discover_module_macro_metadata};
 use crate::source_files::rust_source_files;
 
 pub(crate) fn inspect_graph(root: &Path) -> Result<()> {
@@ -36,27 +34,20 @@ fn discover_modules(root: &Path) -> Result<Vec<DiscoveredModule>> {
             fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
         let file =
             syn::parse_file(&contents).with_context(|| format!("parsing {}", path.display()))?;
-        let modules = discover_modules_in_source(&file);
-        if modules.is_empty() {
-            discovered.extend(extract_struct_names(&file).into_iter().map(|name| {
-                DiscoveredModule {
-                    name,
-                    ..DiscoveredModule::default()
-                }
-            }));
-        } else {
-            discovered.extend(modules);
-        }
+        discovered.extend(
+            discover_modules_in_source(&file)
+                .with_context(|| format!("invalid #[module] metadata in {}", path.display()))?,
+        );
     }
     discovered.sort_by(|left, right| left.name.cmp(&right.name));
     Ok(discovered)
 }
 
-fn discover_modules_in_source(file: &syn::File) -> Vec<DiscoveredModule> {
+fn discover_modules_in_source(file: &syn::File) -> Result<Vec<DiscoveredModule>> {
     let mut modules = Vec::new();
     modules.extend(discover_module_builder_metadata(file));
-    modules.extend(discover_module_macro_metadata(file));
-    modules
+    modules.extend(discover_module_macro_metadata(file)?);
+    Ok(modules)
 }
 
 fn discover_module_builder_metadata(file: &syn::File) -> Vec<DiscoveredModule> {
@@ -121,20 +112,41 @@ fn module_from_builder_chain(expr: &Expr) -> Option<DiscoveredModule> {
         }
         Expr::MethodCall(call) => {
             let mut module = module_from_builder_chain(&call.receiver)?;
-            let Some(value) = call.args.first().and_then(string_literal) else {
+            let value = call
+                .args
+                .first()
+                .and_then(string_literal)
+                .or_else(|| typed_method_value(call));
+            let Some(value) = value else {
                 return Some(module);
             };
             match call.method.to_string().as_str() {
                 "import" => module.imports.push(value),
+                "import_typed" => module.imports.push(value),
                 "provider" => module.providers.push(value),
+                "provider_typed" => module.providers.push(value),
                 "controller" => module.controllers.push(value),
+                "controller_typed" => module.controllers.push(value),
                 "export" => module.exports.push(value),
+                "export_typed" => module.exports.push(value),
                 _ => {}
             }
             Some(module)
         }
         _ => None,
     }
+}
+
+fn typed_method_value(call: &syn::ExprMethodCall) -> Option<String> {
+    call.turbofish.as_ref()?.args.iter().find_map(|argument| {
+        let GenericArgument::Type(Type::Path(ty)) = argument else {
+            return None;
+        };
+        ty.path
+            .segments
+            .last()
+            .map(|segment| segment.ident.to_string())
+    })
 }
 
 fn string_literal(expr: &Expr) -> Option<String> {

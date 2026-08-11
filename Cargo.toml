@@ -88,17 +88,17 @@ harness = false
 async-trait.workspace = true
 axum.workspace = true
 criterion.workspace = true
-nidus = { package = "nidus-rs", path = "crates/nidus", version = "1.0.16", default-features = false, features = ["auth", "http"] }
-nidus-auth = { path = "crates/nidus-auth", version = "1.0.16" }
-nidus-config = { path = "crates/nidus-config", version = "1.0.16" }
-nidus-core = { path = "crates/nidus-core", version = "1.0.16" }
-nidus-events = { path = "crates/nidus-events", version = "1.0.16" }
-nidus-http = { path = "crates/nidus-http", version = "1.0.16" }
-nidus-integrations = { path = "crates/nidus-integrations", version = "1.0.16" }
-nidus-jobs = { path = "crates/nidus-jobs", version = "1.0.16" }
-nidus-observability = { path = "crates/nidus-observability", version = "1.0.16" }
-nidus-openapi = { path = "crates/nidus-openapi", version = "1.0.16" }
-nidus-validation = { path = "crates/nidus-validation", version = "1.0.16" }
+nidus = { package = "nidus-rs", path = "crates/nidus", version = "1.0.17", default-features = false, features = ["auth", "http"] }
+nidus-auth = { path = "crates/nidus-auth", version = "1.0.17" }
+nidus-config = { path = "crates/nidus-config", version = "1.0.17" }
+nidus-core = { path = "crates/nidus-core", version = "1.0.17" }
+nidus-events = { path = "crates/nidus-events", version = "1.0.17" }
+nidus-http = { path = "crates/nidus-http", version = "1.0.17" }
+nidus-integrations = { path = "crates/nidus-integrations", version = "1.0.17" }
+nidus-jobs = { path = "crates/nidus-jobs", version = "1.0.17" }
+nidus-observability = { path = "crates/nidus-observability", version = "1.0.17" }
+nidus-openapi = { path = "crates/nidus-openapi", version = "1.0.17" }
+nidus-validation = { path = "crates/nidus-validation", version = "1.0.17" }
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
@@ -108,7 +108,7 @@ utoipa.workspace = true
 garde.workspace = true
 
 [workspace.package]
-version = "1.0.16"
+version = "1.0.17"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/vicotrbb/nidus"
@@ -135,16 +135,16 @@ opentelemetry = { version = "0.32", default-features = false, features = ["trace
 opentelemetry-otlp = { version = "0.32", default-features = false, features = ["trace", "grpc-tonic", "http-proto", "reqwest-client", "reqwest-rustls-webpki-roots", "tls-ring", "tls-webpki-roots"] }
 opentelemetry_sdk = { version = "0.32", default-features = false, features = ["trace"] }
 insta = "1"
-nidus-core = { path = "crates/nidus-core", version = "1.0.16" }
-nidus-integrations = { path = "crates/nidus-integrations", version = "1.0.16" }
-nidus-jobs = { path = "crates/nidus-jobs", version = "1.0.16" }
+nidus-core = { path = "crates/nidus-core", version = "1.0.17" }
+nidus-integrations = { path = "crates/nidus-integrations", version = "1.0.17" }
+nidus-jobs = { path = "crates/nidus-jobs", version = "1.0.17" }
 proc-macro2 = "1"
 quote = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sentry = { version = "0.48.4", default-features = false, features = ["backtrace", "contexts", "debug-images", "panic", "release-health", "reqwest", "rustls", "tracing"] }
-sentry-tower = { version = "0.48.4", default-features = false, features = ["http", "axum-matched-path"] }
-sentry-tracing = { version = "0.48.4", default-features = false, features = ["backtrace"] }
+sentry = { version = "=0.48.5", default-features = false, features = ["backtrace", "contexts", "debug-images", "panic", "release-health", "reqwest", "rustls", "tracing"] }
+sentry-tower = { version = "=0.48.5", default-features = false, features = ["http", "axum-matched-path"] }
+sentry-tracing = { version = "=0.48.5", default-features = false, features = ["backtrace"] }
 serde_urlencoded = "0.7"
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio"] }
 syn = { version = "3", features = ["full"] }

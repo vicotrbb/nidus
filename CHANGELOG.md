@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 1.0.17 - 2026-08-10
+
+- Corrected the README quickstart so module-owned controllers are mounted once,
+  avoiding an overlapping-route panic while preserving duplicate-route
+  detection.
+- Tightened `cargo nidus graph` discovery to report only macro-declared and
+  explicit `ModuleBuilder` modules, including typed builder metadata. Malformed
+  `#[module]` metadata now returns a source-file error instead of silently
+  producing an empty module.
+- Updated `event-listener` to 5.4.2 to resolve RUSTSEC-2026-0221, pinned the
+  Sentry family to one 0.48.5 cohort, separated its Dependabot updates, and
+  added a weekly dependency-policy run without scheduling the full CI matrix.
+
 ## 1.0.16 - 2026-07-27
 
 - Moved destruction of bounded-event payloads outside subscriber queue locks,

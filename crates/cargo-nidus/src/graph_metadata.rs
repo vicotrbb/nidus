@@ -13,44 +13,39 @@ pub(crate) struct DiscoveredModule {
     pub(crate) exports: Vec<String>,
 }
 
-pub(crate) fn discover_module_macro_metadata(file: &syn::File) -> Vec<DiscoveredModule> {
+pub(crate) fn discover_module_macro_metadata(
+    file: &syn::File,
+) -> syn::Result<Vec<DiscoveredModule>> {
     let mut modules = Vec::new();
     for item in &file.items {
         let Item::Struct(item) = item else {
             continue;
         };
-        let Some(mut module) = module_attr_metadata(&item.attrs) else {
+        let Some(mut module) = module_attr_metadata(&item.attrs)? else {
             continue;
         };
         module.name = item.ident.to_string();
         apply_module_field_metadata(&mut module, &item.fields);
         modules.push(module);
     }
-    modules
+    Ok(modules)
 }
 
-pub(crate) fn extract_struct_names(file: &syn::File) -> Vec<String> {
-    file.items
-        .iter()
-        .filter_map(|item| {
-            let Item::Struct(item) = item else {
-                return None;
-            };
-            matches!(item.vis, syn::Visibility::Public(_)).then(|| item.ident.to_string())
-        })
-        .collect()
-}
-
-fn module_attr_metadata(attrs: &[Attribute]) -> Option<DiscoveredModule> {
-    let attr = attrs.iter().find(|attr| attr.path().is_ident("module"))?;
-    let metadata = match &attr.meta {
-        Meta::Path(_) => return Some(DiscoveredModule::default()),
-        Meta::List(list) => {
-            parse2::<ModuleAttributeMetadata>(list.tokens.clone()).unwrap_or_default()
-        }
-        Meta::NameValue(_) => return Some(DiscoveredModule::default()),
+fn module_attr_metadata(attrs: &[Attribute]) -> syn::Result<Option<DiscoveredModule>> {
+    let Some(attr) = attrs.iter().find(|attr| attr.path().is_ident("module")) else {
+        return Ok(None);
     };
-    Some(metadata.into_discovered_module())
+    let metadata = match &attr.meta {
+        Meta::Path(_) => return Ok(Some(DiscoveredModule::default())),
+        Meta::List(list) => parse2::<ModuleAttributeMetadata>(list.tokens.clone())?,
+        Meta::NameValue(_) => {
+            return Err(syn::Error::new_spanned(
+                attr,
+                "#[module] expects groups like providers(UsersService)",
+            ));
+        }
+    };
+    Ok(Some(metadata.into_discovered_module()))
 }
 
 fn apply_module_field_metadata(module: &mut DiscoveredModule, fields: &Fields) {
@@ -100,14 +95,20 @@ struct ModuleAttributeMetadata {
 }
 
 impl ModuleAttributeMetadata {
-    fn extend_section(&mut self, section: &Ident, values: Vec<String>) {
+    fn extend_section(&mut self, section: &Ident, values: Vec<String>) -> syn::Result<()> {
         match section.to_string().as_str() {
             "imports" => self.imports.extend(values),
             "providers" => self.providers.extend(values),
             "controllers" => self.controllers.extend(values),
             "exports" => self.exports.extend(values),
-            _ => {}
+            other => {
+                return Err(syn::Error::new(
+                    section.span(),
+                    format!("unknown module metadata section `{other}`"),
+                ));
+            }
         }
+        Ok(())
     }
 
     fn into_discovered_module(self) -> DiscoveredModule {
@@ -134,7 +135,7 @@ impl Parse for ModuleAttributeMetadata {
                 .into_iter()
                 .filter_map(|path| path_name(&path))
                 .collect();
-            metadata.extend_section(&section, values);
+            metadata.extend_section(&section, values)?;
 
             if input.is_empty() {
                 break;
@@ -154,7 +155,7 @@ fn path_name(path: &syn::Path) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{discover_module_macro_metadata, extract_struct_names};
+    use super::discover_module_macro_metadata;
 
     #[test]
     fn discovers_module_attribute_and_field_metadata() {
@@ -175,7 +176,7 @@ pub struct UsersModule {
         )
         .unwrap();
 
-        let modules = discover_module_macro_metadata(&file);
+        let modules = discover_module_macro_metadata(&file).unwrap();
 
         assert_eq!(modules.len(), 1);
         let module = &modules[0];
@@ -184,18 +185,5 @@ pub struct UsersModule {
         assert_eq!(module.providers, ["UsersService", "UsersRepository"]);
         assert_eq!(module.controllers, ["UsersController"]);
         assert_eq!(module.exports, ["UsersService"]);
-    }
-
-    #[test]
-    fn extracts_public_struct_names_for_sources_without_module_metadata() {
-        let file = syn::parse_file(
-            r#"
-pub struct AppModule;
-struct PrivateModule;
-"#,
-        )
-        .unwrap();
-
-        assert_eq!(extract_struct_names(&file), ["AppModule"]);
     }
 }
