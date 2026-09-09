@@ -1,6 +1,6 @@
 # Nidus 1.1.0
 
-This checkout prepares the unpublished 1.1.0 release candidate. Publication is a separate operation. The [candidate validation report](validation/release-1.1.0.md) records the tested source and release gates.
+Nidus 1.1.0 is the coordinated minor release of all 25 framework packages. It includes the complete main history through the technical white-paper publication, together with managed applications, shared composition and cancellation-safe metrics. The [candidate validation report](validation/release-1.1.0.md) records the pre-release proofs and their scope.
 
 ## Managed applications and shared composition
 
@@ -28,6 +28,6 @@ The candidate adds task-admission stress, streaming ownership, composition-cance
 
 ## Compatibility and installation
 
-The coordinated crate version is 1.1.0, using Rust 1.96 and edition 2024. Generated projects take their dependency version from the CLI package version. Once this cohort has been published, applications can select `nidus-rs = "1.1.0"` (usually aliased to `nidus`) and the matching integration crates.
+The coordinated crate version is 1.1.0, using Rust 1.96 and edition 2024. Generated projects take their dependency version from the CLI package version. Applications can select `nidus-rs = "1.1.0"` (usually aliased to `nidus`) and the matching integration crates.
 
-Before publication, use workspace paths for development or the documented local artifact verification scripts. A source-ready candidate does not imply that version 1.1.0 is already available on crates.io.
+The technical white paper is included in the repository and linked from the website. Registry, documentation and deployment availability are verified separately during the coordinated release.

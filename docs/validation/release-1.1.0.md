@@ -1,6 +1,6 @@
 # Nidus 1.1.0 candidate validation
 
-The 1.1.0 candidate passes the release-readiness gates below and is ready for the coordinated release process. No commit, push, tag, publication or deployment has been performed. Readiness means the documented gates pass for the identified source and artifacts; it is not a guarantee that software has no defects.
+The 1.1.0 candidate passes the release-readiness gates below and is ready for the coordinated release process. At the candidate acceptance checkpoint, no commit, push, tag, publication or deployment had been performed. Readiness means the documented gates pass for the identified source and artifacts; it is not a guarantee that software has no defects.
 
 ## Candidate identity
 
@@ -126,6 +126,6 @@ The consolidated acceptance outcomes are `target/release-readiness/final-outcome
 
 ## Release handoff and limits
 
-All source changes remain reviewable in the working tree. Publishing is a separate authorized action. After choosing the final commit/archive provenance, regenerate affected artifact and standalone-lock evidence if bytes change, publish the coordinated cohort, and run `bash scripts/verify-published-release.sh 1.1.0`. That verifier checks all package versions and docs.rs pages, then resolves fresh consumers with an isolated public-registry Cargo home. Refresh source example locks against the published registry before testing their `--locked` builds.
+The source changes were uncommitted at the candidate acceptance checkpoint. The subsequently authorized release includes remote main commit `a02d2fa8eb71fe7227e7fdd8b5c6903b302d5544`, which adds only the white-paper PDF and its website integration; these additions do not change the tested Rust implementation. Release-time site and package checks cover the combined source. After choosing the final commit/archive provenance, regenerate affected artifact and standalone-lock evidence if bytes change, publish the coordinated cohort, and run `bash scripts/verify-published-release.sh 1.1.0`. That verifier checks all package versions and docs.rs pages, then resolves fresh consumers with an isolated public-registry Cargo home. Refresh source example locks against the published registry before testing their `--locked` builds.
 
 The tested platforms are macOS/aarch64 and Linux/aarch64. This campaign does not establish x86_64, Windows, live docs.rs publication, deployed website behavior or production workload guarantees. Managed HTTP owns HTTP/1 connections; arbitrary detached tasks, process aborts, panicking destructors and non-yielding blocking code remain outside its cleanup guarantee. Explicitly await shutdown while the Tokio runtime is alive. Resource initializers must bound and clean up their own partial failures, and overrides remain externally owned.
