@@ -51,12 +51,10 @@ fi
 # and disable cargo-audit's duplicate online yank query below.
 cargo deny check advisories
 
-rsa_path="$(cargo tree --color never -p nidus-sqlx --all-features -i rsa)"
-if ! grep -q '^└── sqlx-mysql ' <<<"${rsa_path}"; then
-  echo "RUSTSEC-2023-0071 exception is no longer limited to sqlx-mysql" >&2
-  printf '%s\n' "${rsa_path}" >&2
-  exit 1
-fi
+metadata_file="$(mktemp)"
+trap 'rm -f "$metadata_file"' EXIT
+cargo metadata --locked --all-features --format-version 1 > "$metadata_file"
+python3 scripts/check-security-graph.py "$metadata_file"
 
 # SQLx 0.8 uses rsa only as a MySQL client-side RsaPublicKey for password
 # encryption. It never owns or operates on an RSA private key, which is the

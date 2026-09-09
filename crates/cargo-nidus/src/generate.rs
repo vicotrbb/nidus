@@ -23,7 +23,10 @@ pub(crate) fn create_project(name: &str, root: &Path, nidus_path: Option<&Path>)
             )
         })
         .unwrap_or_else(|| {
-            "{ package = \"nidus-rs\", version = \"1.0.17\", features = [\"testing\"] }".to_owned()
+            format!(
+                "{{ package = \"nidus-rs\", version = {:?}, features = [\"testing\"] }}",
+                env!("CARGO_PKG_VERSION")
+            )
         });
     write(
         &project.join("Cargo.toml"),

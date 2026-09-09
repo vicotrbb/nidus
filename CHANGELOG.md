@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 1.1.0 - Unreleased
+
+- Add cancellation-safe HTTP metrics with separate cancellation accounting.
+- Share application composition and pre-initialization overrides across production and tests.
+- Add managed startup, task ownership, rollback, bounded shutdown and streaming-body drain.
+- Correct OTLP HTTP export runtime context and CockroachDB example decoding.
+- Update locked h2 to 0.4.16 for RUSTSEC-2026-0258.
+- Verify the whole crate cohort and exact-version archive consumers before publication.
+
+See [release notes](docs/release-1-1-0.md) and the [candidate validation report](docs/validation/release-1.1.0.md).
+
 ## 1.0.17 - 2026-08-10
 
 - Corrected the README quickstart so module-owned controllers are mounted once,

@@ -55,6 +55,11 @@ impl HttpApplication {
         }
     }
 
+    /// Transfers both routing and application lifecycle ownership to another harness.
+    pub fn into_parts(self) -> (Application, Router) {
+        (self.application, self.router)
+    }
+
     /// Consumes this HTTP application and returns its composed router.
     pub fn into_router(self) -> Router {
         self.router
@@ -158,5 +163,12 @@ impl HttpApplication {
         )
         .with_graceful_shutdown(shutdown)
         .await
+    }
+}
+
+#[async_trait::async_trait]
+impl nidus_core::lifecycle::managed::ManagedTarget for HttpApplication {
+    fn application(&self) -> &Application {
+        &self.application
     }
 }

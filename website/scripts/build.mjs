@@ -11,7 +11,7 @@ const DIST = path.join(WEBSITE, 'dist');
 const BASE = normalizeBase(process.env.NIDUS_SITE_BASE ?? '/');
 const SITE_DOMAIN = (process.env.NIDUS_SITE_DOMAIN ?? '').trim();
 const SITE_ORIGIN = SITE_DOMAIN ? `https://${SITE_DOMAIN}` : '';
-const RELEASE_VERSION = '1.0.17';
+const RELEASE_VERSION = '1.1.0';
 const SITE_DESCRIPTION = 'Nidus is a modular Rust backend framework for explicit services, typed dependency injection, Axum routes, Tower middleware, OpenAPI, observability, testing, and installable adapters.';
 
 const docs = [
@@ -58,6 +58,7 @@ const docs = [
   { title: 'Dashboard', slug: 'docs/dashboard', group: 'Runtime', source: 'docs/dashboard.md', summary: 'Optional protected runtime cockpit with Home, Atlas, Timeline, storage, capture, APIs, and SSE.' },
   { title: 'Events', slug: 'docs/events', group: 'Runtime', source: 'docs/events.md', summary: 'In-process event bus and observed events.' },
   { title: 'Jobs', slug: 'docs/jobs', group: 'Runtime', source: 'docs/jobs.md', summary: 'Sync and async job queues with observed runners.' },
+  { title: 'Managed Applications', slug: 'docs/managed-applications', group: 'Runtime', source: 'docs/managed-applications.md', summary: 'Shared composition, resource ownership, managed tasks and bounded shutdown.' },
   { title: 'Testing', slug: 'docs/testing', group: 'Runtime', source: 'docs/testing.md', summary: 'TestApp request helpers and provider overrides.' },
   { title: 'Production Defaults', slug: 'docs/production-defaults', group: 'Production', source: 'docs/production-defaults.md', summary: 'HTTP defaults, observability defaults, and what remains explicit.' },
   { title: 'Deployment', slug: 'docs/deployment', group: 'Production', source: 'docs/deployment.md', summary: 'Deployment boundaries, logging, OTel helpers, health, and release setup.' },
@@ -88,6 +89,20 @@ const docs = [
     group: 'Reference',
     source: 'docs/rust-framework-performance-safety-research-2026-07-27-follow-up.md',
     summary: 'Follow-up decisions for module discovery, request extraction, bounded serialization, and build policy.',
+  },
+  {
+    title: 'Release 1.1.0 Validation',
+    slug: 'docs/release-validation-1-1-0',
+    group: 'Reference',
+    source: 'docs/validation/release-1.1.0.md',
+    summary: 'Source identity, release gates and candidate limitations.',
+  },
+  {
+    title: 'Release 1.1.0',
+    slug: 'docs/release-1-1-0',
+    group: 'Reference',
+    source: 'docs/release-1-1-0.md',
+    summary: 'Managed lifecycle, shared composition and cancellation-safe metrics.',
   },
   {
     title: 'Release 1.0.17',
@@ -877,7 +892,7 @@ function pageShell({ title, description, body, currentSlug, home = false, standa
         ['Modules', href('docs/modules/')],
         ['Production defaults', href('docs/production-defaults/')],
         ['Official adapters', href('docs/official-adapters/')],
-        ['Release notes', href('docs/release-1-0-5/')],
+        ['Release notes', href('docs/release-1-1-0/')],
       ],
     },
     {

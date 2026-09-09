@@ -143,6 +143,46 @@ impl ModuleGraph {
         Ok(())
     }
 
+    /// Registers typed providers while skipping explicitly replaced concrete types.
+    pub fn register_providers_except(
+        &self,
+        container: &mut Container,
+        overrides: &BTreeSet<&'static str>,
+    ) -> Result<()> {
+        for module in self.modules_in_dependency_order() {
+            for (registrar, name) in module
+                .provider_registrars
+                .iter()
+                .zip(&module.provider_types)
+            {
+                if !overrides.contains(name) {
+                    registrar(container)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn initializers(
+        &self,
+    ) -> impl Iterator<
+        Item = (
+            super::AsyncProviderInitializer,
+            Option<&'static str>,
+            Option<crate::app::ResourceCleanup>,
+        ),
+    > + '_ {
+        self.modules_in_dependency_order().flat_map(|module| {
+            module
+                .async_initializers
+                .iter()
+                .copied()
+                .zip(module.initializer_types.iter().copied())
+                .zip(module.resource_cleanups.iter().copied())
+                .map(|((init, name), cleanup)| (init, name, cleanup))
+        })
+    }
+
     /// Runs every async provider initializer in deterministic dependency order.
     ///
     /// Imported modules initialize before their importers, allowing an importer
@@ -158,7 +198,7 @@ impl ModuleGraph {
         Ok(())
     }
 
-    fn modules_in_dependency_order(&self) -> impl Iterator<Item = &ModuleDefinition> {
+    pub(crate) fn modules_in_dependency_order(&self) -> impl Iterator<Item = &ModuleDefinition> {
         self.dependency_order.iter().map(|name| {
             self.modules
                 .get(name)

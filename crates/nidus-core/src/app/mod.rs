@@ -1,10 +1,16 @@
 //! Application bootstrap primitives.
 
+mod plan;
+pub use plan::{ApplicationPlan, Resource};
+pub(crate) use plan::{ResourceCleanup, initialize_resource, resource_cleanup};
+
+use std::sync::Arc;
+
 use crate::{Container, LifecycleRunner, Module, ModuleDefinition, ModuleGraph, Result};
 
 /// Bootstrapped Nidus application.
 pub struct Application {
-    container: Container,
+    container: Arc<Container>,
     modules: ModuleGraph,
     lifecycle: LifecycleRunner,
 }
@@ -13,7 +19,7 @@ impl Application {
     /// Creates an application from an already validated container and graph.
     pub fn new(container: Container, modules: ModuleGraph) -> Self {
         Self {
-            container,
+            container: Arc::new(container),
             modules,
             lifecycle: LifecycleRunner::empty(),
         }
@@ -26,7 +32,7 @@ impl Application {
         lifecycle: LifecycleRunner,
     ) -> Self {
         Self {
-            container,
+            container: Arc::new(container),
             modules,
             lifecycle,
         }
@@ -35,6 +41,16 @@ impl Application {
     /// Returns the application dependency container.
     pub fn container(&self) -> &Container {
         &self.container
+    }
+
+    /// Clones the shared application container used by requests and test resolution.
+    pub fn shared_container(&self) -> Arc<Container> {
+        Arc::clone(&self.container)
+    }
+
+    /// Clones the low-level lifecycle hooks, retaining their resource instances.
+    pub fn lifecycle(&self) -> LifecycleRunner {
+        self.lifecycle.clone()
     }
 
     /// Returns the validated module graph.
@@ -93,11 +109,12 @@ impl Nidus {
         lifecycle: LifecycleRunner,
     ) -> Result<Application> {
         let graph = ModuleGraph::from_root::<M>()?;
-        let mut container = Container::new();
-        graph.register_providers(&mut container)?;
-        graph.initialize_providers(&mut container).await?;
-        lifecycle.startup().await?;
-        Ok(Application::with_lifecycle(container, graph, lifecycle))
+        let mut plan =
+            ApplicationPlan::prepare(graph, Container::new(), Default::default()).await?;
+        plan.initialize().await?;
+        let application = plan.finish(lifecycle);
+        application.lifecycle.startup().await?;
+        Ok(application)
     }
 
     /// Bootstraps a Nidus application from an explicit module graph and runs startup hooks.
@@ -113,10 +130,11 @@ impl Nidus {
         I: IntoIterator<Item = ModuleDefinition>,
     {
         let graph = ModuleGraph::from_root_and_modules::<M, I>(modules)?;
-        let mut container = Container::new();
-        graph.register_providers(&mut container)?;
-        graph.initialize_providers(&mut container).await?;
-        lifecycle.startup().await?;
-        Ok(Application::with_lifecycle(container, graph, lifecycle))
+        let mut plan =
+            ApplicationPlan::prepare(graph, Container::new(), Default::default()).await?;
+        plan.initialize().await?;
+        let application = plan.finish(lifecycle);
+        application.lifecycle.startup().await?;
+        Ok(application)
     }
 }

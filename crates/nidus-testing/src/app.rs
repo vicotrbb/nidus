@@ -2,8 +2,8 @@ use axum::{Extension, Router};
 use http::Method;
 use nidus_config::Config;
 use nidus_core::{
-    Container, LifecycleHook, LifecycleRunner, Module, ModuleDefinition, Nidus, RequestScope,
-    Result,
+    Application, Container, LifecycleHook, LifecycleRunner, Module, ModuleDefinition, ModuleGraph,
+    RequestScope, Result,
 };
 use nidus_http::middleware::request_scope_layer;
 use std::sync::Arc;
@@ -43,6 +43,8 @@ pub struct TestApp {
     container: Arc<Container>,
     config: Config,
     lifecycle: Arc<LifecycleRunner>,
+    application: Option<Arc<Application>>,
+    managed: Option<nidus_core::lifecycle::managed::Managed<nidus_http::server::HttpApplication>>,
 }
 
 impl TestApp {
@@ -59,8 +61,11 @@ impl TestApp {
     where
         M: Module,
     {
-        Nidus::bootstrap::<M>()?;
-        Ok(Self::builder(router))
+        let mut builder = Self::builder(router);
+        let graph = ModuleGraph::from_root::<M>()?;
+        nidus_http::composition::validate_routes(&graph)?;
+        builder.graph = Some(graph);
+        Ok(builder)
     }
 
     /// Creates a test application builder after validating an explicit module graph.
@@ -81,8 +86,11 @@ impl TestApp {
         M: Module,
         I: IntoIterator<Item = ModuleDefinition>,
     {
-        Nidus::bootstrap_with_modules::<M, I>(modules)?;
-        Ok(Self::builder(router))
+        let mut builder = Self::builder(router);
+        let graph = ModuleGraph::from_root_and_modules::<M, I>(modules)?;
+        nidus_http::composition::validate_routes(&graph)?;
+        builder.graph = Some(graph);
+        Ok(builder)
     }
 
     /// Creates a test application from an Axum router.
@@ -97,6 +105,8 @@ impl TestApp {
             container,
             config: Config::new(),
             lifecycle: Arc::new(LifecycleRunner::new()),
+            application: None,
+            managed: None,
         }
     }
 
@@ -107,7 +117,50 @@ impl TestApp {
             container: Container::new(),
             config: Config::new(),
             lifecycle: LifecycleRunner::new(),
+            config_override: false,
             request_scope: false,
+            graph: None,
+            overrides: Default::default(),
+        }
+    }
+
+    /// Tests the fully configured production router with its original container and lifecycle.
+    /// No middleware is rebuilt. Explicit shutdown remains required for owned resources.
+    pub fn from_application(application: nidus_http::server::HttpApplication) -> Self {
+        let (application, router) = application.into_parts();
+        let container = application.shared_container();
+        let config = Config::new();
+        Self {
+            router,
+            container,
+            config,
+            lifecycle: Arc::new(LifecycleRunner::new()),
+            application: Some(Arc::new(application)),
+            managed: None,
+        }
+    }
+
+    /// Tests a managed in-memory application with exactly-once shutdown ownership.
+    pub fn from_managed(
+        managed: nidus_core::lifecycle::managed::Managed<nidus_http::server::HttpApplication>,
+    ) -> Self {
+        let container = managed.target().application().shared_container();
+        let config = Config::new();
+        Self {
+            router: managed.target().router().clone(),
+            container,
+            config,
+            lifecycle: Arc::new(LifecycleRunner::new()),
+            application: None,
+            managed: Some(managed),
+        }
+    }
+
+    /// Returns the managed report after joining cleanup, when this harness owns a managed application.
+    pub async fn shutdown_report(&self) -> Option<Arc<nidus_core::lifecycle::managed::Report>> {
+        match &self.managed {
+            Some(managed) => Some(managed.shutdown().await),
+            None => None,
         }
     }
 
@@ -143,6 +196,7 @@ impl TestApp {
     /// router.
     pub fn request(&self, method: Method, path: impl Into<String>) -> TestRequest {
         TestRequest::new(self.router.clone(), method, path.into())
+            .supervised(self.managed.as_ref().map(|managed| managed.spawner()))
     }
 
     /// Resolves a provider from the test container.
@@ -158,14 +212,33 @@ impl TestApp {
         self.container.request_scope()
     }
 
-    /// Returns test configuration overrides.
+    /// Returns explicit test configuration overrides, not a snapshot of a configuration provider.
+    /// For composed production configuration use `resolve::<Config>()`.
+    /// Module-builder `config` overrides also replace the concrete `Config` provider
+    /// before initialization; router-only helpers retain their separate harness configuration.
     pub fn config(&self) -> &Config {
         &self.config
     }
 
     /// Runs registered test shutdown lifecycle hooks.
     pub async fn shutdown(&self) -> Result<()> {
-        self.lifecycle.shutdown().await
+        if let Some(managed) = &self.managed {
+            let report = managed.shutdown().await;
+            return if report.is_success() {
+                Ok(())
+            } else {
+                Err(nidus_core::NidusError::ApplicationBuild {
+                    message: format!(
+                        "managed shutdown failed: {report:?}; use shutdown_report for sources"
+                    ),
+                })
+            };
+        }
+        if let Some(application) = &self.application {
+            application.shutdown().await
+        } else {
+            self.lifecycle.shutdown().await
+        }
     }
 }
 
@@ -179,7 +252,10 @@ pub struct TestAppBuilder {
     container: Container,
     config: Config,
     lifecycle: LifecycleRunner,
+    config_override: bool,
     request_scope: bool,
+    graph: Option<ModuleGraph>,
+    overrides: std::collections::BTreeSet<&'static str>,
 }
 
 impl TestAppBuilder {
@@ -244,6 +320,7 @@ impl TestAppBuilder {
     where
         T: Send + Sync + 'static,
     {
+        self.overrides.insert(std::any::type_name::<T>());
         self.container.override_singleton(value)?;
         Ok(self)
     }
@@ -251,6 +328,7 @@ impl TestAppBuilder {
     /// Sets configuration overrides for the test application.
     pub fn config(mut self, config: Config) -> Self {
         self.config = config;
+        self.config_override = true;
         self
     }
 
@@ -263,24 +341,159 @@ impl TestAppBuilder {
         self
     }
 
-    /// Builds the test application.
+    /// Builds a synchronous test application.
+    /// Panics on module composition failure or async module initializers; use
+    /// `try_build` for fallible synchronous composition or `build_started` for resources.
     pub fn build(self) -> TestApp {
+        self.try_build()
+            .expect("test application composition failed; use build_started for async modules")
+    }
+
+    /// Builds without running asynchronous initializers or startup hooks.
+    pub fn try_build(mut self) -> Result<TestApp> {
+        if let Some(graph) = self.graph.take() {
+            if graph
+                .modules()
+                .any(|module| !module.async_initializers().is_empty())
+            {
+                return Err(nidus_core::NidusError::ApplicationBuild {
+                    message: "async module initializers require build_started".to_owned(),
+                });
+            }
+            let plan = self.plan(graph)?;
+            let router = nidus_http::composition::assemble(|| {
+                Ok(
+                    nidus_http::composition::controller_router(plan.graph(), plan.container())?
+                        .merge(self.router),
+                )
+            })?;
+            return Ok(Self::finish_module(
+                plan,
+                router,
+                self.lifecycle,
+                self.request_scope,
+                self.config,
+            ));
+        }
         let container = Arc::new(self.container);
         let mut router = self.router.layer(Extension(Arc::clone(&container)));
         if self.request_scope {
             router = router.layer(request_scope_layer(Arc::clone(&container)));
         }
-        TestApp {
+        Ok(TestApp {
             router,
             container,
             config: self.config,
             lifecycle: Arc::new(self.lifecycle),
-        }
+            application: None,
+            managed: None,
+        })
     }
 
-    /// Runs startup hooks and builds the test application.
+    fn apply_config_override(&mut self) -> Result<()> {
+        if self.config_override {
+            self.container.override_singleton(self.config.clone())?;
+            self.overrides.insert(std::any::type_name::<Config>());
+        }
+        Ok(())
+    }
+
+    fn plan(&mut self, graph: ModuleGraph) -> Result<nidus_core::app::ApplicationPlan> {
+        self.apply_config_override()?;
+        nidus_core::app::ApplicationPlan::new(
+            graph,
+            std::mem::take(&mut self.container),
+            std::mem::take(&mut self.overrides),
+        )
+    }
+
+    fn finish_module(
+        plan: nidus_core::app::ApplicationPlan,
+        router: Router,
+        lifecycle: LifecycleRunner,
+        request_scope: bool,
+        config: Config,
+    ) -> TestApp {
+        use nidus_http::server::ApplicationHttpExt;
+        let application = plan.finish(lifecycle);
+        let router = if request_scope && !application.container().requires_request_scope() {
+            router.layer(request_scope_layer(application.shared_container()))
+        } else {
+            router
+        };
+        let router =
+            nidus_http::composition::application_context(router, application.shared_container());
+        let mut app = TestApp::from_application(application.with_router(router));
+        app.config = config;
+        app
+    }
+
+    async fn build_initialized(mut self) -> Result<TestApp> {
+        if let Some(graph) = self.graph.take() {
+            self.apply_config_override()?;
+            let mut plan = nidus_core::ApplicationPlan::prepare(
+                graph,
+                std::mem::take(&mut self.container),
+                std::mem::take(&mut self.overrides),
+            )
+            .await?;
+            plan.initialize().await?;
+            let (mut plan, controllers) =
+                nidus_http::composition::construct_controllers(plan).await?;
+            let router = match controllers.and_then(|router| {
+                nidus_http::composition::assemble(|| Ok(router.merge(self.router)))
+            }) {
+                Ok(router) => router,
+                Err(error) => return Err(plan.rollback(error).await),
+            };
+            let app = Self::finish_module(
+                plan,
+                router,
+                self.lifecycle,
+                self.request_scope,
+                self.config,
+            );
+            return Ok(app);
+        }
+        self.try_build()
+    }
+    /// Initializes modules and runs low-level startup hooks.
+    /// For cancellation-safe startup and exactly-once shutdown, use `build_managed`.
     pub async fn build_started(self) -> Result<TestApp> {
-        self.lifecycle.startup().await?;
-        Ok(self.build())
+        let app = self.build_initialized().await?;
+        if let Some(application) = &app.application {
+            application.lifecycle().startup().await?;
+        } else {
+            app.lifecycle.startup().await?;
+        }
+        Ok(app)
+    }
+
+    /// Composes a module-based test application under the managed lifecycle owner.
+    pub async fn build_managed(
+        self,
+        options: nidus_core::lifecycle::managed::ManagedOptions,
+    ) -> std::result::Result<TestApp, Arc<nidus_core::lifecycle::managed::Report>> {
+        use nidus_http::server::ApplicationHttpExt;
+        let config = self.config.clone();
+        let managed = nidus_core::lifecycle::managed::Managed::start(
+            async move {
+                if self.graph.is_none() {
+                    return Err(nidus_core::NidusError::ApplicationBuild {
+                        message: "build_managed requires module bootstrap".to_owned(),
+                    });
+                }
+                let mut app = self.build_initialized().await?;
+                let application =
+                    Arc::try_unwrap(app.application.take().expect("module application"))
+                        .unwrap_or_else(|_| unreachable!("new application has no clones"));
+                Ok(application.with_router(app.router))
+            },
+            options,
+        )
+        .await?;
+        let mut app = TestApp::from_managed(managed);
+        app.config = config;
+        Ok(app)
     }
 }

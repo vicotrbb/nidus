@@ -65,7 +65,7 @@ hold or operate on an RSA private key. The RustSec advisory concerns timing
 leakage from private-key operations, so there is no private key in this usage
 for a remote observer to recover.
 
-The audit script verifies that the direct reverse path remains `sqlx-mysql`
+The audit script verifies the entire workspace with all features and requires every direct reverse path to remain `sqlx-mysql`
 before applying the exception. Remove the exception when SQLx removes or
 updates the dependency, or immediately re-review it if another dependency path
 appears. Nidus also requires MySQL `ssl-mode=VERIFY_IDENTITY` in production,
@@ -84,3 +84,5 @@ updates remain enabled.
 
 Primary evidence: [RustSec RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071)
 and SQLx 0.8.6 `sqlx-mysql/src/connection/auth.rs` (`RsaPublicKey::encrypt`).
+
+Candidate archive consumers are also checked with `scripts/audit-release-consumers.py`. It verifies each retained dependency graph before applying the same advisory exception, audits each exact lockfile, and queries the official sparse index for every third-party version, checksum and yank flag. Unpublished Nidus packages are checked against the staged archive hashes; public availability remains a post-publication check. Missing index records and network failures fail this proof.

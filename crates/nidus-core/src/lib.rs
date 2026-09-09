@@ -11,7 +11,7 @@ pub mod module;
 pub mod provider;
 mod resolution;
 
-pub use app::{Application, Nidus};
+pub use app::{Application, ApplicationPlan, Nidus, Resource};
 pub use container::{
     Container, Factory, Inject, Lazy, Optional, RequestScope, Scoped, SharedRequestScope,
 };

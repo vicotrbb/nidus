@@ -14,7 +14,7 @@ async fn main() -> anyhow::Result<()> {
     let value = provider
         .transaction_with_retry(|connection| {
             Box::pin(async move {
-                sqlx::query_scalar::<_, i32>("SELECT 1")
+                sqlx::query_scalar::<_, i64>("SELECT 1")
                     .fetch_one(connection)
                     .await
             })

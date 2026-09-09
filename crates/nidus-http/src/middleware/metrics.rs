@@ -40,7 +40,13 @@ where
 /// Implement this trait to bridge Nidus' middleware lifecycle into a concrete
 /// metrics backend. Hooks are called in-process: one `on_request` before the
 /// inner service, one `on_response` after a response, or `on_error` if the inner
-/// service returns an error before producing a response.
+/// service returns an error before producing a response. Latency ends at response
+/// availability, not response-body completion. A dropped response future invokes
+/// `on_cancel`, including when dropped before its first poll.
+///
+/// Hooks must not panic. Inner-service unwinding releases built-in accounting;
+/// aborting panics cannot run destructors. A panicking custom hook is responsible
+/// for its own partially updated state, and a panic during unwinding may abort.
 pub trait HttpMetricsHook: Clone + Send + Sync + 'static {
     /// Records that a request entered the service.
     fn on_request(&self, method: &Method, route: Option<&str>);
@@ -56,6 +62,10 @@ pub trait HttpMetricsHook: Clone + Send + Sync + 'static {
 
     /// Records that the inner service returned an error before producing a response.
     fn on_error(&self, _method: &Method, _route: Option<&str>, _latency: Duration) {}
+
+    /// Records cancellation without inventing an HTTP response or service error.
+    /// Override this to release accounting acquired by `on_request`.
+    fn on_cancel(&self, _method: &Method, _route: Option<&str>, _latency: Duration) {}
 }
 
 /// In-memory Prometheus-format HTTP metrics collector.
@@ -159,7 +169,8 @@ impl PrometheusMetrics {
     /// The output includes `nidus_http_requests_total`,
     /// `nidus_http_request_duration_seconds_count`,
     /// `nidus_http_request_duration_seconds_sum`,
-    /// `nidus_http_in_flight_requests`, and `nidus_http_errors_total`.
+    /// `nidus_http_in_flight_requests`, `nidus_http_errors_total`, and
+    /// the status-free `nidus_http_cancelled_requests_total`.
     pub fn render(&self) -> String {
         let state = self.snapshot();
         render_prometheus(&state)
@@ -247,6 +258,16 @@ fn render_prometheus(state: &PrometheusState) -> String {
             series.errors
         );
     }
+    output.push_str("# TYPE nidus_http_cancelled_requests_total counter\n");
+    for ((method, route), count) in &state.cancelled {
+        let _ = writeln!(
+            output,
+            "nidus_http_cancelled_requests_total{{method=\"{}\",route=\"{}\"}} {}",
+            escape_label(method.as_str()),
+            escape_label(route),
+            count
+        );
+    }
     output
 }
 
@@ -257,6 +278,19 @@ impl Default for PrometheusMetrics {
 }
 
 impl HttpMetricsHook for PrometheusMetrics {
+    fn on_cancel(&self, method: &Method, route: Option<&str>, _latency: Duration) {
+        if !self.should_record(route) {
+            return;
+        }
+        let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
+        let route = state.intern_route(route.unwrap_or("<unknown>"), self.max_series);
+        let key = (method.clone(), route);
+        if let Some(count) = state.in_flight.get_mut(&key) {
+            *count = count.saturating_sub(1);
+        }
+        *state.cancelled.entry(key).or_default() += 1;
+    }
+
     fn on_request(&self, method: &Method, route: Option<&str>) {
         if !self.should_record(route) {
             return;
@@ -329,6 +363,7 @@ struct PrometheusState {
     series: BTreeMap<(Method, Arc<str>, u16), StatusSeries>,
     in_flight: BTreeMap<(Method, Arc<str>), u64>,
     known_routes: BTreeSet<Arc<str>>,
+    cancelled: BTreeMap<(Method, Arc<str>), u64>,
 }
 
 static OVERFLOW_ROUTE: LazyLock<Arc<str>> = LazyLock::new(|| Arc::from("<overflow>"));
@@ -472,27 +507,58 @@ where
                 None => RouteLabel::Unknown,
             },
         };
-        hook.on_request(&method, route.as_deref());
-        let started_at = Instant::now();
+        let mut accounting = RequestAccounting {
+            hook,
+            method,
+            route,
+            started_at: Instant::now(),
+            active: false,
+        };
+        accounting
+            .hook
+            .on_request(&accounting.method, accounting.route.as_deref());
+        accounting.active = true;
+        // Construct the guard before calling the service: call itself may unwind.
         let future = self.inner.call(request);
-
         Box::pin(async move {
-            match future.await {
-                Ok(response) => {
-                    hook.on_response(
-                        &method,
-                        route.as_deref(),
-                        response.status(),
-                        started_at.elapsed(),
-                    );
-                    Ok(response)
-                }
-                Err(error) => {
-                    hook.on_error(&method, route.as_deref(), started_at.elapsed());
-                    Err(error)
-                }
+            let result = future.await;
+            // Disarm before invoking user hooks, including hooks that unwind.
+            accounting.active = false;
+            match &result {
+                Ok(response) => accounting.hook.on_response(
+                    &accounting.method,
+                    accounting.route.as_deref(),
+                    response.status(),
+                    accounting.started_at.elapsed(),
+                ),
+                Err(_) => accounting.hook.on_error(
+                    &accounting.method,
+                    accounting.route.as_deref(),
+                    accounting.started_at.elapsed(),
+                ),
             }
+            result
         })
+    }
+}
+
+struct RequestAccounting<H: HttpMetricsHook> {
+    hook: H,
+    method: Method,
+    route: RouteLabel,
+    started_at: Instant,
+    active: bool,
+}
+
+impl<H: HttpMetricsHook> Drop for RequestAccounting<H> {
+    fn drop(&mut self) {
+        if self.active {
+            self.hook.on_cancel(
+                &self.method,
+                self.route.as_deref(),
+                self.started_at.elapsed(),
+            );
+        }
     }
 }
 

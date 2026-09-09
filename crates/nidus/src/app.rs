@@ -5,9 +5,10 @@ use std::collections::BTreeMap;
 #[cfg(feature = "http")]
 use std::collections::BTreeSet;
 
-#[cfg(feature = "http")]
-use nidus_core::{Application, ModuleGraph, NidusError};
+pub use nidus_core::app::{ApplicationPlan, Resource};
 use nidus_core::{Container, Module, Nidus, Result};
+#[cfg(feature = "http")]
+use nidus_core::{ModuleGraph, NidusError};
 
 #[cfg(feature = "dashboard")]
 use nidus_dashboard::{
@@ -47,6 +48,8 @@ where
     M: Module,
 {
     container: Container,
+    overrides: std::collections::BTreeSet<&'static str>,
+    lifecycle: nidus_core::LifecycleRunner,
     openapi: Option<OpenApiOptions>,
     tracing: bool,
     #[cfg(feature = "http")]
@@ -69,6 +72,8 @@ where
     fn new() -> Self {
         Self {
             container: Container::new(),
+            overrides: std::collections::BTreeSet::new(),
+            lifecycle: nidus_core::LifecycleRunner::new(),
             openapi: None,
             tracing: false,
             #[cfg(feature = "http")]
@@ -92,6 +97,20 @@ where
     {
         self.container.register_singleton(value)?;
         Ok(self)
+    }
+
+    /// Replaces a module provider before registration, initialization or controller construction.
+    /// Replaced resources are externally owned; their original initializer and cleanup do not run.
+    pub fn override_provider<T: Send + Sync + 'static>(mut self, value: T) -> Result<Self> {
+        self.overrides.insert(std::any::type_name::<T>());
+        self.container.override_singleton(value)?;
+        Ok(self)
+    }
+
+    /// Registers an application lifecycle participant after module resources.
+    pub fn lifecycle_hook<H: nidus_core::LifecycleHook>(mut self, hook: H) -> Self {
+        self.lifecycle = self.lifecycle.hook(hook);
+        self
     }
 
     /// Enables generated OpenAPI JSON and docs routes.
@@ -133,7 +152,7 @@ where
     /// Merges an Axum router into the application built from the root module.
     ///
     /// This is the ergonomic builder-path equivalent of attaching a router
-    /// through [`ApplicationHttpExt`] after bootstrapping an [`Application`].
+    /// through [`ApplicationHttpExt`] after bootstrapping an [`Application`](nidus_core::Application).
     /// Routes declared by controllers and routes from every router passed here
     /// are composed before tracing, observability, or other builder-owned HTTP
     /// layers are applied.
@@ -159,6 +178,74 @@ where
         self.with_router(router).build().await
     }
 
+    /// Builds a worker application using the shared provider/resource composition.
+    /// HTTP controllers are intentionally not mounted on this explicit worker path.
+    pub async fn build_application(mut self) -> Result<nidus_core::Application> {
+        let graph = nidus_core::ModuleGraph::from_root::<M>()?;
+        let mut plan = nidus_core::app::ApplicationPlan::prepare(
+            graph,
+            std::mem::take(&mut self.container),
+            self.overrides,
+        )
+        .await?;
+        plan.initialize().await?;
+        Ok(plan.finish(self.lifecycle))
+    }
+
+    /// Starts a worker-only managed application; HTTP features are not required.
+    pub async fn start_managed_worker(
+        self,
+        options: nidus_core::lifecycle::managed::ManagedOptions,
+    ) -> std::result::Result<
+        nidus_core::lifecycle::managed::Managed<nidus_core::Application>,
+        std::sync::Arc<nidus_core::lifecycle::managed::Report>,
+    >
+    where
+        M: Send + Sync + 'static,
+    {
+        nidus_core::lifecycle::managed::Managed::start(self.build_application(), options).await
+    }
+
+    /// Starts an in-memory managed application, preserving configured middleware.
+    /// Pass the result to `TestApp::from_managed` for production-composition tests.
+    #[cfg(feature = "http")]
+    pub async fn build_managed(
+        self,
+        options: nidus_core::lifecycle::managed::ManagedOptions,
+    ) -> std::result::Result<
+        nidus_core::lifecycle::managed::Managed<HttpApplication>,
+        std::sync::Arc<nidus_core::lifecycle::managed::Report>,
+    >
+    where
+        M: Send + Sync + 'static,
+    {
+        nidus_core::lifecycle::managed::Managed::start(self.build(), options).await
+    }
+
+    /// Starts a managed HTTP application with tracked connections and bounded cleanup.
+    #[cfg(feature = "http")]
+    pub async fn start_managed(
+        self,
+        address: std::net::SocketAddr,
+        options: nidus_core::lifecycle::managed::ManagedOptions,
+    ) -> std::result::Result<
+        nidus_core::lifecycle::managed::Managed<nidus_http::managed::ManagedHttp>,
+        std::sync::Arc<nidus_core::lifecycle::managed::Report>,
+    >
+    where
+        M: Send + Sync + 'static,
+    {
+        nidus_core::lifecycle::managed::Managed::start(
+            async move {
+                self.build()
+                    .await
+                    .map(|app| nidus_http::managed::ManagedHttp::new(app, address))
+            },
+            options,
+        )
+        .await
+    }
+
     /// Builds a composed HTTP application.
     #[cfg(feature = "http")]
     pub async fn build(mut self) -> Result<HttpApplication> {
@@ -178,28 +265,48 @@ where
         }
         let graph = graph_result?;
 
-        graph.register_providers(&mut self.container)?;
-        graph.initialize_providers(&mut self.container).await?;
-
-        let router = self.build_router(&graph)?;
+        nidus_http::composition::validate_routes(&graph)?;
+        let mut plan = ApplicationPlan::prepare(
+            graph,
+            std::mem::take(&mut self.container),
+            std::mem::take(&mut self.overrides),
+        )
+        .await?;
+        plan.initialize().await?;
+        let (mut plan, controllers) = nidus_http::composition::construct_controllers(plan).await?;
+        let router = match controllers.and_then(|router| {
+            nidus_http::composition::assemble(|| self.build_router(plan.graph(), router))
+        }) {
+            Ok(router) => router,
+            Err(error) => return Err(plan.rollback(error).await),
+        };
+        #[cfg(feature = "dashboard")]
+        let graph = plan.graph();
         #[cfg(feature = "dashboard")]
         if let Some(dashboard) = &self.dashboard {
-            dashboard.record_graph_snapshot(dashboard_graph_from_module_graph(&graph)?);
+            let snapshot = match dashboard_graph_from_module_graph(graph) {
+                Ok(snapshot) => snapshot,
+                Err(error) => return Err(plan.rollback(error).await),
+            };
+            dashboard.record_graph_snapshot(snapshot);
             for route in self.dashboard_route_snapshots.drain(..) {
-                dashboard
-                    .record_route_snapshot(route)
-                    .await
-                    .map_err(|error| NidusError::ApplicationBuild {
-                        message: error.to_string(),
-                    })?;
+                if let Err(error) = dashboard.record_route_snapshot(route).await {
+                    return Err(plan
+                        .rollback(NidusError::ApplicationBuild {
+                            message: error.to_string(),
+                        })
+                        .await);
+                }
             }
         }
-        Ok(Application::new(self.container, graph).with_router(router))
+        let application = plan.finish(self.lifecycle);
+        let router =
+            nidus_http::composition::application_context(router, application.shared_container());
+        Ok(application.with_router(router))
     }
 
     #[cfg(feature = "http")]
-    fn build_router(&mut self, graph: &ModuleGraph) -> Result<Router> {
-        let mut router = Router::new();
+    fn build_router(&mut self, graph: &ModuleGraph, mut router: Router) -> Result<Router> {
         let mut seen_routes = BTreeSet::new();
 
         #[cfg(feature = "openapi")]
@@ -253,9 +360,6 @@ where
                             .schemas_from_route_metadata(&routes),
                     );
                 }
-
-                let controller_router = downcast_router(controller.build_router(&self.container)?)?;
-                router = router.merge(controller_router);
             }
         }
 
@@ -586,16 +690,6 @@ fn route_node_id(method: &str, path: &str) -> String {
 struct OpenApiOptions {
     title: String,
     version: String,
-}
-
-#[cfg(feature = "http")]
-fn downcast_router(value: Box<dyn std::any::Any + Send + Sync>) -> Result<Router> {
-    value
-        .downcast::<Router>()
-        .map(|router| *router)
-        .map_err(|_| NidusError::ApplicationBuild {
-            message: "controller returned an unexpected router type".to_owned(),
-        })
 }
 
 #[cfg(all(feature = "http", feature = "openapi"))]

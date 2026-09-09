@@ -1,0 +1,16 @@
+[package]
+name = "nidus-release-perf"
+version = "0.1.0"
+edition = "2024"
+publish = false
+[workspace]
+[features]
+allocations = ["dep:stats_alloc"]
+managed = []
+[dependencies]
+nidus-core = { path = "../../crates/nidus-core" }
+nidus-http = { path = "../../crates/nidus-http" }
+axum = "0.8"
+tower = { version = "0.5", features = ["util"] }
+tokio = { version = "1", features = ["rt", "time"] }
+stats_alloc = { version = "=0.1.10", optional = true }

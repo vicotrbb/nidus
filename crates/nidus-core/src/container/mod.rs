@@ -57,6 +57,23 @@ impl Container {
         Self::default()
     }
 
+    /// Whether the container declares any request-lifetime providers.
+    pub fn requires_request_scope(&self) -> bool {
+        self.providers
+            .values()
+            .any(|entry| entry.lifetime() == ProviderLifetime::Request)
+    }
+
+    /// Whether a concrete provider type is registered, without constructing it.
+    pub fn contains<T: 'static>(&self) -> bool {
+        self.providers.contains_key(&TypeId::of::<T>())
+    }
+
+    /// Returns registered Rust type names without constructing providers.
+    pub fn provider_type_names(&self) -> impl Iterator<Item = &'static str> + '_ {
+        self.providers.values().map(ProviderEntry::type_name)
+    }
+
     /// Creates a request scope for request-lifetime providers.
     pub fn request_scope(&self) -> RequestScope<'_> {
         RequestScope::borrowed(self)

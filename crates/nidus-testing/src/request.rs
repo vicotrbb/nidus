@@ -35,6 +35,7 @@ use crate::response::TestResponse;
 /// # }
 /// ```
 pub struct TestRequest {
+    supervisor: Option<nidus_core::lifecycle::managed::ManagedSpawner>,
     router: Router,
     method: Method,
     path: String,
@@ -46,6 +47,7 @@ pub struct TestRequest {
 impl TestRequest {
     pub(crate) fn new(router: Router, method: Method, path: String) -> Self {
         Self {
+            supervisor: None,
             router,
             method,
             path,
@@ -53,6 +55,14 @@ impl TestRequest {
             headers: HeaderMap::new(),
             content_type: None,
         }
+    }
+
+    pub(crate) fn supervised(
+        mut self,
+        supervisor: Option<nidus_core::lifecycle::managed::ManagedSpawner>,
+    ) -> Self {
+        self.supervisor = supervisor;
+        self
     }
 
     /// Sets a request header.
@@ -149,7 +159,24 @@ impl TestRequest {
     }
 
     /// Tries to send the request against the in-memory app.
-    pub async fn try_send(self) -> Result<TestResponse, TestRequestError> {
+    pub async fn try_send(mut self) -> Result<TestResponse, TestRequestError> {
+        if let Some(supervisor) = self.supervisor.take() {
+            let (mut sender, receiver) = tokio::sync::oneshot::channel();
+            supervisor.spawn("test HTTP request", async move {
+                tokio::select! {
+                    result = self.send_inner() => { let _ = sender.send(result); }
+                    _ = sender.closed() => {}
+                }
+                Ok(())
+            });
+            return receiver
+                .await
+                .map_err(|error| TestRequestError::Body(axum::Error::new(error)))?;
+        }
+        self.send_inner().await
+    }
+
+    async fn send_inner(self) -> Result<TestResponse, TestRequestError> {
         let mut builder = Request::builder().method(self.method).uri(self.path);
         if let Some(content_type) = self.content_type {
             builder = builder.header(CONTENT_TYPE, content_type);

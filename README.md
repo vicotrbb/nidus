@@ -24,31 +24,31 @@ Application dependencies stay explicit:
 
 ```toml
 [dependencies]
-nidus = { package = "nidus-rs", version = "1.0.17", features = ["http", "config", "openapi", "validation"] }
+nidus = { package = "nidus-rs", version = "1.1.0", features = ["http", "config", "openapi", "validation"] }
 ```
 
 For production observability through the facade:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.17", features = ["observability", "events", "jobs", "otel"] }
+nidus = { package = "nidus-rs", version = "1.1.0", features = ["observability", "events", "jobs", "otel"] }
 ```
 
 For embedded dashboard introspection:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.17", features = ["dashboard"] }
+nidus = { package = "nidus-rs", version = "1.1.0", features = ["dashboard"] }
 ```
 
 Official integrations are separate crates:
 
 ```toml
-nidus-sqlx = { version = "1.0.17", features = ["sqlite"] }
-nidus-cache = { version = "1.0.17", features = ["moka"] }
-nidus-redis = { version = "1.0.17", features = ["health"] }
-nidus-kafka = { version = "1.0.17", features = ["health"] }
-nidus-jobs-sqlx = { version = "1.0.17", features = ["postgres"] }
-nidus-opentelemetry = "1.0.17"
-nidus-sentry = "1.0.17"
+nidus-sqlx = { version = "1.1.0", features = ["sqlite"] }
+nidus-cache = { version = "1.1.0", features = ["moka"] }
+nidus-redis = { version = "1.1.0", features = ["health"] }
+nidus-kafka = { version = "1.1.0", features = ["health"] }
+nidus-jobs-sqlx = { version = "1.1.0", features = ["postgres"] }
+nidus-opentelemetry = "1.1.0"
+nidus-sentry = "1.1.0"
 ```
 
 ## Which Crate Do I Install?
@@ -228,10 +228,10 @@ npm run verify
 
 ## Release Status
 
-Nidus 1.0.0 established the public crate set. The current release track is
-1.0.17, correcting the documented application bootstrap, making CLI module
-discovery precise and fail-closed, and restoring dependency-policy health while
-preserving the established 1.x public APIs.
+This checkout targets Nidus 1.1.0: cancellation-safe HTTP accounting, shared
+production/test composition, and an additive managed application lifecycle.
+See [release notes](docs/release-1-1-0.md) for compatibility and
+[release evidence](docs/validation/release-1.1.0.md) for verification and publication status.
 
 ## Fuzzing
 
@@ -252,3 +252,14 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md). Changes should be small, tested, docume
 ## License
 
 Licensed under either [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE).
+
+## Managed applications and module tests
+
+For resource-owning production applications, use `start_managed` and explicitly
+await `shutdown`. For the same composition in tests, use `build_managed` with
+`TestApp::from_managed`, or `TestApp::bootstrap::<M>()?.build_managed(...)`.
+These paths share the application container, initialize declared resources,
+apply overrides before construction, drain owned work, and run cleanup once.
+The [managed application guide](docs/managed-applications.md) documents ownership,
+rollback, deadlines, configuration overrides, and compatibility with low-level APIs.
+The hello-world example demonstrates managed startup and signal-driven shutdown.

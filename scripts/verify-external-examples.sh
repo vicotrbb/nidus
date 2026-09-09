@@ -7,6 +7,12 @@ ORIGINAL_COMMERCE_DIR="$ROOT/examples/external-commerce"
 SUPPORT_DIR="$ORIGINAL_SUPPORT_DIR"
 COMMERCE_DIR="$ORIGINAL_COMMERCE_DIR"
 LOCAL_PATCH="${NIDUS_EXTERNAL_EXAMPLES_LOCAL_PATCH:-0}"
+EXPECTED_VERSION="${NIDUS_RELEASE_VERSION:-}"
+if [ -z "$EXPECTED_VERSION" ]; then
+  EXPECTED_VERSION="$(cargo metadata --manifest-path "$ROOT/Cargo.toml" --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "nidus-rs") | .version')"
+fi
+CONSUMER_MODE=registry
+if [ "$LOCAL_PATCH" = "1" ]; then CONSUMER_MODE=workspace; fi
 SUPPORT_PORT=4301
 COMMERCE_PORT=4302
 SUPPORT_PID=""
@@ -48,14 +54,26 @@ assert_no_external_path_dependencies() {
 }
 
 prepare_local_patch_examples() {
-  if [ "$LOCAL_PATCH" != "1" ]; then
-    return
-  fi
-
   SUPPORT_DIR="$TEMP_DIR/external-support-desk"
   COMMERCE_DIR="$TEMP_DIR/external-commerce"
-  cp -R "$ORIGINAL_SUPPORT_DIR" "$SUPPORT_DIR"
-  cp -R "$ORIGINAL_COMMERCE_DIR" "$COMMERCE_DIR"
+  python3 - "$ORIGINAL_SUPPORT_DIR" "$ORIGINAL_COMMERCE_DIR" "$TEMP_DIR" "$EXPECTED_VERSION" <<'PY_COPY'
+from pathlib import Path
+import re, shutil, sys
+for source in sys.argv[1:3]:
+    destination = Path(sys.argv[3]) / Path(source).name
+    shutil.copytree(source, destination, ignore=shutil.ignore_patterns("target", ".git", "Cargo.lock"))
+    manifest = destination / "Cargo.toml"
+    lines = []
+    for line in manifest.read_text().splitlines():
+        if re.match(r"^nidus(?:[-\w]*)\s*=", line):
+            if "version" in line:
+                line = re.sub(r'version\s*=\s*"[^"]+"', f'version = "={sys.argv[4]}"', line)
+            else:
+                line = re.sub(r'=\s*"[^"]+"', f'= "={sys.argv[4]}"', line)
+        lines.append(line)
+    manifest.write_text("\n".join(lines) + "\n")
+PY_COPY
+  if [ "$LOCAL_PATCH" != "1" ]; then return; fi
 
   cat >>"$SUPPORT_DIR/Cargo.toml" <<EOF_PATCH
 
@@ -138,11 +156,15 @@ assert_port_available "$SUPPORT_PORT" "support"
 assert_port_available "$COMMERCE_PORT" "commerce"
 
 run cargo fmt --manifest-path "$SUPPORT_DIR/Cargo.toml" --check
-run cargo test --manifest-path "$SUPPORT_DIR/Cargo.toml"
-run cargo build --manifest-path "$SUPPORT_DIR/Cargo.toml"
+run cargo generate-lockfile --manifest-path "$SUPPORT_DIR/Cargo.toml"
+run cargo test --locked --manifest-path "$SUPPORT_DIR/Cargo.toml" --target-dir "$SUPPORT_DIR/target"
+run python3 "$ROOT/scripts/check-consumer-cohort.py" "$SUPPORT_DIR/Cargo.toml" "$EXPECTED_VERSION" "$CONSUMER_MODE"
+run cargo build --locked --manifest-path "$SUPPORT_DIR/Cargo.toml" --target-dir "$SUPPORT_DIR/target"
 run cargo fmt --manifest-path "$COMMERCE_DIR/Cargo.toml" --check
-run cargo test --manifest-path "$COMMERCE_DIR/Cargo.toml"
-run cargo build --manifest-path "$COMMERCE_DIR/Cargo.toml"
+run cargo generate-lockfile --manifest-path "$COMMERCE_DIR/Cargo.toml"
+run cargo test --locked --manifest-path "$COMMERCE_DIR/Cargo.toml" --target-dir "$COMMERCE_DIR/target"
+run python3 "$ROOT/scripts/check-consumer-cohort.py" "$COMMERCE_DIR/Cargo.toml" "$EXPECTED_VERSION" "$CONSUMER_MODE"
+run cargo build --locked --manifest-path "$COMMERCE_DIR/Cargo.toml" --target-dir "$COMMERCE_DIR/target"
 
 printf '\n==> start support desk example\n'
 (

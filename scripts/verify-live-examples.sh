@@ -28,14 +28,13 @@ stop_server() {
   SERVER_PID=""
 }
 
-kill_port() {
+assert_port_available() {
   local port="$1"
   local pids
   pids="$(lsof -ti "tcp:${port}" 2>/dev/null || true)"
   if [ -n "${pids}" ]; then
-    log "clearing port ${port}"
-    kill ${pids} 2>/dev/null || true
-    sleep 0.5
+    log "port ${port} is occupied; refusing to stop unrelated processes"
+    return 1
   fi
 }
 
@@ -55,11 +54,11 @@ start_server() {
   port="$(url_port "${url}")"
 
   stop_server
-  kill_port "${port}"
+  assert_port_available "${port}"
   log "starting ${name}"
   (
     cd "${ROOT}"
-    "$@"
+    exec "$@"
   ) >"${log_file}" 2>&1 &
   SERVER_PID="$!"
 
@@ -69,7 +68,7 @@ start_server() {
       log "${name} exited before becoming ready"
       return 1
     fi
-    if curl -fsS "${url}" >/dev/null 2>&1; then
+    if curl -sS -o /dev/null "${url}" 2>/dev/null; then
       return 0
     fi
     sleep 0.25
@@ -116,16 +115,31 @@ json_post() {
 }
 
 run_http_examples() {
-  start_server hello-world http://127.0.0.1:3000/ cargo run -p nidus-example-hello-world
-  expect_body_contains 'hello from nidus' http://127.0.0.1:3000/
+  start_server rest-api http://127.0.0.1:3000/users/42 "${ROOT}/target/debug/nidus-example-rest-api"
+  expect_body_contains '"id":42' http://127.0.0.1:3000/users/42
   stop_server
 
-  start_server openapi http://127.0.0.1:3000/openapi.json cargo run -p nidus-example-openapi
+  start_server auth-api http://127.0.0.1:3000/me "${ROOT}/target/debug/nidus-example-auth-api"
+  expect_status 401 http://127.0.0.1:3000/me
+  expect_body_contains authorized http://127.0.0.1:3000/me -H 'x-api-key: nidus-dev-secret'
+  stop_server
+
+  start_server dashboard-api http://127.0.0.1:4310/health env NIDUS_DASHBOARD_DISABLE_AUTH=true NIDUS_DASHBOARD_DATABASE_URL=sqlite::memory: "${ROOT}/target/debug/nidus-example-dashboard-api"
+  expect_body_contains 'account 42 is active' http://127.0.0.1:4310/accounts/42
+  expect_status 200 http://127.0.0.1:4310/nidus/dashboard/api/graph
+  stop_server
+
+  start_server hello-world http://127.0.0.1:3000/ "${ROOT}/target/debug/nidus-example-hello-world"
+  expect_body_contains 'hello from nidus' http://127.0.0.1:3000/
+  stop_server
+  grep -q "managed shutdown complete" "${TMP_DIR}/hello-world.log"
+
+  start_server openapi http://127.0.0.1:3000/openapi.json "${ROOT}/target/debug/nidus-example-openapi"
   expect_body_contains 'Nidus Example API' http://127.0.0.1:3000/openapi.json
   expect_body_contains 'Nidus Example API Documentation' http://127.0.0.1:3000/docs
   stop_server
 
-  start_server production-api http://127.0.0.1:3100/health/live env NIDUS_ADDR=127.0.0.1:3100 cargo run -p nidus-example-production-api
+  start_server production-api http://127.0.0.1:3100/health/live env NIDUS_ADDR=127.0.0.1:3100 "${ROOT}/target/debug/nidus-example-production-api"
   expect_status 200 http://127.0.0.1:3100/health/live
   expect_status 200 http://127.0.0.1:3100/health/ready
   expect_body_contains 'nidus_http_requests_total' http://127.0.0.1:3100/metrics
@@ -135,7 +149,7 @@ run_http_examples() {
 }
 
 run_realworld() {
-  start_server realworld-api http://127.0.0.1:3200/health env NIDUS_BIND_ADDR=127.0.0.1:3200 cargo run -p nidus-example-realworld-api
+  start_server realworld-api http://127.0.0.1:3200/health env NIDUS_BIND_ADDR=127.0.0.1:3200 "${ROOT}/target/debug/nidus-example-realworld-api"
 
   expect_body_contains '"status":"ok"' http://127.0.0.1:3200/health
   expect_body_contains '"status":"up"' http://127.0.0.1:3200/health/live
@@ -159,7 +173,7 @@ run_realworld() {
 }
 
 run_launchpad() {
-  start_server launchpad-api http://127.0.0.1:3300/health env LAUNCHPAD_BIND_ADDR=127.0.0.1:3300 cargo run -p nidus-example-launchpad-api
+  start_server launchpad-api http://127.0.0.1:3300/health env LAUNCHPAD_BIND_ADDR=127.0.0.1:3300 "${ROOT}/target/debug/nidus-example-launchpad-api"
 
   expect_body_contains '"status":"ok"' http://127.0.0.1:3300/health
   expect_body_contains 'Nidus Launchpad API' http://127.0.0.1:3300/openapi.json
@@ -175,26 +189,50 @@ run_launchpad() {
 }
 
 run_non_http_examples() {
-  (cd "${ROOT}" && cargo run -p nidus-example-sqlx-app)
-  (cd "${ROOT}" && cargo run -p nidus-example-cache-app)
-  (cd "${ROOT}" && APP_DATABASE__URL=sqlite::memory: APP_CACHE__NAMESPACE=users cargo run -p nidus-example-integrations-production)
-  (cd "${ROOT}" && cargo run -p nidus-example-background-jobs)
-  (cd "${ROOT}" && cargo run -p nidus-example-modular-monolith)
+  (cd "${ROOT}" && "${ROOT}/target/debug/nidus-example-sqlx-app")
+  (cd "${ROOT}" && "${ROOT}/target/debug/nidus-example-cache-app")
+  (cd "${ROOT}" && APP_DATABASE__URL=sqlite::memory: APP_CACHE__NAMESPACE=users "${ROOT}/target/debug/nidus-example-integrations-production")
+  (cd "${ROOT}" && "${ROOT}/target/debug/nidus-example-background-jobs")
+  (cd "${ROOT}" && "${ROOT}/target/debug/nidus-example-modular-monolith")
+  (cd "${ROOT}" && "${ROOT}/target/debug/envelope")
+  (cd "${ROOT}" && "${ROOT}/target/debug/durable-jobs")
+}
+
+run_telemetry_examples() {
+  python3 "${ROOT}/scripts/example-telemetry-receiver.py" "${TMP_DIR}/collector-port" "${TMP_DIR}/collector-events" &
+  SERVER_PID="$!"
+  for _ in $(seq 1 100); do
+    [ -s "${TMP_DIR}/collector-port" ] && break
+    sleep 0.05
+  done
+  local port
+  port="$(cat "${TMP_DIR}/collector-port")"
+  NIDUS_ALLOW_LOCAL_PLAINTEXT=1 OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/protobuf \
+    OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://127.0.0.1:${port}/v1/traces" \
+    "${ROOT}/target/debug/opentelemetry"
+  NIDUS_ALLOW_LOCAL_PLAINTEXT=1 SENTRY_DSN="http://example@127.0.0.1:${port}/1" \
+    "${ROOT}/target/debug/sentry"
+  grep -Eq '^/v1/traces [1-9][0-9]*$' "${TMP_DIR}/collector-events"
+  grep -Eq '^/api/1/envelope/ [1-9][0-9]*$' "${TMP_DIR}/collector-events"
+  stop_server
 }
 
 run_generated_app() {
   local root="${TMP_DIR}/generated"
   mkdir -p "${root}"
   (cd "${ROOT}" && cargo run -p cargo-nidus -- nidus new live-generated --path "${root}" --nidus-path "${ROOT}/crates/nidus")
-  start_server generated-app http://127.0.0.1:3400/ env NIDUS_ADDR=127.0.0.1:3400 cargo run --manifest-path "${root}/live-generated/Cargo.toml"
+  cargo build --manifest-path "${root}/live-generated/Cargo.toml" --target-dir "${root}/live-generated/target"
+  start_server generated-app http://127.0.0.1:3400/ env NIDUS_ADDR=127.0.0.1:3400 "${root}/live-generated/target/debug/live-generated"
   expect_body_contains 'hello from nidus' http://127.0.0.1:3400/
   stop_server
 }
 
+cargo build --manifest-path "${ROOT}/Cargo.toml" --locked --workspace --all-features --bins --target-dir "${ROOT}/target"
 run_http_examples
 run_realworld
 run_launchpad
 run_non_http_examples
+run_telemetry_examples
 run_generated_app
 
 log "live example verification complete"

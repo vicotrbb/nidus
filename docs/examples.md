@@ -63,10 +63,10 @@ members; each has its own `[workspace]` table and uses published dependency
 declarations such as:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.0.17", features = ["http"] }
-nidus-sqlx = { version = "1.0.17", features = ["sqlite", "health", "observability"] }
-nidus-cache = { version = "1.0.17", features = ["health", "observability"] }
-nidus-testing = "1.0.17"
+nidus = { package = "nidus-rs", version = "1.1.0", features = ["http"] }
+nidus-sqlx = { version = "1.1.0", features = ["sqlite", "health", "observability"] }
+nidus-cache = { version = "1.1.0", features = ["health", "observability"] }
+nidus-testing = "1.1.0"
 ```
 
 Verify both examples with:

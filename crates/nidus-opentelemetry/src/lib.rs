@@ -9,6 +9,8 @@
 //! global tracing subscriber, so tests and applications retain lifecycle
 //! control.
 
+mod runtime_exporter;
+
 use std::{
     collections::{BTreeMap, HashMap},
     fmt,
@@ -313,6 +315,8 @@ pub struct OpenTelemetryPipeline {
 
 impl OpenTelemetryPipeline {
     /// Builds a real OTLP exporter and bounded SDK batch pipeline.
+    /// Create within Tokio and keep that runtime alive through shutdown: async
+    /// exporters use its reactor when polled on the SDK's dedicated batch thread.
     pub fn init(config: OpenTelemetryConfig) -> Result<Self> {
         config.validate()?;
         let exporter = match config.protocol {
@@ -364,7 +368,7 @@ impl OpenTelemetryPipeline {
             .with_service_name(config.service_name.clone())
             .with_attributes(attributes)
             .build();
-        let batch = BatchSpanProcessor::builder(exporter)
+        let batch = BatchSpanProcessor::builder(runtime_exporter::RuntimeExporter::new(exporter))
             .with_batch_config(
                 BatchConfigBuilder::default()
                     .with_max_queue_size(config.queue_size)

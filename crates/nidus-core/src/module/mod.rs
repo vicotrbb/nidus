@@ -99,8 +99,11 @@ pub struct ModuleDefinition {
     exports: Vec<String>,
     import_factories: Vec<ModuleDefinitionFactory>,
     provider_registrars: Vec<ProviderRegistrar>,
+    provider_types: Vec<&'static str>,
     controller_descriptors: Vec<ControllerDescriptor>,
     async_initializers: Vec<AsyncProviderInitializer>,
+    initializer_types: Vec<Option<&'static str>>,
+    resource_cleanups: Vec<Option<crate::app::ResourceCleanup>>,
 }
 
 impl ModuleDefinition {
@@ -193,8 +196,11 @@ impl ModuleBuilder {
                 exports: Vec::new(),
                 import_factories: Vec::new(),
                 provider_registrars: Vec::new(),
+                provider_types: Vec::new(),
                 controller_descriptors: Vec::new(),
                 async_initializers: Vec::new(),
+                initializer_types: Vec::new(),
+                resource_cleanups: Vec::new(),
             },
         }
     }
@@ -234,6 +240,9 @@ impl ModuleBuilder {
                 .unwrap()
                 .to_owned(),
         );
+        self.definition
+            .provider_types
+            .push(std::any::type_name::<P>());
         self.definition
             .provider_registrars
             .push(P::register_provider);
@@ -281,6 +290,46 @@ impl ModuleBuilder {
     /// Adds an async provider initializer.
     pub fn async_initializer(mut self, initializer: AsyncProviderInitializer) -> Self {
         self.definition.async_initializers.push(initializer);
+        self.definition.initializer_types.push(None);
+        self.definition.resource_cleanups.push(None);
+        self
+    }
+
+    /// Declares the output type of an otherwise opaque initializer.
+    /// An explicit application override for `T` skips this initializer entirely.
+    /// The initializer must create only `T`; use separate declarations for other resources.
+    pub fn async_initializer_for<T: 'static>(
+        mut self,
+        initializer: AsyncProviderInitializer,
+    ) -> Self {
+        self.definition.async_initializers.push(initializer);
+        self.definition
+            .initializer_types
+            .push(Some(std::any::type_name::<T>()));
+        self.definition.resource_cleanups.push(None);
+        self
+    }
+
+    /// Declares an async resource with explicit cleanup ownership.
+    /// Resources initialize in declaration order after imports. Cleanup runs in reverse.
+    /// An overridden resource is externally owned and its original initializer and cleanup are skipped.
+    pub fn resource<R: crate::app::Resource>(mut self) -> Self {
+        self.definition.providers.push(
+            std::any::type_name::<R>()
+                .rsplit("::")
+                .next()
+                .unwrap()
+                .to_owned(),
+        );
+        self.definition
+            .async_initializers
+            .push(crate::app::initialize_resource::<R>);
+        self.definition
+            .initializer_types
+            .push(Some(std::any::type_name::<R>()));
+        self.definition
+            .resource_cleanups
+            .push(Some(crate::app::resource_cleanup::<R>));
         self
     }
 

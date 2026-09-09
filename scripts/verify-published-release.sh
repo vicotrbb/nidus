@@ -131,6 +131,12 @@ verify_crates_io
 verify_docs_rs
 
 printf '\nverifying external examples against crates.io dependencies\n'
-bash "$ROOT/scripts/verify-external-examples.sh"
+public_cargo_home="$(mktemp -d "${TMPDIR:-/tmp}/nidus-public-registry.XXXXXX")"
+trap 'rm -rf "$public_cargo_home"' EXIT
+# Public verification must not inherit a staged registry or workspace build outputs.
+env -u CARGO_TARGET_DIR -u CARGO_REGISTRIES_CRATES_IO_INDEX \
+  CARGO_HOME="$public_cargo_home" CARGO_NET_OFFLINE=false \
+  NIDUS_RELEASE_VERSION="$VERSION" NIDUS_EXTERNAL_EXAMPLES_LOCAL_PATCH=0 \
+  bash "$ROOT/scripts/verify-external-examples.sh"
 
 printf '\npublished release verification passed for %s\n' "$VERSION"

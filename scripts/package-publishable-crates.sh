@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${ROOT}"
+
 list_only=0
 args=()
 for arg in "$@"; do
@@ -39,20 +42,14 @@ crates=(
   cargo-nidus
 )
 
+# Cargo stages interdependent archives in a temporary registry when selected
+# together. Per-crate invocations instead resolve old published dependencies.
+package_args=()
 for crate in "${crates[@]}"; do
-  if [ "${list_only}" -eq 1 ]; then
-    # CI uses the file-list preflight because full cargo package cannot walk
-    # the current internal dependency chain until earlier crates are published.
-    if [ "${#args[@]}" -gt 0 ]; then
-      cargo package -p "${crate}" --list --allow-dirty "${args[@]}" >/dev/null
-    else
-      cargo package -p "${crate}" --list --allow-dirty >/dev/null
-    fi
-  else
-    if [ "${#args[@]}" -gt 0 ]; then
-      cargo package -p "${crate}" "${args[@]}"
-    else
-      cargo package -p "${crate}"
-    fi
-  fi
+  package_args+=(-p "${crate}")
 done
+if [ "${list_only}" -eq 1 ]; then
+  cargo package "${package_args[@]}" --list --allow-dirty "${args[@]}" >/dev/null
+else
+  cargo package "${package_args[@]}" "${args[@]}"
+fi

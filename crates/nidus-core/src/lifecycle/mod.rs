@@ -1,5 +1,7 @@
 //! Application lifecycle hooks.
 
+pub mod managed;
+
 use crate::{NidusError, Result};
 use async_trait::async_trait;
 
@@ -18,9 +20,9 @@ pub trait LifecycleHook: Send + Sync + 'static {
 }
 
 /// Ordered lifecycle hook runner.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct LifecycleRunner {
-    hooks: Vec<Box<dyn LifecycleHook>>,
+    pub(super) hooks: Vec<std::sync::Arc<dyn LifecycleHook>>,
 }
 
 impl LifecycleRunner {
@@ -34,7 +36,7 @@ impl LifecycleRunner {
     where
         H: LifecycleHook,
     {
-        self.hooks.push(Box::new(hook));
+        self.hooks.push(std::sync::Arc::new(hook));
         self
     }
 
@@ -128,7 +130,66 @@ impl LifecycleRunner {
         Ok(())
     }
 
+    /// Attempts every hook in reverse order within a total cleanup budget.
+    /// Each remaining hook receives an equal share of the remaining time. Errors
+    /// and panics are collected; a timeout drops only that hook future.
+    pub async fn shutdown_bounded(&self, budget: std::time::Duration) -> Vec<NidusError> {
+        let deadline = tokio::time::Instant::now() + budget;
+        let mut errors = Vec::new();
+        for (index, hook) in self.hooks.iter().enumerate().rev() {
+            let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+            match tokio::time::timeout(
+                remaining / (index as u32 + 1),
+                catch_hook(async { hook.on_shutdown().await }),
+            )
+            .await
+            {
+                Ok(Ok(())) => {}
+                Ok(Err(error)) => errors.push(error),
+                Err(error) => errors.push(NidusError::ApplicationBuild {
+                    message: format!("shutdown hook {index} exceeded deadline: {error}"),
+                }),
+            }
+        }
+        errors
+    }
+
+    pub(crate) fn push_shared(&mut self, hook: std::sync::Arc<dyn LifecycleHook>) {
+        self.hooks.push(hook);
+    }
+
+    /// Appends another runner in registration order.
+    pub fn append(mut self, other: Self) -> Self {
+        self.hooks.extend(other.hooks);
+        self
+    }
+
     pub(crate) fn empty() -> Self {
         Self::new()
+    }
+}
+
+/// Poll a hook inside an unwind boundary without changing its cancellation behavior.
+pub(crate) async fn catch_hook<T>(
+    future: impl std::future::Future<Output = Result<T>>,
+) -> Result<T> {
+    let mut future = Box::pin(future);
+    std::future::poll_fn(move |cx| {
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| future.as_mut().poll(cx))) {
+            Ok(result) => result,
+            Err(payload) => std::task::Poll::Ready(Err(panic_error(payload))),
+        }
+    })
+    .await
+}
+
+pub(crate) fn panic_error(payload: Box<dyn std::any::Any + Send>) -> NidusError {
+    let message = payload
+        .downcast_ref::<String>()
+        .cloned()
+        .or_else(|| payload.downcast_ref::<&str>().map(|s| (*s).to_owned()))
+        .unwrap_or_else(|| "non-string panic payload".to_owned());
+    NidusError::ApplicationBuild {
+        message: format!("participant panicked: {message}"),
     }
 }

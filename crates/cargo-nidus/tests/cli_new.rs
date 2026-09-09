@@ -98,9 +98,10 @@ fn cargo_nidus_new_defaults_to_published_nidus_dependency() {
 
     assert!(status.success());
     let cargo_toml = fs::read_to_string(project.join("Cargo.toml")).unwrap();
-    assert!(cargo_toml.contains(
-        r#"nidus = { package = "nidus-rs", version = "1.0.17", features = ["testing"] }"#
-    ));
+    assert!(cargo_toml.contains(&format!(
+        r#"nidus = {{ package = "nidus-rs", version = "{}", features = ["testing"] }}"#,
+        env!("CARGO_PKG_VERSION")
+    )));
     assert!(!cargo_toml.contains("nidus = { path ="));
 }
 

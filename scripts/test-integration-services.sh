@@ -116,6 +116,14 @@ wait_for() {
   return 1
 }
 
+run_example() {
+  if [[ "${NIDUS_VALIDATE_EXAMPLES:-0}" == "1" ]]; then
+    local binary="$1"
+    shift
+    env NIDUS_ALLOW_LOCAL_PLAINTEXT=1 "$@" cargo run --locked -p nidus-example-integrations-production --bin "${binary}"
+  fi
+}
+
 remove_container() {
   docker rm -fv "$1" >/dev/null
 }
@@ -141,7 +149,8 @@ if [[ "${NIDUS_INTEGRATION_FAILPOINT:-}" == "redis-test-panic" ]]; then
 fi
 NIDUS_TEST_REDIS_URL="redis://127.0.0.1:${redis_port}/0" \
   NIDUS_TEST_INJECT_PANIC="${redis_test_panic}" \
-  cargo test -p nidus-redis --all-features --test live -- --ignored --exact real_redis_round_trip_ttl_health_and_cleanup
+  cargo test --locked -p nidus-redis --all-features --test live -- --ignored --exact real_redis_round_trip_ttl_health_and_cleanup
+run_example redis "REDIS_URL=redis://127.0.0.1:${redis_port}/0"
 remove_container "${redis_name}"
 
 echo "[integration] MySQL 8.4 and durable jobs"
@@ -155,13 +164,16 @@ docker run -d --name "${mysql_name}" \
   -e "MYSQL_ROOT_PASSWORD=${mysql_password}" \
   -e MYSQL_DATABASE=nidus \
   mysql:8.4 --skip-log-bin >/dev/null
-wait_for MySQL docker exec "${mysql_name}" mysql -uroot "-p${mysql_password}" \
+# The image starts a temporary socket-only server during initialization. Probe
+# TCP so that successful readiness cannot race that server's shutdown.
+wait_for MySQL docker exec "${mysql_name}" mysql --protocol=TCP --host=127.0.0.1 -uroot "-p${mysql_password}" \
   --database=nidus --execute 'SELECT 1'
 mysql_url="mysql://root:${mysql_password}@127.0.0.1:${mysql_port}/nidus?ssl-mode=DISABLED"
 NIDUS_TEST_MYSQL_URL="${mysql_url}" \
-  cargo test -p nidus-sqlx --all-features --test live_services -- --ignored --exact real_mysql_pool_round_trip_and_cleanup
+  cargo test --locked -p nidus-sqlx --all-features --test live_services -- --ignored --exact real_mysql_pool_round_trip_and_cleanup
 NIDUS_TEST_JOBS_MYSQL_URL="${mysql_url}" \
-  cargo test -p nidus-jobs-sqlx --all-features --test live_services -- --ignored --exact real_mysql_store_is_multi_worker_safe
+  cargo test --locked -p nidus-jobs-sqlx --all-features --test live_services -- --ignored --exact real_mysql_store_is_multi_worker_safe
+run_example mysql "MYSQL_DATABASE_URL=${mysql_url}"
 remove_container "${mysql_name}"
 
 echo "[integration] CockroachDB 26.2 verify-full TLS and retries"
@@ -171,54 +183,43 @@ cockroach_name="${run_id}-cockroach"
 cert_dir="${temp_dir}/cockroach-certs"
 mkdir -p "${cert_dir}"
 chmod 700 "${cert_dir}"
-for cert_command in ca node client; do
-  generator_name="${run_id}-cert-${cert_command}"
-  case "${cert_command}" in
-    ca)
-      docker run --rm --name "${generator_name}" \
-        --label "${label_key}=${run_id}" \
-        --user "$(id -u):$(id -g)" \
-        -v "${cert_dir}:/certs" \
-        "${cockroach_image}" cert create-ca --certs-dir=/certs --ca-key=/certs/ca.key
-      ;;
-    node)
-      docker run --rm --name "${generator_name}" \
-        --label "${label_key}=${run_id}" \
-        --user "$(id -u):$(id -g)" \
-        -v "${cert_dir}:/certs" \
-        "${cockroach_image}" cert create-node localhost 127.0.0.1 ::1 \
-        --certs-dir=/certs --ca-key=/certs/ca.key
-      ;;
-    client)
-      docker run --rm --name "${generator_name}" \
-        --label "${label_key}=${run_id}" \
-        --user "$(id -u):$(id -g)" \
-        -v "${cert_dir}:/certs" \
-        "${cockroach_image}" cert create-client root \
-        --certs-dir=/certs --ca-key=/certs/ca.key
-      ;;
-  esac
-done
+# Keep certificates in a labeled container and copy them explicitly. Docker's
+# daemon may not share the test runner's filesystem (for example, a Linux runner
+# using a host Docker socket), so host-path bind mounts are not portable here.
+generator_name="${run_id}-certs"
+docker run --name "${generator_name}" \
+  --label "${label_key}=${run_id}" \
+  --entrypoint /bin/sh "${cockroach_image}" -ec '
+    mkdir -p /certs
+    chmod 700 /certs
+    cockroach cert create-ca --certs-dir=/certs --ca-key=/certs/ca.key
+    cockroach cert create-node localhost 127.0.0.1 ::1 --certs-dir=/certs --ca-key=/certs/ca.key
+    cockroach cert create-client root --certs-dir=/certs --ca-key=/certs/ca.key
+  '
+docker cp "${generator_name}:/certs/." "${cert_dir}"
+remove_container "${generator_name}"
 chmod 644 "${cert_dir}"/*.crt
 chmod 600 "${cert_dir}"/*.key
-docker run -d --name "${cockroach_name}" \
+docker create --name "${cockroach_name}" \
   --label "${label_key}=${run_id}" \
   --network "${network}" \
   -p "127.0.0.1:${cockroach_port}:26258" \
-  -v "${cert_dir}:/certs:ro" \
   "${cockroach_image}" start-single-node \
   --certs-dir=/certs \
   --listen-addr=localhost:26257 \
   --sql-addr=0.0.0.0:26258 \
   --advertise-sql-addr=localhost:26258 \
   --http-addr=0.0.0.0:8080 >/dev/null
+docker cp "${cert_dir}" "${cockroach_name}:/certs"
+docker start "${cockroach_name}" >/dev/null
 wait_for CockroachDB docker exec "${cockroach_name}" cockroach sql \
   --certs-dir=/certs --host=localhost:26258 --database=defaultdb --execute 'SELECT 1'
 cockroach_url="postgresql://root@localhost:${cockroach_port}/defaultdb?sslmode=verify-full&sslrootcert=${cert_dir}/ca.crt&sslcert=${cert_dir}/client.root.crt&sslkey=${cert_dir}/client.root.key"
 NIDUS_TEST_COCKROACH_URL="${cockroach_url}" \
-  cargo test -p nidus-sqlx --all-features --test live_services -- --ignored --exact real_cockroach_verify_full_tls_and_injected_serialization_retries
+  cargo test --locked -p nidus-sqlx --all-features --test live_services -- --ignored --exact real_cockroach_verify_full_tls_and_injected_serialization_retries
 NIDUS_TEST_JOBS_COCKROACH_URL="${cockroach_url}" \
-  cargo test -p nidus-jobs-sqlx --all-features --test live_services -- --ignored --exact real_cockroach_tls_store_is_multi_worker_safe
+  cargo test --locked -p nidus-jobs-sqlx --all-features --test live_services -- --ignored --exact real_cockroach_tls_store_is_multi_worker_safe
+run_example cockroach "COCKROACH_DATABASE_URL=${cockroach_url}"
 remove_container "${cockroach_name}"
 
 echo "[integration] Apache Kafka 4.0"
@@ -243,7 +244,8 @@ docker run -d --name "${kafka_name}" \
 wait_for Kafka ruby -rsocket -e "socket = TCPSocket.new('127.0.0.1', ${kafka_port}); socket.close"
 sleep 2
 NIDUS_TEST_KAFKA_BROKERS="127.0.0.1:${kafka_port}" \
-  cargo test -p nidus-kafka --all-features --test live -- --ignored --exact real_kafka_admin_delivery_consume_commit_and_cleanup
+  cargo test --locked -p nidus-kafka --all-features --test live -- --ignored --exact real_kafka_admin_delivery_consume_commit_and_cleanup
+run_example kafka "KAFKA_BOOTSTRAP_SERVERS=127.0.0.1:${kafka_port}"
 remove_container "${kafka_name}"
 
 echo "[integration] NATS 2.11 JetStream"
@@ -256,7 +258,8 @@ docker run -d --name "${nats_name}" \
   nats:2.11-alpine -js >/dev/null
 wait_for NATS ruby -rsocket -e "socket = TCPSocket.new('127.0.0.1', ${nats_port}); socket.close"
 NIDUS_TEST_NATS_URL="nats://127.0.0.1:${nats_port}" \
-  cargo test -p nidus-nats --all-features --test live -- --ignored --exact real_jetstream_persistence_durable_consumer_ack_and_cleanup
+  cargo test --locked -p nidus-nats --all-features --test live -- --ignored --exact real_jetstream_persistence_durable_consumer_ack_and_cleanup
+run_example nats "NATS_URL=nats://127.0.0.1:${nats_port}"
 remove_container "${nats_name}"
 
 echo "[integration] RabbitMQ 4.1"
@@ -283,7 +286,8 @@ docker run -d --name "${rabbit_name}" \
   rabbitmq:4.1-alpine >/dev/null
 wait_for RabbitMQ docker exec "${rabbit_name}" rabbitmq-diagnostics -q ping
 NIDUS_TEST_RABBITMQ_URL="amqp://guest:guest@127.0.0.1:${rabbit_port}/%2f" \
-  cargo test -p nidus-rabbitmq --all-features --test live -- --ignored --exact real_rabbitmq_confirm_consume_ack_and_cleanup
+  cargo test --locked -p nidus-rabbitmq --all-features --test live -- --ignored --exact real_rabbitmq_confirm_consume_ack_and_cleanup
+run_example rabbitmq "RABBITMQ_URL=amqp://guest:guest@127.0.0.1:${rabbit_port}/%2f"
 remove_container "${rabbit_name}"
 docker volume rm "${rabbit_volume}" >/dev/null
 
@@ -299,5 +303,13 @@ docker run -d --name "${sqs_name}" \
   localstack/localstack:4.6.0 >/dev/null
 wait_for SQS curl --fail --silent "http://127.0.0.1:${sqs_port}/_localstack/health"
 NIDUS_TEST_SQS_ENDPOINT="http://127.0.0.1:${sqs_port}" \
-  cargo test -p nidus-sqs --all-features --test live -- --ignored --exact real_sqs_emulator_dlq_send_receive_delete_and_cleanup
+  cargo test --locked -p nidus-sqs --all-features --test live -- --ignored --exact real_sqs_emulator_dlq_send_receive_delete_and_cleanup
+if [[ "${NIDUS_VALIDATE_EXAMPLES:-0}" == "1" ]]; then
+  queue_url="$(docker exec "${sqs_name}" awslocal sqs create-queue --queue-name nidus-example --query QueueUrl --output text)"
+  # Always route the SDK to this run's loopback emulator, never its standard AWS endpoint.
+  queue_url="http://127.0.0.1:${sqs_port}/000000000000/nidus-example"
+  run_example sqs "SQS_QUEUE_URL=${queue_url}" "AWS_ENDPOINT_URL=http://127.0.0.1:${sqs_port}" \
+    AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_REGION=us-east-1 AWS_EC2_METADATA_DISABLED=true
+  docker exec "${sqs_name}" awslocal sqs delete-queue --queue-url "http://localhost:4566/000000000000/nidus-example"
+fi
 remove_container "${sqs_name}"

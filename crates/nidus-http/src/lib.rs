@@ -11,11 +11,13 @@ pub use axum::{
 };
 pub use request::{RequestScopeRejection, RequestScoped};
 
+pub mod composition;
 pub mod context;
 pub mod controller;
 pub mod error;
 pub mod health;
 pub mod logging;
+pub mod managed;
 pub mod middleware;
 #[cfg(feature = "otel")]
 pub mod otel;
