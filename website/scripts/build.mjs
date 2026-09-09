@@ -869,6 +869,7 @@ function pageShell({ title, description, body, currentSlug, home = false, standa
         ['Install', href('docs/installation/')],
         ['Examples', href('docs/examples/')],
         ['API reference', href('docs/api-reference/')],
+        ['White paper (PDF)', href('papers/nidus-technical-white-paper.pdf')],
       ],
     },
     {
@@ -1041,6 +1042,7 @@ cargo run`;
           <a class="button ghost" href="${href('docs/examples/')}">Examples</a>
           <a class="button ghost" href="https://github.com/vicotrbb/nidus">GitHub</a>
         </div>
+        <p><a class="text-link" href="${href('papers/nidus-technical-white-paper.pdf')}">Read the technical white paper (PDF, 7 pages)</a></p>
         <ul class="trust-row" aria-label="Framework properties">
           ${trustChips.map((chip) => `<li>${chip}</li>`).join('')}
         </ul>
@@ -1462,6 +1464,7 @@ function main() {
   fs.copyFileSync(path.join(SRC, 'styles.css'), path.join(DIST, 'styles.css'));
   fs.copyFileSync(path.join(SRC, 'app.js'), path.join(DIST, 'app.js'));
   fs.cpSync(path.join(WEBSITE, 'data', 'benchmarks'), path.join(DIST, 'benchmark-data'), { recursive: true });
+  fs.cpSync(path.join(ROOT, 'docs', 'papers'), path.join(DIST, 'papers'), { recursive: true });
 
   fs.writeFileSync(path.join(DIST, 'index.html'), homePage());
   writeHtml('benchmarks', benchmarksPage());
