@@ -426,7 +426,7 @@ dependencies = [
 name = "nidus-config"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb7c394e00c3fe807680464d155a495716978210f4c94b44227c8f0b09992a5e"
+checksum = "58cc20cb58eea6dcfea61e1a9695d1eb38533ddf0d7e90c3f333de838edda5cb"
 dependencies = [
  "serde",
  "serde_json",
@@ -437,7 +437,7 @@ dependencies = [
 name = "nidus-core"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31ee9e2542d42dfcdab842d60a384e78ab8723bbe8361e0017b78a2fd58dfcf2"
+checksum = "dbd42dc8537742c96737730508d809a7231962441ecd971e4bd84f31b57dda60"
 dependencies = [
  "async-trait",
  "thiserror",
@@ -460,7 +460,7 @@ dependencies = [
 name = "nidus-http"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f67f12c6f40416e1a7bbfe8f8a6a9f638f479f143539c5e5fb50f0bceb5ada1"
+checksum = "cbbbf38c60f9b41c0bb38e3d2691d6c85ba917c5376a303b31db9ab519f36edc"
 dependencies = [
  "async-trait",
  "axum",
@@ -485,7 +485,7 @@ dependencies = [
 name = "nidus-macros"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a82046e701db678650b6d404e37af09669ae5657779d3bf5ba44ff82d56b73c3"
+checksum = "464fbff3fbdbbcc955e28b079d025540a65b19a3a93491b55686bab0dc63af3c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -496,7 +496,7 @@ dependencies = [
 name = "nidus-rs"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbb1b2c5d363df72e8d21768cdc3d4b36129302eb48c971ea71b59e4750e49ec"
+checksum = "7c017e1ed8a544b1e198bccafc300e2e8961da8165deff9230a07b8520709c63"
 dependencies = [
  "nidus-config",
  "nidus-core",
@@ -511,7 +511,7 @@ dependencies = [
 name = "nidus-testing"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2e581f8383f9c8494f730e15bc0d77293f2b0b17ce0145e748d99ce18830fd6"
+checksum = "de632ea89583acc754f72bd6d16e588cff402184eeb720f77bf81bbc027381f1"
 dependencies = [
  "axum",
  "http",
