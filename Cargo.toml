@@ -131,9 +131,9 @@ criterion = "0.8"
 futures-util = "0.3"
 fastrand = "2"
 http = "1"
-opentelemetry = { version = "0.32", default-features = false, features = ["trace"] }
+opentelemetry = { version = "0.33", default-features = false, features = ["trace"] }
 opentelemetry-otlp = { version = "0.32", default-features = false, features = ["trace", "grpc-tonic", "http-proto", "reqwest-client", "reqwest-rustls-webpki-roots", "tls-ring", "tls-webpki-roots"] }
-opentelemetry_sdk = { version = "0.32", default-features = false, features = ["trace"] }
+opentelemetry_sdk = { version = "0.33", default-features = false, features = ["trace"] }
 insta = "1"
 nidus-core = { path = "crates/nidus-core", version = "1.1.0" }
 nidus-integrations = { path = "crates/nidus-integrations", version = "1.1.0" }
@@ -155,12 +155,12 @@ tokio-stream = "0.1"
 tower = { version = "0.5", features = ["limit", "timeout", "util"] }
 tower-http = { version = "0.6", features = ["compression-gzip", "cors", "limit", "trace"] }
 tracing = "0.1"
-tracing-opentelemetry = { version = "0.33", default-features = false }
+tracing-opentelemetry = { version = "0.34", default-features = false }
 tracing-core = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 trybuild = "1"
 tonic = { version = "0.14", default-features = false }
-utoipa = "5"
+utoipa = "6"
 uuid = { version = "1", features = ["v4"] }
 url = "2"
 garde = { version = "0.23", features = ["derive", "email"] }
