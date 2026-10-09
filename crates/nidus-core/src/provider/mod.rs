@@ -19,6 +19,11 @@ pub enum ProviderLifetime {
     Request,
 }
 
+/// Marker trait for injectable provider values.
+pub trait Provider: Send + Sync + 'static {}
+
+impl<T> Provider for T where T: Send + Sync + 'static {}
+
 type ErasedProvider = dyn Any + Send + Sync;
 type ProviderFactory = dyn Fn(&Container) -> Result<Arc<ErasedProvider>> + Send + Sync;
 type RequestProviderFactory =

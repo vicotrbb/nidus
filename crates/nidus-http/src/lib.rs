@@ -22,5 +22,6 @@ pub mod middleware;
 #[cfg(feature = "otel")]
 pub mod otel;
 pub mod request;
+pub mod response;
 pub mod router;
 pub mod server;

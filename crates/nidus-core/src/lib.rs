@@ -23,4 +23,4 @@ pub use module::{
     AsyncProviderInitializer, ControllerDescriptor, ControllerRegistrant, Module, ModuleBuilder,
     ModuleDefinition, ModuleDefinitionFactory, ModuleGraph, ProviderRegistrant, ProviderRegistrar,
 };
-pub use provider::{ProviderEntry, ProviderLifetime};
+pub use provider::{Provider, ProviderEntry, ProviderLifetime};

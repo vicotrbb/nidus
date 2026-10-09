@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 1.2.0 - 2026-10-08
+
+- Share route normalization, parameter extraction and operation identifiers across HTTP, OpenAPI and CLI code.
+- Consolidate SQLite/Postgres telemetry recording and derive equivalent cache defaults.
+- Preserve existing public APIs and middleware service types for minor-release compatibility.
+- Update rustls to 0.23.45 and its required dependencies for RUSTSEC-2026-0285.
+- Release the complete remote main history and all 25 framework crates as one coordinated cohort.
+
+See [release notes](docs/release-1-2-0.md).
+
 ## 1.1.0 - 2026-09-09
 
 - Add cancellation-safe HTTP metrics with separate cancellation accounting.

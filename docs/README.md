@@ -50,6 +50,7 @@ Nidus is a modular Rust backend framework that keeps framework behavior explicit
 - [API Reference](api-reference.md)
 - [Rust Framework Performance and Safety Research - 2026-07-27](rust-framework-performance-safety-research-2026-07-27.md)
 - [Rust Framework Performance and Safety Research Follow-up - 2026-07-27](rust-framework-performance-safety-research-2026-07-27-follow-up.md)
+- [Release 1.2.0](release-1-2-0.md)
 - [Release 1.1.0 candidate](release-1-1-0.md)
 - [Release 1.0.17](release-1-0-17.md)
 - [Release 1.0.16](release-1-0-16.md)
@@ -70,8 +71,7 @@ Nidus is a modular Rust backend framework that keeps framework behavior explicit
 ## Current Status
 
 Nidus 1.0.0 established the public crate set. The current release track is
-1.1.0, correcting the documented application bootstrap, making CLI module
-discovery precise and fail-closed, and restoring dependency-policy health while
-preserving the established 1.x public APIs.
+1.2.0, sharing route helpers across runtime and CLI code, consolidating SQLx
+telemetry, and updating rustls while preserving the established 1.x public APIs.
 
 Use the README for the shortest quickstart, these guides for the deeper mental model, and `website/` for the generated GitHub Pages portal.

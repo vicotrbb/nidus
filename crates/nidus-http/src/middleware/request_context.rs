@@ -1,8 +1,7 @@
+use std::task::{Context, Poll};
+
 use axum::extract::Request;
-use tower::{
-    Layer,
-    util::{MapRequest, MapRequestLayer},
-};
+use tower::{Layer, Service};
 
 use crate::context::{RequestContext, header_to_string};
 
@@ -36,22 +35,42 @@ impl<S> Layer<S> for RequestContextLayer {
     type Service = RequestContextService<S>;
 
     fn layer(&self, inner: S) -> Self::Service {
-        MapRequestLayer::new(enrich_request_context as fn(Request) -> Request).layer(inner)
+        RequestContextService { inner }
     }
 }
 
 /// Service produced by [`RequestContextLayer`].
-pub type RequestContextService<S> = MapRequest<S, fn(Request) -> Request>;
+#[derive(Clone, Debug)]
+pub struct RequestContextService<S> {
+    inner: S,
+}
 
-fn enrich_request_context(request: Request) -> Request {
-    let (mut parts, body) = request.into_parts();
-    let request_id = parts
-        .extensions
-        .remove::<RequestContext>()
-        .map(RequestContext::into_request_id)
-        .or_else(|| header_to_string(&parts.headers, "x-request-id"))
-        .unwrap_or_else(|| "unknown".to_owned());
-    let context = RequestContext::from_parts(&parts, request_id);
-    parts.extensions.insert(context);
-    Request::from_parts(parts, body)
+impl<S> Service<Request> for RequestContextService<S>
+where
+    S: Service<Request> + Send + 'static,
+    S::Future: Send + 'static,
+    S::Error: Send + 'static,
+{
+    type Response = S::Response;
+    type Error = S::Error;
+    // All context work happens before the inner call, so the inner future can
+    // be returned directly without a per-request box.
+    type Future = S::Future;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
+    }
+
+    fn call(&mut self, request: Request) -> Self::Future {
+        let (mut parts, body) = request.into_parts();
+        let request_id = parts
+            .extensions
+            .remove::<RequestContext>()
+            .map(RequestContext::into_request_id)
+            .or_else(|| header_to_string(&parts.headers, "x-request-id"))
+            .unwrap_or_else(|| "unknown".to_owned());
+        let context = RequestContext::from_parts(&parts, request_id);
+        parts.extensions.insert(context);
+        self.inner.call(Request::from_parts(parts, body))
+    }
 }

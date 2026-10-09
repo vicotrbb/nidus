@@ -5,8 +5,8 @@ pub use crate::{NidusApplicationBuilder, NidusApplicationExt};
 pub use nidus_core::{
     Application, AsyncProviderInitializer, Container, ControllerDescriptor, ControllerRegistrant,
     Factory, Inject, Lazy, Module, ModuleBuilder, ModuleDefinition, ModuleDefinitionFactory,
-    ModuleGraph, Nidus, NidusError, Optional, ProviderEntry, ProviderLifetime, ProviderRegistrant,
-    ProviderRegistrar, RequestScope, Result, Scoped, SharedRequestScope,
+    ModuleGraph, Nidus, NidusError, Optional, Provider, ProviderEntry, ProviderLifetime,
+    ProviderRegistrant, ProviderRegistrar, RequestScope, Result, Scoped, SharedRequestScope,
 };
 pub use nidus_macros::{
     controller, delete, get, guard, injectable, module, openapi, patch, pipe, post, put, routes,
@@ -82,6 +82,6 @@ pub use nidus_openapi::{OpenApiDocument, OpenApiDocumentError, OpenApiRoute};
 pub use nidus_testing::{TestApp, TestAppBuilder, TestRequest, TestResponse};
 #[cfg(feature = "validation")]
 pub use nidus_validation::{
-    FieldValidationError, ValidatedJson, ValidatedJsonRejection, ValidationPipe,
+    FieldValidationError, Pipe, ValidatedJson, ValidatedJsonRejection, ValidationPipe,
     ValidationPipeError,
 };

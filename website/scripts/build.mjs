@@ -11,7 +11,7 @@ const DIST = path.join(WEBSITE, 'dist');
 const BASE = normalizeBase(process.env.NIDUS_SITE_BASE ?? '/');
 const SITE_DOMAIN = (process.env.NIDUS_SITE_DOMAIN ?? '').trim();
 const SITE_ORIGIN = SITE_DOMAIN ? `https://${SITE_DOMAIN}` : '';
-const RELEASE_VERSION = '1.1.0';
+const RELEASE_VERSION = '1.2.0';
 const SITE_DESCRIPTION = 'Nidus is a modular Rust backend framework for explicit services, typed dependency injection, Axum routes, Tower middleware, OpenAPI, observability, testing, and installable adapters.';
 
 const docs = [
@@ -96,6 +96,13 @@ const docs = [
     group: 'Reference',
     source: 'docs/validation/release-1.1.0.md',
     summary: 'Source identity, release gates and candidate limitations.',
+  },
+  {
+    title: 'Release 1.2.0',
+    slug: 'docs/release-1-2-0',
+    group: 'Reference',
+    source: 'docs/release-1-2-0.md',
+    summary: 'Compatible route simplification and dependency security updates.',
   },
   {
     title: 'Release 1.1.0',

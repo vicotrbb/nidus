@@ -1,7 +1,9 @@
+use std::convert::Infallible;
+
 use axum::{Router, body::to_bytes, response::IntoResponse, routing::post};
 use garde::Validate;
 use http::StatusCode;
-use nidus_validation::{ValidatedJson, ValidationPipe};
+use nidus_validation::{Pipe, ValidatedJson, ValidationPipe};
 use serde::Deserialize;
 use tower::ServiceExt;
 
@@ -25,9 +27,16 @@ struct CreateTeam {
     members: Vec<UserProfile>,
 }
 
-fn trim_email(mut input: CreateUser) -> CreateUser {
-    input.email = input.email.trim().to_owned();
-    input
+struct TrimEmailPipe;
+
+impl Pipe<CreateUser> for TrimEmailPipe {
+    type Output = CreateUser;
+    type Error = Infallible;
+
+    fn transform(&self, mut input: CreateUser) -> Result<Self::Output, Self::Error> {
+        input.email = input.email.trim().to_owned();
+        Ok(input)
+    }
 }
 
 #[test]
@@ -120,12 +129,24 @@ async fn validation_errors_map_to_stable_json_response() {
 }
 
 #[test]
-fn custom_function_transforms_request_values() {
+fn custom_pipe_transforms_request_values() {
     let input = CreateUser {
         email: " user@nidus.dev ".to_owned(),
     };
 
-    let output = trim_email(input);
+    let output = TrimEmailPipe.transform(input).unwrap();
+
+    assert_eq!(output.email, "user@nidus.dev");
+}
+
+#[test]
+fn validation_pipe_implements_typed_pipe_trait() {
+    let input = CreateUser {
+        email: "user@nidus.dev".to_owned(),
+    };
+
+    let output =
+        <ValidationPipe as Pipe<CreateUser>>::transform(&ValidationPipe::new(), input).unwrap();
 
     assert_eq!(output.email, "user@nidus.dev");
 }
