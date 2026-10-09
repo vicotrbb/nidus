@@ -13,6 +13,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+nidus-core.workspace = true
 axum.workspace = true
 nidus-http = { path = "../nidus-http", version = "1.1.0" }
 serde_json.workspace = true

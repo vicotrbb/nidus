@@ -380,20 +380,4 @@ struct ProductionErrorDetails {
 }
 
 /// Invalid route path declared through the manual HTTP routing API.
-#[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
-#[error("route path `{path}` contains a parameter segment without a name after ':'")]
-pub struct RoutePathError {
-    path: String,
-}
-
-impl RoutePathError {
-    /// Creates an error for a route path parameter segment without a name.
-    pub fn empty_parameter(path: impl Into<String>) -> Self {
-        Self { path: path.into() }
-    }
-
-    /// Returns the invalid route path.
-    pub fn path(&self) -> &str {
-        &self.path
-    }
-}
+pub use nidus_core::route::RoutePathError;

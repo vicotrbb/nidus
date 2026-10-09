@@ -40,6 +40,8 @@ mod sqlite {
     use std::time::Instant;
 
     use super::Result;
+    #[cfg(feature = "observability")]
+    use super::record_adapter_operation;
     use nidus_core::Container;
 
     /// Typed configuration for a SQLx SQLite pool.
@@ -269,18 +271,6 @@ mod sqlite {
             Ok(())
         }
     }
-
-    #[cfg(feature = "observability")]
-    fn record_adapter_operation(
-        observer: &Option<nidus_observability::ObservabilityAdapterObserver>,
-        operation: &'static str,
-        status: nidus_observability::OperationStatus,
-        started_at: Instant,
-    ) {
-        if let Some(observer) = observer {
-            observer.record("nidus-sqlx", operation, status, started_at.elapsed());
-        }
-    }
 }
 
 #[cfg(feature = "sqlite")]
@@ -292,6 +282,8 @@ mod postgres {
     use std::time::Instant;
 
     use super::Result;
+    #[cfg(feature = "observability")]
+    use super::record_adapter_operation;
     use nidus_core::Container;
 
     /// Typed configuration for a SQLx Postgres pool.
@@ -540,18 +532,6 @@ mod postgres {
         async fn on_shutdown(&self) -> nidus_core::Result<()> {
             self.pool.close().await;
             Ok(())
-        }
-    }
-
-    #[cfg(feature = "observability")]
-    fn record_adapter_operation(
-        observer: &Option<nidus_observability::ObservabilityAdapterObserver>,
-        operation: &'static str,
-        status: nidus_observability::OperationStatus,
-        started_at: Instant,
-    ) {
-        if let Some(observer) = observer {
-            observer.record("nidus-sqlx", operation, status, started_at.elapsed());
         }
     }
 }
@@ -1388,3 +1368,18 @@ pub use cockroach::{
     CockroachPoolBuilder, CockroachPoolConfig, CockroachPoolProvider, CockroachRetryPolicy,
     CockroachTransactionError, CockroachTransactionFuture, CockroachTransactionResult,
 };
+
+#[cfg(all(
+    feature = "observability",
+    any(feature = "sqlite", feature = "postgres")
+))]
+fn record_adapter_operation(
+    observer: &Option<nidus_observability::ObservabilityAdapterObserver>,
+    operation: &'static str,
+    status: nidus_observability::OperationStatus,
+    started_at: std::time::Instant,
+) {
+    if let Some(observer) = observer {
+        observer.record("nidus-sqlx", operation, status, started_at.elapsed());
+    }
+}

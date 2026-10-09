@@ -5,6 +5,7 @@ use serde_json::{Value, json};
 
 use crate::schema::discover_schemas;
 use crate::{route_path::openapi_path_parameters, routes::discover_routes};
+use nidus_core::route::operation_id;
 
 #[derive(Debug)]
 pub(crate) struct OpenApiOptions {
@@ -138,48 +139,4 @@ fn schema_ref(schema: &str) -> Value {
     json!({
         "$ref": format!("#/components/schemas/{schema}")
     })
-}
-
-fn operation_id(method: &str, path: &str) -> String {
-    let mut parts = vec![method.to_owned()];
-    for segment in path.split('/') {
-        if segment.is_empty() {
-            continue;
-        }
-        if let Some(name) = segment
-            .strip_prefix('{')
-            .and_then(|value| value.strip_suffix('}'))
-        {
-            parts.push("by".to_owned());
-            parts.push(identifier_segment(name));
-        } else {
-            parts.push(identifier_segment(segment));
-        }
-    }
-    if parts.len() == 1 {
-        parts.push("root".to_owned());
-    }
-    parts.join("_")
-}
-
-fn identifier_segment(segment: &str) -> String {
-    let mut output = String::new();
-    let mut previous_was_separator = true;
-    for character in segment.chars() {
-        if character.is_ascii_alphanumeric() {
-            output.push(character.to_ascii_lowercase());
-            previous_was_separator = false;
-        } else if !previous_was_separator {
-            output.push('_');
-            previous_was_separator = true;
-        }
-    }
-    if output.ends_with('_') {
-        output.pop();
-    }
-    if output.is_empty() {
-        "value".to_owned()
-    } else {
-        output
-    }
 }

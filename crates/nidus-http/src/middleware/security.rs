@@ -5,11 +5,14 @@ use std::{
 
 use axum::{body::Body, extract::Request};
 use futures_util::{
-    FutureExt, TryFutureExt,
-    future::{Either, Map, MapOk, Ready, ready},
+    FutureExt,
+    future::{Either, Map, Ready, ready},
 };
 use http::{HeaderValue, Response, StatusCode, header};
-use tower::{Layer, Service};
+use tower::{
+    Layer, Service,
+    util::{MapResponse, MapResponseLayer},
+};
 use tower_http::limit::RequestBodyLimitLayer;
 
 /// Creates a layer that applies conservative API security headers.
@@ -36,36 +39,13 @@ impl<S> Layer<S> for SecurityHeadersLayer {
     type Service = SecurityHeadersService<S>;
 
     fn layer(&self, inner: S) -> Self::Service {
-        SecurityHeadersService { inner }
+        MapResponseLayer::new(apply_security_headers as fn(Response<Body>) -> Response<Body>)
+            .layer(inner)
     }
 }
 
 /// Service produced by [`SecurityHeadersLayer`].
-#[derive(Clone, Debug)]
-pub struct SecurityHeadersService<S> {
-    inner: S,
-}
-
-impl<S> Service<Request> for SecurityHeadersService<S>
-where
-    S: Service<Request, Response = Response<Body>> + Send + 'static,
-    S::Future: Send + 'static,
-    S::Error: Send + 'static,
-{
-    type Response = Response<Body>;
-    type Error = S::Error;
-    type Future = MapOk<S::Future, fn(Response<Body>) -> Response<Body>>;
-
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.inner.poll_ready(cx)
-    }
-
-    fn call(&mut self, request: Request) -> Self::Future {
-        self.inner
-            .call(request)
-            .map_ok(apply_security_headers as fn(Response<Body>) -> Response<Body>)
-    }
-}
+pub type SecurityHeadersService<S> = MapResponse<S, fn(Response<Body>) -> Response<Body>>;
 
 fn apply_security_headers(mut response: Response<Body>) -> Response<Body> {
     response.headers_mut().insert(

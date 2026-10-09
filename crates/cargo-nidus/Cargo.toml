@@ -13,6 +13,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+nidus-core.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 serde_json.workspace = true

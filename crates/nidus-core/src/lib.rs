@@ -10,6 +10,8 @@ pub mod lifecycle;
 pub mod module;
 pub mod provider;
 mod resolution;
+#[doc(hidden)]
+pub mod route;
 
 pub use app::{Application, ApplicationPlan, Nidus, Resource};
 pub use container::{
@@ -21,4 +23,4 @@ pub use module::{
     AsyncProviderInitializer, ControllerDescriptor, ControllerRegistrant, Module, ModuleBuilder,
     ModuleDefinition, ModuleDefinitionFactory, ModuleGraph, ProviderRegistrant, ProviderRegistrar,
 };
-pub use provider::{Provider, ProviderEntry, ProviderLifetime};
+pub use provider::{ProviderEntry, ProviderLifetime};
