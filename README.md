@@ -24,31 +24,31 @@ Application dependencies stay explicit:
 
 ```toml
 [dependencies]
-nidus = { package = "nidus-rs", version = "1.1.0", features = ["http", "config", "openapi", "validation"] }
+nidus = { package = "nidus-rs", version = "1.2.0", features = ["http", "config", "openapi", "validation"] }
 ```
 
 For production observability through the facade:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.1.0", features = ["observability", "events", "jobs", "otel"] }
+nidus = { package = "nidus-rs", version = "1.2.0", features = ["observability", "events", "jobs", "otel"] }
 ```
 
 For embedded dashboard introspection:
 
 ```toml
-nidus = { package = "nidus-rs", version = "1.1.0", features = ["dashboard"] }
+nidus = { package = "nidus-rs", version = "1.2.0", features = ["dashboard"] }
 ```
 
 Official integrations are separate crates:
 
 ```toml
-nidus-sqlx = { version = "1.1.0", features = ["sqlite"] }
-nidus-cache = { version = "1.1.0", features = ["moka"] }
-nidus-redis = { version = "1.1.0", features = ["health"] }
-nidus-kafka = { version = "1.1.0", features = ["health"] }
-nidus-jobs-sqlx = { version = "1.1.0", features = ["postgres"] }
-nidus-opentelemetry = "1.1.0"
-nidus-sentry = "1.1.0"
+nidus-sqlx = { version = "1.2.0", features = ["sqlite"] }
+nidus-cache = { version = "1.2.0", features = ["moka"] }
+nidus-redis = { version = "1.2.0", features = ["health"] }
+nidus-kafka = { version = "1.2.0", features = ["health"] }
+nidus-jobs-sqlx = { version = "1.2.0", features = ["postgres"] }
+nidus-opentelemetry = "1.2.0"
+nidus-sentry = "1.2.0"
 ```
 
 ## Which Crate Do I Install?
@@ -228,10 +228,10 @@ npm run verify
 
 ## Release Status
 
-This checkout targets Nidus 1.1.0: cancellation-safe HTTP accounting, shared
+This checkout targets Nidus 1.2.0: cancellation-safe HTTP accounting, shared
 production/test composition, and an additive managed application lifecycle.
 See [release notes](docs/release-1-1-0.md) for compatibility and
-[release evidence](docs/validation/release-1.1.0.md) for verification and publication status.
+[release evidence](docs/validation/release-1.2.0.md) for verification and publication status.
 
 ## Fuzzing
 

@@ -6,21 +6,19 @@ Pipes transform or validate request data. The validation crate integrates with `
 let input = ValidationPipe::new().transform(input)?;
 ```
 
-Custom pipes implement the typed `Pipe<Input>` trait:
+Custom transformations use ordinary functions. Call them explicitly before validation:
 
 ```rust
-struct TrimName;
-
-impl Pipe<CreateUser> for TrimName {
-    type Output = CreateUser;
-    type Error = std::convert::Infallible;
-
-    fn transform(&self, mut input: CreateUser) -> Result<Self::Output, Self::Error> {
-        input.name = input.name.trim().to_owned();
-        Ok(input)
-    }
+fn trim_name(mut input: CreateUser) -> CreateUser {
+    input.name = input.name.trim().to_owned();
+    input
 }
+
+let input = ValidationPipe::new().transform(trim_name(input))?;
 ```
+
+The `#[pipe(Type)]` attribute records route metadata; it does not execute a
+transformation. Apply custom transformations in the handler or an Axum extractor.
 
 Validation errors expose field-level context so applications can return useful
 client responses:

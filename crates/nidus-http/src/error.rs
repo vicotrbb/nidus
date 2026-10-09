@@ -397,3 +397,9 @@ impl RoutePathError {
         &self.path
     }
 }
+
+impl From<nidus_core::route::RoutePathError> for RoutePathError {
+    fn from(error: nidus_core::route::RoutePathError) -> Self {
+        Self::empty_parameter(error.path())
+    }
+}

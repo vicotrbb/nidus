@@ -21,7 +21,7 @@ pub enum CacheError {
 }
 
 /// Cache provider configuration shared by cache backends.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CacheConfig {
     namespace: Option<String>,
     time_to_live: Option<std::time::Duration>,
@@ -31,11 +31,7 @@ pub struct CacheConfig {
 impl CacheConfig {
     /// Creates empty cache configuration.
     pub fn new() -> Self {
-        Self {
-            namespace: None,
-            time_to_live: None,
-            max_capacity: None,
-        }
+        Self::default()
     }
 
     /// Sets the namespace prefix applied to logical cache keys.
@@ -69,12 +65,6 @@ impl CacheConfig {
     /// Returns the configured maximum capacity.
     pub fn max_capacity_value(&self) -> Option<u64> {
         self.max_capacity
-    }
-}
-
-impl Default for CacheConfig {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
