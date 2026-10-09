@@ -70,3 +70,14 @@ The host checks use macOS/aarch64; GitHub CI uses Linux.
 These checks establish the stated compatibility and release evidence, rather
 than a guarantee that all software defects or production workload risks have
 been eliminated.
+
+## GitHub advisory discrepancy
+
+GitHub reported three open alerts for locked `hickory-resolver` 0.26.1 after
+publication. This is an optional dependency of `async-rs`, behind its
+`hickory-dns` feature. That feature is not enabled by the resolved Nidus
+workspace graph. `cargo tree --workspace --all-features --target all --locked -i hickory-resolver` reports no active dependency path. The alerts remain open;
+the passed RustSec audit does not establish that every GitHub advisory has
+been cleared. Downstream applications that independently enable the resolver
+feature should resolve its patched version (0.26.2 or newer), as documented in
+the [upstream advisory](https://github.com/hickory-dns/hickory-dns/security/advisories/GHSA-5j98-2g5x-46v6).
