@@ -20,13 +20,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@411bbbe57033eedfc1a82d68c01345aa96c737d7 # github/codeql-action/init@v4
+        uses: github/codeql-action/init@0911ee96d2d6c8def97122c36c5cadd93829a4b4 # github/codeql-action/init@v4
         with:
           languages: rust
       - name: Autobuild
-        uses: github/codeql-action/autobuild@411bbbe57033eedfc1a82d68c01345aa96c737d7 # github/codeql-action/autobuild@v4
+        uses: github/codeql-action/autobuild@0911ee96d2d6c8def97122c36c5cadd93829a4b4 # github/codeql-action/autobuild@v4
       - name: Analyze
-        uses: github/codeql-action/analyze@411bbbe57033eedfc1a82d68c01345aa96c737d7 # github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@0911ee96d2d6c8def97122c36c5cadd93829a4b4 # github/codeql-action/analyze@v4
 
   scorecard:
     name: openssf scorecard
@@ -38,7 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - name: Run OpenSSF Scorecard
-        uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a # ossf/scorecard-action@v2.4.3
+        uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e # ossf/scorecard-action@v2.5.0
         continue-on-error: true
         with:
           results_file: scorecard.sarif
@@ -46,6 +46,6 @@ jobs:
           publish_results: true
       - name: Upload Scorecard SARIF
         if: ${{ always() && hashFiles('scorecard.sarif') != '' }}
-        uses: github/codeql-action/upload-sarif@411bbbe57033eedfc1a82d68c01345aa96c737d7 # github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@0911ee96d2d6c8def97122c36c5cadd93829a4b4 # github/codeql-action/upload-sarif@v4
         with:
           sarif_file: scorecard.sarif
